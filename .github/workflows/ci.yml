@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  # Starts the Docker Compose services and confirms the real API reaches Postgres.
+  services:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: cp .env.example .env
+      - run: docker compose up --detach --wait
+      - name: Start the API
+        run: pnpm --filter @truman3/api start &
+      - name: Check the API is ready
+        run: curl --fail --silent --show-error --retry 15 --retry-delay 1 --retry-connrefused --retry-all-errors http://localhost:3000/health/ready
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose logs
