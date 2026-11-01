@@ -1,0 +1,36 @@
+# Local development services. The credentials here are for your machine only.
+# Ports are bound to 127.0.0.1 so they aren't reachable from other computers.
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: truman
+      POSTGRES_PASSWORD: truman
+      POSTGRES_DB: truman
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U truman -d truman"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # S3-compatible file storage, standing in for AWS S3 during development.
+  storage:
+    image: chrislusf/seaweedfs:4.51
+    command: server -dir=/data -s3 -s3.port=8333
+    ports:
+      - "127.0.0.1:8333:8333"
+    volumes:
+      - storage-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8333/status"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  postgres-data:
+  storage-data:

@@ -1,0 +1,20 @@
+import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+
+const CONNECT_TIMEOUT_SECONDS = 5;
+
+/** Opens a connection pool to Postgres. Call `close` when shutting down. */
+export function createDb(databaseUrl: string) {
+  const client = postgres(databaseUrl, { connect_timeout: CONNECT_TIMEOUT_SECONDS });
+  const db = drizzle({ client });
+
+  return {
+    db,
+    /** Resolves if Postgres answers a query, and rejects if it doesn't. */
+    ping: async () => {
+      await db.execute(sql`select 1`);
+    },
+    close: () => client.end(),
+  };
+}
