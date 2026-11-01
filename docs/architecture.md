@@ -6,15 +6,15 @@ Truman 3 is a monorepo. This page separates what exists today from what's planne
 
 Phase 0 is scaffolding. It has no study features yet.
 
-| Path | What it is |
-|---|---|
-| `apps/api` | Hono API: health routes and the OpenAPI spec |
+| Path               | What it is                                             |
+| ------------------ | ------------------------------------------------------ |
+| `apps/api`         | Hono API: health routes and the OpenAPI spec           |
 | `apps/participant` | React app for participants: a placeholder page for now |
-| `apps/admin` | React app for researchers: a placeholder page for now |
-| `packages/core` | Shared Zod schemas and types |
-| `packages/db` | Postgres connection through Drizzle; no tables yet |
-| `packages/ui` | Shared React components |
-| `compose.yaml` | Local Postgres and S3-compatible storage |
+| `apps/admin`       | React app for researchers: a placeholder page for now  |
+| `packages/core`    | Shared Zod schemas and types                           |
+| `packages/db`      | Postgres connection through Drizzle; no tables yet     |
+| `packages/ui`      | Shared React components                                |
+| `compose.yaml`     | Local Postgres and S3-compatible storage               |
 
 A request today looks like this:
 
@@ -34,16 +34,16 @@ browser → Vite dev server (/api) → apps/api → packages/db → Postgres
 
 These get added when their phase needs them, not before.
 
-| Path | Purpose | Phase |
-|---|---|---|
-| `packages/feed` | Feed rankers and interventions | 1 |
-| `apps/worker` | Scheduled jobs, director, and agent runtime | 1–3 |
-| `packages/recruit` | Recruitment adapters, Prolific first | 2 |
-| `packages/llm` | LLM gateway: any provider, call log, budgets | 3 |
-| `packages/adapt` | Decision points and re-randomization | 3 |
-| `packages/mcp` | MCP server for researcher agents | 4 |
-| `packages/sdk` | TypeScript and Python clients generated from the OpenAPI spec | 4 |
-| `apps/mobile` | Expo app | 6 |
+| Path               | Purpose                                                       | Phase |
+| ------------------ | ------------------------------------------------------------- | ----- |
+| `packages/feed`    | Feed rankers and interventions                                | 1     |
+| `apps/worker`      | Scheduled jobs, director, and agent runtime                   | 1–3   |
+| `packages/recruit` | Recruitment adapters, Prolific first                          | 2     |
+| `packages/llm`     | LLM gateway: any provider, call log, budgets                  | 3     |
+| `packages/adapt`   | Decision points and re-randomization                          | 3     |
+| `packages/mcp`     | MCP server for researcher agents                              | 4     |
+| `packages/sdk`     | TypeScript and Python clients generated from the OpenAPI spec | 4     |
+| `apps/mobile`      | Expo app                                                      | 6     |
 
 ## Roadmap
 
