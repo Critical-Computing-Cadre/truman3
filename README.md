@@ -14,6 +14,13 @@ docker compose up --detach --wait
 pnpm dev
 ```
 
+If `corepack enable` fails with a permission error (`EACCES`), your Node install keeps its commands in a folder you can't write to. Install `pnpm` in your home folder instead, and check that `~/.local/bin` is on your `PATH`:
+
+```
+mkdir -p ~/.local/bin
+corepack enable pnpm --install-directory ~/.local/bin
+```
+
 - Participant app: http://localhost:5180
 - Admin app: http://localhost:5181
 - API: http://localhost:3000/health/ready
