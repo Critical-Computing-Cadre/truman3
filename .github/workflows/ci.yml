@@ -19,6 +19,7 @@ jobs:
       - run: pnpm check
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm build
 
   # Starts the Docker Compose services and confirms the real API reaches Postgres.
   services:
