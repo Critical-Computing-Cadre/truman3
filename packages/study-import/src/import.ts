@@ -141,6 +141,7 @@ export async function importStudyFolder(
   db: Database,
   storage: Storage,
   folder: string,
+  { teamId }: { teamId?: string | undefined } = {},
 ): Promise<ImportResult> {
   const { definition: study, issues } = loadStudyFolder(folder);
   if (!study || hasErrors(issues)) {
@@ -158,7 +159,10 @@ export async function importStudyFolder(
       .where(eq(schema.studies.slug, settings.slug));
     const [newStudy] = existingStudy
       ? []
-      : await tx.insert(schema.studies).values({ slug: settings.slug }).returning();
+      : await tx
+          .insert(schema.studies)
+          .values({ slug: settings.slug, ...(teamId ? { teamId } : {}) })
+          .returning();
     const studyRow = existingStudy ?? newStudy;
     if (!studyRow) {
       throw new Error("The study row wasn't created.");

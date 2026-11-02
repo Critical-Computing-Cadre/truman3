@@ -26,8 +26,58 @@ const time = (name: string) => timestamp(name, { withTimezone: true, mode: "date
 const inList = (column: AnyPgColumn, values: readonly string[]): SQL =>
   sql`${column} in (${sql.raw(values.map((value) => `'${value}'`).join(", "))})`;
 
+/** A research team. One lab for now, and a hosted version could hold many (see ADR 11). */
+export const teams = pgTable("teams", {
+  id: id(),
+  name: text().notNull(),
+  slug: text().notNull().unique(),
+  createdAt: time("created_at").notNull().defaultNow(),
+});
+
+export const researchers = pgTable("researchers", {
+  id: id(),
+  /** Stored in lowercase. */
+  email: text().notNull().unique(),
+  name: text().notNull(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: time("created_at").notNull().defaultNow(),
+});
+
+export const teamMemberships = pgTable(
+  "team_memberships",
+  {
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id),
+    researcherId: uuid("researcher_id")
+      .notNull()
+      .references(() => researchers.id),
+    role: text().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.teamId, table.researcherId] }),
+    check("team_memberships_role", inList(table.role, ["owner", "editor", "viewer"])),
+  ],
+);
+
+/** Researchers' signed-in sessions, kept apart from participants'. Only a hash is stored. */
+export const researcherSessions = pgTable(
+  "researcher_sessions",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    researcherId: uuid("researcher_id")
+      .notNull()
+      .references(() => researchers.id, { onDelete: "cascade" }),
+    createdAt: time("created_at").notNull().defaultNow(),
+    expiresAt: time("expires_at").notNull(),
+  },
+  (table) => [index("researcher_sessions_researcher").on(table.researcherId)],
+);
+
 export const studies = pgTable("studies", {
   id: id(),
+  /** Empty only for studies imported before any team exists. */
+  teamId: uuid("team_id").references(() => teams.id),
   slug: text().notNull().unique(),
   createdAt: time("created_at").notNull().defaultNow(),
 });

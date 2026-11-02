@@ -17,7 +17,8 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "db:migrate": "node --env-file-if-exists=.env packages/db/src/migrate-cli.ts",
     "db:generate": "pnpm --filter @truman3/db db:generate",
-    "test:e2e": "pnpm --filter @truman3/e2e test"
+    "test:e2e": "pnpm --filter @truman3/e2e test",
+    "admin": "node --env-file-if-exists=.env apps/cli/src/admin.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.4",

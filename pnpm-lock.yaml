@@ -218,6 +218,9 @@ importers:
       '@hono/zod-openapi':
         specifier: 1.6.3
         version: 1.6.3(hono@4.13.14)(zod@4.6.7)
+      '@truman3/accounts':
+        specifier: workspace:*
+        version: link:../../packages/accounts
       '@truman3/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -258,6 +261,9 @@ importers:
 
   apps/cli:
     dependencies:
+      '@truman3/accounts':
+        specifier: workspace:*
+        version: link:../../packages/accounts
       '@truman3/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -356,6 +362,22 @@ importers:
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(postgres@4.0.0)
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
+  packages/accounts:
+    dependencies:
+      '@truman3/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(postgres@4.0.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
       typescript:
         specifier: 7.0.2
         version: 7.0.2

@@ -22,9 +22,11 @@ const storage = createStorage(storageConfigFromEnv());
 await storage.ensureBucket();
 /** Generous, since many participants can share one address on a campus network. */
 const ENTRY_ATTEMPTS_PER_MINUTE = 120;
+const LOGIN_ATTEMPTS_PER_MINUTE = 10;
 
 const app = createApp({
   allowEntryAttempt: createRateLimiter({ max: ENTRY_ATTEMPTS_PER_MINUTE, windowMs: 60_000 }),
+  allowLoginAttempt: createRateLimiter({ max: LOGIN_ATTEMPTS_PER_MINUTE, windowMs: 60_000 }),
   pingDatabase: database.ping,
   db: database.db,
   storage,

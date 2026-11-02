@@ -118,6 +118,8 @@ export interface ParticipantRouteDependencies {
   secureCookies: boolean;
   /** Decides whether an address may try entering right now. Leave out for no limit. */
   allowEntryAttempt?: (ipAddress: string) => boolean;
+  /** Decides whether a researcher's login can be tried right now. Leave out for no limit. */
+  allowLoginAttempt?: (key: string) => boolean;
 }
 
 export function createParticipantRoutes(dependencies: ParticipantRouteDependencies) {

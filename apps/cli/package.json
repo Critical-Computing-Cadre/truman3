@@ -7,6 +7,7 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@truman3/accounts": "workspace:*",
     "@truman3/core": "workspace:*",
     "@truman3/db": "workspace:*",
     "@truman3/storage": "workspace:*",
