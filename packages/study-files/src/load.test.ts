@@ -14,7 +14,7 @@ length: { days: 2 }
 entry: { idParam: PID, idLabel: Prolific ID, source: prolific }
 conditions:
   assignment: { method: uniform }
-  arms: [{ key: a }, { key: b }]
+  arms: [{ key: a }, { key: b, feed: { ranker: shuffle } }]
 feed: { ranker: chronological, windowHours: 24 }
 media: { baseUrl: "https://cdn.example.com/study/" }
 flow: [{ step: feed }]

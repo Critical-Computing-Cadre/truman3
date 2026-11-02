@@ -705,19 +705,26 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       .select()
       .from(schema.actors)
       .where(eq(schema.actors.id, context.actorId));
+    // Only what actually changed, so the event says what someone edited rather than what the form sent.
+    const current = (actor?.profile ?? {}) as ProfileFields;
+    const changed = (field: "name" | "bio" | "location") => {
+      const value = form[field];
+      return value !== undefined && value !== (current[field] ?? "") ? { [field]: value } : {};
+    };
     const changes = {
-      ...(form.name === undefined ? {} : { name: form.name }),
-      ...(form.bio === undefined ? {} : { bio: form.bio }),
-      ...(form.location === undefined ? {} : { location: form.location }),
+      ...changed("name"),
+      ...changed("bio"),
+      ...changed("location"),
       ...(picture === undefined ? {} : { picture }),
     };
+    const newUsername = form.username && form.username !== actor?.username ? form.username : null;
 
     await db.transaction(async (tx) => {
       const recorded = await recordEvent(tx, {
         ...participantEvent(context, form.occurredAt, form.clientEventId),
         type: "profile.updated",
         payload: {
-          fields: [...Object.keys(changes), ...(form.username ? ["username"] : [])],
+          fields: [...Object.keys(changes), ...(newUsername ? ["username"] : [])],
         },
       });
       if (recorded) {
@@ -725,7 +732,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           .update(schema.actors)
           .set({
             profile: { ...(actor?.profile as ProfileFields), ...changes },
-            ...(form.username ? { username: form.username } : {}),
+            ...(newUsername ? { username: newUsername } : {}),
           })
           .where(eq(schema.actors.id, context.actorId));
       }

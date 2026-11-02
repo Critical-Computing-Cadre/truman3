@@ -1,15 +1,20 @@
-import {
-  hasErrors,
-  type StudyIssue,
-  type StudySettings,
-  studySettingsSchema,
-  validateStudy,
-} from "@truman3/core";
+import { hasErrors, type StudyIssue, type StudySettings, validateStudy } from "@truman3/core";
 import { type Database, schema, type Transaction } from "@truman3/db";
 import { freezeStudy } from "@truman3/study-import";
 import { and, asc, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import { draftToDefinition } from "./definition.ts";
 import { type DraftItem, type ItemKind, itemDataSchemas, type Provenance } from "./items.ts";
+import {
+  applySections,
+  isSectionName,
+  pageKeyOf,
+  pageKeySchema,
+  pageTextSchema,
+  SETTINGS_SECTIONS,
+  type SectionItem,
+  type SectionState,
+  sectionValue,
+} from "./sections.ts";
 
 const INSERT_BATCH_SIZE = 500;
 
@@ -185,6 +190,8 @@ export interface LoadedDraft {
   settings: StudySettings;
   pages: Record<string, string>;
   items: ItemRow[];
+  /** The sections of settings saved so far. Any others are still as the draft started. */
+  sections: Map<string, SectionState>;
 }
 
 /** A draft and its items that haven't been deleted. */
@@ -196,7 +203,7 @@ export async function loadDraft(db: Database, draftId: string): Promise<LoadedDr
   if (!draft) {
     return null;
   }
-  const items = await db
+  const rows = await db
     .select()
     .from(schema.draftItems)
     .where(and(eq(schema.draftItems.draftId, draftId), isNull(schema.draftItems.deletedAt)))
@@ -204,9 +211,12 @@ export async function loadDraft(db: Database, draftId: string): Promise<LoadedDr
 
   return {
     draft,
-    settings: studySettingsSchema.parse(draft.settings),
-    pages: draft.pages as Record<string, string>,
-    items,
+    ...applySections(
+      draft.settings,
+      draft.pages as Record<string, string>,
+      rows.filter(({ kind }) => kind === "setting"),
+    ),
+    items: rows.filter(({ kind }) => kind !== "setting"),
   };
 }
 
@@ -231,7 +241,7 @@ async function itemExists(tx: Transaction, draftId: string, kind: ItemKind, id: 
 }
 
 export type EditProblem = {
-  problem: "invalid" | "not-found" | "in-use" | "closed";
+  problem: "invalid" | "not-found" | "in-use" | "closed" | "stale";
   message: string;
 };
 
@@ -346,7 +356,7 @@ export async function updateItem(
         ),
       )
       .for("update");
-    if (!item) {
+    if (!item || item.kind === "setting") {
       return NOT_FOUND;
     }
 
@@ -386,6 +396,173 @@ export async function updateItem(
         researcherId,
       },
     ]);
+    await touchDraft(tx, draftId);
+    return { revision };
+  });
+}
+
+/** Replaces a condition's name wherever an item is limited to it. */
+function renameInItem(data: Record<string, unknown>, renames: Record<string, string>) {
+  const conditions = (data.conditions ?? []) as string[];
+  return conditions.some((key) => key in renames)
+    ? { ...data, conditions: conditions.map((key) => renames[key] ?? key) }
+    : null;
+}
+
+export interface SaveSection {
+  section: string;
+  value: unknown;
+  /** The revision this edit started from, so nobody overwrites a change they haven't seen. */
+  baseRevision: number;
+  /** For conditions: old name to new name, so what's limited to a condition stays with it. */
+  renames?: Record<string, string>;
+}
+
+/**
+ * Saves one section of settings, or one page. Unlike a post, a section has many fields, so saving
+ * over someone else's change could silently undo a field they set. That's refused instead.
+ */
+export async function saveSection(
+  db: Database,
+  draftId: string,
+  researcherId: string,
+  { section, value, baseRevision, renames = {} }: SaveSection,
+): Promise<{ revision: number } | EditProblem> {
+  const pageKey = pageKeyOf(section);
+  if (pageKey !== null ? !pageKeySchema.safeParse(pageKey).success : !isSectionName(section)) {
+    return { problem: "not-found", message: "That part of the settings doesn't exist." };
+  }
+  const parsed = (
+    pageKey !== null ? pageTextSchema : SETTINGS_SECTIONS[section as keyof typeof SETTINGS_SECTIONS]
+  ).safeParse(value);
+  if (!parsed.success) {
+    const [issue] = parsed.error.issues;
+    const where = issue?.path.join(" > ");
+    return {
+      problem: "invalid",
+      message: `${where ? `${where}: ` : ""}${issue?.message ?? "That isn't valid."}`,
+    };
+  }
+
+  return db.transaction(async (tx) => {
+    // One save at a time, so two first saves of a section can't make two items for it.
+    const [draft] = await tx
+      .select()
+      .from(schema.studyDrafts)
+      .where(eq(schema.studyDrafts.id, draftId))
+      .for("update");
+    if (!draft || draft.closedAt) {
+      return CLOSED;
+    }
+
+    const rows = await tx
+      .select()
+      .from(schema.draftItems)
+      .where(and(eq(schema.draftItems.draftId, draftId), isNull(schema.draftItems.deletedAt)));
+    const settingRows = rows.filter(({ kind }) => kind === "setting");
+    const current = applySections(
+      draft.settings,
+      draft.pages as Record<string, string>,
+      settingRows,
+    );
+
+    const existing = settingRows.find(({ data }) => (data as SectionItem).section === section);
+    if ((existing?.revision ?? 0) !== baseRevision) {
+      return {
+        problem: "stale" as const,
+        message: "Someone else saved this while you were editing it.",
+      };
+    }
+
+    const before =
+      pageKey !== null
+        ? (current.pages[pageKey] ?? null)
+        : sectionValue(current.settings, section as keyof typeof SETTINGS_SECTIONS);
+    if (JSON.stringify(before) === JSON.stringify(parsed.data)) {
+      return { revision: baseRevision };
+    }
+
+    const historyRows: Parameters<typeof writeHistory>[1] = [];
+
+    if (section === "conditions") {
+      const { arms } = (parsed.data as { conditions: StudySettings["conditions"] }).conditions;
+      const newKeys = new Set(arms.map(({ key }) => key));
+      const oldKeys = current.settings.conditions.arms.map(({ key }) => key);
+      if (newKeys.size !== arms.length) {
+        return { problem: "invalid" as const, message: "Each condition needs its own name." };
+      }
+
+      if (Object.values(renames).some((key) => !newKeys.has(key))) {
+        return { problem: "invalid" as const, message: "A renamed condition is missing." };
+      }
+
+      const content = rows.filter(({ kind }) => kind !== "setting");
+      for (const key of oldKeys.filter((key) => !newKeys.has(key) && !(key in renames))) {
+        const using = content.filter(({ data }) =>
+          ((data as { conditions?: string[] }).conditions ?? []).includes(key),
+        ).length;
+        if (using > 0) {
+          return {
+            problem: "in-use" as const,
+            message: `${using} ${using === 1 ? "item is" : "items are"} only shown in "${key}". Change ${using === 1 ? "it" : "them"} before removing this condition.`,
+          };
+        }
+      }
+
+      for (const item of content) {
+        const data = renameInItem(item.data as Record<string, unknown>, renames);
+        if (data) {
+          const revision = item.revision + 1;
+          await tx
+            .update(schema.draftItems)
+            .set({ data, revision, updatedBy: researcherId, updatedAt: new Date() })
+            .where(eq(schema.draftItems.id, item.id));
+          historyRows.push({
+            itemId: item.id,
+            draftId,
+            revision,
+            action: "update",
+            data,
+            previousData: item.data,
+            researcherId,
+          });
+        }
+      }
+    }
+
+    const data: SectionItem = { section, value: parsed.data };
+    const revision = baseRevision + 1;
+    let itemId = existing?.id;
+    if (itemId) {
+      await tx
+        .update(schema.draftItems)
+        .set({ data, revision, updatedBy: researcherId, updatedAt: new Date() })
+        .where(eq(schema.draftItems.id, itemId));
+    } else {
+      const [created] = await tx
+        .insert(schema.draftItems)
+        .values({
+          draftId,
+          kind: "setting",
+          data,
+          revision,
+          provenance: { origin: "researcher" },
+          updatedBy: researcherId,
+        })
+        .returning({ id: schema.draftItems.id });
+      itemId = created?.id as string;
+    }
+    // Last, so this is what the list of recent changes describes.
+    historyRows.push({
+      itemId,
+      draftId,
+      revision,
+      action: "update",
+      data,
+      previousData: existing?.data ?? { section, value: before },
+      researcherId,
+    });
+    await writeHistory(tx, historyRows);
     await touchDraft(tx, draftId);
     return { revision };
   });
@@ -476,7 +653,7 @@ export async function deleteItem(
       .from(schema.draftItems)
       .where(and(eq(schema.draftItems.draftId, draftId), isNull(schema.draftItems.deletedAt)));
     const item = rows.find(({ id }) => id === itemId);
-    if (!item) {
+    if (!item || item.kind === "setting") {
       return NOT_FOUND;
     }
 

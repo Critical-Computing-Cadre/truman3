@@ -34,6 +34,12 @@ const feedOverridesSchema = z.strictObject({
  */
 const platformStyleSchema = z.enum(["photo", "text", "mixed"]);
 
+/**
+ * Whether the comment box is under every post, as on Facebook, or appears after pressing Reply.
+ * Leaving it out means `open`.
+ */
+const commentBoxSchema = z.enum(["open", "onReply"]);
+
 const armSchema = z.strictObject({
   key: keySchema,
   /** Labels for multi-factor designs, so exports can split by factor. */
@@ -41,7 +47,12 @@ const armSchema = z.strictObject({
   weight: z.number().int().positive().default(1),
   /** Settings that differ in this condition. */
   feed: feedOverridesSchema.optional(),
-  platform: z.strictObject({ style: platformStyleSchema }).optional(),
+  platform: z
+    .strictObject({
+      style: platformStyleSchema.optional(),
+      commentBox: commentBoxSchema.optional(),
+    })
+    .optional(),
 });
 
 const assignmentSchema = z.discriminatedUnion("method", [
@@ -94,7 +105,9 @@ export const studySettingsSchema = z.strictObject({
     assignment: assignmentSchema,
     arms: z.array(armSchema).min(1),
   }),
-  platform: z.strictObject({ style: platformStyleSchema }).prefault({ style: "mixed" }),
+  platform: z
+    .strictObject({ style: platformStyleSchema, commentBox: commentBoxSchema.optional() })
+    .prefault({ style: "mixed" }),
   feed: feedSettingsSchema.prefault({}),
   /**
    * Values to draw from, with equal chance, for content that doesn't set its own like count.

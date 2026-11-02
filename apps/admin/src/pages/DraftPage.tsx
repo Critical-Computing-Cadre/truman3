@@ -65,12 +65,18 @@ const PRESENCE_EVERY_MS = 2_000;
  * Keeps a draft in step with whoever else is working on it. It checks every couple of seconds, and
  * redraws when anything has changed. What someone is typing stays put, since that's held locally.
  */
-function useDraftPresence(draftId: string, editingItemId: string | null) {
+export function useDraftPresence(
+  draftId: string,
+  editingItemId: string | null,
+  editingSection: string | null = null,
+) {
   const client = useQueryClient();
   const [others, setOthers] = useState<Presence["others"]>([]);
   const lastChange = useRef<number | null>(null);
   const editing = useRef(editingItemId);
   editing.current = editingItemId;
+  const section = useRef(editingSection);
+  section.current = editingSection;
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +85,7 @@ function useDraftPresence(draftId: string, editingItemId: string | null) {
       try {
         const presence = await post<Presence>(`/admin/drafts/${draftId}/presence`, {
           itemId: editing.current,
+          section: section.current,
         });
         if (cancelled) {
           return;
@@ -112,7 +119,7 @@ function useDraftPresence(draftId: string, editingItemId: string | null) {
 }
 
 /** Recent changes, with who made them, and undo. */
-function RecentChanges({ draftId, canEdit }: { draftId: string; canEdit: boolean }) {
+export function RecentChanges({ draftId, canEdit }: { draftId: string; canEdit: boolean }) {
   const client = useQueryClient();
   const changes = useQuery({
     queryKey: ["draft", draftId, "changes"],
@@ -815,7 +822,18 @@ export function DraftPage() {
         lengthMs={info.data.lengthMs}
         timeline={timeline}
         current={current}
-        extra={info.data.canEdit && <SaveVersion draftId={draftId} info={info.data} />}
+        extra={
+          <>
+            <Link
+              to="/drafts/$draftId/settings"
+              params={{ draftId }}
+              className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+            >
+              Settings
+            </Link>
+            {info.data.canEdit && <SaveVersion draftId={draftId} info={info.data} />}
+          </>
+        }
       />
 
       {/* Not pinned with the controls above, or it would cover half the screen while reading the feed. */}

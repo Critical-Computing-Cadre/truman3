@@ -14,6 +14,7 @@ import "./index.css";
 import { DraftPage } from "./pages/DraftPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
 import { PreviewPage } from "./pages/PreviewPage.tsx";
+import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { StudiesPage } from "./pages/StudiesPage.tsx";
 
 /** Everything here needs signing in, so this shows the login page until then. */
@@ -77,8 +78,14 @@ const draftRoute = createRoute({
   component: DraftPage,
 });
 
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/drafts/$draftId/settings",
+  component: SettingsPage,
+});
+
 const router = createRouter({
-  routeTree: rootRoute.addChildren([studiesRoute, previewRoute, draftRoute]),
+  routeTree: rootRoute.addChildren([studiesRoute, previewRoute, draftRoute, settingsRoute]),
 });
 
 declare module "@tanstack/react-router" {

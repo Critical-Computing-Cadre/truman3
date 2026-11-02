@@ -1,9 +1,9 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { FeedPost } from "@truman3/core";
-import { FeedPostView } from "@truman3/ui";
-import { type FormEvent, useEffect, useRef, useState } from "react";
-import { post as send } from "../api.ts";
+import { CommentBox, FeedPostView } from "@truman3/ui";
+import { useEffect, useRef, useState } from "react";
+import { flowQuery, meQuery, post as send } from "../api.ts";
 import { createDwellTimer } from "../dwell.ts";
 import { track } from "../tracking.ts";
 
@@ -60,9 +60,11 @@ function useContentDwell(contentId: string, surface: string) {
 export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?: string }) {
   const ref = useContentDwell(post.id, surface);
   const client = useQueryClient();
+  const me = useQuery(meQuery);
+  const flow = useQuery(flowQuery);
   const [replying, setReplying] = useState(false);
   const [draft, setDraft] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const action = useMutation({
     mutationFn: ({ url, active }: { url: string; active: boolean }) => send(url, { active }),
@@ -78,13 +80,7 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
     onSettled: () => client.invalidateQueries(),
   });
 
-  const submitComment = (event: FormEvent) => {
-    event.preventDefault();
-    if (draft.trim()) {
-      comment.mutate(draft);
-    }
-  };
-
+  // A box that only appears on reply can't take the cursor until it's on the page.
   useEffect(() => {
     if (replying) {
       inputRef.current?.focus();
@@ -98,7 +94,10 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
       actions={{
         onLike: (id, active) => action.mutate({ url: `/content/${id}/like`, active }),
         onFlag: (id, active) => action.mutate({ url: `/content/${id}/flag`, active }),
-        onReply: () => setReplying(!replying),
+        onReply: () => {
+          setReplying(true);
+          inputRef.current?.focus();
+        },
       }}
       renderAuthor={(author, className, children) => (
         <Link to="/u/$username" params={{ username: author.username }} className={className}>
@@ -106,25 +105,18 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
         </Link>
       )}
       belowComments={
-        replying ? (
-          <form onSubmit={submitComment} className="flex gap-2">
-            <input
-              ref={inputRef}
-              aria-label="Write a comment"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="Write a comment..."
-              className="min-w-0 flex-1 rounded border border-stone-300 px-3 py-2 text-base"
-            />
-            <button
-              type="submit"
-              disabled={comment.isPending || !draft.trim()}
-              className="rounded bg-stone-900 px-4 py-2 text-sm text-white disabled:opacity-40"
-            >
-              Post
-            </button>
-          </form>
-        ) : undefined
+        me.data &&
+        (flow.data?.commentBox === "open" || replying) && (
+          <CommentBox
+            seed={me.data.username}
+            pictureUrl={me.data.pictureUrl}
+            value={draft}
+            onChange={setDraft}
+            onSubmit={() => comment.mutate(draft)}
+            sending={comment.isPending}
+            inputRef={inputRef}
+          />
+        )
       }
     />
   );

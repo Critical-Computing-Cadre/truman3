@@ -45,6 +45,32 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
   }
 
+  // Two conditions a participant couldn't tell apart are usually a mistake. This comes first, since
+  // a study can have many warnings about its posts, and this one matters more.
+  const shownIn = (key: string, items: readonly { conditions: string[] }[]) =>
+    items.flatMap((item, index) =>
+      item.conditions.length === 0 || item.conditions.includes(key) ? [index] : [],
+    );
+  const conditionLooks = new Map<string, string>();
+  for (const arm of settings.conditions.arms) {
+    const looks = JSON.stringify([
+      arm.feed ?? {},
+      arm.platform ?? {},
+      shownIn(arm.key, study.actors),
+      shownIn(arm.key, study.posts),
+      shownIn(arm.key, study.comments),
+      shownIn(arm.key, study.reactions),
+    ]);
+    const same = conditionLooks.get(looks);
+    if (same) {
+      warning(
+        `The conditions "${same}" and "${arm.key}" are identical, so nothing differs between them.`,
+      );
+    } else {
+      conditionLooks.set(looks, arm.key);
+    }
+  }
+
   const checkConditions = (conditions: string[], label: string, source: Source) => {
     for (const condition of conditions) {
       if (!armKeys.has(condition)) {

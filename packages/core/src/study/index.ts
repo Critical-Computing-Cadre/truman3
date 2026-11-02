@@ -13,6 +13,12 @@ export {
   studySettingsSchema,
 } from "./definition.ts";
 export { fillLinkTemplate, LINK_PLACEHOLDERS } from "./links.ts";
-export { checkNewPost, type PlatformStyle, platformStyleFor } from "./platform.ts";
+export {
+  type CommentBox,
+  checkNewPost,
+  commentBoxFor,
+  type PlatformStyle,
+  platformStyleFor,
+} from "./platform.ts";
 export { formatStudyTime, parseStudyTime } from "./time.ts";
 export { hasErrors, type StudyIssue, validateStudy } from "./validate.ts";
