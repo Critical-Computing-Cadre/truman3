@@ -1,8 +1,12 @@
 import { hasErrors, type StudyIssue } from "@truman3/core";
+import { createDb } from "@truman3/db";
+import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { convertLegacyStudy, loadStudyFolder } from "@truman3/study-files";
+import { importStudyFolder } from "@truman3/study-import";
 
 const USAGE = `Usage:
   pnpm study validate <study folder>
+  pnpm study import <study folder>
   pnpm study convert <old Truman repo> <new study folder> <slug>`;
 
 /** Warnings are often repetitive, so past this many it shows a count instead of every one. */
@@ -44,10 +48,43 @@ function validate(folder: string): number {
   return 0;
 }
 
+async function importStudy(folder: string): Promise<number> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.error("DATABASE_URL isn't set. Copy .env.example to .env.");
+    return 1;
+  }
+
+  const database = createDb(databaseUrl);
+  const storage = createStorage(storageConfigFromEnv());
+  try {
+    const result = await importStudyFolder(database.db, storage, folder);
+    printIssues(result.issues);
+
+    if (result.status === "failed") {
+      console.error("\nThis study has errors, so it wasn't imported.");
+      return 1;
+    }
+    if (result.status === "unchanged") {
+      console.log(`\nNothing changed: this content is already version ${result.version}.`);
+    } else {
+      console.log(
+        `\nImported and froze version ${result.version}, and uploaded ${result.mediaUploaded} images.`,
+      );
+    }
+    return 0;
+  } finally {
+    storage.close();
+    await database.close();
+  }
+}
+
 const [command, ...args] = process.argv.slice(2);
 
 if (command === "validate" && args[0]) {
   process.exitCode = validate(args[0]);
+} else if (command === "import" && args[0]) {
+  process.exitCode = await importStudy(args[0]);
 } else if (command === "convert" && args[0] && args[1] && args[2]) {
   convertLegacyStudy(args[0], args[1], args[2]);
   console.log(`Converted to ${args[1]}. Next: review study.yaml, then run pnpm study validate.`);

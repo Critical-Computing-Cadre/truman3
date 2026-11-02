@@ -14,6 +14,7 @@ pnpm db:migrate         # bring your database up to date
 pnpm db:generate        # create a migration after changing packages/db/src/schema.ts
 pnpm build
 pnpm study validate <folder>   # check a study; see also: pnpm study convert
+pnpm study import <folder>     # save it as a frozen version
 docker compose up --detach --wait   # local Postgres and S3-compatible storage
 ```
 

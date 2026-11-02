@@ -244,6 +244,32 @@ export const content = pgTable(
   ],
 );
 
+/** What scripted actors do in response to a participant's nth post or comment. */
+export const scriptedReactions = pgTable(
+  "scripted_reactions",
+  {
+    id: id(),
+    studyVersionId: uuid("study_version_id")
+      .notNull()
+      .references(() => studyVersions.id),
+    on: text().notNull(),
+    nth: integer().notNull(),
+    type: text().notNull(),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => actors.id),
+    afterMs: bigint("after_ms", { mode: "number" }).notNull(),
+    body: text(),
+    conditions: text().array().notNull().default(sql`'{}'`),
+    class: text(),
+  },
+  (table) => [
+    index("scripted_reactions_trigger").on(table.studyVersionId, table.on, table.nth),
+    check("scripted_reactions_on", inList(table.on, ["post", "comment"])),
+    check("scripted_reactions_type", inList(table.type, ["read", "like", "reply"])),
+  ],
+);
+
 /** Append-only. See docs/adr/0006-append-only-event-log.md. */
 export const events = pgTable(
   "events",
