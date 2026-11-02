@@ -10,5 +10,8 @@ if (existsSync(".env")) {
 export default defineConfig({
   test: {
     include: ["apps/*/src/**/*.itest.ts", "packages/*/src/**/*.itest.ts"],
+    // Real services can be slow the first time they're used, especially on CI's small machines.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });
