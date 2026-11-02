@@ -58,7 +58,8 @@ export default async function globalSetup() {
       },
       stdio: "inherit",
     }),
-    spawn("pnpm", ["exec", "vite", "--port", String(APP_PORT)], {
+    // Vite directly rather than through pnpm, which wouldn't pass along the signal to stop it.
+    spawn("node", ["node_modules/vite/bin/vite.js", "--port", String(APP_PORT)], {
       cwd: path.join(ROOT, "apps/participant"),
       env: { ...process.env, API_PROXY_TARGET: `http://localhost:${API_PORT}` },
       stdio: "ignore",
