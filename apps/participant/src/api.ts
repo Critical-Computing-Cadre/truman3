@@ -75,6 +75,7 @@ export interface NotificationItem {
   key: string;
   type: "read" | "like" | "reply";
   actors: { username: string; name: string; pictureUrl: string | null }[];
+  targetKind: "post" | "comment";
   targetBody: string;
   targetImageUrl: string | null;
   replyBody: string | null;

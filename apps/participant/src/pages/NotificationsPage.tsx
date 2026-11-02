@@ -12,9 +12,9 @@ function describe(item: NotificationItem): string {
 
   switch (item.type) {
     case "read":
-      return `${who} read your post`;
+      return `${who} read your ${item.targetKind}`;
     case "like":
-      return `${who} liked your post`;
+      return `${who} liked your ${item.targetKind}`;
     case "reply":
       return `${who} replied: ${item.replyBody ?? ""}`;
   }

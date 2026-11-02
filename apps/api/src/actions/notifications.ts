@@ -126,6 +126,8 @@ export interface NotificationItem {
   key: string;
   type: "read" | "like" | "reply";
   actors: { username: string; name: string; pictureUrl: string | null }[];
+  /** Whether this reacts to their post or their comment. */
+  targetKind: "post" | "comment";
   targetBody: string;
   targetImageUrl: string | null;
   replyBody: string | null;
@@ -208,6 +210,7 @@ export async function listNotifications(
       key,
       type: row.type as NotificationItem["type"],
       actors: [toActor(row.actorId)],
+      targetKind: target?.kind === "comment" ? "comment" : "post",
       targetBody: target?.body ?? "",
       targetImageUrl: target?.mediaKey ? mediaUrl(target.mediaKey, mediaPublicUrl) : null,
       replyBody: row.replyContentId ? (contentById.get(row.replyContentId)?.body ?? null) : null,

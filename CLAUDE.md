@@ -6,10 +6,12 @@ A social media simulation platform for research. Start with `docs/architecture.m
 
 ```
 pnpm dev         # API on :3000, participant app on :5180, admin app on :5181
+                 # the example study is at http://localhost:5180/join/eatsnap
 pnpm check       # format and lint (pnpm format to fix)
 pnpm typecheck
 pnpm test
 pnpm test:integration   # tests named *.itest.ts; needs Docker services running
+pnpm test:e2e           # a real browser through the whole example study; needs Docker services
 pnpm db:migrate         # bring your database up to date
 pnpm db:generate        # create a migration after changing packages/db/src/schema.ts
 pnpm build

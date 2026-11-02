@@ -1,6 +1,6 @@
 # Truman 3
 
-The next generation of the Truman social media simulation platform. Work in progress: not yet ready for running studies.
+The next generation of the Truman social media simulation platform. Work in progress: a study can run from start to finish, but this isn't ready for real participants yet. See [docs/architecture.md](docs/architecture.md).
 
 ## Getting started
 
@@ -11,6 +11,8 @@ corepack enable
 pnpm install
 cp .env.example .env
 docker compose up --detach --wait
+pnpm db:migrate
+pnpm study import studies/examples/eatsnap
 pnpm dev
 ```
 
@@ -21,7 +23,7 @@ mkdir -p ~/.local/bin
 corepack enable pnpm --install-directory ~/.local/bin
 ```
 
-- Participant app: http://localhost:5180
+- Try the example study: http://localhost:5180/join/eatsnap
 - Admin app: http://localhost:5181
 - API: http://localhost:3000/health/ready
 

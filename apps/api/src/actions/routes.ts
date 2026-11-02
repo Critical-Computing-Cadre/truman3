@@ -177,6 +177,7 @@ const notificationsRoute = createRoute({
                     pictureUrl: z.string().nullable(),
                   }),
                 ),
+                targetKind: z.enum(["post", "comment"]),
                 targetBody: z.string(),
                 targetImageUrl: z.string().nullable(),
                 replyBody: z.string().nullable(),

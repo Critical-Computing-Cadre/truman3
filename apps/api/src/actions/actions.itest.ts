@@ -461,6 +461,23 @@ describe("scripted reactions", () => {
     ).toHaveLength(2);
   });
 
+  it("say whether they're about a post or a comment", async () => {
+    const person = await enter(await importStudy());
+    await sendPost(person, { body: "my post" });
+    const post = await findPost(person, "first");
+    await send(person, `/content/${post.id}/comments`, { body: "my comment" });
+
+    const response = await app.request("/notifications", { headers: { cookie: person.cookie } });
+    const { notifications } = (await response.json()) as {
+      notifications: { type: string; targetKind: string; targetBody: string }[];
+    };
+
+    expect(notifications.find((item) => item.targetBody === "my post")?.targetKind).toBe("post");
+    expect(notifications.find((item) => item.targetBody === "my comment")?.targetKind).toBe(
+      "comment",
+    );
+  });
+
   it("count as unread until they've been viewed", async () => {
     const person = await postOnce();
     const unread = async () => {

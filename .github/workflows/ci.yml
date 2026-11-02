@@ -36,6 +36,16 @@ jobs:
       - run: docker compose up --detach --wait
       - run: pnpm db:migrate
       - run: pnpm test:integration
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: e2e
+      - run: pnpm test:e2e
+      - name: Keep what a failed browser test saw
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results
+          path: e2e/test-results
+          if-no-files-found: ignore
       - name: Start the API
         run: pnpm --filter @truman3/api start &
       - name: Check the API is ready

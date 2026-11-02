@@ -4,7 +4,7 @@ Truman 3 is a monorepo. This page separates what exists today from what's planne
 
 ## What exists today
 
-Phase 1 is underway. Studies can be defined, validated, and imported, and participants can go through a whole study. Researchers still work from the command line.
+Phase 1 is built. Studies can be defined, validated, and imported, and participants can go through a whole study. Researchers still work from the command line.
 
 | Path                       | What it is                                                                           |
 | -------------------------- | ------------------------------------------------------------------------------------ |
@@ -22,6 +22,9 @@ Phase 1 is underway. Studies can be defined, validated, and imported, and partic
 | `packages/study-export`    | Writes a study's data as CSVs with a codebook                                        |
 | `studies/examples/eatsnap` | The classic example study, converted from `truman_2023`                              |
 | `compose.yaml`             | Local Postgres and S3-compatible storage                                             |
+| `e2e`                      | A real browser going through the whole example study                                 |
+
+Before real participants, this still needs production hosting, separate database roles, a decision on who can read media, and moderation of uploaded images.
 
 A request today looks like this:
 
@@ -55,7 +58,7 @@ These get added when their phase needs them, not before.
 ## Roadmap
 
 0. **Setup.** This scaffolding.
-1. **Core + classic Truman.** Study schema, CSV importer, event log, participant feed, scripted actors, conditions, export.
+1. **Core + classic Truman (built).** Study schema, CSV importer, event log, participant feed, scripted actors, conditions, export.
 2. **Admin tools.** Accounts, study builder, preview, live monitor, codebook, platform templates, Prolific.
 3. **LLM actors + adaptive designs.** LLM gateway, director and beats, persona actors, decision traces, decision points.
 4. **Researcher agents + external rankers.** MCP server and CLI, study drafting, simulated participants.
