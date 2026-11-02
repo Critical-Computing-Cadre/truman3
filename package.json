@@ -13,7 +13,10 @@
     "format": "biome check --write .",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
-    "study": "node --env-file-if-exists=.env apps/cli/src/main.ts"
+    "study": "node --env-file-if-exists=.env apps/cli/src/main.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:migrate": "node --env-file-if-exists=.env packages/db/src/migrate-cli.ts",
+    "db:generate": "pnpm --filter @truman3/db db:generate"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.4",
