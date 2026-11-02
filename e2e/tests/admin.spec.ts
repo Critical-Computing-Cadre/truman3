@@ -20,10 +20,7 @@ async function signIn(page: Page) {
 
 async function openPreview(page: Page) {
   await signIn(page);
-  await page
-    .getByRole("link", { name: /See the feed/ })
-    .first()
-    .click();
+  await page.getByRole("link", { name: "See the feed" }).first().click();
   await expect(page.getByLabel("Time in the study")).toBeVisible();
   await expect(page.locator("article").first()).toBeVisible();
 }

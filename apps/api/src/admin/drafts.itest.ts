@@ -66,7 +66,7 @@ flow: [{ step: feed }]
     mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
     writeFileSync(path.join(dir, name), text);
   }
-  const imported = await importStudyFolder(database.db, storage, dir, { teamId });
+  const imported = await importStudyFolder(database.db, storage, dir, { teamId, launch: true });
   if (imported.status === "failed") {
     throw new Error(imported.issues.map((issue) => issue.message).join("\n"));
   }
@@ -133,6 +133,17 @@ async function enterAsParticipant(slug: string) {
 async function participantFeed(cookie: string) {
   const response = await app.request("/feed", { headers: { cookie } });
   return ((await response.json()) as FeedResponse).posts;
+}
+
+/** Saving doesn't change what anyone gets. Launching does. */
+async function saveAndLaunch(team: Lab, draftId: string) {
+  const saved = await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+  expect(saved.status).toBe(200);
+  const [version] = await database.db
+    .select({ id: schema.studyDrafts.frozenVersionId })
+    .from(schema.studyDrafts)
+    .where(eq(schema.studyDrafts.id, draftId));
+  await call(team.cookie, "POST", `/admin/versions/${version?.id}/launch`);
 }
 
 beforeAll(async () => {
@@ -400,7 +411,7 @@ describe("adding and removing", () => {
 });
 
 describe("saving a new version", () => {
-  it("makes a new version, which new participants get, and earlier ones don't", async () => {
+  it("makes a new version that participants don't get until it's launched", async () => {
     const team = await lab();
     const earlier = await enterAsParticipant(team.slug);
     const { draftId } = await open(team);
@@ -410,9 +421,17 @@ describe("saving a new version", () => {
     const response = await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
 
     expect(await response.json()).toEqual({ status: "frozen", version: 2 });
+    const before = await enterAsParticipant(team.slug);
+    expect((await participantFeed(before)).map((item) => item.body)).toContain("original text");
 
-    const later = await enterAsParticipant(team.slug);
-    expect((await participantFeed(later)).map((item) => item.body)).toContain("edited for v2");
+    const [draft] = await database.db
+      .select({ versionId: schema.studyDrafts.frozenVersionId })
+      .from(schema.studyDrafts)
+      .where(eq(schema.studyDrafts.id, draftId));
+    await call(team.cookie, "POST", `/admin/versions/${draft?.versionId}/launch`);
+
+    const after = await enterAsParticipant(team.slug);
+    expect((await participantFeed(after)).map((item) => item.body)).toContain("edited for v2");
     expect((await participantFeed(earlier)).map((item) => item.body)).toContain("original text");
   });
 
@@ -422,7 +441,7 @@ describe("saving a new version", () => {
     const post = findPost((await preview(team, draftId)).posts, "original text");
     await edit(team, draftId, post.id, { body: "edited" });
 
-    await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+    await saveAndLaunch(team, draftId);
 
     const participant = await enterAsParticipant(team.slug);
     const shown = findPost(await participantFeed(participant), "edited");
@@ -584,7 +603,7 @@ describe("what participants can't see", () => {
     const { draftId } = await open(team);
     const post = findPost((await preview(team, draftId)).posts, "original text");
     await edit(team, draftId, post.id, { body: "edited" });
-    await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+    await saveAndLaunch(team, draftId);
 
     const participant = await enterAsParticipant(team.slug);
     const text = await (await app.request("/feed", { headers: { cookie: participant } })).text();

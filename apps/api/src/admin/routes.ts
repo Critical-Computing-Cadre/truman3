@@ -89,6 +89,7 @@ const studiesRoute = createRoute({
                 slug: z.string(),
                 team: z.string(),
                 participants: z.number(),
+                liveVersionId: z.string().nullable(),
                 role: z.string(),
                 openDraftId: z.string().nullable(),
                 versions: z.array(
@@ -97,6 +98,8 @@ const studiesRoute = createRoute({
                     version: z.number(),
                     title: z.string(),
                     frozenAt: z.iso.datetime().nullable(),
+                    participants: z.number(),
+                    conditions: z.array(z.string()),
                   }),
                 ),
               }),
@@ -278,13 +281,26 @@ export function createAdminRoutes({
             and(inArray(schema.studyDrafts.studyId, studyIds), isNull(schema.studyDrafts.closedAt)),
           )
       : [];
+    // Test participants don't count. They can't be assigned twice, so each is one person.
     const counts = studyIds.length
       ? await db
-          .select({ studyId: schema.participants.studyId, total: count() })
-          .from(schema.participants)
-          .where(inArray(schema.participants.studyId, studyIds))
-          .groupBy(schema.participants.studyId)
+          .select({ versionId: schema.assignments.studyVersionId, total: count() })
+          .from(schema.assignments)
+          .innerJoin(
+            schema.participants,
+            eq(schema.participants.id, schema.assignments.participantId),
+          )
+          .where(
+            and(
+              inArray(schema.participants.studyId, studyIds),
+              eq(schema.participants.isPilot, false),
+              isNull(schema.assignments.decisionPoint),
+            ),
+          )
+          .groupBy(schema.assignments.studyVersionId)
       : [];
+    const participantsOn = (versionId: string) =>
+      counts.find((item) => item.versionId === versionId)?.total ?? 0;
 
     return c.json(
       {
@@ -292,7 +308,10 @@ export function createAdminRoutes({
           id: study.id,
           slug: study.slug,
           team: teamName,
-          participants: counts.find((item) => item.studyId === study.id)?.total ?? 0,
+          participants: versions
+            .filter((version) => version.studyId === study.id)
+            .reduce((sum, version) => sum + participantsOn(version.id), 0),
+          liveVersionId: study.liveVersionId,
           role,
           openDraftId: drafts.find((draft) => draft.studyId === study.id)?.id ?? null,
           versions: versions
@@ -303,6 +322,10 @@ export function createAdminRoutes({
               version: version.version,
               title: (version.settings as { title?: string }).title ?? study.slug,
               frozenAt: version.frozenAt?.toISOString() ?? null,
+              participants: participantsOn(version.id),
+              conditions: (
+                version.settings as { conditions: { arms: { key: string }[] } }
+              ).conditions.arms.map(({ key }) => key),
             })),
         })),
       },

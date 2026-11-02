@@ -67,11 +67,14 @@ export async function exportStudy(
   const versionIds = versions.map(({ id }) => id);
   const versionNumber = new Map(versions.map((version) => [version.id, version.version]));
 
-  const participants = await db
+  // A researcher trying the study isn't data.
+  const everyone = await db
     .select()
     .from(schema.participants)
     .where(eq(schema.participants.studyId, study.id))
     .orderBy(asc(schema.participants.enrolledAt));
+  const participants = everyone.filter(({ isPilot }) => !isPilot);
+  const pilotIds = new Set(everyone.filter(({ isPilot }) => isPilot).map(({ id }) => id));
 
   const conditions = versionIds.length
     ? await db
@@ -101,17 +104,29 @@ export async function exportStudy(
   const worldById = new Map(worlds.map((world) => [world.id, world]));
   const membershipByParticipant = new Map(memberships.map((m) => [m.participantId, m]));
   const participantByWorld = new Map(memberships.map((m) => [m.worldId, m.participantId]));
+  const pilotWorldIds = new Set(
+    pilotIds.size
+      ? (
+          await db
+            .select({ worldId: schema.worldMemberships.worldId })
+            .from(schema.worldMemberships)
+            .where(inArray(schema.worldMemberships.participantId, [...pilotIds]))
+        ).map(({ worldId }) => worldId)
+      : [],
+  );
 
-  const events = versionIds.length
-    ? await db
-        .select()
-        .from(schema.events)
-        .where(inArray(schema.events.studyVersionId, versionIds))
-        .orderBy(asc(schema.events.id))
-    : [];
+  const events = (
+    versionIds.length
+      ? await db
+          .select()
+          .from(schema.events)
+          .where(inArray(schema.events.studyVersionId, versionIds))
+          .orderBy(asc(schema.events.id))
+      : []
+  ).filter(({ worldId }) => !pilotWorldIds.has(worldId));
   const eventsByParticipant = Map.groupBy(events, (event) => event.participantId ?? "");
 
-  const worldIds = worlds.map(({ id }) => id);
+  const worldIds = worlds.map(({ id }) => id).filter((id) => !pilotWorldIds.has(id));
   const impressions = worldIds.length
     ? await db
         .select()
@@ -120,12 +135,20 @@ export async function exportStudy(
         .orderBy(asc(schema.feedImpressions.id))
     : [];
 
-  const content = versionIds.length
-    ? await db
-        .select()
-        .from(schema.content)
-        .where(inArray(schema.content.studyVersionId, versionIds))
-    : [];
+  const content = (
+    versionIds.length
+      ? await db
+          .select()
+          .from(schema.content)
+          .where(inArray(schema.content.studyVersionId, versionIds))
+      : []
+  ).filter(({ worldId }) => !worldId || !pilotWorldIds.has(worldId));
+
+  const launches = await db
+    .select()
+    .from(schema.studyLaunches)
+    .where(eq(schema.studyLaunches.studyId, study.id))
+    .orderBy(asc(schema.studyLaunches.id));
   const contentById = new Map(content.map((item) => [item.id, item]));
 
   const actors = versionIds.length
@@ -416,6 +439,12 @@ export async function exportStudy(
       })),
       eventTypes: [...new Set(events.map((event) => event.type))].sort(),
       deletions,
+      launches: launches.map((launch) => ({
+        action: launch.action,
+        version: launch.versionId ? versionNumber.get(launch.versionId) : undefined,
+        at: launch.at,
+      })),
+      pilots: pilotIds.size,
       counts: {
         participants: participants.length,
         completed: participants.filter(({ status }) => status === "completed").length,
@@ -502,6 +531,8 @@ function buildCodebook(input: {
   }[];
   eventTypes: string[];
   deletions: { reason: string }[];
+  launches: { action: string; version: number | undefined; at: Date }[];
+  pilots: number;
   counts: { participants: number; completed: number; events: number; impressions: number };
   options: ExportOptions;
   exportedAt: Date;
@@ -515,6 +546,8 @@ function buildCodebook(input: {
     `${counts.participants} participants, ${counts.completed} completed. ${counts.events} events. ${counts.impressions} feed showings.`,
     "",
     `${input.deletions.length} people's data has been deleted and isn't in these files: ${input.deletions.filter(({ reason }) => reason === "declined consent").length} declined consent, and ${input.deletions.filter(({ reason }) => reason !== "declined consent").length} withdrew.`,
+    "",
+    `${input.pilots} test participants aren't included. Researchers use them to try a study.`,
     "",
     "## Reading this data",
     "",
@@ -542,6 +575,19 @@ function buildCodebook(input: {
       "```json",
       JSON.stringify(version.settings, null, 2),
       "```",
+      "",
+    );
+  }
+
+  if (input.launches.length > 0) {
+    lines.push(
+      "## When each version was open to new participants",
+      "",
+      ...input.launches.map(({ action, version, at }) =>
+        action === "launch"
+          ? `- ${at.toISOString()}: version ${version} launched`
+          : `- ${at.toISOString()}: closed to new participants`,
+      ),
       "",
     );
   }

@@ -51,7 +51,7 @@ flow: [{ step: feed }]
     mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
     writeFileSync(path.join(dir, name), text);
   }
-  const result = await importStudyFolder(database.db, storage, dir);
+  const result = await importStudyFolder(database.db, storage, dir, { launch: true });
   if (result.status === "failed") {
     throw new Error(result.issues.map((issue) => issue.message).join("\n"));
   }

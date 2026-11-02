@@ -7,7 +7,7 @@ import { setCookie } from "hono/cookie";
 import { countUnreadNotifications } from "../actions/notifications.ts";
 import { mediaUrl } from "../feed/build.ts";
 import { summarizeDevice } from "./device.ts";
-import { enterStudy, latestFrozenVersion } from "./enter.ts";
+import { enterStudy, entrySettings } from "./enter.ts";
 import { participantFromRequest, SESSION_COOKIE } from "./session.ts";
 
 const errorSchema = z.object({ error: z.string() });
@@ -56,7 +56,7 @@ const enterRoute = createRoute({
       content: { "application/json": { schema: z.object({ returning: z.boolean() }) } },
     },
     403: {
-      description: "They've finished or withdrawn, and can't enter again",
+      description: "They've finished or withdrawn, or the study isn't open to new participants",
       content: { "application/json": { schema: errorSchema } },
     },
     404: {
@@ -130,12 +130,12 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
   const notFound = { error: "This page isn't available." };
 
   app.openapi(entryInfoRoute, async (c) => {
-    const latest = await latestFrozenVersion(db, c.req.valid("param").slug);
-    if (!latest) {
+    const settings = await entrySettings(db, c.req.valid("param").slug);
+    if (!settings) {
       return c.json(notFound, 404);
     }
 
-    const { site, entry } = latest.settings;
+    const { site, entry } = settings;
     return c.json(
       {
         siteName: site.name,
@@ -164,6 +164,9 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
 
     if (result.status === "refused") {
       return c.json({ error: "This account is no longer active." }, 403);
+    }
+    if (result.status === "closed") {
+      return c.json({ error: "This isn't available right now." }, 403);
     }
 
     setCookie(c, SESSION_COOKIE, result.token, {

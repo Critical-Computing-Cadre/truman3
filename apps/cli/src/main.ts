@@ -3,11 +3,19 @@ import { createDb, schema } from "@truman3/db";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { exportStudy } from "@truman3/study-export";
 import { convertLegacyStudy, loadStudyFolder } from "@truman3/study-files";
-import { importStudyFolder, withdrawParticipant } from "@truman3/study-import";
+import {
+  findStudyVersion,
+  importStudyFolder,
+  launchVersion,
+  stopNewParticipants,
+  withdrawParticipant,
+} from "@truman3/study-import";
 
 const USAGE = `Usage:
   pnpm study validate <study folder>
   pnpm study import <study folder>
+  pnpm study launch <slug> [version]
+  pnpm study stop <slug>
   pnpm study convert <old Truman repo> <new study folder> <slug>
   pnpm study export <slug> <folder> [--min-dwell-ms N] [--max-dwell-ms N] [--include-recruitment-ids]
   pnpm study withdraw <slug> <recruitment ID> <your name> [reason]`;
@@ -76,7 +84,7 @@ async function importStudy(folder: string): Promise<number> {
       console.log(`\nNothing changed: this content is already version ${result.version}.`);
     } else {
       console.log(
-        `\nImported and froze version ${result.version}, and uploaded ${result.mediaUploaded} images.`,
+        `\nSaved version ${result.version}, and uploaded ${result.mediaUploaded} images. It isn't open to participants until you run: pnpm study launch <slug> ${result.version}`,
       );
     }
     return 0;
@@ -112,6 +120,33 @@ async function withdraw(slug: string, externalId: string, requestedBy: string, r
     return 0;
   } finally {
     storage.close();
+    await database.close();
+  }
+}
+
+async function changeLaunch(command: "launch" | "stop", slug: string, versionNumber?: number) {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.error("DATABASE_URL isn't set. Copy .env.example to .env.");
+    return 1;
+  }
+
+  const database = createDb(databaseUrl);
+  try {
+    const found = await findStudyVersion(database.db, slug, versionNumber);
+    if (!found) {
+      console.error(`There's no study or version like that for "${slug}".`);
+      return 1;
+    }
+    if (command === "stop") {
+      await stopNewParticipants(database.db, found.studyId, "command line");
+      console.log(`"${slug}" is closed to new participants. People already in it can come back.`);
+    } else {
+      await launchVersion(database.db, found.studyId, found.versionId, "command line");
+      console.log(`New participants in "${slug}" now get version ${found.version}.`);
+    }
+    return 0;
+  } finally {
     await database.close();
   }
 }
@@ -154,6 +189,14 @@ if (command === "validate" && args[0]) {
   process.exitCode = validate(args[0]);
 } else if (command === "import" && args[0]) {
   process.exitCode = await importStudy(args[0]);
+} else if (command === "launch" && args[0]) {
+  process.exitCode = await changeLaunch(
+    "launch",
+    args[0],
+    args[1] === undefined ? undefined : Number(args[1]),
+  );
+} else if (command === "stop" && args[0]) {
+  process.exitCode = await changeLaunch("stop", args[0]);
 } else if (command === "export" && args[0] && args[1]) {
   process.exitCode = await exportData(args[0], args[1], args.slice(2));
 } else if (command === "withdraw" && args[0] && args[1] && args[2]) {

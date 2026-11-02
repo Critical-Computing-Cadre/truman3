@@ -98,6 +98,10 @@ Use `declineRedirect` instead to send them to a link.
 
 ## Check it before launching
 
+A study isn't open to participants until it's launched, either from the admin app or with `pnpm study launch`. Until then, the study link won't let anyone in, so use **Try as a participant** in the admin app. Test participants stay out of your exports.
+
+Then check the whole path with real links. Launch it, but don't publish it on Prolific yet:
+
 1. Run `pnpm study validate` and read any warnings.
 2. Open your link yourself with a made-up ID: `https://YOUR-SITE/join/YOUR-STUDY-SLUG?PROLIFIC_PID=TEST123`.
 3. Go through to the end. **Use a new ID each time,** because finishing locks that ID out.

@@ -14,6 +14,7 @@ import { FeedPage } from "./pages/FeedPage.tsx";
 import { FlowGate } from "./pages/FlowGate.tsx";
 import { JoinPage } from "./pages/JoinPage.tsx";
 import { NotificationsPage } from "./pages/NotificationsPage.tsx";
+import { PilotPage } from "./pages/PilotPage.tsx";
 import { ProfilePage } from "./pages/ProfilePage.tsx";
 import { track } from "./tracking.ts";
 
@@ -21,7 +22,7 @@ function PageViews() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   useEffect(() => {
-    if (!pathname.startsWith("/join/")) {
+    if (!pathname.startsWith("/join/") && !pathname.startsWith("/pilot/")) {
       track({ type: "page.viewed", payload: { page: pathname } });
     }
   }, [pathname]);
@@ -35,6 +36,12 @@ const joinRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/join/$slug",
   component: JoinPage,
+});
+
+const pilotRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/pilot/$token",
+  component: PilotPage,
 });
 
 /** Everything past joining goes through the study's flow. The feed pages only show on its feed step. */
@@ -65,6 +72,7 @@ const profileRoute = createRoute({
 const router = createRouter({
   routeTree: rootRoute.addChildren([
     joinRoute,
+    pilotRoute,
     gateRoute.addChildren([feedRoute, notificationsRoute, profileRoute]),
   ]),
 });

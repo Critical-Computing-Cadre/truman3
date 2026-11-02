@@ -25,4 +25,4 @@ Provenance is recorded from the start because it belongs in a methods section, a
 
 ## Costs
 
-Draft items point at each other by ID, while study definitions use usernames and references, so there's a conversion step. Saving a draft makes it live for new participants right away, which the app warns about. A separate launch step can come later.
+Draft items point at each other by ID, while study definitions use usernames and references, so there's a conversion step. Saving a draft doesn't change what participants get. Launching is a separate step (ADR 13).

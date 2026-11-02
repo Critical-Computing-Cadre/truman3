@@ -416,7 +416,7 @@ function EditableFeed({
   );
 }
 
-/** Saving is a big step, because new participants get the result. So this says so first. */
+/** Saving keeps a version to try out. Participants don't get it until it's launched. */
 function SaveVersion({ draftId, info }: { draftId: string; info: DraftInfo }) {
   const navigate = useNavigate();
   const client = useQueryClient();
@@ -470,10 +470,10 @@ function SaveVersion({ draftId, info }: { draftId: string; info: DraftInfo }) {
         ) : (
           <ul className="mb-4 list-disc space-y-1 pl-5 text-sm">
             <li>
-              <strong>New participants will start getting this version right away.</strong> Anyone
-              already enrolled stays on the version they started with.
+              <strong>Participants won't see it yet.</strong> You can try it out first, then launch
+              it from the studies page.
             </li>
-            <li>It can't be changed afterward, only replaced by another new version.</li>
+            <li>A saved version can't be changed, only replaced by another new version.</li>
           </ul>
         )}
         {message && <p className="mb-4 text-sm">{message}</p>}
@@ -497,7 +497,7 @@ function SaveVersion({ draftId, info }: { draftId: string; info: DraftInfo }) {
               disabled={freeze.isPending}
               className="rounded bg-emerald-700 px-3 py-1.5 text-sm text-white disabled:opacity-40"
             >
-              Save and use it
+              Save version
             </button>
           )}
         </div>

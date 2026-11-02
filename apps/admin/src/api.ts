@@ -56,8 +56,16 @@ export interface StudySummary {
   team: string;
   participants: number;
   role: string;
+  liveVersionId: string | null;
   openDraftId: string | null;
-  versions: { id: string; version: number; title: string; frozenAt: string | null }[];
+  versions: {
+    id: string;
+    version: number;
+    title: string;
+    frozenAt: string | null;
+    participants: number;
+    conditions: string[];
+  }[];
 }
 
 export interface PreviewInfo {
