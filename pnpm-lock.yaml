@@ -224,6 +224,9 @@ importers:
       '@truman3/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@truman3/feed':
+        specifier: workspace:*
+        version: link:../../packages/feed
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(postgres@4.0.0)
@@ -337,6 +340,19 @@ importers:
       drizzle-kit:
         specifier: 0.31.11
         version: 0.31.11
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
+  packages/feed:
+    dependencies:
+      '@truman3/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
       typescript:
         specifier: 7.0.2
         version: 7.0.2

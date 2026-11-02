@@ -216,6 +216,8 @@ export const content = pgTable(
     mediaKey: text("media_key"),
     offsetMs: bigint("offset_ms", { mode: "number" }),
     visibleAt: time("visible_at"),
+    /** Its order in the study definition, for the scripted ranker. */
+    position: integer(),
     baseLikes: integer("base_likes").notNull().default(0),
     conditions: text().array().notNull().default(sql`'{}'`),
     class: text(),
@@ -305,6 +307,51 @@ export const events = pgTable(
       "events_source",
       inList(table.source, ["participant", "script", "llm", "researcher", "system"]),
     ),
+  ],
+);
+
+/**
+ * What each person currently has done to content, so feeds can be drawn quickly. The history is in
+ * `events`. A row is written in the same transaction as its event, and exports never read this.
+ */
+export const contentInteractions = pgTable(
+  "content_interactions",
+  {
+    worldId: uuid("world_id")
+      .notNull()
+      .references(() => worlds.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => actors.id, { onDelete: "cascade" }),
+    contentId: uuid("content_id")
+      .notNull()
+      .references(() => content.id, { onDelete: "cascade" }),
+    kind: text().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.worldId, table.actorId, table.contentId, table.kind] }),
+    check("content_interactions_kind", inList(table.kind, ["like", "flag", "view"])),
+  ],
+);
+
+/** The same idea as content_interactions, for what someone has done to another actor. */
+export const actorRelations = pgTable(
+  "actor_relations",
+  {
+    worldId: uuid("world_id")
+      .notNull()
+      .references(() => worlds.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => actors.id, { onDelete: "cascade" }),
+    targetActorId: uuid("target_actor_id")
+      .notNull()
+      .references(() => actors.id, { onDelete: "cascade" }),
+    kind: text().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.worldId, table.actorId, table.targetActorId, table.kind] }),
+    check("actor_relations_kind", inList(table.kind, ["follow", "block", "report"])),
   ],
 );
 

@@ -1,9 +1,9 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
-import { studySettingsSchema } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { eq } from "drizzle-orm";
 import type { Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
+import { mediaUrl } from "../feed/build.ts";
 import { summarizeDevice } from "./device.ts";
 import { enterStudy, latestFrozenVersion } from "./enter.ts";
 import { loadParticipantContext, SESSION_COOKIE } from "./session.ts";
@@ -101,11 +101,6 @@ export interface ParticipantRouteDependencies {
   allowEntryAttempt?: (ipAddress: string) => boolean;
 }
 
-/** A stored media key becomes a URL. Hosted media is already a full URL. */
-function mediaUrl(key: string, publicUrl: string): string {
-  return /^https?:\/\//.test(key) ? key : `${publicUrl}/${key}`;
-}
-
 export function createParticipantRoutes(dependencies: ParticipantRouteDependencies) {
   const { db, mediaPublicUrl, getClientIp, secureCookies, allowEntryAttempt } = dependencies;
   const app = new OpenAPIHono();
@@ -168,18 +163,14 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
     }
 
     const [row] = await db
-      .select({ username: schema.actors.username, settings: schema.studyVersions.settings })
+      .select({ username: schema.actors.username })
       .from(schema.actors)
-      .innerJoin(schema.studyVersions, eq(schema.studyVersions.id, schema.actors.studyVersionId))
       .where(eq(schema.actors.id, context.actorId));
     if (!row) {
       return c.json({ error: "Please sign in." }, 401);
     }
 
-    return c.json(
-      { username: row.username, siteName: studySettingsSchema.parse(row.settings).site.name },
-      200,
-    );
+    return c.json({ username: row.username, siteName: context.settings.site.name }, 200);
   });
 
   return app;

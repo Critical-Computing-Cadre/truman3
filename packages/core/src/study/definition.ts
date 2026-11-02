@@ -14,13 +14,22 @@ const feedSettingsSchema = z.strictObject({
   removeBlocked: z.boolean().default(false),
 });
 
+/** What a condition can change. No defaults here, or leaving something out would reset it. */
+const feedOverridesSchema = z.strictObject({
+  ranker: feedSettingsSchema.shape.ranker.optional(),
+  windowHours: feedSettingsSchema.shape.windowHours,
+  pinOwnPostsMinutes: feedSettingsSchema.shape.pinOwnPostsMinutes,
+  removeFlagged: z.boolean().optional(),
+  removeBlocked: z.boolean().optional(),
+});
+
 const armSchema = z.strictObject({
   key: keySchema,
   /** Labels for multi-factor designs, so exports can split by factor. */
   factors: z.record(z.string(), z.string()).default({}),
   weight: z.number().int().positive().default(1),
   /** Settings that differ in this condition. */
-  feed: feedSettingsSchema.partial().optional(),
+  feed: feedOverridesSchema.optional(),
 });
 
 const assignmentSchema = z.discriminatedUnion("method", [

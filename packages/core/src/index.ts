@@ -12,6 +12,16 @@ export {
   type EventType,
   eventPayloadSchemas,
 } from "./events.ts";
+export {
+  type FeedAuthor,
+  type FeedComment,
+  type FeedPost,
+  type FeedResponse,
+  feedAuthorSchema,
+  feedCommentSchema,
+  feedPostSchema,
+  feedResponseSchema,
+} from "./feed.ts";
 export { type HealthResponse, healthResponseSchema } from "./health.ts";
 export { createRandom, pickFrom, shuffled } from "./random.ts";
 export * from "./study/index.ts";

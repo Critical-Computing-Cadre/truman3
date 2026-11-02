@@ -262,6 +262,7 @@ export async function importStudyFolder(
     const drawLikes = (explicit: number | undefined, distribution: number[] | undefined) =>
       explicit ?? (distribution ? pickFrom(distribution, random) : 0);
 
+    const positions = new Map(study.posts.map((post, index) => [post.ref, index]));
     const postIds = new Map<string, string>();
     for (const batch of chunks(study.posts, INSERT_BATCH_SIZE)) {
       const rows = await tx
@@ -274,6 +275,7 @@ export async function importStudyFolder(
             body: post.body,
             mediaKey: post.picture && mediaKeys.get(path.join(MEDIA_FOLDERS.posts, post.picture)),
             offsetMs: post.timeMs,
+            position: positions.get(post.ref),
             baseLikes: drawLikes(post.likes, settings.likes.posts),
             conditions: post.conditions,
             class: post.class,

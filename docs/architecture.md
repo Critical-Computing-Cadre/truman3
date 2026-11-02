@@ -6,20 +6,21 @@ Truman 3 is a monorepo. This page separates what exists today from what's planne
 
 Phase 1 is underway. Studies can be defined, validated, and imported, and participants can enter and get a condition. There's no feed yet.
 
-| Path                       | What it is                                                            |
-| -------------------------- | --------------------------------------------------------------------- |
-| `apps/api`                 | Hono API: health routes and the OpenAPI spec                          |
-| `apps/participant`         | React app for participants: a placeholder page for now                |
-| `apps/admin`               | React app for researchers: a placeholder page for now                 |
-| `packages/core`            | Shared Zod schemas and types                                          |
-| `packages/db`              | Postgres connection through Drizzle; no tables yet                    |
-| `packages/ui`              | Shared React components                                               |
-| `apps/cli`                 | The `pnpm study` command                                              |
-| `packages/study-files`     | Reads study folders (CSV and YAML), and converts older Truman studies |
-| `packages/study-import`    | Saves a study as a frozen version, and stores its media               |
-| `packages/storage`         | File storage over S3, so the same code works locally and on AWS       |
-| `studies/examples/eatsnap` | The classic example study, converted from `truman_2023`               |
-| `compose.yaml`             | Local Postgres and S3-compatible storage                              |
+| Path                       | What it is                                                                 |
+| -------------------------- | -------------------------------------------------------------------------- |
+| `apps/api`                 | Hono API: health routes and the OpenAPI spec                               |
+| `apps/participant`         | React app for participants: a placeholder page for now                     |
+| `apps/admin`               | React app for researchers: a placeholder page for now                      |
+| `packages/core`            | Shared Zod schemas and types                                               |
+| `packages/db`              | Postgres connection through Drizzle; no tables yet                         |
+| `packages/feed`            | What a viewer sees and in what order, as plain functions, plus the rankers |
+| `packages/ui`              | Shared React components                                                    |
+| `apps/cli`                 | The `pnpm study` command                                                   |
+| `packages/study-files`     | Reads study folders (CSV and YAML), and converts older Truman studies      |
+| `packages/study-import`    | Saves a study as a frozen version, and stores its media                    |
+| `packages/storage`         | File storage over S3, so the same code works locally and on AWS            |
+| `studies/examples/eatsnap` | The classic example study, converted from `truman_2023`                    |
+| `compose.yaml`             | Local Postgres and S3-compatible storage                                   |
 
 A request today looks like this:
 

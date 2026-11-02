@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { type StudySettings, studySettingsSchema } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 
@@ -21,7 +22,11 @@ export interface ParticipantContext {
   actorId: string;
   /** Their current condition, which can change in adaptive designs. */
   conditionId: string;
+  conditionKey: string;
   worldStartedAt: Date;
+  /** The world's random seed. */
+  seed: number;
+  settings: StudySettings;
 }
 
 /** Finds who a session token belongs to. Returns null if it's unknown, expired, or they're out. */
@@ -37,6 +42,8 @@ export async function loadParticipantContext(
       actorId: schema.worldMemberships.actorId,
       studyVersionId: schema.worlds.studyVersionId,
       worldStartedAt: schema.worlds.startedAt,
+      seed: schema.worlds.seed,
+      settings: schema.studyVersions.settings,
     })
     .from(schema.sessions)
     .innerJoin(
@@ -47,6 +54,7 @@ export async function loadParticipantContext(
       ),
     )
     .innerJoin(schema.worlds, eq(schema.worlds.id, schema.worldMemberships.worldId))
+    .innerJoin(schema.studyVersions, eq(schema.studyVersions.id, schema.worlds.studyVersionId))
     .innerJoin(schema.participants, eq(schema.participants.id, schema.sessions.participantId))
     .where(
       and(
@@ -61,8 +69,9 @@ export async function loadParticipantContext(
   }
 
   const [assignment] = await db
-    .select({ conditionId: schema.assignments.conditionId })
+    .select({ conditionId: schema.assignments.conditionId, conditionKey: schema.conditions.key })
     .from(schema.assignments)
+    .innerJoin(schema.conditions, eq(schema.conditions.id, schema.assignments.conditionId))
     .where(eq(schema.assignments.participantId, row.participantId))
     .orderBy(desc(schema.assignments.id))
     .limit(1);
@@ -70,5 +79,5 @@ export async function loadParticipantContext(
     return null;
   }
 
-  return { ...row, conditionId: assignment.conditionId };
+  return { ...row, ...assignment, settings: studySettingsSchema.parse(row.settings) };
 }
