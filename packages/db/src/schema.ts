@@ -329,6 +329,23 @@ export const feedImpressions = pgTable(
   (table) => [index("feed_impressions_world").on(table.worldId, table.id)],
 );
 
+/**
+ * A participant's signed-in sessions. Only a hash of the token is stored, so reading this table
+ * doesn't let anyone sign in as a participant.
+ */
+export const sessions = pgTable(
+  "sessions",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    createdAt: time("created_at").notNull().defaultNow(),
+    expiresAt: time("expires_at").notNull(),
+  },
+  (table) => [index("sessions_participant").on(table.participantId)],
+);
+
 /** A record that a participant's data was deleted. Holds no data about what was deleted. */
 export const dataDeletions = pgTable("data_deletions", {
   id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),

@@ -1,4 +1,11 @@
 export {
+  armProbability,
+  type BlockedAssignment,
+  blockedArm,
+  pickUniformArm,
+  type WeightedArm,
+} from "./assignment.ts";
+export {
   EVENT_SOURCES,
   type EventPayload,
   type EventSource,
