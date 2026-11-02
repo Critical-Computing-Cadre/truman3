@@ -62,6 +62,10 @@ export interface Provenance {
   edited?: boolean;
   /** For generated content: the model and prompt. */
   detail?: Record<string, unknown>;
+  /** For content from a pack: which one. */
+  pack?: { id: string; name: string };
+  /** For content from a pack: where it came from before that, so generated content stays marked. */
+  before?: Provenance;
 }
 
 export interface DraftItem {

@@ -62,6 +62,7 @@ export interface StudySummary {
   role: string;
   liveVersionId: string | null;
   openDraftId: string | null;
+  draftTitle: string | null;
   versions: {
     id: string;
     version: number;
@@ -101,7 +102,16 @@ export interface DraftInfo {
   closed: boolean;
   lengthMs: number;
   conditions: PreviewInfo["conditions"];
-  actors: { id: string; username: string; name: string }[];
+  actors: {
+    id: string;
+    username: string;
+    name: string;
+    bio: string;
+    location: string;
+    pictureUrl: string | null;
+    /** How many posts, comments, and reactions are theirs. */
+    usedBy: number;
+  }[];
   posts: {
     id: string;
     offsetMs: number;
@@ -155,4 +165,18 @@ export interface DraftSettings {
   sections: { [K in keyof DraftSections]: { revision: number; value: DraftSections[K] } };
   pages: Record<string, { revision: number; text: string }>;
   issues: { severity: "error" | "warning"; message: string }[];
+}
+
+export interface ContentPack {
+  id: string;
+  name: string;
+  description: string;
+  /** Empty means it's for everyone on this server. */
+  team: string | null;
+  actors: number;
+  posts: number;
+  comments: number;
+  conditions: string[];
+  targeted: number;
+  imageUrls: string[];
 }

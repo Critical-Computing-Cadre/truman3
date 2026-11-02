@@ -291,6 +291,9 @@ importers:
       '@truman3/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@truman3/drafts':
+        specifier: workspace:*
+        version: link:../../packages/drafts
       '@truman3/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -371,6 +374,9 @@ importers:
       '@truman3/db':
         specifier: workspace:*
         version: link:../packages/db
+      '@truman3/drafts':
+        specifier: workspace:*
+        version: link:../packages/drafts
       '@truman3/storage':
         specifier: workspace:*
         version: link:../packages/storage
@@ -455,6 +461,9 @@ importers:
       '@truman3/db':
         specifier: workspace:*
         version: link:../db
+      '@truman3/storage':
+        specifier: workspace:*
+        version: link:../storage
       '@truman3/study-files':
         specifier: workspace:*
         version: link:../study-files

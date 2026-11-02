@@ -77,7 +77,7 @@ function chunks<T>(items: T[], size: number): T[][] {
  * Stores each image under a hash of its contents, so identical images are only stored once, and a
  * study version's images can't change later. Hosted media stays where it is.
  */
-async function storeMedia(
+export async function storeMedia(
   study: StudyDefinition,
   folder: string,
   storage: Storage,

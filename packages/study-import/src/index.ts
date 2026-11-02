@@ -1,4 +1,10 @@
-export { type FreezeOptions, freezeStudy, type ImportResult, importStudyFolder } from "./import.ts";
+export {
+  type FreezeOptions,
+  freezeStudy,
+  type ImportResult,
+  importStudyFolder,
+  storeMedia,
+} from "./import.ts";
 export {
   findStudyVersion,
   type LaunchResult,

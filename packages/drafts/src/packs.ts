@@ -1,0 +1,357 @@
+import { createHash } from "node:crypto";
+import path from "node:path";
+import {
+  createRandom,
+  hasErrors,
+  pickFrom,
+  type StudyDefinition,
+  type StudyIssue,
+  type StudySettings,
+  studySettingsSchema,
+} from "@truman3/core";
+import { type Database, schema } from "@truman3/db";
+import type { Storage } from "@truman3/storage";
+import { loadStudyFolder, MEDIA_FOLDERS } from "@truman3/study-files";
+import { storeMedia } from "@truman3/study-import";
+import { and, eq, isNull } from "drizzle-orm";
+import type { EditProblem } from "./drafts.ts";
+import type { Provenance } from "./items.ts";
+
+const INSERT_BATCH_SIZE = 500;
+
+type Arm = StudySettings["conditions"]["arms"][number];
+type Actor = StudyDefinition["actors"][number];
+type Post = StudyDefinition["posts"][number];
+type Comment = StudyDefinition["comments"][number];
+type Reaction = StudyDefinition["reactions"][number];
+
+/**
+ * What a pack holds. Consent text and the study's flow aren't in it: those belong to one study and
+ * its IRB approval, and shouldn't quietly travel to another.
+ */
+export interface PackContents {
+  settings: Pick<StudySettings, "site" | "platform" | "feed" | "likes" | "length">;
+  arms: Arm[];
+  actors: Actor[];
+  posts: Post[];
+  comments: Comment[];
+  reactions: Reaction[];
+  /** Each post and comment's history before the pack, by kind and reference. */
+  provenance: Record<string, Provenance>;
+}
+
+export interface PackSummary {
+  actors: number;
+  posts: number;
+  comments: number;
+  conditions: string[];
+  /** How many items are limited to a condition, so they'd be left out of "just the background". */
+  targeted: number;
+  /** A few images, to recognize it by. */
+  images: string[];
+}
+
+const IMAGES_IN_SUMMARY = 4;
+
+function withoutSource<T extends { source?: unknown }>(item: T) {
+  const { source: _source, ...rest } = item;
+  return rest as T;
+}
+
+/** Turns a study into what a pack stores, with images pointing at where they're stored. */
+export function packContents(
+  { settings, actors, posts, comments, reactions }: StudyDefinition,
+  mediaKeys: Map<string, string>,
+  provenance: Map<string, Provenance> = new Map(),
+): PackContents {
+  const stored = (folder: string, picture: string | undefined) =>
+    picture ? { picture: mediaKeys.get(path.join(folder, picture)) ?? picture } : {};
+
+  const site = { ...settings.site };
+  for (const field of ["logo", "favicon", "homepageImage"] as const) {
+    const image = site[field];
+    if (image) {
+      site[field] = mediaKeys.get(image) ?? image;
+    }
+  }
+
+  return {
+    settings: {
+      site,
+      platform: settings.platform,
+      feed: settings.feed,
+      likes: settings.likes,
+      length: settings.length,
+    },
+    arms: settings.conditions.arms,
+    actors: actors.map((actor) => ({
+      ...withoutSource(actor),
+      ...stored(MEDIA_FOLDERS.actors, actor.picture),
+    })),
+    posts: posts.map((post) => ({
+      ...withoutSource(post),
+      ...stored(MEDIA_FOLDERS.posts, post.picture),
+    })),
+    comments: comments.map(withoutSource),
+    reactions: reactions.map(withoutSource),
+    provenance: Object.fromEntries(provenance),
+  };
+}
+
+function summarize(contents: PackContents): PackSummary {
+  const items = [
+    ...contents.actors,
+    ...contents.posts,
+    ...contents.comments,
+    ...contents.reactions,
+  ];
+  return {
+    actors: contents.actors.length,
+    posts: contents.posts.length,
+    comments: contents.comments.length,
+    conditions: contents.arms.map(({ key }) => key),
+    targeted: items.filter(({ conditions }) => conditions.length > 0).length,
+    images: contents.posts
+      .flatMap(({ picture }) => (picture ? [picture] : []))
+      .slice(0, IMAGES_IN_SUMMARY),
+  };
+}
+
+const hashOf = (contents: PackContents) =>
+  createHash("sha256").update(JSON.stringify(contents)).digest("hex");
+
+export interface SavePack {
+  /** Empty makes it available to every team on this server. */
+  teamId: string | null;
+  name: string;
+  description?: string;
+  createdBy?: string;
+  contents: PackContents;
+}
+
+/** Saves a pack. It never changes after this, and saving the same thing twice keeps the first one. */
+export async function savePack(
+  db: Database,
+  { teamId, name, description = "", createdBy, contents }: SavePack,
+): Promise<{ status: "saved" | "exists"; id: string; name: string }> {
+  const contentHash = hashOf(contents);
+  const [existing] = await db
+    .select({ id: schema.contentPacks.id, name: schema.contentPacks.name })
+    .from(schema.contentPacks)
+    .where(
+      and(
+        eq(schema.contentPacks.contentHash, contentHash),
+        teamId ? eq(schema.contentPacks.teamId, teamId) : isNull(schema.contentPacks.teamId),
+      ),
+    );
+  if (existing) {
+    return { status: "exists", ...existing };
+  }
+
+  const [created] = await db
+    .insert(schema.contentPacks)
+    .values({
+      teamId,
+      name,
+      description,
+      contents,
+      summary: summarize(contents),
+      contentHash,
+      ...(createdBy ? { createdBy } : {}),
+    })
+    .returning({ id: schema.contentPacks.id, name: schema.contentPacks.name });
+  if (!created) {
+    throw new Error("The pack wasn't saved.");
+  }
+  return { status: "saved", ...created };
+}
+
+/** Saves a study folder as a pack for everyone on this server, from the command line. */
+export async function savePackFromFolder(
+  db: Database,
+  storage: Storage,
+  folder: string,
+  options: { name?: string | undefined; description?: string | undefined } = {},
+): Promise<
+  | { status: "failed"; issues: StudyIssue[] }
+  | { status: "saved" | "exists"; id: string; name: string }
+> {
+  const { definition, issues } = loadStudyFolder(folder);
+  if (!definition || hasErrors(issues)) {
+    return { status: "failed", issues };
+  }
+  const { keys } = await storeMedia(definition, folder, storage);
+  return savePack(db, {
+    teamId: null,
+    name: options.name ?? definition.settings.title,
+    ...(options.description ? { description: options.description } : {}),
+    contents: packContents(definition, keys),
+  });
+}
+
+const STARTING_CONSENT = `# Consent
+
+Replace this with the consent text your IRB approved.`;
+
+export interface StartStudy {
+  teamId: string;
+  researcherId: string;
+  slug: string;
+  title: string;
+  /** Required, with no default: this is a design decision for the researcher. */
+  assignment: StudySettings["conditions"]["assignment"]["method"];
+  /** Empty starts with nothing in it. */
+  pack?: { id: string; name: string; contents: PackContents } | undefined;
+  /** Whether to bring the pack's conditions and what's limited to them, or only its background. */
+  keep?: "everything" | "background" | undefined;
+}
+
+/**
+ * Starts a new study with a draft, from a pack or from nothing. A pack is copied, so the study is
+ * theirs to change, and later changes elsewhere can't reach it.
+ */
+export async function startStudy(
+  db: Database,
+  { teamId, researcherId, slug, title, assignment, pack, keep = "everything" }: StartStudy,
+): Promise<{ studyId: string; draftId: string } | EditProblem> {
+  const contents = pack?.contents;
+  const background = keep === "background";
+  const arms: Arm[] =
+    contents && !background ? contents.arms : [{ key: "control", factors: {}, weight: 1 }];
+  const totalWeight = arms.reduce((sum, arm) => sum + arm.weight, 0);
+
+  const consentPage = "pages/consent.md";
+  const settings = studySettingsSchema.parse({
+    schemaVersion: 1,
+    slug,
+    title,
+    site: contents?.settings.site ?? { name: title },
+    length: contents?.settings.length ?? { days: 1 },
+    entry: { idParam: "PROLIFIC_PID", idLabel: "Prolific ID", source: "prolific" },
+    conditions: {
+      assignment:
+        assignment === "blocked"
+          ? { method: "blocked", blockSize: totalWeight }
+          : { method: "uniform" },
+      arms,
+    },
+    ...(contents
+      ? {
+          platform: contents.settings.platform,
+          feed: contents.settings.feed,
+          likes: contents.settings.likes,
+        }
+      : {}),
+    flow: [
+      { step: "consent", page: consentPage },
+      { step: "account" },
+      { step: "feed" },
+      { step: "exit" },
+    ],
+  });
+
+  const everywhere = <T extends { conditions: string[] }>(items: T[]) =>
+    background ? items.filter(({ conditions }) => conditions.length === 0) : items;
+  const posts = everywhere(contents?.posts ?? []);
+  const keptPosts = new Set(posts.map(({ ref }) => ref));
+  const comments = everywhere(contents?.comments ?? []).filter(({ post }) => keptPosts.has(post));
+  const reactions = everywhere(contents?.reactions ?? []);
+  // Everyone stays, even if limited to a condition, since someone's untargeted post may need them.
+  const actors = (contents?.actors ?? []).map((actor) =>
+    background ? { ...actor, conditions: [] } : actor,
+  );
+
+  return db.transaction(async (tx) => {
+    const [study] = await tx
+      .insert(schema.studies)
+      .values({ teamId, slug })
+      .onConflictDoNothing()
+      .returning({ id: schema.studies.id });
+    if (!study) {
+      return {
+        problem: "in-use" as const,
+        message: `The link name "${slug}" is already used by another study.`,
+      };
+    }
+
+    const [draft] = await tx
+      .insert(schema.studyDrafts)
+      .values({
+        studyId: study.id,
+        settings,
+        pages: { [consentPage]: STARTING_CONSENT },
+        createdBy: researcherId,
+      })
+      .returning({ id: schema.studyDrafts.id });
+    if (!draft) {
+      throw new Error("The draft wasn't created.");
+    }
+
+    const fromPack = (key: string | null): Provenance =>
+      pack
+        ? {
+            origin: "pack",
+            pack: { id: pack.id, name: pack.name },
+            ...(key && contents?.provenance[key] ? { before: contents.provenance[key] } : {}),
+          }
+        : { origin: "researcher" };
+
+    // The same pack draws the same like counts, so studies started from it match.
+    const random = createRandom(
+      Number.parseInt(contents ? hashOf(contents).slice(0, 12) : "0", 16),
+    );
+    const drawLikes = (explicit: number | undefined, distribution: number[] | undefined) =>
+      explicit ?? (distribution ? pickFrom(distribution, random) : 0);
+
+    const actorIds = new Map(actors.map(({ username }) => [username, crypto.randomUUID()]));
+    const postIds = new Map(posts.map(({ ref }) => [ref, crypto.randomUUID()]));
+    const actorId = (username: string) => actorIds.get(username) as string;
+
+    const rows: (typeof schema.draftItems.$inferInsert)[] = [
+      ...actors.map((actor, position) => ({
+        id: actorId(actor.username),
+        draftId: draft.id,
+        kind: "actor",
+        position,
+        provenance: fromPack(null),
+        data: actor,
+      })),
+      ...posts.map(({ actor, likes, ...post }, position) => ({
+        id: postIds.get(post.ref) as string,
+        draftId: draft.id,
+        kind: "post",
+        position,
+        provenance: fromPack(`post:${post.ref}`),
+        data: {
+          ...post,
+          actorId: actorId(actor),
+          likes: drawLikes(likes, settings.likes.posts),
+        },
+      })),
+      ...comments.map(({ actor, post, likes, ...comment }, position) => ({
+        draftId: draft.id,
+        kind: "comment",
+        position,
+        provenance: fromPack(`comment:${comment.ref}`),
+        data: {
+          ...comment,
+          actorId: actorId(actor),
+          postId: postIds.get(post) as string,
+          likes: drawLikes(likes, settings.likes.comments),
+        },
+      })),
+      ...reactions.map(({ actor, ...reaction }, position) => ({
+        draftId: draft.id,
+        kind: "reaction",
+        position,
+        provenance: fromPack(null),
+        data: { ...reaction, actorId: actorId(actor) },
+      })),
+    ];
+    for (let i = 0; i < rows.length; i += INSERT_BATCH_SIZE) {
+      await tx.insert(schema.draftItems).values(rows.slice(i, i + INSERT_BATCH_SIZE));
+    }
+
+    return { studyId: study.id, draftId: draft.id };
+  });
+}

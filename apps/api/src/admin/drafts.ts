@@ -93,7 +93,17 @@ const infoRoute = createRoute({
                 commentBox: z.string(),
               }),
             ),
-            actors: z.array(z.object({ id: z.string(), username: z.string(), name: z.string() })),
+            actors: z.array(
+              z.object({
+                id: z.string(),
+                username: z.string(),
+                name: z.string(),
+                bio: z.string(),
+                location: z.string(),
+                pictureUrl: z.string().nullable(),
+                usedBy: z.number(),
+              }),
+            ),
             posts: z.array(
               z.object({
                 id: z.string(),
@@ -218,6 +228,11 @@ const fieldsSchema = z.strictObject({
   timeMs: z.number().int().optional(),
   likes: z.number().int().nonnegative().optional(),
   conditions: z.array(z.string()).optional(),
+  // For people in the cast.
+  name: z.string().trim().min(1).max(100).optional(),
+  username: z.string().trim().max(30).optional(),
+  bio: z.string().max(500).optional(),
+  location: z.string().max(100).optional(),
 });
 
 const uploadRoute = createRoute({
@@ -252,10 +267,10 @@ const uploadRoute = createRoute({
 const createItemRoute = createRoute({
   method: "post",
   path: "/admin/drafts/{draftId}/items",
-  summary: "Add a post or comment",
+  summary: "Add a post, comment, or person in the cast",
   request: {
     params: draftParams,
-    ...jsonBody(z.object({ kind: z.enum(["post", "comment"]), fields: fieldsSchema })),
+    ...jsonBody(z.object({ kind: z.enum(["post", "comment", "actor"]), fields: fieldsSchema })),
   },
   responses: {
     200: {
@@ -521,7 +536,18 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           .filter((item) => item.kind === "actor")
           .map((item) => {
             const data = item.data as ActorData;
-            return { id: item.id, username: data.username, name: data.name };
+            const usedBy = items.filter(
+              (other) => (other.data as { actorId?: string }).actorId === item.id,
+            ).length;
+            return {
+              id: item.id,
+              username: data.username,
+              name: data.name,
+              bio: data.bio ?? "",
+              location: data.location ?? "",
+              pictureUrl: data.picture ? mediaUrl(data.picture, mediaPublicUrl) : null,
+              usedBy,
+            };
           }),
         posts: items
           .filter((item) => item.kind === "post")

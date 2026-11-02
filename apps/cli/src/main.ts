@@ -1,5 +1,6 @@
 import { hasErrors, type StudyIssue } from "@truman3/core";
 import { createDb, schema } from "@truman3/db";
+import { savePackFromFolder } from "@truman3/drafts";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { exportStudy } from "@truman3/study-export";
 import { convertLegacyStudy, loadStudyFolder } from "@truman3/study-files";
@@ -14,6 +15,7 @@ import {
 const USAGE = `Usage:
   pnpm study validate <study folder>
   pnpm study import <study folder>
+  pnpm study add-pack <study folder> [name] [description]
   pnpm study launch <slug> [version]
   pnpm study stop <slug>
   pnpm study convert <old Truman repo> <new study folder> <slug>
@@ -183,12 +185,42 @@ async function exportData(slug: string, folder: string, flags: string[]) {
   }
 }
 
+/** Adds a study folder to the packs every team on this server can start from. */
+async function addPack(folder: string, name?: string, description?: string): Promise<number> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.error("DATABASE_URL isn't set. Copy .env.example to .env.");
+    return 1;
+  }
+
+  const database = createDb(databaseUrl);
+  const storage = createStorage(storageConfigFromEnv());
+  try {
+    const result = await savePackFromFolder(database.db, storage, folder, { name, description });
+    if (result.status === "failed") {
+      printIssues(result.issues);
+      return 1;
+    }
+    console.log(
+      result.status === "saved"
+        ? `Added the pack "${result.name}".`
+        : `That's already the pack "${result.name}".`,
+    );
+    return 0;
+  } finally {
+    storage.close();
+    await database.close();
+  }
+}
+
 const [command, ...args] = process.argv.slice(2);
 
 if (command === "validate" && args[0]) {
   process.exitCode = validate(args[0]);
 } else if (command === "import" && args[0]) {
   process.exitCode = await importStudy(args[0]);
+} else if (command === "add-pack" && args[0]) {
+  process.exitCode = await addPack(args[0], args[1], args[2]);
 } else if (command === "launch" && args[0]) {
   process.exitCode = await changeLaunch(
     "launch",

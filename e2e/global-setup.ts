@@ -4,6 +4,7 @@ import path from "node:path";
 import { loadEnvFile } from "node:process";
 import { addResearcherToTeam, setUpTeam } from "@truman3/accounts";
 import { createTestDatabase } from "@truman3/db/testing";
+import { savePackFromFolder } from "@truman3/drafts";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { importStudyFolder } from "@truman3/study-import";
 import { ADMIN_PORT, API_PORT, APP_PORT } from "./playwright.config.ts";
@@ -47,6 +48,16 @@ export default async function globalSetup() {
   if (result.status === "failed") {
     throw new Error(result.issues.map((issue) => issue.message).join("\n"));
   }
+  // Available to everyone, like a pack added from the command line.
+  const pack = await savePackFromFolder(
+    database.db,
+    storage,
+    path.join(ROOT, "studies/examples/eatsnap"),
+    { name: "EatSnap pack", description: "A food photo community." },
+  );
+  if (pack.status === "failed") {
+    throw new Error(pack.issues.map((issue) => issue.message).join("\n"));
+  }
   const email = "researcher@example.edu";
   const { password } = await setUpTeam(database.db, {
     teamName: "Test Lab",
@@ -61,10 +72,20 @@ export default async function globalSetup() {
     name: "Second Researcher",
     role: "editor",
   });
+  // A lab of its own, so the studies it starts don't crowd the shared study's page.
+  const otherLabEmail = "other-lab@example.edu";
+  const { password: otherLabPassword } = await setUpTeam(database.db, {
+    teamName: "Other Lab",
+    slug: "other-lab",
+    email: otherLabEmail,
+    name: "Other Researcher",
+  });
   writeFileSync(
     STATE_FILE,
     JSON.stringify({
       databaseUrl: database.url,
+      otherLabEmail,
+      otherLabPassword,
       email,
       password,
       editorEmail,
