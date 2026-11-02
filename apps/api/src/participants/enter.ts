@@ -1,4 +1,4 @@
-import { randomInt } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import {
   armProbability,
   blockedArm,
@@ -141,10 +141,14 @@ export interface EnterRequest {
   now?: Date;
 }
 
-export interface EnterResult {
-  returning: boolean;
-  token: string;
-  expiresAt: Date;
+export type EnterResult =
+  | { status: "signed-in"; returning: boolean; token: string; expiresAt: Date }
+  /** They've finished or withdrawn. Either way, they're out of this study for good. */
+  | { status: "refused" };
+
+/** Matches the hash in the delete_participant_data database function. */
+function exclusionHash(studyId: string, externalId: string): string {
+  return createHash("sha256").update(`${studyId}:${externalId}`).digest("hex");
 }
 
 /**
@@ -159,6 +163,19 @@ export async function enterStudy(db: Database, request: EnterRequest): Promise<E
     const latest = await latestFrozenVersion(tx, request.slug);
     if (!latest) {
       return null;
+    }
+
+    const [excluded] = await tx
+      .select()
+      .from(schema.excludedEntries)
+      .where(
+        and(
+          eq(schema.excludedEntries.studyId, latest.studyId),
+          eq(schema.excludedEntries.idHash, exclusionHash(latest.studyId, request.externalId)),
+        ),
+      );
+    if (excluded) {
+      return { status: "refused" };
     }
 
     const [created] = await tx
@@ -185,6 +202,7 @@ export async function enterStudy(db: Database, request: EnterRequest): Promise<E
       const [existing] = await tx
         .select({
           participantId: schema.participants.id,
+          status: schema.participants.status,
           worldId: schema.worldMemberships.worldId,
           actorId: schema.worldMemberships.actorId,
           version: schema.studyVersions,
@@ -212,6 +230,9 @@ export async function enterStudy(db: Database, request: EnterRequest): Promise<E
         : [];
       if (!existing || !assignment) {
         throw new Error("This participant exists but has no world or assignment.");
+      }
+      if (existing.status !== "active") {
+        return { status: "refused" };
       }
 
       participantId = existing.participantId;
@@ -241,6 +262,6 @@ export async function enterStudy(db: Database, request: EnterRequest): Promise<E
       occurredAt: now,
     });
 
-    return { returning: !created, token, expiresAt };
+    return { status: "signed-in", returning: !created, token, expiresAt };
   });
 }

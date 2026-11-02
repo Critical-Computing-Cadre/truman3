@@ -3,6 +3,7 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import { createDb } from "@truman3/db";
 import { z } from "zod";
 import { createApp } from "./app.ts";
+import { createRateLimiter } from "./rate-limit.ts";
 
 const env = z
   .object({
@@ -16,7 +17,11 @@ const env = z
   .parse(process.env);
 
 const database = createDb(env.DATABASE_URL);
+/** Generous, since many participants can share one address on a campus network. */
+const ENTRY_ATTEMPTS_PER_MINUTE = 120;
+
 const app = createApp({
+  allowEntryAttempt: createRateLimiter({ max: ENTRY_ATTEMPTS_PER_MINUTE, windowMs: 60_000 }),
   pingDatabase: database.ping,
   db: database.db,
   mediaPublicUrl: env.MEDIA_PUBLIC_URL,

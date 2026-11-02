@@ -321,6 +321,104 @@ describe("the signed-in participant", () => {
   });
 });
 
+describe("people who are out of a study", () => {
+  const deleteData = (participantId: string) =>
+    database.db.execute(
+      sql`select delete_participant_data(${participantId}, 'withdrew', 'researcher')`,
+    );
+
+  it("can't re-enter after withdrawing, even though their data is gone", async () => {
+    const slug = uniqueSlug();
+    await importStudy(slug);
+    const id = `withdrew-${slug}`;
+    await enter(slug, id);
+    await deleteData((await stored(id)).participant.id);
+
+    const response = await enter(slug, id);
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "This account is no longer active." });
+    expect(response.headers.get("set-cookie")).toBeNull();
+    const rows = await database.db
+      .select()
+      .from(schema.participants)
+      .where(eq(schema.participants.externalId, id));
+    expect(rows).toEqual([]);
+  });
+
+  it("can join a different study after withdrawing from one", async () => {
+    const first = uniqueSlug();
+    const second = uniqueSlug();
+    await importStudy(first);
+    await importStudy(second);
+    const id = `moved-on-${first}`;
+    await enter(first, id);
+    await deleteData((await stored(id)).participant.id);
+
+    expect((await enter(first, id)).status).toBe(403);
+    expect((await enter(second, id)).status).toBe(200);
+  });
+
+  it("keeps only an unreadable hash, with nothing linking it to the deleted data", async () => {
+    const slug = uniqueSlug();
+    await importStudy(slug);
+    const id = `hashed-${slug}`;
+    await enter(slug, id);
+    await deleteData((await stored(id)).participant.id);
+
+    const rows = await database.db.select().from(schema.excludedEntries);
+    expect(JSON.stringify(rows)).not.toContain(id);
+    expect(Object.keys(rows[0]!).sort()).toEqual(["idHash", "studyId"]);
+  });
+
+  it("can't return after finishing, and loses any open session", async () => {
+    const slug = uniqueSlug();
+    await importStudy(slug);
+    const id = `finished-${slug}`;
+    const cookie = sessionCookie(await enter(slug, id));
+    const before = await stored(id);
+
+    await database.db
+      .update(schema.participants)
+      .set({ status: "completed" })
+      .where(eq(schema.participants.id, before.participant.id));
+
+    expect((await app.request("/me", { headers: { cookie } })).status).toBe(401);
+    expect((await enter(slug, id)).status).toBe(403);
+    expect((await stored(id)).events).toEqual(before.events);
+  });
+});
+
+describe("too many entry attempts", () => {
+  it("get slowed down, without storing the address", async () => {
+    const slug = uniqueSlug();
+    await importStudy(slug);
+    let attempts = 0;
+    const limited = createApp({
+      pingDatabase: database.ping,
+      db: database.db,
+      mediaPublicUrl: "http://media.test",
+      getClientIp: () => "203.0.113.50",
+      secureCookies: true,
+      allowEntryAttempt: () => {
+        attempts += 1;
+        return attempts <= 1;
+      },
+    });
+    const attempt = (externalId: string) =>
+      limited.request(`/studies/${slug}/enter`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ externalId }),
+      });
+    const id = `limited-${slug}`;
+
+    expect((await attempt(id)).status).toBe(200);
+    expect((await attempt(`${id}-2`)).status).toBe(429);
+    expect(JSON.stringify((await stored(id)).events)).not.toContain("203.0.113.50");
+  });
+});
+
 describe("condition assignment", () => {
   it("balances blocks exactly, even when many people enroll at once", async () => {
     const slug = uniqueSlug();

@@ -53,8 +53,16 @@ const enterRoute = createRoute({
       description: "Signed in. A session cookie is set",
       content: { "application/json": { schema: z.object({ returning: z.boolean() }) } },
     },
+    403: {
+      description: "They've finished or withdrawn, and can't enter again",
+      content: { "application/json": { schema: errorSchema } },
+    },
     404: {
       description: "No such study",
+      content: { "application/json": { schema: errorSchema } },
+    },
+    429: {
+      description: "Too many attempts",
       content: { "application/json": { schema: errorSchema } },
     },
   },
@@ -89,6 +97,8 @@ export interface ParticipantRouteDependencies {
   getClientIp: (c: Context) => string | undefined;
   /** Whether cookies require HTTPS. True everywhere except local development. */
   secureCookies: boolean;
+  /** Decides whether an address may try entering right now. Leave out for no limit. */
+  allowEntryAttempt?: (ipAddress: string) => boolean;
 }
 
 /** A stored media key becomes a URL. Hosted media is already a full URL. */
@@ -97,7 +107,7 @@ function mediaUrl(key: string, publicUrl: string): string {
 }
 
 export function createParticipantRoutes(dependencies: ParticipantRouteDependencies) {
-  const { db, mediaPublicUrl, getClientIp, secureCookies } = dependencies;
+  const { db, mediaPublicUrl, getClientIp, secureCookies, allowEntryAttempt } = dependencies;
   const app = new OpenAPIHono();
 
   // The same message for every unknown study, and it doesn't use the word "study" for participants.
@@ -122,6 +132,10 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
   });
 
   app.openapi(enterRoute, async (c) => {
+    if (allowEntryAttempt && !allowEntryAttempt(getClientIp(c) ?? "unknown")) {
+      return c.json({ error: "Too many attempts. Please wait a minute and try again." }, 429);
+    }
+
     const result = await enterStudy(db, {
       slug: c.req.valid("param").slug,
       externalId: c.req.valid("json").externalId,
@@ -130,6 +144,10 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
     });
     if (!result) {
       return c.json(notFound, 404);
+    }
+
+    if (result.status === "refused") {
+      return c.json({ error: "This account is no longer active." }, 403);
     }
 
     setCookie(c, SESSION_COOKIE, result.token, {

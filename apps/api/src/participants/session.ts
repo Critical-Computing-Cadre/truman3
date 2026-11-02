@@ -24,7 +24,7 @@ export interface ParticipantContext {
   worldStartedAt: Date;
 }
 
-/** Finds who a session token belongs to. Returns null if it's unknown or expired. */
+/** Finds who a session token belongs to. Returns null if it's unknown, expired, or they're out. */
 export async function loadParticipantContext(
   db: Database,
   token: string,
@@ -47,10 +47,12 @@ export async function loadParticipantContext(
       ),
     )
     .innerJoin(schema.worlds, eq(schema.worlds.id, schema.worldMemberships.worldId))
+    .innerJoin(schema.participants, eq(schema.participants.id, schema.sessions.participantId))
     .where(
       and(
         eq(schema.sessions.tokenHash, hashSessionToken(token)),
         gt(schema.sessions.expiresAt, now),
+        eq(schema.participants.status, "active"),
       ),
     )
     .limit(1);

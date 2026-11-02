@@ -346,6 +346,22 @@ export const sessions = pgTable(
   (table) => [index("sessions_participant").on(table.participantId)],
 );
 
+/**
+ * Recruitment IDs that can't enter a study again, because that person withdrew. Stores a hash, per
+ * study, so it can't be read back, doesn't link to the deleted data, and doesn't connect a person
+ * across studies. They can still join a different study.
+ */
+export const excludedEntries = pgTable(
+  "excluded_entries",
+  {
+    studyId: uuid("study_id")
+      .notNull()
+      .references(() => studies.id),
+    idHash: text("id_hash").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.studyId, table.idHash] })],
+);
+
 /** A record that a participant's data was deleted. Holds no data about what was deleted. */
 export const dataDeletions = pgTable("data_deletions", {
   id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
