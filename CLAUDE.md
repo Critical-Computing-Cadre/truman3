@@ -17,6 +17,7 @@ pnpm db:generate        # create a migration after changing packages/db/src/sche
 pnpm build
 pnpm study validate <folder>   # check a study; see also: pnpm study convert
 pnpm study import <folder>     # save it as a frozen version
+pnpm study launch <slug> [n]   # open it to participants; pnpm study stop closes it
 pnpm study export <slug> <folder>   # write CSVs and a codebook
 pnpm study withdraw <slug> <id> <your name> [reason]   # delete a participant's data
 pnpm admin setup <team name> <team slug> <email> <name>   # create a team and its first researcher

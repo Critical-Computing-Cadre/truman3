@@ -12,6 +12,8 @@ const { databaseUrl, email, password } = JSON.parse(readFileSync(STATE_FILE, "ut
   password: string;
 };
 const ADMIN = `http://localhost:${ADMIN_PORT}`;
+const PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==";
 const database = createDb(databaseUrl);
 
 test.afterAll(async () => {
@@ -26,9 +28,10 @@ async function signIn(page: Page) {
   await expect(page.getByRole("heading", { name: "Studies" })).toBeVisible();
 }
 
-test("a researcher edits in the feed, saves a version, and a new participant sees it", async ({
+test("a researcher edits in the feed, saves, tries it, launches, and a new participant sees it", async ({
   page,
   context,
+  browser,
 }, testInfo) => {
   // This changes the one shared study, so it only runs once, on one screen size.
   test.skip(testInfo.project.name !== "desktop", "Runs once.");
@@ -72,7 +75,35 @@ test("a researcher edits in the feed, saves a version, and a new participant see
   await added.getByLabel("Text of this post").blur();
   await expect(feed.getByText(addedText)).toBeVisible();
 
+  // Drop a photo onto the new post, the way a person would drag one in.
+  const photoPost = feed.locator("article").filter({ hasText: addedText });
+  await expect(photoPost.getByText("Drop a photo here")).toBeVisible();
+  const dataTransfer = await page.evaluateHandle((base64) => {
+    const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([bytes], "my photo with any name.png", { type: "image/png" }));
+    return transfer;
+  }, PNG_BASE64);
+  await photoPost.getByTestId("image-drop").dispatchEvent("drop", { dataTransfer });
+  await expect(photoPost.getByTestId("image-drop").locator("img")).toHaveCount(1);
+  await expect(photoPost.getByTestId("image-drop").locator("img")).toHaveJSProperty(
+    "naturalWidth",
+    1,
+  );
+
   await page.screenshot({ path: testInfo.outputPath("editing.png") });
+
+  // Something that isn't an image gets refused, and says why.
+  await photoPost.getByLabel("Choose a photo").setInputFiles({
+    name: "notes.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("not really a picture"),
+  });
+  await expect(photoPost.getByRole("alert")).toContainText("can't be used");
+  await expect(photoPost.getByTestId("image-drop").locator("img")).toHaveJSProperty(
+    "naturalWidth",
+    1,
+  );
 
   // Limit the new post to one condition, and see it leave the others.
   const conditions = await page
@@ -97,27 +128,73 @@ test("a researcher edits in the feed, saves a version, and a new participant see
   await third.getByRole("button", { name: "Delete this post" }).click();
   await expect(feed.getByText(thirdText ?? "")).toHaveCount(0);
 
-  // Saving warns what it means.
+  // Saving says that participants won't see it yet.
   await page.getByRole("button", { name: "Save as new version" }).click();
-  await expect(page.getByText(/New participants will start getting this version/)).toBeVisible();
+  await expect(page.getByText(/Participants won't see it yet/)).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("saving.png") });
-  await page.getByRole("button", { name: "Save and use it" }).click();
+  await page.getByRole("button", { name: "Save version" }).click();
   await expect(page.getByRole("heading", { name: "Studies" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /See the feed: version 2/ })).toBeVisible();
+
+  const v2 = page.getByRole("listitem", { name: "Version 2" });
+  const v1 = page.getByRole("listitem", { name: "Version 1" });
+  await expect(v2).toBeVisible();
+  await expect(v1.getByText("Live")).toBeVisible();
+  await expect(v2.getByText("Live")).toHaveCount(0);
+
+  const baseURL = testInfo.project.use.baseURL as string;
+  const join = async (target: Page, id: string, username: string) => {
+    await target.goto(`${baseURL}/join/eatsnap?PROLIFIC_PID=${id}-${Date.now()}`);
+    await target.getByRole("button", { name: "I agree" }).click();
+    await target.getByLabel("Username").fill(`${username}_${Date.now() % 100000}`);
+    await target.getByLabel("Name", { exact: true }).fill(username);
+    await target.getByRole("button", { name: "Save and continue" }).click();
+    await target.getByRole("button", { name: "Continue" }).click();
+    await target.locator("article").first().waitFor();
+  };
+
+  // A new participant still gets the old version, because this one hasn't launched.
+  const beforeContext = await browser.newContext();
+  const beforeLaunch = await beforeContext.newPage();
+  await join(beforeLaunch, "BEFORE", "before");
+  expect(await beforeLaunch.getByText(newText).count()).toBe(0);
+  await beforeContext.close();
+
+  // The researcher can try the saved version as a test participant first.
+  await v2.getByRole("button", { name: "Try as a participant" }).click();
+  const [pilot] = await Promise.all([
+    context.waitForEvent("page"),
+    v2.getByRole("link", { name: "Open as a test participant" }).click(),
+  ]);
+  await pilot.getByRole("button", { name: "I agree" }).click();
+  await pilot.getByLabel("Username").fill(`pilot_${Date.now() % 100000}`);
+  await pilot.getByLabel("Name", { exact: true }).fill("Pilot");
+  await pilot.getByRole("button", { name: "Save and continue" }).click();
+  await pilot.getByRole("button", { name: "Continue" }).click();
+  await expect(pilot.getByText(newText)).toBeVisible();
+  // The test participant is in the condition the new post is limited to, so the photo must load.
+  await expect(
+    pilot.locator("article").filter({ hasText: addedText }).locator("img.w-full"),
+  ).toHaveJSProperty("naturalWidth", 1);
+  await pilot.close();
+
+  // Launching warns, then makes it live.
+  await page.screenshot({ path: testInfo.outputPath("studies.png") });
+  await v2.getByRole("button", { name: "Launch" }).click();
+  await expect(page.getByText(/New participants will get this version/)).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("launching.png") });
+  await page.getByRole("button", { name: "Launch it" }).click();
+  await expect(v2.getByText("Live")).toBeVisible();
+  await expect(v1.getByText("Live")).toHaveCount(0);
   expect(problems).toEqual([]);
 
-  // A new participant gets it, through the real participant app.
-  const participant = await context.newPage();
-  const baseURL = testInfo.project.use.baseURL as string;
-  await participant.goto(`${baseURL}/join/eatsnap?PROLIFIC_PID=AFTER-EDIT-${Date.now()}`);
-  await participant.getByRole("button", { name: "I agree" }).click();
-  await participant.getByLabel("Username").fill(`after_${Date.now() % 100000}`);
-  await participant.getByLabel("Name", { exact: true }).fill("After Edit");
-  await participant.getByRole("button", { name: "Save and continue" }).click();
-  await participant.getByRole("button", { name: "Continue" }).click();
+  // Now a new participant gets it, through the real participant app.
+  const afterContext = await browser.newContext();
+  const participant = await afterContext.newPage();
+  await join(participant, "AFTER", "after");
   await expect(participant.getByText(newText)).toBeVisible();
   await expect(participant.getByText("A comment added here")).toBeVisible();
   await expect(participant.getByText(thirdText ?? "")).toHaveCount(0);
+  await afterContext.close();
 
   // What was edited is recorded as such.
   const rows = await database.db

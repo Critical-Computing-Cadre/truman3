@@ -12,6 +12,7 @@ import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
 import { loadStudyFolder, MEDIA_FOLDERS } from "@truman3/study-files";
 import { and, desc, eq } from "drizzle-orm";
+import { launchVersion } from "./launch.ts";
 
 const UPLOAD_CONCURRENCY = 16;
 const INSERT_BATCH_SIZE = 500;
@@ -133,7 +134,8 @@ async function storeMedia(
 }
 
 /**
- * Validates a study folder, stores its media, and saves it as a new frozen version. Importing the
+ * Validates a study folder, stores its media, and saves it as a new frozen version. That doesn't
+ * open it to participants: launching is a separate step, unless asked for here. Importing the
  * same content again changes nothing. Everything goes in one transaction, so a failure can't leave
  * half a study behind.
  */
@@ -141,7 +143,7 @@ export async function importStudyFolder(
   db: Database,
   storage: Storage,
   folder: string,
-  { teamId }: { teamId?: string | undefined } = {},
+  { teamId, launch = false }: { teamId?: string | undefined; launch?: boolean } = {},
 ): Promise<ImportResult> {
   const { definition: study, issues } = loadStudyFolder(folder);
   if (!study || hasErrors(issues)) {
@@ -149,7 +151,15 @@ export async function importStudyFolder(
   }
 
   const { keys: mediaKeys, uploaded: mediaUploaded } = await storeMedia(study, folder, storage);
-  return freezeStudy(db, study, mediaKeys, issues, mediaUploaded, { teamId });
+  const result = await freezeStudy(db, study, mediaKeys, issues, mediaUploaded, { teamId });
+  if (launch && result.status !== "failed") {
+    const [row] = await db
+      .select({ id: schema.studies.id })
+      .from(schema.studies)
+      .where(eq(schema.studies.slug, study.settings.slug));
+    await launchVersion(db, row?.id as string, result.studyVersionId, "import");
+  }
+  return result;
 }
 
 export interface FreezeOptions {

@@ -66,7 +66,7 @@ flow: [{ step: feed }]
     mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
     writeFileSync(path.join(dir, name), text);
   }
-  const imported = await importStudyFolder(database.db, storage, dir, { teamId });
+  const imported = await importStudyFolder(database.db, storage, dir, { teamId, launch: true });
   if (imported.status === "failed") {
     throw new Error(imported.issues.map((issue) => issue.message).join("\n"));
   }
@@ -135,8 +135,20 @@ async function participantFeed(cookie: string) {
   return ((await response.json()) as FeedResponse).posts;
 }
 
+/** Saving doesn't change what anyone gets. Launching does. */
+async function saveAndLaunch(team: Lab, draftId: string) {
+  const saved = await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+  expect(saved.status).toBe(200);
+  const [version] = await database.db
+    .select({ id: schema.studyDrafts.frozenVersionId })
+    .from(schema.studyDrafts)
+    .where(eq(schema.studyDrafts.id, draftId));
+  await call(team.cookie, "POST", `/admin/versions/${version?.id}/launch`);
+}
+
 beforeAll(async () => {
   database = await createTestDatabase();
+  await storage.ensureBucket();
   app = createApp({
     pingDatabase: database.ping,
     db: database.db,
@@ -400,7 +412,7 @@ describe("adding and removing", () => {
 });
 
 describe("saving a new version", () => {
-  it("makes a new version, which new participants get, and earlier ones don't", async () => {
+  it("makes a new version that participants don't get until it's launched", async () => {
     const team = await lab();
     const earlier = await enterAsParticipant(team.slug);
     const { draftId } = await open(team);
@@ -410,9 +422,17 @@ describe("saving a new version", () => {
     const response = await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
 
     expect(await response.json()).toEqual({ status: "frozen", version: 2 });
+    const before = await enterAsParticipant(team.slug);
+    expect((await participantFeed(before)).map((item) => item.body)).toContain("original text");
 
-    const later = await enterAsParticipant(team.slug);
-    expect((await participantFeed(later)).map((item) => item.body)).toContain("edited for v2");
+    const [draft] = await database.db
+      .select({ versionId: schema.studyDrafts.frozenVersionId })
+      .from(schema.studyDrafts)
+      .where(eq(schema.studyDrafts.id, draftId));
+    await call(team.cookie, "POST", `/admin/versions/${draft?.versionId}/launch`);
+
+    const after = await enterAsParticipant(team.slug);
+    expect((await participantFeed(after)).map((item) => item.body)).toContain("edited for v2");
     expect((await participantFeed(earlier)).map((item) => item.body)).toContain("original text");
   });
 
@@ -422,7 +442,7 @@ describe("saving a new version", () => {
     const post = findPost((await preview(team, draftId)).posts, "original text");
     await edit(team, draftId, post.id, { body: "edited" });
 
-    await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+    await saveAndLaunch(team, draftId);
 
     const participant = await enterAsParticipant(team.slug);
     const shown = findPost(await participantFeed(participant), "edited");
@@ -578,13 +598,126 @@ describe("who can edit", () => {
   });
 });
 
+describe("images", () => {
+  const PNG = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==",
+    "base64",
+  );
+
+  const uploadFile = (team: Lab, draftId: string, file: File, cookie = team.cookie) => {
+    const form = new FormData();
+    form.append("image", file);
+    return app.request(`/admin/drafts/${draftId}/images`, {
+      method: "POST",
+      headers: { cookie },
+      body: form,
+    });
+  };
+
+  const photo = () => new File([PNG], "anything at all.png", { type: "image/png" });
+
+  it("adds an uploaded photo to a post, and it reaches participants", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    // This post is in every condition, so whoever enters next will see it.
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    const response = await uploadFile(team, draftId, photo());
+    const { picture, url } = (await response.json()) as { picture: string; url: string };
+    await edit(team, draftId, post.id, { picture });
+
+    expect(picture).toMatch(/^media\/[0-9a-f]{64}\.png$/);
+    expect(findPost((await preview(team, draftId)).posts, "original text").imageUrl).toBe(url);
+
+    await saveAndLaunch(team, draftId);
+    const shown = await participantFeed(await enterAsParticipant(team.slug));
+    expect(findPost(shown, "original text").imageUrl).toBe(url);
+
+    const fetched = await fetch(`${process.env.MEDIA_PUBLIC_URL}/${picture}`);
+    expect(fetched.status).toBe(200);
+    expect(Buffer.from(await fetched.arrayBuffer())).toEqual(PNG);
+  });
+
+  it("ignores the file's name, so names can't go wrong", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+
+    const first = await uploadFile(team, draftId, new File([PNG], "a.png"));
+    const second = await uploadFile(team, draftId, new File([PNG], "completely different.png"));
+
+    expect(await first.json()).toEqual(await second.json());
+  });
+
+  it("replaces and removes a photo", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+    expect(post.imageUrl).toContain("photo.jpg");
+
+    const { picture } = (await (await uploadFile(team, draftId, photo())).json()) as {
+      picture: string;
+    };
+    await edit(team, draftId, post.id, { picture });
+    expect(findPost((await preview(team, draftId)).posts, "original text").imageUrl).toContain(
+      picture,
+    );
+
+    await edit(team, draftId, post.id, { picture: null });
+    expect(findPost((await preview(team, draftId)).posts, "original text").imageUrl).toBeNull();
+  });
+
+  it("refuses what isn't an image, whatever it's called", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+
+    const fake = new File(["<script>alert(1)</script>"], "photo.png", { type: "image/png" });
+    const svg = new File(["<svg xmlns='http://www.w3.org/2000/svg'/>"], "photo.svg");
+
+    expect((await uploadFile(team, draftId, fake)).status).toBe(400);
+    expect((await uploadFile(team, draftId, svg)).status).toBe(400);
+  });
+
+  it("won't let a post point at anything but an uploaded image", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    for (const picture of [
+      "typo.jpg",
+      "https://example.com/x.jpg",
+      "uploads/someone/private.jpg",
+    ]) {
+      expect((await edit(team, draftId, post.id, { picture })).status).toBe(400);
+    }
+  });
+
+  it("isn't open to viewers or other teams", async () => {
+    const team = await lab();
+    const other = await lab();
+    const { draftId } = await open(team);
+
+    expect((await uploadFile(team, draftId, photo(), other.cookie)).status).toBe(404);
+    expect((await uploadFile(team, draftId, photo(), "")).status).toBe(401);
+
+    const email = `viewer2-${team.id}@example.edu`;
+    const added = await addResearcherToTeam(database.db, {
+      teamSlug: team.teamSlug,
+      email,
+      name: "Viewer",
+      role: "viewer",
+    });
+    const viewer = await signIn(email, (added as { password: string }).password);
+    expect((await uploadFile(team, draftId, photo(), viewer)).status).toBe(403);
+  });
+});
+
 describe("what participants can't see", () => {
   it("doesn't send provenance or draft details to participants", async () => {
     const team = await lab();
     const { draftId } = await open(team);
     const post = findPost((await preview(team, draftId)).posts, "original text");
     await edit(team, draftId, post.id, { body: "edited" });
-    await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+    await saveAndLaunch(team, draftId);
 
     const participant = await enterAsParticipant(team.slug);
     const text = await (await app.request("/feed", { headers: { cookie: participant } })).text();

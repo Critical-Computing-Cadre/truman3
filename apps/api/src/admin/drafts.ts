@@ -18,7 +18,8 @@ import {
 } from "@truman3/drafts";
 import { feedSettingsFor } from "@truman3/feed";
 import { eq } from "drizzle-orm";
-import type { FeedActor, FeedContent } from "../feed/build.ts";
+import { MAX_IMAGE_BYTES, storeStudyImage } from "../actions/images.ts";
+import { type FeedActor, type FeedContent, mediaUrl } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { previewContent } from "./preview.ts";
 import { researcherFromRequest } from "./session.ts";
@@ -131,13 +132,47 @@ const previewRoute = createRoute({
   },
 });
 
+/** Only images uploaded through the route below, so a post can't point at anything else. */
+const STORED_IMAGE = /^media\/[0-9a-f]{64}\.(jpg|png|gif|webp)$/;
+
 const fieldsSchema = z.strictObject({
   body: z.string().max(5000).optional(),
+  /** Null removes the image. */
+  picture: z.string().regex(STORED_IMAGE).nullable().optional(),
   actorId: z.uuid().optional(),
   postId: z.uuid().optional(),
   timeMs: z.number().int().optional(),
   likes: z.number().int().nonnegative().optional(),
   conditions: z.array(z.string()).optional(),
+});
+
+const uploadRoute = createRoute({
+  method: "post",
+  path: "/admin/drafts/{draftId}/images",
+  summary: "Upload an image to use in this draft",
+  request: {
+    params: draftParams,
+    body: {
+      required: true,
+      content: {
+        "multipart/form-data": {
+          schema: z.object({
+            image: z.instanceof(File).openapi({ type: "string", format: "binary" }),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Stored. Set it as a post's picture to use it",
+      content: {
+        "application/json": { schema: z.object({ picture: z.string(), url: z.string() }) },
+      },
+    },
+    400: errorResponse("It isn't a usable image"),
+    ...commonErrors,
+  },
 });
 
 const createItemRoute = createRoute({
@@ -235,7 +270,7 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
     });
 }
 
-export function createDraftRoutes({ db, mediaPublicUrl }: ParticipantRouteDependencies) {
+export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const pleaseSignIn = { error: "Please sign in." };
   const notAvailable = { error: "This isn't available." };
@@ -384,6 +419,26 @@ export function createDraftRoutes({ db, mediaPublicUrl }: ParticipantRouteDepend
     }
 
     return c.json({ ...preview, items: details }, 200);
+  });
+
+  app.openapi(uploadRoute, async (c) => {
+    const { draftId } = c.req.valid("param");
+    const editing = await forEditing(c, draftId);
+    if ("failure" in editing) {
+      const [body, status] = editing.failure;
+      return c.json(body, status);
+    }
+
+    const picture = await storeStudyImage(storage, c.req.valid("form").image);
+    if (!picture) {
+      return c.json(
+        {
+          error: `That can't be used. Use a JPEG, PNG, GIF, or WebP under ${MAX_IMAGE_BYTES / 1024 / 1024} MB.`,
+        },
+        400,
+      );
+    }
+    return c.json({ picture, url: mediaUrl(picture, mediaPublicUrl) }, 200);
   });
 
   const stripUndefined = (fields: z.infer<typeof fieldsSchema>) =>

@@ -1,4 +1,4 @@
-import { createHash, randomInt } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 import {
   armProbability,
   blockedArm,
@@ -7,7 +7,7 @@ import {
   studySettingsSchema,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
-import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { DeviceSummary } from "./device.ts";
 import { hashSessionToken, newSessionToken } from "./session.ts";
 
@@ -19,26 +19,49 @@ const RANDOM_RANGE = 2 ** 32;
 
 type VersionRow = typeof schema.studyVersions.$inferSelect;
 
-/** The newest frozen version of a study, which is what new participants get. */
-export async function latestFrozenVersion(
-  db: Database | Transaction,
-  slug: string,
-): Promise<{ studyId: string; version: VersionRow; settings: StudySettings } | null> {
-  const [row] = await db
-    .select({ version: schema.studyVersions, studyId: schema.studies.id })
+/** A study, and the version new participants get, if it's open to them. */
+export async function findStudyEntry(db: Database | Transaction, slug: string) {
+  const [study] = await db.select().from(schema.studies).where(eq(schema.studies.slug, slug));
+  if (!study) {
+    return null;
+  }
+  if (!study.liveVersionId) {
+    return { studyId: study.id, live: null };
+  }
+  const [version] = await db
+    .select()
     .from(schema.studyVersions)
-    .innerJoin(schema.studies, eq(schema.studies.id, schema.studyVersions.studyId))
-    .where(and(eq(schema.studies.slug, slug), isNotNull(schema.studyVersions.frozenAt)))
-    .orderBy(desc(schema.studyVersions.version))
-    .limit(1);
+    .where(eq(schema.studyVersions.id, study.liveVersionId));
+  if (!version) {
+    return { studyId: study.id, live: null };
+  }
+  return {
+    studyId: study.id,
+    live: { version, settings: studySettingsSchema.parse(version.settings) },
+  };
+}
 
-  return row
-    ? {
-        studyId: row.studyId,
-        version: row.version,
-        settings: studySettingsSchema.parse(row.version.settings),
-      }
-    : null;
+/**
+ * What an entry page shows. When a study has closed to new people, those already in it still need a
+ * way back, so this falls back to the version it last had open. A study that's never been open has
+ * nothing to show.
+ */
+export async function entrySettings(db: Database, slug: string): Promise<StudySettings | null> {
+  const entry = await findStudyEntry(db, slug);
+  if (!entry) {
+    return null;
+  }
+  if (entry.live) {
+    return entry.live.settings;
+  }
+  const [last] = await db
+    .select({ settings: schema.studyVersions.settings })
+    .from(schema.studyLaunches)
+    .innerJoin(schema.studyVersions, eq(schema.studyVersions.id, schema.studyLaunches.versionId))
+    .where(eq(schema.studyLaunches.studyId, entry.studyId))
+    .orderBy(desc(schema.studyLaunches.id))
+    .limit(1);
+  return last ? studySettingsSchema.parse(last.settings) : null;
 }
 
 async function assignCondition(
@@ -93,15 +116,8 @@ async function assignCondition(
   return condition;
 }
 
-/** Everything a new participant needs: a condition, their own world, and an actor to act as. */
-async function enroll(
-  tx: Transaction,
-  version: VersionRow,
-  settings: StudySettings,
-  participantId: string,
-) {
-  const condition = await assignCondition(tx, version, settings, participantId);
-
+/** A new participant's own world, and an actor to act as. */
+async function createWorld(tx: Transaction, version: VersionRow, participantId: string) {
   const [world] = await tx
     .insert(schema.worlds)
     .values({ studyVersionId: version.id, seed: randomInt(MAX_SEED) })
@@ -129,7 +145,83 @@ async function enroll(
     .insert(schema.worldMemberships)
     .values({ worldId: world.id, participantId, actorId: actor.id });
 
-  return { worldId: world.id, actorId: actor.id, conditionId: condition.id };
+  return { worldId: world.id, actorId: actor.id };
+}
+
+/** Everything a new participant needs: a condition, their own world, and an actor to act as. */
+async function enroll(
+  tx: Transaction,
+  version: VersionRow,
+  settings: StudySettings,
+  participantId: string,
+) {
+  const condition = await assignCondition(tx, version, settings, participantId);
+  return { ...(await createWorld(tx, version, participantId)), conditionId: condition.id };
+}
+
+/**
+ * Starts a test participant for a researcher, in a condition they choose, on any version. It goes
+ * around assignment, so it doesn't use up a block position, and it's kept out of exports.
+ */
+export async function startPilot(db: Database, versionId: string, conditionKey: string) {
+  return db.transaction(async (tx) => {
+    const [version] = await tx
+      .select()
+      .from(schema.studyVersions)
+      .where(eq(schema.studyVersions.id, versionId));
+    const [condition] = await tx
+      .select()
+      .from(schema.conditions)
+      .where(
+        and(
+          eq(schema.conditions.studyVersionId, versionId),
+          eq(schema.conditions.key, conditionKey),
+        ),
+      );
+    if (!version || !condition) {
+      return null;
+    }
+
+    const [participant] = await tx
+      .insert(schema.participants)
+      .values({
+        studyId: version.studyId,
+        externalId: `pilot-${randomUUID()}`,
+        source: "pilot",
+        isPilot: true,
+      })
+      .returning();
+    const participantId = participant?.id as string;
+
+    await tx.insert(schema.assignments).values({
+      participantId,
+      studyVersionId: version.id,
+      conditionId: condition.id,
+      method: "pilot",
+      probability: 1,
+    });
+    const place = await createWorld(tx, version, participantId);
+
+    const settings = studySettingsSchema.parse(version.settings);
+    const token = newSessionToken();
+    await tx.insert(schema.sessions).values({
+      tokenHash: hashSessionToken(token),
+      participantId,
+      expiresAt: new Date(Date.now() + (settings.length.days + SESSION_GRACE_DAYS) * DAY_MS),
+    });
+    await recordEvent(tx, {
+      type: "session.started",
+      payload: { device: "unknown", browser: "pilot" },
+      worldId: place.worldId,
+      studyVersionId: version.id,
+      participantId,
+      conditionId: condition.id,
+      actorId: place.actorId,
+      source: "researcher",
+      occurredAt: new Date(),
+    });
+    return { token };
+  });
 }
 
 export interface EnterRequest {
@@ -144,7 +236,9 @@ export interface EnterRequest {
 export type EnterResult =
   | { status: "signed-in"; returning: boolean; token: string; expiresAt: Date }
   /** They've finished or withdrawn. Either way, they're out of this study for good. */
-  | { status: "refused" };
+  | { status: "refused" }
+  /** The study isn't taking new participants right now. */
+  | { status: "closed" };
 
 /** Matches the hash in the delete_participant_data database function. */
 function exclusionHash(studyId: string, externalId: string): string {
@@ -153,50 +247,53 @@ function exclusionHash(studyId: string, externalId: string): string {
 
 /**
  * Enrolls someone the first time they enter with an ID, and signs them back in after that (ADR 9).
- * Returns null if there's no such study. People who've already started stay on their version, even
- * if a newer one has been imported.
+ * Returns null if there's no such study. New people get the launched version. People who've already
+ * started stay on theirs, whatever gets launched later, and can return even if the study has closed.
  */
 export async function enterStudy(db: Database, request: EnterRequest): Promise<EnterResult | null> {
   const now = request.now ?? new Date();
 
   return db.transaction(async (tx) => {
-    const latest = await latestFrozenVersion(tx, request.slug);
-    if (!latest) {
+    const entry = await findStudyEntry(tx, request.slug);
+    if (!entry) {
       return null;
     }
+    const { studyId, live } = entry;
 
     const [excluded] = await tx
       .select()
       .from(schema.excludedEntries)
       .where(
         and(
-          eq(schema.excludedEntries.studyId, latest.studyId),
-          eq(schema.excludedEntries.idHash, exclusionHash(latest.studyId, request.externalId)),
+          eq(schema.excludedEntries.studyId, studyId),
+          eq(schema.excludedEntries.idHash, exclusionHash(studyId, request.externalId)),
         ),
       );
     if (excluded) {
       return { status: "refused" };
     }
 
-    const [created] = await tx
-      .insert(schema.participants)
-      .values({
-        studyId: latest.studyId,
-        externalId: request.externalId,
-        source: latest.settings.entry.source,
-      })
-      .onConflictDoNothing()
-      .returning();
+    const [created] = live
+      ? await tx
+          .insert(schema.participants)
+          .values({
+            studyId,
+            externalId: request.externalId,
+            source: live.settings.entry.source,
+          })
+          .onConflictDoNothing()
+          .returning()
+      : [];
 
     let participantId: string;
     let version: VersionRow;
     let settings: StudySettings;
     let place: { worldId: string; actorId: string; conditionId: string };
 
-    if (created) {
+    if (created && live) {
       participantId = created.id;
-      version = latest.version;
-      settings = latest.settings;
+      version = live.version;
+      settings = live.settings;
       place = await enroll(tx, version, settings, participantId);
     } else {
       const [existing] = await tx
@@ -216,10 +313,13 @@ export async function enterStudy(db: Database, request: EnterRequest): Promise<E
         .innerJoin(schema.studyVersions, eq(schema.studyVersions.id, schema.worlds.studyVersionId))
         .where(
           and(
-            eq(schema.participants.studyId, latest.studyId),
+            eq(schema.participants.studyId, studyId),
             eq(schema.participants.externalId, request.externalId),
           ),
         );
+      if (!existing && !live) {
+        return { status: "closed" };
+      }
       const [assignment] = existing
         ? await tx
             .select({ conditionId: schema.assignments.conditionId })

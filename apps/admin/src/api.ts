@@ -34,6 +34,10 @@ export async function send<T>(method: string, path: string, body?: object): Prom
   );
 }
 
+export async function upload<T>(path: string, form: FormData): Promise<T> {
+  return parse<T>(await fetch(`/api${path}`, { method: "POST", body: form }));
+}
+
 export async function post<T>(path: string, body: object = {}): Promise<T> {
   return parse<T>(
     await fetch(`/api${path}`, {
@@ -56,8 +60,16 @@ export interface StudySummary {
   team: string;
   participants: number;
   role: string;
+  liveVersionId: string | null;
   openDraftId: string | null;
-  versions: { id: string; version: number; title: string; frozenAt: string | null }[];
+  versions: {
+    id: string;
+    version: number;
+    title: string;
+    frozenAt: string | null;
+    participants: number;
+    conditions: string[];
+  }[];
 }
 
 export interface PreviewInfo {

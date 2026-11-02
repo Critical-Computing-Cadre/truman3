@@ -79,6 +79,8 @@ export const studies = pgTable("studies", {
   /** Empty only for studies imported before any team exists. */
   teamId: uuid("team_id").references(() => teams.id),
   slug: text().notNull().unique(),
+  /** The version new participants get. Empty means it isn't open to new participants. */
+  liveVersionId: uuid("live_version_id").references((): AnyPgColumn => studyVersions.id),
   createdAt: time("created_at").notNull().defaultNow(),
 });
 
@@ -150,6 +152,8 @@ export const participants = pgTable(
     status: text().notNull().default("active"),
     /** Which step of the study's flow they're on, counting from 0. */
     flowPosition: integer("flow_position").notNull().default(0),
+    /** A researcher trying a study. Kept out of exports and counts. */
+    isPilot: boolean("is_pilot").notNull().default(false),
     enrolledAt: time("enrolled_at").notNull().defaultNow(),
   },
   (table) => [
@@ -498,6 +502,26 @@ export const excludedEntries = pgTable(
     idHash: text("id_hash").notNull(),
   },
   (table) => [primaryKey({ columns: [table.studyId, table.idHash] })],
+);
+
+/** Each time a study was launched or closed to new participants, and by whom. */
+export const studyLaunches = pgTable(
+  "study_launches",
+  {
+    id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    studyId: uuid("study_id")
+      .notNull()
+      .references(() => studies.id),
+    /** Empty when this closed the study. */
+    versionId: uuid("version_id").references(() => studyVersions.id),
+    action: text().notNull(),
+    by: text().notNull(),
+    at: time("at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("study_launches_study").on(table.studyId, table.id),
+    check("study_launches_action", inList(table.action, ["launch", "stop"])),
+  ],
 );
 
 /** A version of a study being worked on. A study has at most one open at a time. */

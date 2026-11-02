@@ -42,6 +42,7 @@ export default async function globalSetup() {
     database.db,
     storage,
     path.join(ROOT, "studies/examples/eatsnap"),
+    { launch: true },
   );
   if (result.status === "failed") {
     throw new Error(result.issues.map((issue) => issue.message).join("\n"));
@@ -74,7 +75,11 @@ export default async function globalSetup() {
     }),
     spawn("node", ["node_modules/vite/bin/vite.js", "--port", String(ADMIN_PORT)], {
       cwd: path.join(ROOT, "apps/admin"),
-      env: { ...process.env, API_PROXY_TARGET: `http://localhost:${API_PORT}` },
+      env: {
+        ...process.env,
+        API_PROXY_TARGET: `http://localhost:${API_PORT}`,
+        VITE_PARTICIPANT_URL: `http://localhost:${APP_PORT}`,
+      },
       stdio: "ignore",
     }),
   ];
