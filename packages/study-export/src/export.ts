@@ -27,11 +27,16 @@ export type ExportResult =
 
 /** Who or what wrote it, for methods reporting. Doesn't name the researcher. */
 function provenanceLabel(provenance: unknown): string {
-  const { origin, edited } = provenance as { origin?: string; edited?: boolean };
+  const { origin, edited, pack } = provenance as {
+    origin?: string;
+    edited?: boolean;
+    pack?: { name: string };
+  };
   if (!origin) {
     return "";
   }
-  return edited ? `${origin}, then edited` : origin;
+  const source = pack ? `pack: ${pack.name}` : origin;
+  return edited ? `${source}, then edited` : source;
 }
 
 function writeCsv(

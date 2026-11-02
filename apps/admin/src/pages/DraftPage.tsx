@@ -18,7 +18,7 @@ import { PostTimeline } from "../components/PostTimeline.tsx";
 import { TimelineControls, useTimeline } from "../components/TimelineControls.tsx";
 
 /** Everything that changes a draft goes through here, and then redraws what depends on it. */
-function useDraftEdits(draftId: string) {
+export function useDraftEdits(draftId: string) {
   const client = useQueryClient();
   const refresh = () => client.invalidateQueries({ queryKey: ["draft", draftId] });
   const base = `/admin/drafts/${draftId}/items`;
@@ -30,7 +30,8 @@ function useDraftEdits(draftId: string) {
       onSettled: refresh,
     }),
     create: useMutation({
-      mutationFn: (body: { kind: "post" | "comment"; fields: object }) => send("POST", base, body),
+      mutationFn: (body: { kind: "post" | "comment" | "actor"; fields: object }) =>
+        send("POST", base, body),
       onSettled: refresh,
     }),
     move: useMutation({
@@ -57,7 +58,7 @@ function useDraftEdits(draftId: string) {
   };
 }
 
-type DraftEdits = ReturnType<typeof useDraftEdits>;
+export type DraftEdits = ReturnType<typeof useDraftEdits>;
 
 const PRESENCE_EVERY_MS = 2_000;
 
@@ -635,7 +636,16 @@ function EditableFeed({
           {condition}{" "}
           <span className="font-normal text-stone-500">({feed.data?.posts.length ?? 0} posts)</span>
         </h2>
-        {info.canEdit && (
+        {info.canEdit && info.actors.length === 0 && (
+          <Link
+            to="/drafts/$draftId/cast"
+            params={{ draftId }}
+            className="rounded border border-stone-300 bg-white px-3 py-1 text-sm"
+          >
+            Add someone to the cast first
+          </Link>
+        )}
+        {info.canEdit && info.actors.length > 0 && (
           <button
             type="button"
             onClick={addPost}
@@ -693,6 +703,112 @@ function EditableFeed({
 }
 
 /** Saving keeps a version to try out. Participants don't get it until it's launched. */
+/** Saves what's in this draft as a pack, so the team can start other studies from it. */
+function SavePack({ draftId, defaultName }: { draftId: string; defaultName: string }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [name, setName] = useState(defaultName);
+  const [description, setDescription] = useState("");
+
+  const save = useMutation({
+    mutationFn: () =>
+      post<{ status: "saved" | "exists"; name: string }>(`/admin/drafts/${draftId}/pack`, {
+        name,
+        description,
+      }),
+  });
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          save.reset();
+          dialog.current?.showModal();
+        }}
+        className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+      >
+        Save as a pack
+      </button>
+      <dialog
+        ref={dialog}
+        aria-label="Save as a pack"
+        className="m-auto w-[min(92vw,28rem)] rounded-lg p-4 backdrop:bg-black/50"
+      >
+        <h2 className="mb-2 text-lg font-semibold">Save as a pack</h2>
+        {save.data ? (
+          <>
+            <p className="mb-3 text-sm">
+              {save.data.status === "saved"
+                ? `Saved "${save.data.name}". Your team can start new studies from it.`
+                : `This is the same as "${save.data.name}", which is already saved.`}
+            </p>
+            <button
+              type="button"
+              onClick={() => dialog.current?.close()}
+              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white"
+            >
+              Done
+            </button>
+          </>
+        ) : (
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              save.mutate();
+            }}
+          >
+            <p className="text-sm text-stone-600">
+              This copies the people, posts, and comments as they are now, so your team can start
+              other studies from them. Your consent text and study flow stay out of it. Later
+              changes here won't change the pack.
+            </p>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Name
+              <input
+                required
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="rounded border border-stone-300 px-2 py-1.5 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Description
+              <textarea
+                rows={2}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                className="rounded border border-stone-300 px-2 py-1.5 text-sm"
+              />
+            </label>
+            {save.error && (
+              <p role="alert" className="text-sm text-rose-700">
+                {save.error.message}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={save.isPending || !name.trim()}
+                className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              >
+                Save the pack
+              </button>
+              <button
+                type="button"
+                onClick={() => dialog.current?.close()}
+                className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+      </dialog>
+    </>
+  );
+}
+
 function SaveVersion({ draftId, info }: { draftId: string; info: DraftInfo }) {
   const navigate = useNavigate();
   const client = useQueryClient();
@@ -831,6 +947,14 @@ export function DraftPage() {
             >
               Settings
             </Link>
+            <Link
+              to="/drafts/$draftId/cast"
+              params={{ draftId }}
+              className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+            >
+              Cast
+            </Link>
+            {info.data.canEdit && <SavePack draftId={draftId} defaultName={info.data.title} />}
             {info.data.canEdit && <SaveVersion draftId={draftId} info={info.data} />}
           </>
         }

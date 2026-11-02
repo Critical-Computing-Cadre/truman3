@@ -524,6 +524,28 @@ export const studyLaunches = pgTable(
   ],
 );
 
+/**
+ * A cast and a feed's worth of content to start a study from. It's copied into a study, and never
+ * changes after it's saved, so a study can't be affected by anything that happens to a pack later.
+ */
+export const contentPacks = pgTable(
+  "content_packs",
+  {
+    id: id(),
+    /** Empty means it's available to every team on this server. */
+    teamId: uuid("team_id").references(() => teams.id),
+    name: text().notNull(),
+    description: text().notNull().default(""),
+    contents: jsonb().notNull(),
+    /** Counts and a few images, to list packs without reading all their contents. */
+    summary: jsonb().notNull(),
+    contentHash: text("content_hash").notNull(),
+    createdBy: uuid("created_by").references(() => researchers.id),
+    createdAt: time("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("content_packs_team").on(table.teamId)],
+);
+
 /** A version of a study being worked on. A study has at most one open at a time. */
 export const studyDrafts = pgTable(
   "study_drafts",

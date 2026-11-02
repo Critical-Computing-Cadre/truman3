@@ -11,6 +11,7 @@
     "@playwright/test": "1.64.1",
     "@truman3/accounts": "workspace:*",
     "@truman3/db": "workspace:*",
+    "@truman3/drafts": "workspace:*",
     "@truman3/storage": "workspace:*",
     "@truman3/study-export": "workspace:*",
     "@truman3/study-import": "workspace:*",

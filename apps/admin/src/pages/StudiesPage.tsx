@@ -16,8 +16,20 @@ function EditButton({ study }: { study: StudySummary }) {
     onSuccess: ({ draftId }) => navigate({ to: "/drafts/$draftId", params: { draftId } }),
   });
 
-  if (study.role === "viewer" || !latest) {
+  if (study.role === "viewer") {
     return null;
+  }
+  // A new study has a draft before it has any versions.
+  if (!latest) {
+    return study.openDraftId ? (
+      <Link
+        to="/drafts/$draftId"
+        params={{ draftId: study.openDraftId }}
+        className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white"
+      >
+        Keep editing
+      </Link>
+    ) : null;
   }
 
   return (
@@ -227,12 +239,13 @@ export function StudiesPage() {
 
   return (
     <main className="mx-auto max-w-3xl p-4">
-      <h1 className="mb-4 text-2xl font-semibold">Studies</h1>
-      {list.data?.studies.length === 0 && (
-        <p className="text-stone-600">
-          No studies yet. Import one with <code>pnpm study import</code>.
-        </p>
-      )}
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Studies</h1>
+        <Link to="/studies/new" className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white">
+          New study
+        </Link>
+      </div>
+      {list.data?.studies.length === 0 && <p className="text-stone-600">No studies yet.</p>}
       <ul className="space-y-3">
         {list.data?.studies.map((study) => {
           const canChange = study.role !== "viewer";
@@ -241,7 +254,7 @@ export function StudiesPage() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h2 className="text-lg font-semibold">
-                    {study.versions[0]?.title ?? study.slug}
+                    {study.versions[0]?.title ?? study.draftTitle ?? study.slug}
                   </h2>
                   <p className="text-sm text-stone-600">
                     {study.team} · {study.participants} participants ·{" "}

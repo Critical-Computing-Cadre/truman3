@@ -282,12 +282,53 @@ const touchDraft = (tx: Transaction, draftId: string) =>
 /** A short reference for a new item, shown in messages. */
 const newRef = (kind: string, id: string) => `${kind}-${id.slice(-8)}`;
 
-/** Adds a post or comment, written by a researcher. */
+/** Whether someone else in this draft already has this username, which has to be unique. */
+async function usernameTaken(tx: Transaction, draftId: string, username: unknown, itemId?: string) {
+  const actors = await tx
+    .select({ id: schema.draftItems.id, data: schema.draftItems.data })
+    .from(schema.draftItems)
+    .where(
+      and(
+        eq(schema.draftItems.draftId, draftId),
+        eq(schema.draftItems.kind, "actor"),
+        isNull(schema.draftItems.deletedAt),
+      ),
+    );
+  return actors.some(
+    ({ id, data }) => id !== itemId && (data as { username: string }).username === username,
+  );
+}
+
+/**
+ * What's wrong with a username someone's giving a person in the cast. Only a new one is checked,
+ * since studies from files can have older ones, which shouldn't stop anyone editing a bio.
+ */
+async function usernameProblem(
+  tx: Transaction,
+  draftId: string,
+  username: unknown,
+  itemId?: string,
+): Promise<EditProblem | null> {
+  if (typeof username !== "string" || !/^[A-Za-z0-9_.-]{1,30}$/.test(username)) {
+    return {
+      problem: "invalid",
+      message: "A username can use letters, numbers, dots, dashes, and underscores.",
+    };
+  }
+  return (await usernameTaken(tx, draftId, username, itemId)) ? USERNAME_TAKEN : null;
+}
+
+const USERNAME_TAKEN: EditProblem = {
+  problem: "invalid",
+  message: "Someone in the cast already has that username.",
+};
+
+/** Adds a post, comment, or person in the cast, written by a researcher. */
 export async function createItem(
   db: Database,
   draftId: string,
   researcherId: string,
-  kind: "post" | "comment",
+  kind: "post" | "comment" | "actor",
   fields: Record<string, unknown>,
 ): Promise<{ id: string } | EditProblem> {
   return db.transaction(async (tx) => {
@@ -296,9 +337,20 @@ export async function createItem(
     }
 
     const id = crypto.randomUUID();
-    const parsed = itemDataSchemas[kind].safeParse({ likes: 0, ...fields, ref: newRef(kind, id) });
+    const parsed = itemDataSchemas[kind].safeParse(
+      kind === "actor" ? fields : { likes: 0, ...fields, ref: newRef(kind, id) },
+    );
     if (!parsed.success) {
-      return { problem: "invalid" as const, message: "That isn't complete." };
+      return {
+        problem: "invalid" as const,
+        message: parsed.error.issues[0]?.message ?? "That isn't complete.",
+      };
+    }
+    if (kind === "actor") {
+      const problem = await usernameProblem(tx, draftId, fields.username);
+      if (problem) {
+        return problem;
+      }
     }
     const problem = await checkReferences(tx, draftId, parsed.data);
     if (problem) {
@@ -367,7 +419,19 @@ export async function updateItem(
     );
     const parsed = itemDataSchemas[item.kind as ItemKind].safeParse(merged);
     if (!parsed.success) {
-      return { problem: "invalid" as const, message: "That change isn't valid." };
+      return {
+        problem: "invalid" as const,
+        message:
+          item.kind === "actor"
+            ? (parsed.error.issues[0]?.message ?? "That change isn't valid.")
+            : "That change isn't valid.",
+      };
+    }
+    if (item.kind === "actor" && merged.username !== (item.data as { username: string }).username) {
+      const problem = await usernameProblem(tx, draftId, merged.username, itemId);
+      if (problem) {
+        return problem;
+      }
     }
     const problem = await checkReferences(tx, draftId, parsed.data);
     if (problem) {

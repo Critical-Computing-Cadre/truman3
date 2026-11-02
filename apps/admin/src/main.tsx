@@ -11,8 +11,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ApiError, get, post, type Researcher } from "./api.ts";
 import "./index.css";
+import { CastPage } from "./pages/CastPage.tsx";
 import { DraftPage } from "./pages/DraftPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
+import { NewStudyPage } from "./pages/NewStudyPage.tsx";
 import { PreviewPage } from "./pages/PreviewPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { StudiesPage } from "./pages/StudiesPage.tsx";
@@ -84,8 +86,27 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
+const newStudyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/studies/new",
+  component: NewStudyPage,
+});
+
+const castRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/drafts/$draftId/cast",
+  component: CastPage,
+});
+
 const router = createRouter({
-  routeTree: rootRoute.addChildren([studiesRoute, previewRoute, draftRoute, settingsRoute]),
+  routeTree: rootRoute.addChildren([
+    studiesRoute,
+    newStudyRoute,
+    previewRoute,
+    draftRoute,
+    settingsRoute,
+    castRoute,
+  ]),
 });
 
 declare module "@tanstack/react-router" {

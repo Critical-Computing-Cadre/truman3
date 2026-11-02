@@ -13,6 +13,7 @@ cp .env.example .env
 docker compose up --detach --wait
 pnpm db:migrate
 pnpm study import studies/examples/eatsnap
+pnpm study add-pack studies/examples/eatsnap "EatSnap" "A food photo community"
 pnpm study launch eatsnap
 pnpm dev
 ```

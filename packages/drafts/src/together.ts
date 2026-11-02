@@ -69,7 +69,10 @@ export interface RecentChange {
 }
 
 const quote = (data: unknown) => {
-  const body = (data as { body?: string }).body;
+  const { body, name } = data as { body?: string; name?: string };
+  if (name) {
+    return name;
+  }
   return body ? `"${body.length > 40 ? `${body.slice(0, 40)}...` : body}"` : "a post";
 };
 

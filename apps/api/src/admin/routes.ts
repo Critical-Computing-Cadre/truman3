@@ -92,6 +92,7 @@ const studiesRoute = createRoute({
                 liveVersionId: z.string().nullable(),
                 role: z.string(),
                 openDraftId: z.string().nullable(),
+                draftTitle: z.string().nullable(),
                 versions: z.array(
                   z.object({
                     id: z.string(),
@@ -276,7 +277,11 @@ export function createAdminRoutes({
       : [];
     const drafts = studyIds.length
       ? await db
-          .select({ id: schema.studyDrafts.id, studyId: schema.studyDrafts.studyId })
+          .select({
+            id: schema.studyDrafts.id,
+            studyId: schema.studyDrafts.studyId,
+            settings: schema.studyDrafts.settings,
+          })
           .from(schema.studyDrafts)
           .where(
             and(inArray(schema.studyDrafts.studyId, studyIds), isNull(schema.studyDrafts.closedAt)),
@@ -315,6 +320,12 @@ export function createAdminRoutes({
           liveVersionId: study.liveVersionId,
           role,
           openDraftId: drafts.find((draft) => draft.studyId === study.id)?.id ?? null,
+          draftTitle:
+            (
+              drafts.find((draft) => draft.studyId === study.id)?.settings as
+                | { title?: string }
+                | undefined
+            )?.title ?? null,
           versions: versions
             .filter((version) => version.studyId === study.id)
             .sort((a, b) => b.version - a.version)
