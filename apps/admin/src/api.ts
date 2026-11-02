@@ -123,3 +123,18 @@ export interface DraftItemDetails {
 export interface DraftPreviewResponse extends PreviewResponse {
   items: Record<string, DraftItemDetails>;
 }
+
+export interface Presence {
+  latestChange: number;
+  others: { name: string; itemId: string | null }[];
+}
+
+export interface DraftChange {
+  changeId: string;
+  who: string;
+  mine: boolean;
+  action: string;
+  summary: string;
+  at: string;
+  canUndo: boolean;
+}

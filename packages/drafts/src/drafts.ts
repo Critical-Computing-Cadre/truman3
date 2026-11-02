@@ -30,14 +30,18 @@ async function writeHistory(
     itemId: string;
     draftId: string;
     revision: number;
-    action: "create" | "update" | "delete";
+    action: "create" | "update" | "delete" | "undo";
     data: unknown;
+    previousData?: unknown;
     researcherId: string;
   }[],
 ) {
+  // Everything written together is one change, so it can be undone together.
+  const changeId = crypto.randomUUID();
   for (const batch of chunks(rows, INSERT_BATCH_SIZE)) {
-    await tx.insert(schema.draftItemHistory).values(batch);
+    await tx.insert(schema.draftItemHistory).values(batch.map((row) => ({ ...row, changeId })));
   }
+  return changeId;
 }
 
 /**
@@ -372,7 +376,15 @@ export async function updateItem(
       })
       .where(eq(schema.draftItems.id, itemId));
     await writeHistory(tx, [
-      { itemId, draftId, revision, action: "update", data: parsed.data, researcherId },
+      {
+        itemId,
+        draftId,
+        revision,
+        action: "update",
+        data: parsed.data,
+        previousData: item.data,
+        researcherId,
+      },
     ]);
     await touchDraft(tx, draftId);
     return { revision };
@@ -434,6 +446,7 @@ export async function moveItem(
         revision: row.revision + 1,
         action: "update",
         data: updated,
+        previousData: row.data,
         researcherId,
       });
     }
@@ -477,7 +490,11 @@ export async function deleteItem(
     const removing = [item, ...rows.filter((row) => points(row, "postId"))];
     await tx
       .update(schema.draftItems)
-      .set({ deletedAt: new Date(), updatedBy: researcherId })
+      .set({
+        deletedAt: new Date(),
+        updatedBy: researcherId,
+        revision: sql`${schema.draftItems.revision} + 1`,
+      })
       .where(
         inArray(
           schema.draftItems.id,
@@ -492,6 +509,7 @@ export async function deleteItem(
         revision: row.revision + 1,
         action: "delete" as const,
         data: row.data,
+        previousData: row.data,
         researcherId,
       })),
     );

@@ -12,6 +12,8 @@ Every item records where it came from: a file, a researcher, a pack, or a model.
 
 Researchers work together at the same time, usually in a shared Google Sheet. If each item saves separately, two people working on different posts can't conflict. If two people change the same post, the last save wins, and the other version stays in the history.
 
+Everyone with a draft open checks for changes every couple of seconds, so edits and who's working on what appear quickly. That's simple polling rather than a live connection, and is plenty for a few people on a draft. Any change can be undone, unless someone has changed the same item since.
+
 Researchers shouldn't have to learn a second set of rules, so a draft is converted to a study definition and checked by the same validation as a study in files.
 
 Provenance is recorded from the start because it belongs in a methods section, and it can't be reconstructed later.

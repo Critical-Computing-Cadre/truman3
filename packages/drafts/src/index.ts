@@ -22,3 +22,10 @@ export {
   type Provenance,
   type ReactionData,
 } from "./items.ts";
+export {
+  type ActiveResearcher,
+  listChanges,
+  type RecentChange,
+  recordPresence,
+  undoChange,
+} from "./together.ts";
