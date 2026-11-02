@@ -148,6 +148,7 @@ async function saveAndLaunch(team: Lab, draftId: string) {
 
 beforeAll(async () => {
   database = await createTestDatabase();
+  await storage.ensureBucket();
   app = createApp({
     pingDatabase: database.ping,
     db: database.db,
