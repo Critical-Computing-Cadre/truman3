@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { roleOnStudy } from "@truman3/accounts";
-import { feedResponseSchema, platformStyleFor } from "@truman3/core";
+import { commentBoxFor, feedResponseSchema, platformStyleFor } from "@truman3/core";
 import { schema } from "@truman3/db";
 import {
   type ActorData,
@@ -85,6 +85,7 @@ const infoRoute = createRoute({
                 ranker: z.string(),
                 windowHours: z.number().nullable(),
                 platformStyle: z.string(),
+                commentBox: z.string(),
               }),
             ),
             actors: z.array(z.object({ id: z.string(), username: z.string(), name: z.string() })),
@@ -447,6 +448,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
             ranker: feed.ranker,
             windowHours: feed.windowHours ?? null,
             platformStyle: platformStyleFor(settings, key),
+            commentBox: commentBoxFor(settings, key),
           };
         }),
         actors: items

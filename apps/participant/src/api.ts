@@ -52,6 +52,7 @@ export interface FlowState {
   pageText: string | null;
   canFinish: boolean;
   platformStyle: "photo" | "text" | "mixed";
+  commentBox: "open" | "onReply";
   site: { name: string; logoUrl: string | null; faviconUrl: string | null };
 }
 
@@ -64,6 +65,9 @@ export interface Me {
   siteName: string;
   unreadNotifications: number;
 }
+
+/** How much of the study's platform choices the feed needs, shared like the viewer's details. */
+export const flowQuery = { queryKey: ["flow"], queryFn: () => get<FlowState>("/me/flow") };
 
 /** Shared, so everything showing the viewer's details uses one copy and one request. */
 export const meQuery = { queryKey: ["me"], queryFn: () => get<Me>("/me") };

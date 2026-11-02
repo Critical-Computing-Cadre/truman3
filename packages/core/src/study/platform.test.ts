@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { studySettingsSchema } from "./definition.ts";
 import { fillLinkTemplate } from "./links.ts";
-import { checkNewPost, platformStyleFor } from "./platform.ts";
+import { checkNewPost, commentBoxFor, platformStyleFor } from "./platform.ts";
 
 const settings = (extra: object = {}) =>
   studySettingsSchema.parse({
@@ -29,6 +29,28 @@ describe("easy defaults", () => {
       reshuffleEachVisit: false,
       removeFlagged: false,
     });
+  });
+});
+
+describe("commentBoxFor", () => {
+  const study = (commentBox?: "open" | "onReply", armBox?: "open" | "onReply") =>
+    settings({
+      platform: { style: "photo", ...(commentBox ? { commentBox } : {}) },
+      conditions: {
+        assignment: { method: "uniform" },
+        arms: [{ key: "a" }, { key: "b", ...(armBox ? { platform: { commentBox: armBox } } : {}) }],
+      },
+    });
+
+  it("is open unless the study says otherwise", () => {
+    expect(commentBoxFor(study(), "a")).toBe("open");
+    expect(commentBoxFor(study("onReply"), "a")).toBe("onReply");
+  });
+
+  it("can differ by condition, without changing the condition's platform style", () => {
+    const both = study("open", "onReply");
+    expect(commentBoxFor(both, "b")).toBe("onReply");
+    expect(platformStyleFor(both, "b")).toBe("photo");
   });
 });
 

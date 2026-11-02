@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { ApiError, type FlowState, get, meQuery, post, postForm } from "../api.ts";
+import { ProfileForm } from "../components/ProfileForm.tsx";
 import { Shell } from "../components/Shell.tsx";
 import { startTracking } from "../tracking.ts";
 import { Message } from "./Message.tsx";
@@ -105,38 +106,6 @@ function PageStep({
 function AccountStep({ flow, onDone }: { flow: FlowState; onDone: () => Promise<void> }) {
   const client = useQueryClient();
   const me = useQuery(meQuery);
-  const [username, setUsername] = useState("");
-  const [name, setName] = useState("");
-  const [location, setLocation] = useState("");
-  const [bio, setBio] = useState("");
-  const [picture, setPicture] = useState<File | null>(null);
-
-  const save = useMutation({
-    mutationFn: async () => {
-      await postForm("/me/profile", {
-        username,
-        name,
-        location,
-        bio,
-        ...(picture ? { picture } : {}),
-      });
-      await post("/me/flow/advance", { position: flow.position });
-    },
-    onSuccess: async () => {
-      // Otherwise the feed would open with the details from before they filled this in.
-      await client.invalidateQueries({ queryKey: meQuery.queryKey });
-      // Waiting for the next step keeps the button disabled, so a second click can't send this again.
-      await onDone();
-    },
-  });
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    save.mutate();
-  };
-
-  const field = "rounded border border-stone-300 px-3 py-2 text-base";
-  const labelClass = "flex flex-col gap-1 font-medium";
 
   if (!me.data) {
     return null;
@@ -145,68 +114,18 @@ function AccountStep({ flow, onDone }: { flow: FlowState; onDone: () => Promise<
   return (
     <main className="mx-auto max-w-xl bg-white p-6 sm:mt-6 sm:rounded-lg sm:shadow-sm">
       <h1 className="mb-4 text-2xl font-semibold">Tell us a little about yourself</h1>
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        <label className={labelClass}>
-          Username
-          <input
-            required
-            pattern="[A-Za-z0-9_.\-]{1,30}"
-            title="Letters, numbers, dots, dashes, and underscores"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            className={field}
-          />
-        </label>
-        <label className={labelClass}>
-          Name
-          <input
-            required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            className={field}
-          />
-        </label>
-        <label className={labelClass}>
-          Location
-          <input
-            value={location}
-            onChange={(event) => setLocation(event.target.value)}
-            className={field}
-          />
-        </label>
-        <label className={labelClass}>
-          Bio
-          <textarea
-            rows={3}
-            value={bio}
-            onChange={(event) => setBio(event.target.value)}
-            className={field}
-          />
-        </label>
-        <label className={labelClass}>
-          Profile picture
-          <span className="text-sm font-normal text-stone-500">
-            Optional. If you skip it, one is made for you.
-          </span>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(event) => setPicture(event.target.files?.[0] ?? null)}
-          />
-        </label>
-        {save.error && (
-          <p role="alert" className="text-sm text-rose-700">
-            {save.error.message}
-          </p>
-        )}
-        <button
-          type="submit"
-          disabled={save.isPending}
-          className="rounded bg-stone-900 py-2.5 font-medium text-white disabled:opacity-40"
-        >
-          Save and continue
-        </button>
-      </form>
+      <ProfileForm
+        initial={{ username: "", name: "", location: "", bio: "" }}
+        submitLabel="Save and continue"
+        save={async (fields) => {
+          await postForm("/me/profile", { ...fields });
+          await post("/me/flow/advance", { position: flow.position });
+          // Otherwise the feed would open with the details from before they filled this in.
+          await client.invalidateQueries({ queryKey: meQuery.queryKey });
+          // Waiting for the next step keeps the button disabled, so a second click can't send this again.
+          await onDone();
+        }}
+      />
     </main>
   );
 }

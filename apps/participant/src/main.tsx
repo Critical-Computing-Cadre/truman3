@@ -10,6 +10,7 @@ import {
 import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
+import { EditProfilePage } from "./pages/EditProfilePage.tsx";
 import { FeedPage } from "./pages/FeedPage.tsx";
 import { FlowGate } from "./pages/FlowGate.tsx";
 import { JoinPage } from "./pages/JoinPage.tsx";
@@ -69,11 +70,17 @@ const profileRoute = createRoute({
   component: ProfilePage,
 });
 
+const editProfileRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/account",
+  component: EditProfilePage,
+});
+
 const router = createRouter({
   routeTree: rootRoute.addChildren([
     joinRoute,
     pilotRoute,
-    gateRoute.addChildren([feedRoute, notificationsRoute, profileRoute]),
+    gateRoute.addChildren([feedRoute, notificationsRoute, profileRoute, editProfileRoute]),
   ]),
 });
 

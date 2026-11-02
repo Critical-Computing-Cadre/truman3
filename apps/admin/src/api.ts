@@ -84,6 +84,7 @@ export interface PreviewInfo {
     ranker: string;
     windowHours: number | null;
     platformStyle: string;
+    commentBox: string;
   }[];
   posts: { offsetMs: number; conditions: string[] }[];
 }

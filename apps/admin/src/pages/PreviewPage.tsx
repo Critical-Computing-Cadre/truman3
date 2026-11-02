@@ -11,10 +11,12 @@ const VIEWER = "a participant";
 function FeedColumn({
   versionId,
   condition,
+  platform,
   elapsedMs,
 }: {
   versionId: string;
   condition: string;
+  platform: { platformStyle: string; commentBox: string } | undefined;
   elapsedMs: number;
 }) {
   const feed = useQuery({
@@ -45,7 +47,11 @@ function FeedColumn({
         {condition}{" "}
         <span className="font-normal text-stone-500">({feed.data?.posts.length ?? 0} posts)</span>
       </h2>
-      <CreatePostBar seed={VIEWER} pictureUrl={null} showPhoto={true} />
+      <CreatePostBar
+        seed={VIEWER}
+        pictureUrl={null}
+        showPhoto={platform?.platformStyle !== "text"}
+      />
       {feed.data?.posts.length === 0 && (
         <p className="rounded-lg bg-white p-6 text-center text-stone-500">No posts to show.</p>
       )}
@@ -54,7 +60,9 @@ function FeedColumn({
           key={post.id}
           post={post}
           renderNote={note}
-          belowComments={<CommentBox seed={VIEWER} pictureUrl={null} />}
+          {...(platform?.commentBox === "onReply"
+            ? {}
+            : { belowComments: <CommentBox seed={VIEWER} pictureUrl={null} /> })}
         />
       ))}
     </section>
@@ -74,6 +82,7 @@ export function PreviewPage() {
   }
 
   const current = timeline.condition ?? info.data.conditions[0]?.key ?? "";
+  const platformOf = (key: string) => info.data.conditions.find((arm) => arm.key === key);
 
   return (
     <div>
@@ -91,11 +100,17 @@ export function PreviewPage() {
         current={current}
       />
       <div className="mx-auto flex max-w-5xl items-start justify-center gap-4 p-3">
-        <FeedColumn versionId={versionId} condition={current} elapsedMs={timeline.shownElapsedMs} />
+        <FeedColumn
+          versionId={versionId}
+          condition={current}
+          platform={platformOf(current)}
+          elapsedMs={timeline.shownElapsedMs}
+        />
         {timeline.compare && timeline.compare !== current && (
           <FeedColumn
             versionId={versionId}
             condition={timeline.compare}
+            platform={platformOf(timeline.compare)}
             elapsedMs={timeline.shownElapsedMs}
           />
         )}

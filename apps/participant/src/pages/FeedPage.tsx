@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import type { FeedResponse } from "@truman3/core";
 import { CreatePostBar, PhotoIcon, ProfileCard } from "@truman3/ui";
 import { type FormEvent, type RefObject, useEffect, useRef, useState } from "react";
-import { type FlowState, get, meQuery, postForm } from "../api.ts";
+import { type FlowState, flowQuery, get, meQuery, postForm } from "../api.ts";
 import { PostCard } from "../components/PostCard.tsx";
 
 /** Picked once per page load, for studies that reshuffle the feed on each visit. */
@@ -123,7 +123,7 @@ export function FeedPage() {
     queryKey: ["feed"],
     queryFn: () => get<FeedResponse>(`/feed?visit=${VISIT}`),
   });
-  const flow = useQuery({ queryKey: ["flow"], queryFn: () => get<FlowState>("/me/flow") });
+  const flow = useQuery(flowQuery);
   const me = useQuery(meQuery);
   const newPost = useRef<HTMLDialogElement>(null);
 
@@ -144,6 +144,14 @@ export function FeedPage() {
                   {name}
                 </Link>
               )}
+              footer={
+                <Link
+                  to="/account"
+                  className="block border-t border-stone-200 py-2 text-center text-sm text-stone-700"
+                >
+                  Edit profile
+                </Link>
+              }
             />
           </div>
         )}

@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import type { FeedPost } from "@truman3/core";
 import { CommentBox, FeedPostView } from "@truman3/ui";
 import { useEffect, useRef, useState } from "react";
-import { meQuery, post as send } from "../api.ts";
+import { flowQuery, meQuery, post as send } from "../api.ts";
 import { createDwellTimer } from "../dwell.ts";
 import { track } from "../tracking.ts";
 
@@ -61,6 +61,8 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
   const ref = useContentDwell(post.id, surface);
   const client = useQueryClient();
   const me = useQuery(meQuery);
+  const flow = useQuery(flowQuery);
+  const [replying, setReplying] = useState(false);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -71,9 +73,19 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
 
   const comment = useMutation({
     mutationFn: (body: string) => send(`/content/${post.id}/comments`, { body }),
-    onSuccess: () => setDraft(""),
+    onSuccess: () => {
+      setDraft("");
+      setReplying(false);
+    },
     onSettled: () => client.invalidateQueries(),
   });
+
+  // A box that only appears on reply can't take the cursor until it's on the page.
+  useEffect(() => {
+    if (replying) {
+      inputRef.current?.focus();
+    }
+  }, [replying]);
 
   return (
     <FeedPostView
@@ -82,7 +94,10 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
       actions={{
         onLike: (id, active) => action.mutate({ url: `/content/${id}/like`, active }),
         onFlag: (id, active) => action.mutate({ url: `/content/${id}/flag`, active }),
-        onReply: () => inputRef.current?.focus(),
+        onReply: () => {
+          setReplying(true);
+          inputRef.current?.focus();
+        },
       }}
       renderAuthor={(author, className, children) => (
         <Link to="/u/$username" params={{ username: author.username }} className={className}>
@@ -90,7 +105,8 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
         </Link>
       )}
       belowComments={
-        me.data && (
+        me.data &&
+        (flow.data?.commentBox === "open" || replying) && (
           <CommentBox
             seed={me.data.username}
             pictureUrl={me.data.pictureUrl}

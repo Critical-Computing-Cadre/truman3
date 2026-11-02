@@ -5,7 +5,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { createDb, schema } from "@truman3/db";
 import { exportStudy } from "@truman3/study-export";
 import { parse } from "csv-parse/sync";
-import { eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 const STATE_FILE = path.resolve(import.meta.dirname, "../.e2e-state.json");
 const DAY = 24 * 3_600_000;
@@ -336,7 +336,7 @@ test("the feed has a profile card, a post window, and comment boxes like the ori
   await goToFeed(page, unique("CLASSIC", testInfo), username);
 
   // The account details they just gave are used straight away.
-  await expect(page.getByRole("link", { name: "Profile" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Profile", exact: true })).toHaveAttribute(
     "href",
     `/u/${username}`,
   );
@@ -369,6 +369,68 @@ test("the feed has a profile card, a post window, and comment boxes like the ori
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("button", { name: "Close" }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
+});
+
+test("a study can show the comment box only after pressing Reply", async ({ page }, testInfo) => {
+  // Studies choose this in their settings. Here, only the answer the app gets is changed.
+  await page.route("**/api/me/flow", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...(await response.json()), commentBox: "onReply" } });
+  });
+  await goToFeed(
+    page,
+    unique("REPLY", testInfo),
+    `reply_${testInfo.project.name}_${Date.now() % 100000}`,
+  );
+
+  const first = page.locator("article").first();
+  await expect(first.getByLabel("Write a comment")).toHaveCount(0);
+  await first.getByRole("button", { name: "Reply" }).click();
+  await expect(first.getByLabel("Write a comment")).toBeFocused();
+  await first.getByLabel("Write a comment").fill("Only after Reply");
+  await first.getByLabel("Write a comment").press("Enter");
+  await expect(first.getByText("Only after Reply")).toBeVisible();
+  await expect(first.getByLabel("Write a comment")).toHaveCount(0);
+});
+
+test("someone can edit their profile after the account step", async ({ page }, testInfo) => {
+  const username = `edit_${testInfo.project.name}_${Date.now() % 100000}`;
+  const externalId = unique("EDIT", testInfo);
+  await goToFeed(page, externalId, username);
+
+  // On a phone the card isn't shown, so the way there is their profile page.
+  if (testInfo.project.name === "desktop") {
+    await page
+      .getByRole("region", { name: "Your profile" })
+      .getByRole("link", { name: "Edit profile" })
+      .click();
+  } else {
+    await page.getByRole("link", { name: "Profile", exact: true }).click();
+    await page.getByRole("link", { name: "Edit profile" }).click();
+  }
+
+  await expect(page.getByLabel("Username")).toHaveValue(username);
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Test Person");
+  await page.getByLabel("Bio").fill("A new bio");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.locator("article").first()).toBeVisible();
+
+  await page.getByRole("link", { name: "Profile", exact: true }).click();
+  await expect(page.getByText("A new bio")).toBeVisible();
+
+  // The event says only the bio changed, not everything on the form.
+  const participant = await participantFor(externalId);
+  const updates = await database.db
+    .select({ payload: schema.events.payload })
+    .from(schema.events)
+    .where(
+      and(
+        eq(schema.events.worldId, participant?.worldId as string),
+        eq(schema.events.type, "profile.updated"),
+      ),
+    )
+    .orderBy(desc(schema.events.id));
+  expect(updates[0]?.payload).toEqual({ fields: ["bio"] });
 });
 
 test("the layout fits a phone without sideways scrolling", async ({ page }, testInfo) => {

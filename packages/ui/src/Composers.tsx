@@ -123,6 +123,7 @@ export function ProfileCard({
   location,
   pictureUrl,
   renderName,
+  footer,
 }: {
   username: string;
   name: string;
@@ -131,6 +132,8 @@ export function ProfileCard({
   pictureUrl: string | null;
   /** How to link to their page. Without it, their name is plain text. */
   renderName?: (className: string, name: string) => ReactNode;
+  /** Shown along the bottom of the card, such as a way to edit it. */
+  footer?: ReactNode;
 }) {
   const nameClass = "block truncate font-semibold";
   return (
@@ -142,6 +145,7 @@ export function ProfileCard({
         {bio && <p className="pt-1 text-sm break-words whitespace-pre-wrap">{bio}</p>}
         {location && <p className="pt-1 text-sm text-stone-500">{location}</p>}
       </div>
+      {footer}
     </section>
   );
 }

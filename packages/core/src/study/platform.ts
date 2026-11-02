@@ -8,6 +8,14 @@ export function platformStyleFor(settings: StudySettings, conditionKey: string):
   return arm?.platform?.style ?? settings.platform.style;
 }
 
+export type CommentBox = NonNullable<StudySettings["platform"]["commentBox"]>;
+
+/** How the comment box appears in a condition. */
+export function commentBoxFor(settings: StudySettings, conditionKey: string): CommentBox {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  return arm?.platform?.commentBox ?? settings.platform.commentBox ?? "open";
+}
+
 /** Whether a new post fits the platform's style. Returns what's wrong, or null if it's fine. */
 export function checkNewPost(
   style: PlatformStyle,

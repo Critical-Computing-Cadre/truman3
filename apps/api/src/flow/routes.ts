@@ -1,6 +1,7 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import {
   canLeaveFeed,
+  commentBoxFor,
   currentFlowStep,
   eventPayloadSchemas,
   fillLinkTemplate,
@@ -32,6 +33,8 @@ const flowStateSchema = z.object({
   canFinish: z.boolean(),
   /** What their posts must contain. */
   platformStyle: z.enum(["photo", "text", "mixed"]),
+  /** Whether the comment box is always there, or appears on Reply. */
+  commentBox: z.enum(["open", "onReply"]),
   site: z.object({
     name: z.string(),
     logoUrl: z.string().nullable(),
@@ -283,6 +286,7 @@ export function createFlowRoutes({ db, storage, mediaPublicUrl }: ParticipantRou
         pageText: step && "page" in step ? (pages[step.page] ?? "") : null,
         canFinish: step ? canLeaveFeed(step, elapsedMs) : false,
         platformStyle: platformStyleFor(context.settings, context.conditionKey),
+        commentBox: commentBoxFor(context.settings, context.conditionKey),
         site: {
           name: site.name,
           logoUrl: site.logo ? mediaUrl(site.logo, mediaPublicUrl) : null,

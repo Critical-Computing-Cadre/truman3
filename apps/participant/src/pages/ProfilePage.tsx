@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { Link, useParams } from "@tanstack/react-router";
 import type { FeedPost } from "@truman3/core";
 import { Avatar } from "@truman3/ui";
 import { useRef, useState } from "react";
@@ -57,6 +57,11 @@ export function ProfilePage() {
         <p className="text-sm text-stone-500">@{actor.username}</p>
         {actor.bio && <p className="whitespace-pre-wrap">{actor.bio}</p>}
         {actor.location && <p className="text-sm text-stone-500">{actor.location}</p>}
+        {actor.isViewer && (
+          <Link to="/account" className={`mt-2 ${button}`}>
+            Edit profile
+          </Link>
+        )}
         {!actor.isViewer && (
           <div className="mt-2 flex flex-wrap justify-center gap-2">
             <button
