@@ -1,5 +1,3 @@
 packages:
   - apps/*
   - packages/*
-minimumReleaseAgeExclude:
-  - hono@4.13.16
