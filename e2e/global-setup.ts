@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { loadEnvFile } from "node:process";
-import { setUpTeam } from "@truman3/accounts";
+import { addResearcherToTeam, setUpTeam } from "@truman3/accounts";
 import { createTestDatabase } from "@truman3/db/testing";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { importStudyFolder } from "@truman3/study-import";
@@ -54,7 +54,23 @@ export default async function globalSetup() {
     email,
     name: "A Researcher",
   });
-  writeFileSync(STATE_FILE, JSON.stringify({ databaseUrl: database.url, email, password }));
+  const editorEmail = "editor@example.edu";
+  const editor = await addResearcherToTeam(database.db, {
+    teamSlug: "test-lab",
+    email: editorEmail,
+    name: "Second Researcher",
+    role: "editor",
+  });
+  writeFileSync(
+    STATE_FILE,
+    JSON.stringify({
+      databaseUrl: database.url,
+      email,
+      password,
+      editorEmail,
+      editorPassword: editor.status === "added" ? editor.password : null,
+    }),
+  );
 
   const processes: ChildProcess[] = [
     spawn("node", ["src/server.ts"], {
@@ -64,6 +80,8 @@ export default async function globalSetup() {
         DATABASE_URL: database.url,
         PORT: String(API_PORT),
         NODE_ENV: "development",
+        // These tests sign in far more often than a person does.
+        LOGIN_ATTEMPTS_PER_MINUTE: "1000",
       },
       stdio: "inherit",
     }),

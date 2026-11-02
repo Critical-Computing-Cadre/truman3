@@ -598,6 +598,95 @@ describe("who can edit", () => {
   });
 });
 
+describe("moving a post in time", () => {
+  const move = (team: Lab, draftId: string, itemId: string, timeMs: number, cookie = team.cookie) =>
+    call(cookie, "POST", `/admin/drafts/${draftId}/items/${itemId}/move`, { timeMs });
+
+  it("changes when it appears", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "only a");
+
+    const response = await move(team, draftId, post.id, 5 * 3_600_000);
+
+    expect(response.status).toBe(200);
+    const bodies = async (elapsedMs: number) =>
+      (await preview(team, draftId, "a", elapsedMs)).posts.map((item) => item.body);
+    expect(await bodies(0)).not.toContain("only a");
+    expect(await bodies(5 * 3_600_000)).toContain("only a");
+  });
+
+  it("takes its comments with it, keeping the same gap", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await preview(team, draftId);
+    const post = findPost(before.posts, "original text");
+    const commentId = post.comments[0]?.id as string;
+    const gap = (before.items[commentId]?.timeMs ?? 0) - (before.items[post.id]?.timeMs ?? 0);
+
+    await move(team, draftId, post.id, 10 * 3_600_000);
+
+    const after = await preview(team, draftId, "a", 11 * 3_600_000);
+    expect(after.items[post.id]?.timeMs).toBe(10 * 3_600_000);
+    expect(after.items[commentId]?.timeMs).toBe(10 * 3_600_000 + gap);
+  });
+
+  it("can't leave a comment before its post, however far it moves", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    await move(team, draftId, post.id, 40 * 3_600_000);
+
+    const info = await call(team.cookie, "GET", `/admin/drafts/${draftId}`);
+    const { issues } = (await info.json()) as { issues: { severity: string }[] };
+    expect(issues.filter(({ severity }) => severity === "error")).toEqual([]);
+  });
+
+  it("goes in the history, for the post and its comments", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    await move(team, draftId, post.id, 3_600_000);
+
+    const history = await database.db
+      .select()
+      .from(schema.draftItemHistory)
+      .where(eq(schema.draftItemHistory.draftId, draftId));
+    expect(history).toHaveLength(2);
+  });
+
+  it("does nothing when dropped back where it was", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await preview(team, draftId);
+    const post = findPost(before.posts, "original text");
+
+    const response = await move(team, draftId, post.id, before.items[post.id]?.timeMs as number);
+
+    expect(await response.json()).toEqual({ moved: 0 });
+    const history = await database.db
+      .select()
+      .from(schema.draftItemHistory)
+      .where(eq(schema.draftItemHistory.draftId, draftId));
+    expect(history).toEqual([]);
+  });
+
+  it("only moves posts, in this draft, for people who can edit", async () => {
+    const team = await lab();
+    const other = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+    const commentId = post.comments[0]?.id as string;
+
+    expect((await move(team, draftId, commentId, 0)).status).toBe(404);
+    expect((await move(team, draftId, randomUUID(), 0)).status).toBe(404);
+    expect((await move(team, draftId, post.id, 0, other.cookie)).status).toBe(404);
+    expect((await move(team, draftId, post.id, 0, "")).status).toBe(401);
+  });
+});
+
 describe("images", () => {
   const PNG = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==",
@@ -724,5 +813,256 @@ describe("what participants can't see", () => {
 
     expect(text).not.toContain("provenance");
     expect(text).not.toContain("origin");
+  });
+});
+
+describe("working together", () => {
+  const presence = async (
+    team: Lab,
+    draftId: string,
+    itemId: string | null,
+    cookie = team.cookie,
+  ) => {
+    const response = await call(cookie, "POST", `/admin/drafts/${draftId}/presence`, { itemId });
+    expect(response.status).toBe(200);
+    return (await response.json()) as {
+      latestChange: number;
+      others: { name: string; itemId: string | null }[];
+    };
+  };
+
+  async function teammate(team: Lab, role: "editor" | "viewer" = "editor") {
+    const email = `${role}-${randomUUID().slice(0, 6)}-${team.id}@example.edu`;
+    const added = await addResearcherToTeam(database.db, {
+      teamSlug: team.teamSlug,
+      email,
+      name: `A ${role}`,
+      role,
+    });
+    return signIn(email, (added as { password: string }).password);
+  }
+
+  it("shows who else is here, and what they're editing, but not yourself", async () => {
+    const team = await lab();
+    const other = await teammate(team);
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    await presence(team, draftId, post.id);
+    const seen = await presence(team, draftId, null, other);
+
+    expect(seen.others).toEqual([{ name: "Owner", itemId: post.id }]);
+    expect((await presence(team, draftId, post.id)).others).toEqual([
+      { name: "A editor", itemId: null },
+    ]);
+  });
+
+  it("stops showing someone who's left", async () => {
+    const team = await lab();
+    const other = await teammate(team);
+    const { draftId } = await open(team);
+    await presence(team, draftId, null, other);
+
+    await database.db
+      .update(schema.draftPresence)
+      .set({ lastSeen: new Date(Date.now() - 60_000) })
+      .where(eq(schema.draftPresence.draftId, draftId));
+
+    expect((await presence(team, draftId, null)).others).toEqual([]);
+  });
+
+  it("lets others tell that something changed", async () => {
+    const team = await lab();
+    const other = await teammate(team);
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+    const before = await presence(team, draftId, null, other);
+
+    await edit(team, draftId, post.id, { body: "changed" });
+
+    expect((await presence(team, draftId, null, other)).latestChange).toBeGreaterThan(
+      before.latestChange,
+    );
+  });
+
+  it("is open to viewers, and closed to other teams", async () => {
+    const team = await lab();
+    const stranger = await lab();
+    const viewer = await teammate(team, "viewer");
+    const { draftId } = await open(team);
+
+    expect((await presence(team, draftId, null, viewer)).others).toEqual([]);
+    const response = await call(stranger.cookie, "POST", `/admin/drafts/${draftId}/presence`, {
+      itemId: null,
+    });
+    expect(response.status).toBe(404);
+  });
+
+  describe("recent changes and undo", () => {
+    interface Change {
+      changeId: string;
+      who: string;
+      mine: boolean;
+      summary: string;
+      canUndo: boolean;
+    }
+
+    const changes = async (team: Lab, draftId: string, cookie = team.cookie) => {
+      const response = await call(cookie, "GET", `/admin/drafts/${draftId}/changes`);
+      return ((await response.json()) as { changes: Change[] }).changes;
+    };
+
+    const undo = (team: Lab, draftId: string, changeId: string, cookie = team.cookie) =>
+      call(cookie, "POST", `/admin/drafts/${draftId}/changes/${changeId}/undo`);
+
+    const latestChange = async (team: Lab, draftId: string) =>
+      (await changes(team, draftId))[0] as Change;
+
+    it("lists changes newest first, saying who and what", async () => {
+      const team = await lab();
+      const other = await teammate(team);
+      const { draftId } = await open(team);
+      const post = findPost((await preview(team, draftId)).posts, "original text");
+
+      await edit(team, draftId, post.id, { body: "mine" });
+      await call(other, "PATCH", `/admin/drafts/${draftId}/items/${post.id}`, {
+        changes: { body: "theirs" },
+      });
+
+      const list = await changes(team, draftId);
+      expect(list[0]).toMatchObject({ who: "A editor", mine: false, summary: 'changed "theirs"' });
+      expect(list[1]).toMatchObject({ who: "Owner", mine: true, summary: 'changed "mine"' });
+    });
+
+    it("counts moving a post and its comments as one change, and undoes them together", async () => {
+      const team = await lab();
+      const { draftId } = await open(team);
+      const before = await preview(team, draftId);
+      const post = findPost(before.posts, "original text");
+      const commentId = post.comments[0]?.id as string;
+      const start = {
+        post: before.items[post.id]?.timeMs,
+        comment: before.items[commentId]?.timeMs,
+      };
+
+      await call(team.cookie, "POST", `/admin/drafts/${draftId}/items/${post.id}/move`, {
+        timeMs: 3_600_000,
+      });
+      const list = await changes(team, draftId);
+      expect(list).toHaveLength(1);
+      expect(list[0]?.summary).toContain("moved");
+
+      expect((await undo(team, draftId, list[0]?.changeId as string)).status).toBe(200);
+
+      const after = await preview(team, draftId);
+      expect(after.items[post.id]?.timeMs).toBe(start.post);
+      expect(after.items[commentId]?.timeMs).toBe(start.comment);
+    });
+
+    it("undoes an edit", async () => {
+      const team = await lab();
+      const { draftId } = await open(team);
+      const post = findPost((await preview(team, draftId)).posts, "original text");
+      await edit(team, draftId, post.id, { body: "oops" });
+
+      const { changeId } = await latestChange(team, draftId);
+      await undo(team, draftId, changeId);
+
+      expect(findPost((await preview(team, draftId)).posts, "original text").id).toBe(post.id);
+    });
+
+    it("undoes adding something", async () => {
+      const team = await lab();
+      const { draftId } = await open(team);
+      const before = await preview(team, draftId);
+      await call(team.cookie, "POST", `/admin/drafts/${draftId}/items`, {
+        kind: "post",
+        fields: {
+          body: "added by mistake",
+          actorId: before.items[findPost(before.posts, "only a").id]?.actorId,
+          timeMs: 0,
+        },
+      });
+
+      await undo(team, draftId, (await latestChange(team, draftId)).changeId);
+
+      expect((await preview(team, draftId)).posts.map((item) => item.body)).not.toContain(
+        "added by mistake",
+      );
+    });
+
+    it("brings back something deleted, with its comments", async () => {
+      const team = await lab();
+      const { draftId } = await open(team);
+      const post = findPost((await preview(team, draftId)).posts, "original text");
+      await call(team.cookie, "DELETE", `/admin/drafts/${draftId}/items/${post.id}`);
+      expect((await preview(team, draftId)).posts.map((item) => item.body)).not.toContain(
+        "original text",
+      );
+
+      await undo(team, draftId, (await latestChange(team, draftId)).changeId);
+
+      const restored = findPost((await preview(team, draftId)).posts, "original text");
+      expect(restored.comments.map((comment) => comment.body)).toEqual(["a comment"]);
+    });
+
+    it("won't throw away someone's later work on the same post", async () => {
+      const team = await lab();
+      const other = await teammate(team);
+      const { draftId } = await open(team);
+      const post = findPost((await preview(team, draftId)).posts, "original text");
+      await edit(team, draftId, post.id, { body: "mine" });
+      const { changeId } = await latestChange(team, draftId);
+      await call(other, "PATCH", `/admin/drafts/${draftId}/items/${post.id}`, {
+        changes: { body: "theirs, afterward" },
+      });
+
+      const response = await undo(team, draftId, changeId);
+
+      expect(response.status).toBe(409);
+      expect(((await response.json()) as { error: string }).error).toContain("changed it since");
+      expect(findPost((await preview(team, draftId)).posts, "theirs, afterward").id).toBe(post.id);
+    });
+
+    it("can only undo a change once, and shows that", async () => {
+      const team = await lab();
+      const { draftId } = await open(team);
+      const post = findPost((await preview(team, draftId)).posts, "original text");
+      await edit(team, draftId, post.id, { body: "oops" });
+      const { changeId } = await latestChange(team, draftId);
+
+      expect((await undo(team, draftId, changeId)).status).toBe(200);
+      expect((await undo(team, draftId, changeId)).status).toBe(404);
+
+      const list = await changes(team, draftId);
+      expect(list.find((item) => item.changeId === changeId)?.canUndo).toBe(false);
+      expect(list[0]?.canUndo).toBe(false);
+    });
+
+    it("isn't open to viewers or other teams", async () => {
+      const team = await lab();
+      const stranger = await lab();
+      const viewer = await teammate(team, "viewer");
+      const { draftId } = await open(team);
+      const post = findPost((await preview(team, draftId)).posts, "original text");
+      await edit(team, draftId, post.id, { body: "x" });
+      const { changeId } = await latestChange(team, draftId);
+
+      expect((await undo(team, draftId, changeId, viewer)).status).toBe(403);
+      expect((await undo(team, draftId, changeId, stranger.cookie)).status).toBe(404);
+      const response = await call(stranger.cookie, "GET", `/admin/drafts/${draftId}/changes`);
+      expect(response.status).toBe(404);
+    });
+
+    it("stops being possible once the draft is saved", async () => {
+      const team = await lab();
+      const { draftId } = await open(team);
+      const post = findPost((await preview(team, draftId)).posts, "original text");
+      await edit(team, draftId, post.id, { body: "edited" });
+      const { changeId } = await latestChange(team, draftId);
+      await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+
+      expect((await undo(team, draftId, changeId)).status).toBe(409);
+    });
   });
 });

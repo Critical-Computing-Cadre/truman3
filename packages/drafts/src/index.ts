@@ -8,6 +8,7 @@ export {
   freezeDraft,
   type LoadedDraft,
   loadDraft,
+  moveItem,
   openDraft,
   updateItem,
 } from "./drafts.ts";
@@ -21,3 +22,10 @@ export {
   type Provenance,
   type ReactionData,
 } from "./items.ts";
+export {
+  type ActiveResearcher,
+  listChanges,
+  type RecentChange,
+  recordPresence,
+  undoChange,
+} from "./together.ts";

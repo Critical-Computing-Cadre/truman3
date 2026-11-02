@@ -10,10 +10,14 @@ import {
   deleteItem,
   freezeDraft,
   type LoadedDraft,
+  listChanges,
   loadDraft,
+  moveItem,
   openDraft,
   type PostData,
   type Provenance,
+  recordPresence,
+  undoChange,
   updateItem,
 } from "@truman3/drafts";
 import { feedSettingsFor } from "@truman3/feed";
@@ -84,7 +88,16 @@ const infoRoute = createRoute({
               }),
             ),
             actors: z.array(z.object({ id: z.string(), username: z.string(), name: z.string() })),
-            posts: z.array(z.object({ offsetMs: z.number(), conditions: z.array(z.string()) })),
+            posts: z.array(
+              z.object({
+                id: z.string(),
+                offsetMs: z.number(),
+                conditions: z.array(z.string()),
+                body: z.string(),
+                authorName: z.string(),
+                imageUrl: z.string().nullable(),
+              }),
+            ),
             issues: z.array(
               z.object({ severity: z.enum(["error", "warning"]), message: z.string() }),
             ),
@@ -210,6 +223,21 @@ const updateItemRoute = createRoute({
   },
 });
 
+const moveItemRoute = createRoute({
+  method: "post",
+  path: "/admin/drafts/{draftId}/items/{itemId}/move",
+  summary: "Change when a post appears. Its comments move with it",
+  request: { params: itemParams, ...jsonBody(z.object({ timeMs: z.number().int() })) },
+  responses: {
+    200: {
+      description: "Moved",
+      content: { "application/json": { schema: z.object({ moved: z.number() }) } },
+    },
+    409: errorResponse("The draft is already saved as a version"),
+    ...commonErrors,
+  },
+});
+
 const deleteItemRoute = createRoute({
   method: "delete",
   path: "/admin/drafts/{draftId}/items/{itemId}",
@@ -221,6 +249,75 @@ const deleteItemRoute = createRoute({
       content: { "application/json": { schema: z.object({ deleted: z.number() }) } },
     },
     409: errorResponse("It's still in use, or the draft is already saved"),
+    ...commonErrors,
+  },
+});
+
+const presenceRoute = createRoute({
+  method: "post",
+  path: "/admin/drafts/{draftId}/presence",
+  summary: "Say you're here, and find out who else is, and whether anything has changed",
+  request: {
+    params: draftParams,
+    ...jsonBody(z.object({ itemId: z.uuid().nullable() })),
+  },
+  responses: {
+    200: {
+      description: "Who else is here, and a number that goes up when anything in the draft changes",
+      content: {
+        "application/json": {
+          schema: z.object({
+            latestChange: z.number(),
+            others: z.array(z.object({ name: z.string(), itemId: z.string().nullable() })),
+          }),
+        },
+      },
+    },
+    ...commonErrors,
+  },
+});
+
+const changesRoute = createRoute({
+  method: "get",
+  path: "/admin/drafts/{draftId}/changes",
+  summary: "Recent changes to the draft, and who made them",
+  request: { params: draftParams },
+  responses: {
+    200: {
+      description: "Newest first",
+      content: {
+        "application/json": {
+          schema: z.object({
+            changes: z.array(
+              z.object({
+                changeId: z.string(),
+                who: z.string(),
+                mine: z.boolean(),
+                action: z.string(),
+                summary: z.string(),
+                at: z.iso.datetime(),
+                canUndo: z.boolean(),
+              }),
+            ),
+          }),
+        },
+      },
+    },
+    ...commonErrors,
+  },
+});
+
+const undoRoute = createRoute({
+  method: "post",
+  path: "/admin/drafts/{draftId}/changes/{changeId}/undo",
+  summary: "Undo a change",
+  request: { params: draftParams.extend({ changeId: z.uuid() }) },
+  responses: {
+    200: {
+      description: "Undone. That goes in the history too",
+      content: { "application/json": { schema: z.object({ undone: z.number() }) } },
+    },
+    409: errorResponse("Someone has changed it since, or it can't be undone"),
     ...commonErrors,
   },
 });
@@ -362,7 +459,17 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           .filter((item) => item.kind === "post")
           .map((item) => {
             const data = item.data as PostData;
-            return { offsetMs: data.timeMs, conditions: data.conditions };
+            const author = items.find(({ id }) => id === data.actorId)?.data as
+              | ActorData
+              | undefined;
+            return {
+              id: item.id,
+              offsetMs: data.timeMs,
+              conditions: data.conditions,
+              body: data.body,
+              authorName: author?.name ?? "",
+              imageUrl: data.picture ? mediaUrl(data.picture, mediaPublicUrl) : null,
+            };
           }),
         issues: checkDraft(loaded).map(({ severity, message }) => ({ severity, message })),
       },
@@ -490,6 +597,27 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
     return c.json(result, 200);
   });
 
+  app.openapi(moveItemRoute, async (c) => {
+    const { draftId, itemId } = c.req.valid("param");
+    const editing = await forEditing(c, draftId);
+    if ("failure" in editing) {
+      const [body, status] = editing.failure;
+      return c.json(body, status);
+    }
+
+    const result = await moveItem(
+      db,
+      draftId,
+      itemId,
+      editing.researcher.id,
+      c.req.valid("json").timeMs,
+    );
+    if ("problem" in result) {
+      return c.json({ error: result.message }, result.problem === "not-found" ? 404 : 409);
+    }
+    return c.json(result, 200);
+  });
+
   app.openapi(deleteItemRoute, async (c) => {
     const { draftId, itemId } = c.req.valid("param");
     const editing = await forEditing(c, draftId);
@@ -499,6 +627,48 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
     }
 
     const result = await deleteItem(db, draftId, itemId, editing.researcher.id);
+    if ("problem" in result) {
+      return c.json({ error: result.message }, result.problem === "not-found" ? 404 : 409);
+    }
+    return c.json(result, 200);
+  });
+
+  app.openapi(presenceRoute, async (c) => {
+    const researcher = await researcherFromRequest(c, db);
+    if (!researcher) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const { draftId } = c.req.valid("param");
+    if (!(await access(researcher.id, draftId))) {
+      return c.json(notAvailable, 404);
+    }
+    return c.json(
+      await recordPresence(db, draftId, researcher.id, c.req.valid("json").itemId),
+      200,
+    );
+  });
+
+  app.openapi(changesRoute, async (c) => {
+    const researcher = await researcherFromRequest(c, db);
+    if (!researcher) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const { draftId } = c.req.valid("param");
+    if (!(await access(researcher.id, draftId))) {
+      return c.json(notAvailable, 404);
+    }
+    return c.json({ changes: await listChanges(db, draftId, researcher.id) }, 200);
+  });
+
+  app.openapi(undoRoute, async (c) => {
+    const { draftId, changeId } = c.req.valid("param");
+    const editing = await forEditing(c, draftId);
+    if ("failure" in editing) {
+      const [body, status] = editing.failure;
+      return c.json(body, status);
+    }
+
+    const result = await undoChange(db, draftId, changeId, editing.researcher.id);
     if ("problem" in result) {
       return c.json({ error: result.message }, result.problem === "not-found" ? 404 : 409);
     }

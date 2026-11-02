@@ -69,12 +69,18 @@ test("a researcher sees the real feed and moves through time", async ({ page }, 
 
 test("play moves time forward, and can be paused", async ({ page }) => {
   await openPreview(page);
+  const time = page.locator("output");
+  await expect(time).toHaveText("Day 1, 0h in");
+
   await page.getByRole("button", { name: "Play" }).click();
-  await expect(page.getByText("Day 1, 1h in")).toBeVisible({ timeout: 5_000 });
+  // Any later time will do. It moves quickly, so looking for one exact moment could miss it.
+  await expect(time).not.toHaveText("Day 1, 0h in");
+
   await page.getByRole("button", { name: "Pause" }).click();
-  const paused = await page.locator("output").textContent();
+  await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
+  const paused = await time.textContent();
   await page.waitForTimeout(1_200);
-  expect(await page.locator("output").textContent()).toBe(paused);
+  await expect(time).toHaveText(paused ?? "");
 });
 
 test("comparing two conditions shows what differs, labeled", async ({ page }, testInfo) => {

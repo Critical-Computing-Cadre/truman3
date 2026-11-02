@@ -101,7 +101,14 @@ export interface DraftInfo {
   lengthMs: number;
   conditions: PreviewInfo["conditions"];
   actors: { id: string; username: string; name: string }[];
-  posts: PreviewInfo["posts"];
+  posts: {
+    id: string;
+    offsetMs: number;
+    conditions: string[];
+    body: string;
+    authorName: string;
+    imageUrl: string | null;
+  }[];
   issues: { severity: "error" | "warning"; message: string }[];
 }
 
@@ -115,4 +122,19 @@ export interface DraftItemDetails {
 
 export interface DraftPreviewResponse extends PreviewResponse {
   items: Record<string, DraftItemDetails>;
+}
+
+export interface Presence {
+  latestChange: number;
+  others: { name: string; itemId: string | null }[];
+}
+
+export interface DraftChange {
+  changeId: string;
+  who: string;
+  mine: boolean;
+  action: string;
+  summary: string;
+  at: string;
+  canUndo: boolean;
 }

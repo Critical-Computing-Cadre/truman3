@@ -1,17 +1,20 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { formatStudyTime, parseStudyTime } from "@truman3/core";
-import { FeedPostView } from "@truman3/ui";
+import { FeedPostView, shortTime } from "@truman3/ui";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import {
+  type DraftChange,
   type DraftInfo,
   type DraftItemDetails,
   type DraftPreviewResponse,
   get,
+  type Presence,
   post,
   send,
   upload,
 } from "../api.ts";
+import { PostTimeline } from "../components/PostTimeline.tsx";
 import { TimelineControls, useTimeline } from "../components/TimelineControls.tsx";
 
 /** Everything that changes a draft goes through here, and then redraws what depends on it. */
@@ -28,6 +31,11 @@ function useDraftEdits(draftId: string) {
     }),
     create: useMutation({
       mutationFn: (body: { kind: "post" | "comment"; fields: object }) => send("POST", base, body),
+      onSettled: refresh,
+    }),
+    move: useMutation({
+      mutationFn: ({ itemId, timeMs }: { itemId: string; timeMs: number }) =>
+        send("POST", `${base}/${itemId}/move`, { timeMs }),
       onSettled: refresh,
     }),
     remove: useMutation({
@@ -51,17 +59,121 @@ function useDraftEdits(draftId: string) {
 
 type DraftEdits = ReturnType<typeof useDraftEdits>;
 
+const PRESENCE_EVERY_MS = 2_000;
+
+/**
+ * Keeps a draft in step with whoever else is working on it. It checks every couple of seconds, and
+ * redraws when anything has changed. What someone is typing stays put, since that's held locally.
+ */
+function useDraftPresence(draftId: string, editingItemId: string | null) {
+  const client = useQueryClient();
+  const [others, setOthers] = useState<Presence["others"]>([]);
+  const lastChange = useRef<number | null>(null);
+  const editing = useRef(editingItemId);
+  editing.current = editingItemId;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const check = async () => {
+      try {
+        const presence = await post<Presence>(`/admin/drafts/${draftId}/presence`, {
+          itemId: editing.current,
+        });
+        if (cancelled) {
+          return;
+        }
+        setOthers(presence.others);
+        if (lastChange.current !== null && lastChange.current !== presence.latestChange) {
+          client.invalidateQueries({ queryKey: ["draft", draftId] });
+        }
+        lastChange.current = presence.latestChange;
+      } catch {
+        // A missed check is fine. The next one catches up.
+      }
+    };
+
+    check();
+    const timer = setInterval(check, PRESENCE_EVERY_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [draftId, client]);
+
+  // Tell others right away when starting to edit, rather than at the next check.
+  useEffect(() => {
+    if (editingItemId) {
+      post(`/admin/drafts/${draftId}/presence`, { itemId: editingItemId }).catch(() => {});
+    }
+  }, [draftId, editingItemId]);
+
+  return others;
+}
+
+/** Recent changes, with who made them, and undo. */
+function RecentChanges({ draftId, canEdit }: { draftId: string; canEdit: boolean }) {
+  const client = useQueryClient();
+  const changes = useQuery({
+    queryKey: ["draft", draftId, "changes"],
+    queryFn: () => get<{ changes: DraftChange[] }>(`/admin/drafts/${draftId}/changes`),
+  });
+  const undo = useMutation({
+    mutationFn: (changeId: string) => post(`/admin/drafts/${draftId}/changes/${changeId}/undo`),
+    onSettled: () => client.invalidateQueries({ queryKey: ["draft", draftId] }),
+  });
+
+  const list = changes.data?.changes ?? [];
+
+  return (
+    <details className="mb-2 text-xs">
+      <summary className="cursor-pointer select-none">
+        Recent changes{list.length > 0 ? ` (${list.length})` : ""}
+      </summary>
+      {undo.error && (
+        <p role="alert" className="mt-1 rounded bg-rose-100 p-2 text-rose-900">
+          {undo.error.message}
+        </p>
+      )}
+      {list.length === 0 && <p className="mt-1 text-stone-500">Nothing yet.</p>}
+      <ul className="mt-1 max-h-48 divide-y divide-stone-200 overflow-y-auto">
+        {list.map((change) => (
+          <li key={change.changeId} className="flex items-center gap-2 py-1">
+            <span className="min-w-0 flex-1 truncate">
+              <strong>{change.mine ? "You" : change.who}</strong> {change.summary}
+            </span>
+            <span className="text-stone-500">{shortTime(change.at)}</span>
+            {canEdit && change.canUndo && (
+              <button
+                type="button"
+                disabled={undo.isPending}
+                onClick={() => undo.mutate(change.changeId)}
+                className="underline"
+              >
+                Undo
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 /** Text you click to change, where it appears. It saves when you click away. */
 function EditableText({
   value,
   label,
   required,
   onSave,
+  onEditing,
 }: {
   value: string;
   label: string;
   required: boolean;
   onSave: (text: string) => void;
+  /** Says when someone starts and stops, so others can see. */
+  onEditing: (editing: boolean) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -80,7 +192,10 @@ function EditableText({
       <button
         type="button"
         aria-label={`${label}: ${value || "empty"}`}
-        onClick={() => setEditing(true)}
+        onClick={() => {
+          setEditing(true);
+          onEditing(true);
+        }}
         className="block w-full cursor-text rounded text-left break-words whitespace-pre-wrap hover:bg-amber-50 hover:outline hover:outline-amber-300"
       >
         {value || <span className="text-stone-400">Click to write something</span>}
@@ -94,6 +209,7 @@ function EditableText({
       onSave(text);
     }
     setEditing(false);
+    onEditing(false);
   };
 
   return (
@@ -108,6 +224,7 @@ function EditableText({
         if (event.key === "Escape") {
           setDraft(value);
           setEditing(false);
+          onEditing(false);
         } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
           event.currentTarget.blur();
         }
@@ -244,7 +361,12 @@ function ItemDetails({
     if (parsed === null) {
       setTimeProblem(true);
     } else if (parsed !== details.timeMs) {
-      change({ timeMs: parsed });
+      // A post takes its comments with it, the same as dragging it on the timeline.
+      if (kind === "post") {
+        edits.move.mutate({ itemId, timeMs: parsed });
+      } else {
+        change({ timeMs: parsed });
+      }
     }
   };
 
@@ -398,6 +520,8 @@ function AddComment({
   );
 }
 
+const SCROLL_CORRECTIONS_MS = [250, 700, 1500];
+
 /** The feed in one condition, where anything can be clicked and changed. */
 function EditableFeed({
   draftId,
@@ -405,12 +529,20 @@ function EditableFeed({
   condition,
   elapsedMs,
   edits,
+  highlightId,
+  others,
+  onEditingItem,
 }: {
   draftId: string;
   info: DraftInfo;
   condition: string;
   elapsedMs: number;
   edits: DraftEdits;
+  /** A post chosen on the timeline, to bring into view. */
+  highlightId?: string | null;
+  /** Who else is here, to show on what they're editing. */
+  others: Presence["others"];
+  onEditingItem: (itemId: string | null) => void;
 }) {
   const feed = useQuery({
     queryKey: ["draft", draftId, "feed", condition, elapsedMs],
@@ -420,6 +552,25 @@ function EditableFeed({
       ),
     placeholderData: keepPreviousData,
   });
+
+  const shownIds = feed.data?.posts.map(({ id }) => id).join();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs again once the post has loaded
+  useEffect(() => {
+    if (!highlightId) {
+      return;
+    }
+    const bringIntoView = () =>
+      document.querySelector(`[data-post="${highlightId}"]`)?.scrollIntoView({ block: "center" });
+
+    // Photos above it load as the page moves, which pushes it down, so this corrects for them.
+    bringIntoView();
+    const timers = SCROLL_CORRECTIONS_MS.map((delay) => setTimeout(bringIntoView, delay));
+    return () => {
+      for (const timer of timers) {
+        clearTimeout(timer);
+      }
+    };
+  }, [highlightId, shownIds]);
 
   const items = feed.data?.items ?? {};
   const kinds = new Map<string, "post" | "comment">();
@@ -435,8 +586,14 @@ function EditableFeed({
     if (!details) {
       return null;
     }
+    const editors = others.filter(({ itemId }) => itemId === contentId);
     return (
       <div>
+        {editors.length > 0 && (
+          <p className="mt-1 mr-1 inline-block rounded bg-sky-100 px-2 py-0.5 text-xs text-sky-900">
+            {editors.map(({ name }) => name).join(", ")} editing this
+          </p>
+        )}
         {details.conditions.length > 0 && (
           <p className="mt-1 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">
             Only in {details.conditions.join(", ")}
@@ -486,37 +643,43 @@ function EditableFeed({
         <p className="rounded-lg bg-white p-6 text-center text-stone-500">No posts to show.</p>
       )}
       {feed.data?.posts.map((shown) => (
-        <FeedPostView
+        <div
           key={shown.id}
-          post={shown}
-          renderNote={note}
-          {...(info.canEdit
-            ? {
-                renderBody: (contentId: string, body: string) => (
-                  <EditableText
-                    value={body}
-                    required={kinds.get(contentId) === "comment"}
-                    label={`Text of this ${kinds.get(contentId) ?? "post"}`}
-                    onSave={(text) =>
-                      edits.update.mutate({ itemId: contentId, changes: { body: text } })
-                    }
-                  />
-                ),
-                wrapImage: (image: React.ReactNode) => (
-                  <ImageDrop itemId={shown.id} image={image} edits={edits} />
-                ),
-                belowComments: (
-                  <AddComment
-                    postId={shown.id}
-                    info={info}
-                    elapsedMs={elapsedMs}
-                    postTimeMs={items[shown.id]?.timeMs ?? 0}
-                    edits={edits}
-                  />
-                ),
-              }
-            : {})}
-        />
+          data-post={shown.id}
+          className={highlightId === shown.id ? "rounded-lg ring-2 ring-sky-500" : ""}
+        >
+          <FeedPostView
+            post={shown}
+            renderNote={note}
+            {...(info.canEdit
+              ? {
+                  renderBody: (contentId: string, body: string) => (
+                    <EditableText
+                      value={body}
+                      required={kinds.get(contentId) === "comment"}
+                      label={`Text of this ${kinds.get(contentId) ?? "post"}`}
+                      onSave={(text) =>
+                        edits.update.mutate({ itemId: contentId, changes: { body: text } })
+                      }
+                      onEditing={(editing) => onEditingItem(editing ? contentId : null)}
+                    />
+                  ),
+                  wrapImage: (image: React.ReactNode) => (
+                    <ImageDrop itemId={shown.id} image={image} edits={edits} />
+                  ),
+                  belowComments: (
+                    <AddComment
+                      postId={shown.id}
+                      info={info}
+                      elapsedMs={elapsedMs}
+                      postTimeMs={items[shown.id]?.timeMs ?? 0}
+                      edits={edits}
+                    />
+                  ),
+                }
+              : {})}
+          />
+        </div>
       ))}
     </section>
   );
@@ -620,13 +783,20 @@ export function DraftPage() {
   });
   const edits = useDraftEdits(draftId);
   const timeline = useTimeline(info.data?.lengthMs ?? 0);
+  const [arranging, setArranging] = useState(true);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const others = useDraftPresence(draftId, editingItemId);
 
   if (!info.data) {
     return null;
   }
 
   const current = timeline.condition ?? info.data.conditions[0]?.key ?? "";
-  const failure = edits.update.error ?? edits.create.error ?? edits.remove.error;
+  const failure =
+    edits.update.error ?? edits.create.error ?? edits.remove.error ?? edits.move.error;
+  const windowHours = info.data.conditions.find(({ key }) => key === current)?.windowHours ?? null;
+  const { lengthMs } = info.data;
   const issues = info.data.issues.filter(({ severity }) => severity === "error");
 
   return (
@@ -648,7 +818,45 @@ export function DraftPage() {
         extra={info.data.canEdit && <SaveVersion draftId={draftId} info={info.data} />}
       />
 
+      {/* Not pinned with the controls above, or it would cover half the screen while reading the feed. */}
+      <div className="border-b border-stone-200 bg-white px-3 pb-2">
+        <div className="mx-auto max-w-5xl pt-2">
+          {others.length > 0 && (
+            <p className="mb-1 text-xs" data-testid="also-here">
+              <span className="rounded bg-sky-100 px-2 py-0.5 text-sky-900">
+                Also here: {others.map(({ name }) => name).join(", ")}
+              </span>
+            </p>
+          )}
+          <button
+            type="button"
+            aria-expanded={arranging}
+            onClick={() => setArranging(!arranging)}
+            className="text-xs underline"
+          >
+            {arranging ? "Hide posts on the timeline" : "Show posts on the timeline"}
+          </button>
+          {arranging && (
+            <PostTimeline
+              posts={info.data.posts}
+              lengthMs={lengthMs}
+              windowHours={windowHours}
+              condition={current}
+              elapsedMs={timeline.elapsedMs}
+              canEdit={info.data.canEdit}
+              onMove={(itemId, timeMs) => edits.move.mutate({ itemId, timeMs })}
+              onSelect={(itemId, timeMs) => {
+                timeline.setPlaying(false);
+                timeline.setElapsedMs(Math.min(lengthMs, Math.max(0, timeMs)));
+                setHighlightId(itemId);
+              }}
+            />
+          )}
+        </div>
+      </div>
+
       <div className="mx-auto max-w-5xl px-3 pt-3 text-sm">
+        <RecentChanges draftId={draftId} canEdit={info.data.canEdit} />
         {info.data.closed && (
           <p className="rounded bg-stone-200 p-3">
             This draft has been saved as a version, so it can't be changed.{" "}
@@ -684,6 +892,9 @@ export function DraftPage() {
           condition={current}
           elapsedMs={timeline.shownElapsedMs}
           edits={edits}
+          highlightId={highlightId}
+          others={others}
+          onEditingItem={setEditingItemId}
         />
         {timeline.compare && timeline.compare !== current && (
           <EditableFeed
@@ -692,6 +903,8 @@ export function DraftPage() {
             condition={timeline.compare}
             elapsedMs={timeline.shownElapsedMs}
             edits={edits}
+            others={others}
+            onEditingItem={setEditingItemId}
           />
         )}
       </div>

@@ -586,15 +586,37 @@ export const draftItemHistory = pgTable(
     draftId: uuid("draft_id")
       .notNull()
       .references(() => studyDrafts.id),
+    /** What one action changed together, like a post and the comments moved with it. */
+    changeId: uuid("change_id").notNull().default(sql`uuidv7()`),
     revision: integer().notNull(),
     action: text().notNull(),
     data: jsonb().notNull(),
+    /** What it was before, so this can be undone. */
+    previousData: jsonb("previous_data"),
+    /** The change that undid this one. */
+    undoneBy: uuid("undone_by"),
     researcherId: uuid("researcher_id")
       .notNull()
       .references(() => researchers.id),
     at: time("at").notNull().defaultNow(),
   },
   (table) => [index("draft_item_history_item").on(table.itemId, table.id)],
+);
+
+/** Who has a draft open right now, and what they're editing. */
+export const draftPresence = pgTable(
+  "draft_presence",
+  {
+    draftId: uuid("draft_id")
+      .notNull()
+      .references(() => studyDrafts.id, { onDelete: "cascade" }),
+    researcherId: uuid("researcher_id")
+      .notNull()
+      .references(() => researchers.id, { onDelete: "cascade" }),
+    itemId: uuid("item_id"),
+    lastSeen: time("last_seen").notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.draftId, table.researcherId] })],
 );
 
 /** A record that a participant's data was deleted. Holds no data about what was deleted. */

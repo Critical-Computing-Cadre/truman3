@@ -30,14 +30,18 @@ async function writeHistory(
     itemId: string;
     draftId: string;
     revision: number;
-    action: "create" | "update" | "delete";
+    action: "create" | "update" | "delete" | "undo";
     data: unknown;
+    previousData?: unknown;
     researcherId: string;
   }[],
 ) {
+  // Everything written together is one change, so it can be undone together.
+  const changeId = crypto.randomUUID();
   for (const batch of chunks(rows, INSERT_BATCH_SIZE)) {
-    await tx.insert(schema.draftItemHistory).values(batch);
+    await tx.insert(schema.draftItemHistory).values(batch.map((row) => ({ ...row, changeId })));
   }
+  return changeId;
 }
 
 /**
@@ -372,10 +376,83 @@ export async function updateItem(
       })
       .where(eq(schema.draftItems.id, itemId));
     await writeHistory(tx, [
-      { itemId, draftId, revision, action: "update", data: parsed.data, researcherId },
+      {
+        itemId,
+        draftId,
+        revision,
+        action: "update",
+        data: parsed.data,
+        previousData: item.data,
+        researcherId,
+      },
     ]);
     await touchDraft(tx, draftId);
     return { revision };
+  });
+}
+
+/**
+ * Moves a post in time, and its comments by the same amount, so a conversation stays together. This
+ * also means dragging a post can't leave a comment timed before its post.
+ */
+export async function moveItem(
+  db: Database,
+  draftId: string,
+  itemId: string,
+  researcherId: string,
+  timeMs: number,
+): Promise<{ moved: number } | EditProblem> {
+  return db.transaction(async (tx) => {
+    if (!(await isOpen(tx, draftId))) {
+      return CLOSED;
+    }
+
+    const rows = await tx
+      .select()
+      .from(schema.draftItems)
+      .where(and(eq(schema.draftItems.draftId, draftId), isNull(schema.draftItems.deletedAt)))
+      .for("update");
+    const post = rows.find(({ id, kind }) => id === itemId && kind === "post");
+    if (!post) {
+      return NOT_FOUND;
+    }
+
+    const delta = timeMs - (post.data as { timeMs: number }).timeMs;
+    if (delta === 0) {
+      return { moved: 0 };
+    }
+
+    const moving = [
+      post,
+      ...rows.filter((row) => (row.data as { postId?: string }).postId === itemId),
+    ];
+    const history: Parameters<typeof writeHistory>[1] = [];
+    for (const row of moving) {
+      const data = row.data as { timeMs: number };
+      const updated = { ...data, timeMs: data.timeMs + delta };
+      await tx
+        .update(schema.draftItems)
+        .set({
+          data: updated,
+          revision: row.revision + 1,
+          provenance: { ...(row.provenance as Provenance), edited: true },
+          updatedBy: researcherId,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.draftItems.id, row.id));
+      history.push({
+        itemId: row.id,
+        draftId,
+        revision: row.revision + 1,
+        action: "update",
+        data: updated,
+        previousData: row.data,
+        researcherId,
+      });
+    }
+    await writeHistory(tx, history);
+    await touchDraft(tx, draftId);
+    return { moved: moving.length };
   });
 }
 
@@ -413,7 +490,11 @@ export async function deleteItem(
     const removing = [item, ...rows.filter((row) => points(row, "postId"))];
     await tx
       .update(schema.draftItems)
-      .set({ deletedAt: new Date(), updatedBy: researcherId })
+      .set({
+        deletedAt: new Date(),
+        updatedBy: researcherId,
+        revision: sql`${schema.draftItems.revision} + 1`,
+      })
       .where(
         inArray(
           schema.draftItems.id,
@@ -428,6 +509,7 @@ export async function deleteItem(
         revision: row.revision + 1,
         action: "delete" as const,
         data: row.data,
+        previousData: row.data,
         researcherId,
       })),
     );
