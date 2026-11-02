@@ -10,6 +10,8 @@ export {
   loadDraft,
   moveItem,
   openDraft,
+  type SaveSection,
+  saveSection,
   updateItem,
 } from "./drafts.ts";
 export {
@@ -22,6 +24,15 @@ export {
   type Provenance,
   type ReactionData,
 } from "./items.ts";
+export {
+  isSectionName,
+  pageKeyOf,
+  pageSection,
+  SETTINGS_SECTIONS,
+  type SectionName,
+  type SectionState,
+  sectionValue,
+} from "./sections.ts";
 export {
   type ActiveResearcher,
   listChanges,

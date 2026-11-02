@@ -16,7 +16,12 @@ import {
   openDraft,
   type PostData,
   type Provenance,
+  pageSection,
   recordPresence,
+  SETTINGS_SECTIONS,
+  type SectionName,
+  saveSection,
+  sectionValue,
   undoChange,
   updateItem,
 } from "@truman3/drafts";
@@ -106,6 +111,61 @@ const infoRoute = createRoute({
         },
       },
     },
+    ...commonErrors,
+  },
+});
+
+const sectionStateSchema = z.object({ revision: z.number(), value: z.unknown() });
+
+const settingsRoute = createRoute({
+  method: "get",
+  path: "/admin/drafts/{draftId}/settings",
+  summary: "A draft's settings and pages, by section",
+  request: { params: draftParams },
+  responses: {
+    200: {
+      description: "Each section, with the revision to send back when saving it",
+      content: {
+        "application/json": {
+          schema: z.object({
+            title: z.string(),
+            slug: z.string(),
+            canEdit: z.boolean(),
+            sections: z.record(z.string(), sectionStateSchema),
+            pages: z.record(z.string(), z.object({ revision: z.number(), text: z.string() })),
+            issues: z.array(
+              z.object({ severity: z.enum(["error", "warning"]), message: z.string() }),
+            ),
+          }),
+        },
+      },
+    },
+    ...commonErrors,
+  },
+});
+
+const saveSettingsRoute = createRoute({
+  method: "put",
+  path: "/admin/drafts/{draftId}/settings",
+  summary: "Save one section of settings, or one page",
+  request: {
+    params: draftParams,
+    ...jsonBody(
+      z.object({
+        section: z.string(),
+        value: z.unknown(),
+        baseRevision: z.number().int().nonnegative(),
+        renames: z.record(z.string(), z.string()).optional(),
+      }),
+    ),
+  },
+  responses: {
+    200: {
+      description: "Saved",
+      content: { "application/json": { schema: z.object({ revision: z.number() }) } },
+    },
+    400: errorResponse("That isn't valid"),
+    409: errorResponse("Someone else saved it first, the draft is closed, or it's in use"),
     ...commonErrors,
   },
 });
@@ -260,7 +320,7 @@ const presenceRoute = createRoute({
   summary: "Say you're here, and find out who else is, and whether anything has changed",
   request: {
     params: draftParams,
-    ...jsonBody(z.object({ itemId: z.uuid().nullable() })),
+    ...jsonBody(z.object({ itemId: z.uuid().nullable(), section: z.string().nullish() })),
   },
   responses: {
     200: {
@@ -269,7 +329,13 @@ const presenceRoute = createRoute({
         "application/json": {
           schema: z.object({
             latestChange: z.number(),
-            others: z.array(z.object({ name: z.string(), itemId: z.string().nullable() })),
+            others: z.array(
+              z.object({
+                name: z.string(),
+                itemId: z.string().nullable(),
+                section: z.string().nullable(),
+              }),
+            ),
           }),
         },
       },
@@ -479,6 +545,68 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
     );
   });
 
+  app.openapi(settingsRoute, async (c) => {
+    const researcher = await researcherFromRequest(c, db);
+    if (!researcher) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const found = await access(researcher.id, c.req.valid("param").draftId);
+    if (!found) {
+      return c.json(notAvailable, 404);
+    }
+
+    const { loaded, canEdit } = found;
+    const { settings, pages, sections, draft } = loaded;
+    return c.json(
+      {
+        title: settings.title,
+        slug: settings.slug,
+        canEdit: canEdit && draft.closedAt === null,
+        sections: Object.fromEntries(
+          (Object.keys(SETTINGS_SECTIONS) as SectionName[]).map((section) => [
+            section,
+            {
+              revision: sections.get(section)?.revision ?? 0,
+              value: sectionValue(settings, section),
+            },
+          ]),
+        ),
+        pages: Object.fromEntries(
+          Object.entries(pages).map(([key, text]) => [
+            key,
+            { revision: sections.get(pageSection(key))?.revision ?? 0, text },
+          ]),
+        ),
+        issues: checkDraft(loaded).map(({ severity, message }) => ({ severity, message })),
+      },
+      200,
+    );
+  });
+
+  app.openapi(saveSettingsRoute, async (c) => {
+    const { draftId } = c.req.valid("param");
+    const editing = await forEditing(c, draftId);
+    if ("failure" in editing) {
+      const [body, status] = editing.failure;
+      return c.json(body, status);
+    }
+
+    const { section, value, baseRevision, renames } = c.req.valid("json");
+    const result = await saveSection(db, draftId, editing.researcher.id, {
+      section,
+      value,
+      baseRevision,
+      ...(renames ? { renames } : {}),
+    });
+    if ("problem" in result) {
+      if (result.problem === "not-found") {
+        return c.json({ error: result.message }, 404);
+      }
+      return c.json({ error: result.message }, result.problem === "invalid" ? 400 : 409);
+    }
+    return c.json(result, 200);
+  });
+
   app.openapi(previewRoute, async (c) => {
     const researcher = await researcherFromRequest(c, db);
     if (!researcher) {
@@ -644,10 +772,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
     if (!(await access(researcher.id, draftId))) {
       return c.json(notAvailable, 404);
     }
-    return c.json(
-      await recordPresence(db, draftId, researcher.id, c.req.valid("json").itemId),
-      200,
-    );
+    const { itemId, section } = c.req.valid("json");
+    return c.json(await recordPresence(db, draftId, researcher.id, itemId, section ?? null), 200);
   });
 
   app.openapi(changesRoute, async (c) => {

@@ -550,7 +550,7 @@ export const studyDrafts = pgTable(
 );
 
 /**
- * One actor, post, comment, or reaction in a draft, saved on its own so several people can work at
+ * One actor, post, comment, reaction, or section of settings in a draft, saved on its own so several people can work at
  * once without conflicting.
  */
 export const draftItems = pgTable(
@@ -573,7 +573,10 @@ export const draftItems = pgTable(
   },
   (table) => [
     index("draft_items_draft").on(table.draftId, table.kind),
-    check("draft_items_kind", inList(table.kind, ["actor", "post", "comment", "reaction"])),
+    check(
+      "draft_items_kind",
+      inList(table.kind, ["actor", "post", "comment", "reaction", "setting"]),
+    ),
   ],
 );
 
@@ -614,6 +617,8 @@ export const draftPresence = pgTable(
       .notNull()
       .references(() => researchers.id, { onDelete: "cascade" }),
     itemId: uuid("item_id"),
+    /** The section of settings they're editing, if any. */
+    section: text(),
     lastSeen: time("last_seen").notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.draftId, table.researcherId] })],

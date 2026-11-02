@@ -851,9 +851,9 @@ describe("working together", () => {
     await presence(team, draftId, post.id);
     const seen = await presence(team, draftId, null, other);
 
-    expect(seen.others).toEqual([{ name: "Owner", itemId: post.id }]);
+    expect(seen.others).toEqual([{ name: "Owner", itemId: post.id, section: null }]);
     expect((await presence(team, draftId, post.id)).others).toEqual([
-      { name: "A editor", itemId: null },
+      { name: "A editor", itemId: null, section: null },
     ]);
   });
 

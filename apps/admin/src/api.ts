@@ -1,4 +1,4 @@
-import type { FeedResponse } from "@truman3/core";
+import type { FeedResponse, StudySettings } from "@truman3/core";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -127,7 +127,7 @@ export interface DraftPreviewResponse extends PreviewResponse {
 
 export interface Presence {
   latestChange: number;
-  others: { name: string; itemId: string | null }[];
+  others: { name: string; itemId: string | null; section: string | null }[];
 }
 
 export interface DraftChange {
@@ -138,4 +138,21 @@ export interface DraftChange {
   summary: string;
   at: string;
   canUndo: boolean;
+}
+
+/** The parts of a study's settings that are edited together. */
+export interface DraftSections {
+  study: Pick<StudySettings, "title" | "site" | "platform">;
+  conditions: Pick<StudySettings, "conditions">;
+  feed: Pick<StudySettings, "feed" | "likes" | "length">;
+  flow: Pick<StudySettings, "flow" | "entry">;
+}
+
+export interface DraftSettings {
+  title: string;
+  slug: string;
+  canEdit: boolean;
+  sections: { [K in keyof DraftSections]: { revision: number; value: DraftSections[K] } };
+  pages: Record<string, { revision: number; text: string }>;
+  issues: { severity: "error" | "warning"; message: string }[];
 }

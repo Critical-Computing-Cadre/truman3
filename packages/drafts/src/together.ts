@@ -2,6 +2,7 @@ import { type Database, schema } from "@truman3/db";
 import { and, desc, eq, gt, isNull, max, ne } from "drizzle-orm";
 import type { EditProblem } from "./drafts.ts";
 import type { Provenance } from "./items.ts";
+import { pageKeyOf } from "./sections.ts";
 
 /** Someone counts as here if they've checked in this recently. */
 const PRESENCE_WINDOW_MS = 10_000;
@@ -10,6 +11,7 @@ const CHANGES_SHOWN = 30;
 export interface ActiveResearcher {
   name: string;
   itemId: string | null;
+  section: string | null;
 }
 
 /**
@@ -21,18 +23,23 @@ export async function recordPresence(
   draftId: string,
   researcherId: string,
   itemId: string | null,
+  section: string | null = null,
   now = new Date(),
 ): Promise<{ latestChange: number; others: ActiveResearcher[] }> {
   await db
     .insert(schema.draftPresence)
-    .values({ draftId, researcherId, itemId, lastSeen: now })
+    .values({ draftId, researcherId, itemId, section, lastSeen: now })
     .onConflictDoUpdate({
       target: [schema.draftPresence.draftId, schema.draftPresence.researcherId],
-      set: { itemId, lastSeen: now },
+      set: { itemId, section, lastSeen: now },
     });
 
   const others = await db
-    .select({ name: schema.researchers.name, itemId: schema.draftPresence.itemId })
+    .select({
+      name: schema.researchers.name,
+      itemId: schema.draftPresence.itemId,
+      section: schema.draftPresence.section,
+    })
     .from(schema.draftPresence)
     .innerJoin(schema.researchers, eq(schema.researchers.id, schema.draftPresence.researcherId))
     .where(
@@ -66,8 +73,24 @@ const quote = (data: unknown) => {
   return body ? `"${body.length > 40 ? `${body.slice(0, 40)}...` : body}"` : "a post";
 };
 
+const SECTION_NAMES: Record<string, string> = {
+  study: "the study and platform settings",
+  conditions: "the conditions",
+  feed: "the feed settings",
+  flow: "the study's flow",
+};
+
+function describeSection(section: string) {
+  const page = pageKeyOf(section);
+  return page === null ? (SECTION_NAMES[section] ?? "the settings") : "a page's text";
+}
+
 function describeChange(action: string, rows: { data: unknown; previousData: unknown }[]) {
   const [first] = rows;
+  const section = (first?.data as { section?: string } | undefined)?.section;
+  if (section) {
+    return `${action === "undo" ? "undid a change to" : "changed"} ${describeSection(section)}`;
+  }
   const extra = rows.length > 1 ? ` and ${rows.length - 1} more` : "";
   switch (action) {
     case "create":

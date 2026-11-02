@@ -67,7 +67,12 @@ export function draftToDefinition(
 
   const definition = studyDefinitionSchema.parse({
     settings,
-    pages,
+    // A step can be removed, and its page stay behind so it can be undone. It shouldn't be frozen.
+    pages: Object.fromEntries(
+      Object.entries(pages).filter(([key]) =>
+        settings.flow.some((step) => "page" in step && step.page === key),
+      ),
+    ),
     actors: actors.map(({ data }) => data),
     posts: posts.map(({ data: { actorId, ...post } }) => ({ ...post, actor: usernameOf(actorId) })),
     comments: comments.map(({ data: { actorId, postId, ...comment } }) => ({

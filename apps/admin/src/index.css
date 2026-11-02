@@ -8,3 +8,20 @@
 body {
   @apply bg-stone-100 text-stone-900 antialiased;
 }
+
+/* Pages drawn the way the participant app draws them. */
+.prose-page h1 {
+  @apply mb-4 text-2xl font-semibold;
+}
+
+.prose-page h2 {
+  @apply mt-6 mb-2 text-lg font-semibold;
+}
+
+.prose-page p {
+  @apply mb-3 leading-relaxed;
+}
+
+.prose-page ul {
+  @apply mb-3 list-disc pl-5;
+}
