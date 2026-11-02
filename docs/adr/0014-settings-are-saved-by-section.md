@@ -1,6 +1,6 @@
 # 14. Settings are saved a section at a time
 
-Status: accepted
+**Status:** Accepted
 
 ## Context
 
