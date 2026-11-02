@@ -10,6 +10,7 @@ import {
   get,
   post,
   send,
+  upload,
 } from "../api.ts";
 import { TimelineControls, useTimeline } from "../components/TimelineControls.tsx";
 
@@ -31,6 +32,18 @@ function useDraftEdits(draftId: string) {
     }),
     remove: useMutation({
       mutationFn: (itemId: string) => send("DELETE", `${base}/${itemId}`),
+      onSettled: refresh,
+    }),
+    setImage: useMutation({
+      mutationFn: async ({ itemId, file }: { itemId: string; file: File }) => {
+        const form = new FormData();
+        form.append("image", file);
+        const { picture } = await upload<{ picture: string }>(
+          `/admin/drafts/${draftId}/images`,
+          form,
+        );
+        return send("PATCH", `${base}/${itemId}`, { changes: { picture } });
+      },
       onSettled: refresh,
     }),
   };
@@ -101,6 +114,96 @@ function EditableText({
       }}
       className="block w-full rounded border border-amber-400 px-1 outline-none"
     />
+  );
+}
+
+/**
+ * Where a post's image goes. Drop a photo on it, or choose one. There are no filenames, so a post
+ * can't end up pointing at a picture that isn't there.
+ */
+function ImageDrop({
+  itemId,
+  image,
+  edits,
+}: {
+  itemId: string;
+  image: React.ReactNode;
+  edits: DraftEdits;
+}) {
+  const [over, setOver] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+
+  const addPhoto = (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+    setProblem(null);
+    edits.setImage.mutate({ itemId, file }, { onError: (error) => setProblem(error.message) });
+  };
+
+  const saving = edits.setImage.isPending && edits.setImage.variables?.itemId === itemId;
+
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: dropping is an extra; the buttons do the same
+    <div
+      data-testid="image-drop"
+      onDragOver={(event) => {
+        event.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(event) => {
+        event.preventDefault();
+        setOver(false);
+        addPhoto(event.dataTransfer.files[0]);
+      }}
+      className={`group relative ${over ? "outline-4 -outline-offset-4 outline-amber-400" : ""}`}
+    >
+      {image ?? (
+        <div className="m-3 mb-0 flex flex-col items-center gap-1 rounded border-2 border-dashed border-stone-300 p-5 text-sm text-stone-500">
+          <span>{saving ? "Adding the photo..." : "Drop a photo here"}</span>
+          <button type="button" onClick={() => input.current?.click()} className="underline">
+            or choose one
+          </button>
+        </div>
+      )}
+      {image && (
+        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={() => input.current?.click()}
+            className="rounded bg-white/90 px-2 py-1 text-xs shadow"
+          >
+            {saving ? "Replacing..." : "Replace photo"}
+          </button>
+          <button
+            type="button"
+            onClick={() => edits.update.mutate({ itemId, changes: { picture: null } })}
+            className="rounded bg-white/90 px-2 py-1 text-xs shadow"
+          >
+            Remove photo
+          </button>
+        </div>
+      )}
+      <input
+        ref={input}
+        type="file"
+        aria-label="Choose a photo"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={(event) => {
+          addPhoto(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
+      {problem && (
+        <p role="alert" className="mx-3 mt-2 text-sm text-rose-800">
+          {problem}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -398,6 +501,9 @@ function EditableFeed({
                       edits.update.mutate({ itemId: contentId, changes: { body: text } })
                     }
                   />
+                ),
+                wrapImage: (image: React.ReactNode) => (
+                  <ImageDrop itemId={shown.id} image={image} edits={edits} />
                 ),
                 belowComments: (
                   <AddComment

@@ -12,6 +12,8 @@ const { databaseUrl, email, password } = JSON.parse(readFileSync(STATE_FILE, "ut
   password: string;
 };
 const ADMIN = `http://localhost:${ADMIN_PORT}`;
+const PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==";
 const database = createDb(databaseUrl);
 
 test.afterAll(async () => {
@@ -73,7 +75,35 @@ test("a researcher edits in the feed, saves, tries it, launches, and a new parti
   await added.getByLabel("Text of this post").blur();
   await expect(feed.getByText(addedText)).toBeVisible();
 
+  // Drop a photo onto the new post, the way a person would drag one in.
+  const photoPost = feed.locator("article").filter({ hasText: addedText });
+  await expect(photoPost.getByText("Drop a photo here")).toBeVisible();
+  const dataTransfer = await page.evaluateHandle((base64) => {
+    const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([bytes], "my photo with any name.png", { type: "image/png" }));
+    return transfer;
+  }, PNG_BASE64);
+  await photoPost.getByTestId("image-drop").dispatchEvent("drop", { dataTransfer });
+  await expect(photoPost.getByTestId("image-drop").locator("img")).toHaveCount(1);
+  await expect(photoPost.getByTestId("image-drop").locator("img")).toHaveJSProperty(
+    "naturalWidth",
+    1,
+  );
+
   await page.screenshot({ path: testInfo.outputPath("editing.png") });
+
+  // Something that isn't an image gets refused, and says why.
+  await photoPost.getByLabel("Choose a photo").setInputFiles({
+    name: "notes.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("not really a picture"),
+  });
+  await expect(photoPost.getByRole("alert")).toContainText("can't be used");
+  await expect(photoPost.getByTestId("image-drop").locator("img")).toHaveJSProperty(
+    "naturalWidth",
+    1,
+  );
 
   // Limit the new post to one condition, and see it leave the others.
   const conditions = await page
@@ -141,6 +171,10 @@ test("a researcher edits in the feed, saves, tries it, launches, and a new parti
   await pilot.getByRole("button", { name: "Save and continue" }).click();
   await pilot.getByRole("button", { name: "Continue" }).click();
   await expect(pilot.getByText(newText)).toBeVisible();
+  // The test participant is in the condition the new post is limited to, so the photo must load.
+  await expect(
+    pilot.locator("article").filter({ hasText: addedText }).locator("img.w-full"),
+  ).toHaveJSProperty("naturalWidth", 1);
   await pilot.close();
 
   // Launching warns, then makes it live.

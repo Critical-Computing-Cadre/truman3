@@ -22,6 +22,8 @@ export interface FeedPostViewProps {
   renderNote?: (contentId: string) => ReactNode;
   /** Replaces how the text is drawn. The admin app uses it to edit text where it appears. */
   renderBody?: (contentId: string, body: string) => ReactNode;
+  /** Wraps where the image goes, even if there isn't one. The admin app uses it to drop images on. */
+  wrapImage?: (image: ReactNode) => ReactNode;
 }
 
 function Comment({
@@ -114,7 +116,12 @@ export function FeedPostView({
   belowComments,
   renderNote,
   renderBody,
+  wrapImage,
 }: FeedPostViewProps) {
+  const image = post.imageUrl ? (
+    <img src={post.imageUrl} alt="" loading="lazy" className="w-full bg-stone-200" />
+  ) : null;
+
   const headerAuthor = (
     <>
       <Avatar name={post.author.name} url={post.author.pictureUrl} />
@@ -155,9 +162,7 @@ export function FeedPostView({
             </button>
           </div>
         )}
-        {post.imageUrl && (
-          <img src={post.imageUrl} alt="" loading="lazy" className="w-full bg-stone-200" />
-        )}
+        {wrapImage ? wrapImage(image) : image}
         {renderBody ? (
           <div className="p-3">{renderBody(post.id, post.body)}</div>
         ) : (

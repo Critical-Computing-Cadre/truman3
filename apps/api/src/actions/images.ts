@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Storage } from "@truman3/storage";
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -47,5 +47,27 @@ export async function storeUploadedImage(
   }
   const key = `${uploadPrefix(worldId)}${randomUUID()}.${detected.extension}`;
   await storage.put(key, bytes, detected.type);
+  return key;
+}
+
+/**
+ * Stores an image for a study, named by a hash of its contents. It's the same scheme imports use, so
+ * identical images are stored once, and a frozen version's images can't change later. Returns null
+ * if it isn't a usable image.
+ */
+export async function storeStudyImage(storage: Storage, file: File): Promise<string | null> {
+  if (file.size === 0 || file.size > MAX_IMAGE_BYTES) {
+    return null;
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const detected = detectImageType(bytes);
+  if (!detected) {
+    return null;
+  }
+
+  const key = `media/${createHash("sha256").update(bytes).digest("hex")}.${detected.extension}`;
+  if (!(await storage.exists(key))) {
+    await storage.put(key, bytes, detected.type);
+  }
   return key;
 }
