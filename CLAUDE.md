@@ -10,6 +10,7 @@ pnpm check       # format and lint (pnpm format to fix)
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm study validate <folder>   # check a study; see also: pnpm study convert
 docker compose up --detach --wait   # local Postgres and S3-compatible storage
 ```
 

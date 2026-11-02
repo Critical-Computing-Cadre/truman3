@@ -1,0 +1,161 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { hasErrors } from "@truman3/core";
+import { afterEach, describe, expect, it } from "vitest";
+import { loadStudyFolder } from "./load.ts";
+
+const YAML = `
+schemaVersion: 1
+slug: demo
+title: Demo
+site: { name: Demo }
+length: { days: 2 }
+entry: { idParam: PID, idLabel: Prolific ID, source: prolific }
+conditions:
+  assignment: { method: uniform }
+  arms: [{ key: a }, { key: b }]
+feed: { ranker: chronological, windowHours: 24 }
+media: { baseUrl: "https://cdn.example.com/study/" }
+flow: [{ step: feed }]
+`;
+
+const folders: string[] = [];
+
+function folder(files: Record<string, string>) {
+  const dir = mkdtempSync(path.join(tmpdir(), "truman-study-"));
+  folders.push(dir);
+  for (const [name, text] of Object.entries(files)) {
+    mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+    writeFileSync(path.join(dir, name), text);
+  }
+  return dir;
+}
+
+const base = {
+  "study.yaml": YAML,
+  "actors.csv": "username,name\nann,Ann\n",
+  "posts.csv": "id,body,actor,time,condition\n1,hello,ann,0:00,a|b\n",
+};
+
+const messagesFor = (files: Record<string, string>) =>
+  loadStudyFolder(folder(files)).issues.map((issue) => {
+    const place = [issue.file, issue.row].filter(Boolean).join(":");
+    return `${place} ${issue.message}`;
+  });
+
+afterEach(() => {
+  for (const dir of folders.splice(0)) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+describe("loadStudyFolder", () => {
+  it("reads a valid study", () => {
+    const { definition, issues } = loadStudyFolder(folder(base));
+
+    expect(issues).toEqual([]);
+    expect(definition?.posts[0]).toMatchObject({
+      ref: "1",
+      body: "hello",
+      actor: "ann",
+      timeMs: 0,
+      conditions: ["a", "b"],
+      source: { file: "posts.csv", row: 2 },
+    });
+  });
+
+  it("handles a byte-order mark and quoted cells with commas and line breaks, as Excel writes", () => {
+    const { definition, issues } = loadStudyFolder(
+      folder({
+        ...base,
+        "posts.csv": `﻿id,body,actor,time\n1,"hi, there\nfriend",ann,0:00\n2,two,ann,0:01\n`,
+      }),
+    );
+
+    expect(issues.filter((issue) => issue.severity === "error")).toEqual([]);
+    expect(definition?.posts[0]?.body).toBe("hi, there\nfriend");
+    // A spreadsheet shows this as row 3, even though the quoted line break makes it line 4.
+    expect(definition?.posts[1]?.source?.row).toBe(3);
+  });
+
+  it("tells you when study.yaml is missing", () => {
+    expect(hasErrors(loadStudyFolder(folder({})).issues)).toBe(true);
+  });
+
+  it("points at a misspelled setting", () => {
+    const messages = messagesFor({
+      ...base,
+      "study.yaml": YAML.replace("windowHours: 24", "windowHour: 24"),
+    });
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("study.yaml");
+    expect(messages[0]).toContain("windowHour");
+  });
+
+  it("reports a required file that's missing", () => {
+    expect(messagesFor({ "study.yaml": YAML, "actors.csv": base["actors.csv"] })).toContain(
+      "posts.csv This file is missing.",
+    );
+  });
+
+  it("reports unknown and missing columns", () => {
+    const messages = messagesFor({ ...base, "posts.csv": "id,bodyy,time\n1,hello,0:00\n" });
+
+    expect(messages).toContain(
+      `posts.csv There's a column called "bodyy", which isn't one this file can have.`,
+    );
+    expect(messages).toContain(`posts.csv The "actor" column is missing.`);
+  });
+
+  it("reports bad values with their spreadsheet row", () => {
+    const messages = messagesFor({
+      ...base,
+      "actors.csv": "username,name,age\nann,Ann,old\n",
+      "posts.csv": "id,body,actor,time\n1,hello,ann,noon\n",
+    });
+
+    expect(messages).toContain(`actors.csv:2 "old" in age isn't a whole number.`);
+    expect(messages).toContain(
+      `posts.csv:2 "noon" in time isn't a time. Use hours:minutes, like 2:05.`,
+    );
+  });
+
+  it("runs the shared study rules, with a location", () => {
+    expect(
+      messagesFor({ ...base, "posts.csv": "id,body,actor,time\n1,hello,nobody,0:00\n" }),
+    ).toContain(`posts.csv:2 Post "1" is by "nobody", who isn't in the list of actors.`);
+  });
+
+  it("reports images that aren't in the folder", () => {
+    const local = YAML.replace(`media: { baseUrl: "https://cdn.example.com/study/" }\n`, "");
+    const messages = messagesFor({
+      ...base,
+      "study.yaml": local,
+      "posts.csv": "id,picture,actor,time\n1,gone.jpg,ann,0:00\n",
+    });
+    expect(messages).toContain(`posts.csv:2 The image "gone.jpg" isn't in media/posts.`);
+  });
+
+  it("doesn't look for images locally when they're hosted elsewhere", () => {
+    const { issues } = loadStudyFolder(
+      folder({ ...base, "posts.csv": "id,picture,actor,time,condition\n1,x.jpg,ann,0:00,a|b\n" }),
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it("includes the text of pages in the flow, and reports missing ones", () => {
+    const withPage = YAML.replace(
+      "flow: [{ step: feed }]",
+      "flow: [{ step: consent, page: pages/consent.md }, { step: feed }]",
+    );
+    const { definition } = loadStudyFolder(
+      folder({ ...base, "study.yaml": withPage, "pages/consent.md": "# Hello" }),
+    );
+    expect(definition?.pages).toEqual({ "pages/consent.md": "# Hello" });
+
+    expect(messagesFor({ ...base, "study.yaml": withPage })).toContain(
+      ` The flow uses the page "pages/consent.md", which doesn't exist.`,
+    );
+  });
+});

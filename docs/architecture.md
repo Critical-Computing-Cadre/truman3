@@ -4,17 +4,20 @@ Truman 3 is a monorepo. This page separates what exists today from what's planne
 
 ## What exists today
 
-Phase 0 is scaffolding. It has no study features yet.
+Phase 1 is underway. Studies can be defined and validated, but they can't run yet.
 
-| Path               | What it is                                             |
-| ------------------ | ------------------------------------------------------ |
-| `apps/api`         | Hono API: health routes and the OpenAPI spec           |
-| `apps/participant` | React app for participants: a placeholder page for now |
-| `apps/admin`       | React app for researchers: a placeholder page for now  |
-| `packages/core`    | Shared Zod schemas and types                           |
-| `packages/db`      | Postgres connection through Drizzle; no tables yet     |
-| `packages/ui`      | Shared React components                                |
-| `compose.yaml`     | Local Postgres and S3-compatible storage               |
+| Path                       | What it is                                                            |
+| -------------------------- | --------------------------------------------------------------------- |
+| `apps/api`                 | Hono API: health routes and the OpenAPI spec                          |
+| `apps/participant`         | React app for participants: a placeholder page for now                |
+| `apps/admin`               | React app for researchers: a placeholder page for now                 |
+| `packages/core`            | Shared Zod schemas and types                                          |
+| `packages/db`              | Postgres connection through Drizzle; no tables yet                    |
+| `packages/ui`              | Shared React components                                               |
+| `apps/cli`                 | The `pnpm study` command                                              |
+| `packages/study-files`     | Reads study folders (CSV and YAML), and converts older Truman studies |
+| `studies/examples/eatsnap` | The classic example study, converted from `truman_2023`               |
+| `compose.yaml`             | Local Postgres and S3-compatible storage                              |
 
 A request today looks like this:
 

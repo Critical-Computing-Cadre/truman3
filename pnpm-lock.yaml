@@ -238,6 +238,22 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  apps/cli:
+    dependencies:
+      '@truman3/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@truman3/study-files':
+        specifier: workspace:*
+        version: link:../../packages/study-files
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
   apps/participant:
     dependencies:
       '@truman3/ui':
@@ -290,6 +306,28 @@ importers:
       postgres:
         specifier: 4.0.0
         version: 4.0.0
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
+  packages/study-files:
+    dependencies:
+      '@truman3/core':
+        specifier: workspace:*
+        version: link:../core
+      csv-parse:
+        specifier: 7.0.3
+        version: 7.0.3
+      csv-stringify:
+        specifier: 6.9.0
+        version: 6.9.0
+      yaml:
+        specifier: 2.9.1
+        version: 2.9.1
     devDependencies:
       '@types/node':
         specifier: ^24.19.2
@@ -834,6 +872,12 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  csv-parse@7.0.3:
+    resolution: {integrity: sha512-YFd3QM/yo17vH91L1IOZuvl09zM0zEEtdfTcOCKWcMdM++MNaQSyp09slXyFCLaPXvHstQFx/xC8myiFHSMUvw==}
+
+  csv-stringify@6.9.0:
+    resolution: {integrity: sha512-6b3e29CILFfSQ2nDRuZMRROzQOpPuJ+s8zPB5H7eK5ncXBbFOyVuRLU5Sx/zAUmVri3Ly49GyC8NEme4SVSAbA==}
 
   data-urls@8.0.0:
     resolution: {integrity: sha512-JQUCCK+/CAGbGGx618PlFZMXH81Jtj7t73CHv9dd/zVWvxgGT2zLFRjnKb+Ng46GIwcy+f7f88qd4duqllK+WQ==}
@@ -1641,6 +1685,10 @@ snapshots:
       source-map-js: 1.2.2
 
   csstype@3.2.3: {}
+
+  csv-parse@7.0.3: {}
+
+  csv-stringify@6.9.0: {}
 
   data-urls@8.0.0:
     dependencies:
