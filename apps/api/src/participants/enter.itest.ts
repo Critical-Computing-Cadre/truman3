@@ -104,6 +104,7 @@ beforeAll(async () => {
   app = createApp({
     pingDatabase: database.ping,
     db: database.db,
+    storage,
     mediaPublicUrl: "http://media.test",
     getClientIp: () => "203.0.113.9",
     secureCookies: true,
@@ -284,9 +285,10 @@ describe("the signed-in participant", () => {
     const body = JSON.parse(text);
 
     expect(response.status).toBe(200);
-    expect(Object.keys(body).sort()).toEqual(["siteName", "username"]);
     expect(body.siteName).toBe("PhotoApp");
+    expect(body.username).toBeTruthy();
     expect(text).not.toContain(id);
+    expect(text).not.toMatch(/condition|participantId|externalId/i);
   });
 
   it("is rejected with no session, a wrong token, or an expired one", async () => {
@@ -397,6 +399,7 @@ describe("too many entry attempts", () => {
     const limited = createApp({
       pingDatabase: database.ping,
       db: database.db,
+      storage,
       mediaPublicUrl: "http://media.test",
       getClientIp: () => "203.0.113.50",
       secureCookies: true,
@@ -500,6 +503,7 @@ describe("IP addresses", () => {
     const localApp = createApp({
       pingDatabase: database.ping,
       db: database.db,
+      storage,
       mediaPublicUrl: "http://media.test",
       getClientIp,
       secureCookies: true,

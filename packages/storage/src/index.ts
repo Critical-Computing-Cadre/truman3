@@ -1,7 +1,9 @@
 import {
   CreateBucketCommand,
+  DeleteObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -71,6 +73,33 @@ export function createStorage(config: StorageConfig) {
       await client.send(
         new PutObjectCommand({ Bucket, Key: key, Body: body, ContentType: contentType }),
       );
+    },
+
+    delete: async (key: string) => {
+      await client.send(new DeleteObjectCommand({ Bucket, Key: key }));
+    },
+
+    /** Deletes everything whose key starts with this prefix. Returns how many it deleted. */
+    deletePrefix: async (prefix: string) => {
+      let deleted = 0;
+      let token: string | undefined;
+      do {
+        const page = await client.send(
+          new ListObjectsV2Command({
+            Bucket,
+            Prefix: prefix,
+            ...(token ? { ContinuationToken: token } : {}),
+          }),
+        );
+        for (const object of page.Contents ?? []) {
+          if (object.Key) {
+            await client.send(new DeleteObjectCommand({ Bucket, Key: object.Key }));
+            deleted += 1;
+          }
+        }
+        token = page.IsTruncated ? page.NextContinuationToken : undefined;
+      } while (token);
+      return deleted;
     },
 
     close: () => client.destroy(),

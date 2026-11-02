@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { healthResponseSchema } from "@truman3/core";
+import { createActionRoutes } from "./actions/routes.ts";
 import { createFeedRoutes } from "./feed/routes.ts";
 import {
   createParticipantRoutes,
@@ -60,6 +61,7 @@ export function createApp({ pingDatabase, ...participantDependencies }: AppDepen
 
   app.route("/", createParticipantRoutes(participantDependencies));
   app.route("/", createFeedRoutes(participantDependencies));
+  app.route("/", createActionRoutes(participantDependencies));
 
   app.doc("/openapi.json", {
     openapi: "3.0.0",

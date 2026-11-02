@@ -110,6 +110,7 @@ beforeAll(async () => {
   app = createApp({
     pingDatabase: database.ping,
     db: database.db,
+    storage,
     mediaPublicUrl: "http://media.test",
     getClientIp: () => undefined,
     secureCookies: true,

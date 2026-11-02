@@ -1,7 +1,12 @@
 import type { FeedAuthor, FeedPost } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
-import { assembleFeed, type FeedCandidate, feedSettingsFor } from "@truman3/feed";
-import { and, eq, inArray, isNull, or } from "drizzle-orm";
+import {
+  assembleFeed,
+  type FeedCandidate,
+  type FeedSettings,
+  feedSettingsFor,
+} from "@truman3/feed";
+import { and, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import type { ParticipantContext } from "../participants/session.ts";
 
 type ContentRow = typeof schema.content.$inferSelect;
@@ -75,11 +80,21 @@ async function loadViewerState(db: Database, context: ParticipantContext) {
   };
 }
 
+export interface BuildFeedOptions {
+  now?: Date;
+  /** Where this is being shown, for the record of what participants saw. */
+  surface?: string;
+  /** Only this actor's posts, as on a profile page. */
+  authorActorId?: string;
+  /** Replaces the settings the condition would use, as on a profile page. */
+  settings?: FeedSettings;
+}
+
 /** Works out what a participant sees now, and records that it was shown. */
 export async function buildFeed(
   { db, mediaPublicUrl }: FeedDependencies,
   context: ParticipantContext,
-  now = new Date(),
+  { now = new Date(), surface = "feed", authorActorId, settings }: BuildFeedOptions = {},
 ): Promise<FeedPost[]> {
   const worldStartMs = context.worldStartedAt.getTime();
 
@@ -97,8 +112,12 @@ export async function buildFeed(
     );
 
   const state = await loadViewerState(db, context);
+  const postAuthors = new Map(rows.map((row) => [row.id, row.authorActorId]));
+  const inScope = (row: ContentRow) =>
+    !authorActorId || postAuthors.get(row.parentId ?? row.id) === authorActorId;
+
   const feed = assembleFeed(
-    rows.map((row) => toCandidate(row, worldStartMs)),
+    rows.filter(inScope).map((row) => toCandidate(row, worldStartMs)),
     {
       actorId: context.actorId,
       conditionKey: context.conditionKey,
@@ -106,7 +125,7 @@ export async function buildFeed(
       viewedContentIds: state.viewedContentIds,
       blockedActorIds: state.blockedActorIds,
     },
-    feedSettingsFor(context.settings, context.conditionKey),
+    settings ?? feedSettingsFor(context.settings, context.conditionKey),
     { nowMs: now.getTime(), seed: context.seed },
   );
 
@@ -129,6 +148,21 @@ export async function buildFeed(
     };
   };
 
+  const reactionLikes = await db
+    .select({ contentId: schema.notifications.targetContentId })
+    .from(schema.notifications)
+    .where(
+      and(
+        eq(schema.notifications.worldId, context.worldId),
+        eq(schema.notifications.type, "like"),
+        lte(schema.notifications.dueAt, now),
+      ),
+    );
+  const likesFromReactions = new Map<string, number>();
+  for (const { contentId } of reactionLikes) {
+    likesFromReactions.set(contentId, (likesFromReactions.get(contentId) ?? 0) + 1);
+  }
+
   const common = (item: ContentRow) => {
     const liked = state.likedContentIds.has(item.id);
     return {
@@ -136,7 +170,7 @@ export async function buildFeed(
       author: toAuthor(item.authorActorId),
       body: item.body,
       at: new Date(contentTimeMs(item, worldStartMs)).toISOString(),
-      likes: item.baseLikes + (liked ? 1 : 0),
+      likes: item.baseLikes + (likesFromReactions.get(item.id) ?? 0) + (liked ? 1 : 0),
       liked,
       flagged: state.flaggedContentIds.has(item.id),
     };
@@ -146,6 +180,7 @@ export async function buildFeed(
     worldId: context.worldId,
     viewerActorId: context.actorId,
     conditionId: context.conditionId,
+    surface,
     ranker: feed.ranker,
     rankerVersion: feed.rankerVersion,
     shownAt: now,

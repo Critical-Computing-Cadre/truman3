@@ -1,12 +1,14 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { type Database, schema } from "@truman3/db";
+import type { Storage } from "@truman3/storage";
 import { eq } from "drizzle-orm";
 import type { Context } from "hono";
-import { getCookie, setCookie } from "hono/cookie";
+import { setCookie } from "hono/cookie";
+import { countUnreadNotifications } from "../actions/notifications.ts";
 import { mediaUrl } from "../feed/build.ts";
 import { summarizeDevice } from "./device.ts";
 import { enterStudy, latestFrozenVersion } from "./enter.ts";
-import { loadParticipantContext, SESSION_COOKIE } from "./session.ts";
+import { participantFromRequest, SESSION_COOKIE } from "./session.ts";
 
 const errorSchema = z.object({ error: z.string() });
 
@@ -78,7 +80,15 @@ const meRoute = createRoute({
         "What this participant may know about themselves. Never includes their condition",
       content: {
         "application/json": {
-          schema: z.object({ username: z.string(), siteName: z.string() }),
+          schema: z.object({
+            username: z.string(),
+            name: z.string(),
+            bio: z.string(),
+            location: z.string(),
+            pictureUrl: z.string().nullable(),
+            siteName: z.string(),
+            unreadNotifications: z.number(),
+          }),
         },
       },
     },
@@ -89,12 +99,21 @@ const meRoute = createRoute({
   },
 });
 
+interface ProfileFields {
+  name?: string;
+  bio?: string;
+  location?: string;
+  picture?: string;
+}
+
 export interface ParticipantRouteDependencies {
   db: Database;
   /** Where browsers fetch stored media from. */
   mediaPublicUrl: string;
   /** Only used by studies that turn on storing IP addresses. */
   getClientIp: (c: Context) => string | undefined;
+  /** Where participants' uploaded images go. */
+  storage: Storage;
   /** Whether cookies require HTTPS. True everywhere except local development. */
   secureCookies: boolean;
   /** Decides whether an address may try entering right now. Leave out for no limit. */
@@ -156,21 +175,32 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
   });
 
   app.openapi(meRoute, async (c) => {
-    const token = getCookie(c, SESSION_COOKIE);
-    const context = token ? await loadParticipantContext(db, token) : null;
+    const context = await participantFromRequest(c, db);
     if (!context) {
       return c.json({ error: "Please sign in." }, 401);
     }
 
     const [row] = await db
-      .select({ username: schema.actors.username })
+      .select({ username: schema.actors.username, profile: schema.actors.profile })
       .from(schema.actors)
       .where(eq(schema.actors.id, context.actorId));
     if (!row) {
       return c.json({ error: "Please sign in." }, 401);
     }
 
-    return c.json({ username: row.username, siteName: context.settings.site.name }, 200);
+    const profile = row.profile as ProfileFields;
+    return c.json(
+      {
+        username: row.username,
+        name: profile.name ?? row.username,
+        bio: profile.bio ?? "",
+        location: profile.location ?? "",
+        pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+        siteName: context.settings.site.name,
+        unreadNotifications: await countUnreadNotifications(db, context),
+      },
+      200,
+    );
   });
 
   return app;

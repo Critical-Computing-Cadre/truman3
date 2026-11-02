@@ -1,8 +1,7 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { feedResponseSchema } from "@truman3/core";
-import { getCookie } from "hono/cookie";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
-import { loadParticipantContext, SESSION_COOKIE } from "../participants/session.ts";
+import { participantFromRequest } from "../participants/session.ts";
 import { buildFeed } from "./build.ts";
 
 const feedRoute = createRoute({
@@ -25,8 +24,7 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
   const app = new OpenAPIHono();
 
   app.openapi(feedRoute, async (c) => {
-    const token = getCookie(c, SESSION_COOKIE);
-    const context = token ? await loadParticipantContext(db, token) : null;
+    const context = await participantFromRequest(c, db);
     if (!context) {
       return c.json({ error: "Please sign in." }, 401);
     }

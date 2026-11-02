@@ -1,4 +1,5 @@
 import type { Database } from "@truman3/db";
+import type { Storage } from "@truman3/storage";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type AppDependencies, createApp } from "./app.ts";
 
@@ -7,6 +8,7 @@ function appWith(overrides: Partial<AppDependencies> = {}) {
   return createApp({
     pingDatabase: async () => {},
     db: {} as Database,
+    storage: {} as Storage,
     mediaPublicUrl: "http://media.test",
     getClientIp: () => undefined,
     secureCookies: true,

@@ -4,7 +4,7 @@ Truman 3 is a monorepo. This page separates what exists today from what's planne
 
 ## What exists today
 
-Phase 1 is underway. Studies can be defined, validated, and imported, and participants can enter and get a condition. There's no feed yet.
+Phase 1 is underway. Studies can be defined, validated, and imported, and participants can use the feed through the API. There's no participant app yet.
 
 | Path                       | What it is                                                                 |
 | -------------------------- | -------------------------------------------------------------------------- |

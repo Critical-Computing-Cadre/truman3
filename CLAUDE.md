@@ -15,6 +15,7 @@ pnpm db:generate        # create a migration after changing packages/db/src/sche
 pnpm build
 pnpm study validate <folder>   # check a study; see also: pnpm study convert
 pnpm study import <folder>     # save it as a frozen version
+pnpm study withdraw <slug> <id> <your name> [reason]   # delete a participant's data
 docker compose up --detach --wait   # local Postgres and S3-compatible storage
 ```
 

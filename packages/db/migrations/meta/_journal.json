@@ -43,6 +43,13 @@
       "when": 1793582579152,
       "tag": "0005_feed_state",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793582802556,
+      "tag": "0006_notifications",
+      "breakpoints": true
     }
   ]
 }

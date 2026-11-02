@@ -2,12 +2,13 @@ import { hasErrors, type StudyIssue } from "@truman3/core";
 import { createDb } from "@truman3/db";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { convertLegacyStudy, loadStudyFolder } from "@truman3/study-files";
-import { importStudyFolder } from "@truman3/study-import";
+import { importStudyFolder, withdrawParticipant } from "@truman3/study-import";
 
 const USAGE = `Usage:
   pnpm study validate <study folder>
   pnpm study import <study folder>
-  pnpm study convert <old Truman repo> <new study folder> <slug>`;
+  pnpm study convert <old Truman repo> <new study folder> <slug>
+  pnpm study withdraw <slug> <recruitment ID> <your name> [reason]`;
 
 /** Warnings are often repetitive, so past this many it shows a count instead of every one. */
 const MAX_WARNINGS_SHOWN = 5;
@@ -79,12 +80,44 @@ async function importStudy(folder: string): Promise<number> {
   }
 }
 
+async function withdraw(slug: string, externalId: string, requestedBy: string, reason: string) {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.error("DATABASE_URL isn't set. Copy .env.example to .env.");
+    return 1;
+  }
+
+  const database = createDb(databaseUrl);
+  const storage = createStorage(storageConfigFromEnv());
+  try {
+    const result = await withdrawParticipant(database.db, storage, {
+      slug,
+      externalId,
+      reason,
+      requestedBy,
+    });
+    if (result.status === "not-found") {
+      console.error(`There's no participant with that ID in "${slug}". Nothing was changed.`);
+      return 1;
+    }
+    console.log(
+      `Deleted this participant's data: ${result.eventsDeleted} events and ${result.filesDeleted} uploaded files. This ID can't enter "${slug}" again.`,
+    );
+    return 0;
+  } finally {
+    storage.close();
+    await database.close();
+  }
+}
+
 const [command, ...args] = process.argv.slice(2);
 
 if (command === "validate" && args[0]) {
   process.exitCode = validate(args[0]);
 } else if (command === "import" && args[0]) {
   process.exitCode = await importStudy(args[0]);
+} else if (command === "withdraw" && args[0] && args[1] && args[2]) {
+  process.exitCode = await withdraw(args[0], args[1], args[2], args[3] ?? "withdrawal");
 } else if (command === "convert" && args[0] && args[1] && args[2]) {
   convertLegacyStudy(args[0], args[1], args[2]);
   console.log(`Converted to ${args[1]}. Next: review study.yaml, then run pnpm study validate.`);

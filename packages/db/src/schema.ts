@@ -155,6 +155,7 @@ export const worldMemberships = pgTable(
       .notNull()
       .references(() => actors.id),
     joinedAt: time("joined_at").notNull().defaultNow(),
+    notificationsViewedAt: time("notifications_viewed_at"),
     leftAt: time("left_at"),
   },
   (table) => [primaryKey({ columns: [table.worldId, table.participantId] })],
@@ -355,6 +356,38 @@ export const actorRelations = pgTable(
   ],
 );
 
+/**
+ * Scripted reactions to a participant, with when they come due. Notifications and like counts only
+ * count ones that are due, so this needs no background worker.
+ */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: id(),
+    worldId: uuid("world_id")
+      .notNull()
+      .references(() => worlds.id, { onDelete: "cascade" }),
+    recipientActorId: uuid("recipient_actor_id")
+      .notNull()
+      .references(() => actors.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => actors.id),
+    type: text().notNull(),
+    /** The participant's post or comment this reacts to. */
+    targetContentId: uuid("target_content_id")
+      .notNull()
+      .references(() => content.id, { onDelete: "cascade" }),
+    /** For a reply, the comment that holds its text. */
+    replyContentId: uuid("reply_content_id").references(() => content.id, { onDelete: "cascade" }),
+    dueAt: time("due_at").notNull(),
+  },
+  (table) => [
+    index("notifications_recipient").on(table.worldId, table.recipientActorId, table.dueAt),
+    check("notifications_type", inList(table.type, ["read", "like", "reply"])),
+  ],
+);
+
 /** What each viewer was actually shown, in order. */
 export const feedImpressions = pgTable(
   "feed_impressions",
@@ -367,6 +400,8 @@ export const feedImpressions = pgTable(
       .notNull()
       .references(() => actors.id),
     conditionId: uuid("condition_id").references(() => conditions.id),
+    /** Where this was shown, such as the feed or someone's profile. */
+    surface: text().notNull().default("feed"),
     ranker: text().notNull(),
     rankerVersion: text("ranker_version").notNull(),
     items: jsonb().notNull(),

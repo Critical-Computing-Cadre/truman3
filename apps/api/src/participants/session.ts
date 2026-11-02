@@ -2,6 +2,8 @@ import { createHash, randomBytes } from "node:crypto";
 import { type StudySettings, studySettingsSchema } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import type { Context } from "hono";
+import { getCookie } from "hono/cookie";
 
 /** A neutral name, since participant-facing details shouldn't reveal this is a study. */
 export const SESSION_COOKIE = "session";
@@ -80,4 +82,13 @@ export async function loadParticipantContext(
   }
 
   return { ...row, ...assignment, settings: studySettingsSchema.parse(row.settings) };
+}
+
+/** The signed-in participant for a request, or null. */
+export async function participantFromRequest(
+  c: Context,
+  db: Database,
+): Promise<ParticipantContext | null> {
+  const token = getCookie(c, SESSION_COOKIE);
+  return token ? loadParticipantContext(db, token) : null;
 }
