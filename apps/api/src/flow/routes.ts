@@ -20,6 +20,7 @@ import {
   participantFromRequest,
   SESSION_COOKIE,
 } from "../participants/session.ts";
+import { prolificDeclineUrl, prolificFinishUrl } from "./prolific-exit.ts";
 
 const errorSchema = z.object({ error: z.string() });
 
@@ -234,7 +235,9 @@ async function advance(
       return {
         outcome: "moved" as const,
         finished: true,
-        redirectUrl: template ? fillLinkTemplate(template, linkValues(context)) : null,
+        redirectUrl: template
+          ? fillLinkTemplate(template, linkValues(context))
+          : await prolificFinishUrl(tx, context),
       };
     }
 
@@ -325,7 +328,7 @@ export function createFlowRoutes({ db, storage, mediaPublicUrl }: ParticipantRou
     // Worked out first, since deleting removes what they're based on.
     const redirectUrl = step.declineRedirect
       ? fillLinkTemplate(step.declineRedirect, linkValues(context))
-      : null;
+      : await prolificDeclineUrl(db, context);
     await deleteParticipant(db, storage, context.participantId, "declined consent", "participant");
     deleteCookie(c, SESSION_COOKIE, { path: "/" });
 

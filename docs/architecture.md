@@ -50,7 +50,7 @@ These get added when their phase needs them, not before.
 | ------------------ | ------------------------------------------------------------- | ----- |
 | `packages/feed`    | Feed rankers and interventions                                | 1     |
 | `apps/worker`      | Scheduled jobs, director, and agent runtime                   | 1–3   |
-| `packages/recruit` | Recruitment adapters, Prolific first                          | 2     |
+| `packages/recruit` | Prolific: the API client, encrypted tokens, approval rules    | 2     |
 | `packages/llm`     | LLM gateway: any provider, call log, budgets                  | 3     |
 | `packages/adapt`   | Decision points and re-randomization                          | 3     |
 | `packages/mcp`     | MCP server for researcher agents                              | 4     |

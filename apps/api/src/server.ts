@@ -15,6 +15,11 @@ const env = z
     /** Only set this behind a load balancer, or anyone could fake their address. */
     TRUST_PROXY: z.stringbool().default(false),
     LOGIN_ATTEMPTS_PER_MINUTE: z.coerce.number().int().positive().default(10),
+    /** Encrypts researchers' Prolific tokens. Without it, connecting to Prolific is turned off. */
+    TRUMAN_SECRET_KEY: z.string().optional(),
+    PROLIFIC_API_URL: z.url().optional(),
+    /** The participant app's public address, used in the link Prolific sends people to. */
+    PARTICIPANT_APP_URL: z.url().default("http://localhost:5180"),
   })
   .parse(process.env);
 
@@ -32,6 +37,11 @@ const app = createApp({
   storage,
   mediaPublicUrl: env.MEDIA_PUBLIC_URL,
   secureCookies: env.NODE_ENV !== "development",
+  prolific: {
+    secretKey: env.TRUMAN_SECRET_KEY,
+    apiUrl: env.PROLIFIC_API_URL,
+    participantAppUrl: env.PARTICIPANT_APP_URL,
+  },
   getClientIp: (c) => {
     const forwarded = env.TRUST_PROXY
       ? c.req.header("x-forwarded-for")?.split(",")[0]?.trim()

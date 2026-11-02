@@ -338,6 +338,15 @@ export function MonitorPage() {
           {monitor.lastActivityAt && ` · Last activity ${lastActivity(monitor.lastActivityAt)}`}
           {" · Test participants aren't counted"}
         </p>
+        {monitor.role !== "viewer" && (
+          <Link
+            to="/studies/$studyId/prolific"
+            params={{ studyId }}
+            className="mt-2 inline-block rounded border border-stone-300 bg-white px-3 py-1.5 text-sm"
+          >
+            Recruit on Prolific
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -1,16 +1,49 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { existsSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
 import path from "node:path";
 import { loadEnvFile } from "node:process";
 import { addResearcherToTeam, setUpTeam } from "@truman3/accounts";
 import { createTestDatabase } from "@truman3/db/testing";
 import { savePackFromFolder } from "@truman3/drafts";
+import { createFakeProlific } from "@truman3/recruit/testing";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { importStudyFolder } from "@truman3/study-import";
-import { ADMIN_PORT, API_PORT, APP_PORT } from "./playwright.config.ts";
+import { ADMIN_PORT, API_PORT, APP_PORT, PROLIFIC_PORT } from "./playwright.config.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 export const STATE_FILE = path.join(import.meta.dirname, ".e2e-state.json");
+
+/**
+ * A stand-in for Prolific that the API reaches over a real connection. Tests add submissions with
+ * POST /test/submissions, since nobody here can take a study on Prolific.
+ */
+function startFakeProlific() {
+  const fake = createFakeProlific({ tokens: ["e2e-prolific-token"] });
+  const server = createServer(async (request, response) => {
+    let body = "";
+    for await (const chunk of request) {
+      body += chunk;
+    }
+    if (request.url === "/test/submissions") {
+      const { prolificId } = JSON.parse(body) as { prolificId: string };
+      const [study] = fake.studies.keys();
+      fake.addSubmission(study as string, { participant_id: prolificId });
+      response.writeHead(204).end();
+      return;
+    }
+    const answer = await fake.fetch(`http://localhost:${PROLIFIC_PORT}${request.url}`, {
+      method: request.method ?? "GET",
+      headers: { authorization: request.headers.authorization ?? "" },
+      ...(body ? { body } : {}),
+    });
+    response.writeHead(answer.status, { "content-type": "application/json" });
+    response.end(await answer.text());
+  });
+  server.listen(PROLIFIC_PORT);
+  return server;
+}
 
 async function waitFor(url: string, name: string) {
   const deadline = Date.now() + 60_000;
@@ -101,6 +134,9 @@ export default async function globalSetup() {
         DATABASE_URL: database.url,
         PORT: String(API_PORT),
         NODE_ENV: "development",
+        TRUMAN_SECRET_KEY: randomBytes(32).toString("base64"),
+        PROLIFIC_API_URL: `http://localhost:${PROLIFIC_PORT}`,
+        PARTICIPANT_APP_URL: `http://localhost:${APP_PORT}`,
         // These tests sign in far more often than a person does.
         LOGIN_ATTEMPTS_PER_MINUTE: "1000",
       },
@@ -123,11 +159,14 @@ export default async function globalSetup() {
     }),
   ];
 
+  const fakeProlific = startFakeProlific();
+
   await waitFor(`http://localhost:${API_PORT}/health/ready`, "The API");
   await waitFor(`http://localhost:${APP_PORT}/`, "The participant app");
   await waitFor(`http://localhost:${ADMIN_PORT}/`, "The admin app");
 
   return async () => {
+    fakeProlific.close();
     for (const child of processes) {
       child.kill();
     }
