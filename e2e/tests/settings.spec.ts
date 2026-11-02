@@ -92,9 +92,10 @@ test("a researcher changes settings, and a new participant gets them", async ({
   await page.getByRole("button", { name: "Save as new version" }).click();
   await page.getByRole("button", { name: "Save version" }).click();
   await expect(page.getByRole("heading", { name: "Studies" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Studies" })).toBeVisible();
+  // Newest first, and the list never shows an old one first, so this is the version just saved.
   await page.getByRole("button", { name: "Launch", exact: true }).first().click();
   await page.getByRole("button", { name: "Launch it" }).click();
+  await expect(page.getByRole("button", { name: "Launch it" })).toBeHidden();
 
   // A new participant gets all of it.
   const participantContext = await browser.newContext();

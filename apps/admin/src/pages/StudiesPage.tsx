@@ -109,6 +109,9 @@ function LaunchButton({ study, version }: { study: StudySummary; version: StudyV
     ),
   );
 
+  const [placeholderAccepted, setPlaceholderAccepted] = useState(false);
+  const placeholderConsent = info.data?.placeholderConsent ?? false;
+
   const launch = useMutation({
     mutationFn: () => post(`/admin/versions/${version.id}/launch`),
     onSuccess: async () => {
@@ -152,6 +155,23 @@ function LaunchButton({ study, version }: { study: StudySummary; version: StudyV
             </li>
           )}
         </ul>
+        {placeholderConsent && (
+          <div role="alert" className="mb-4 rounded bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-medium">The consent page still has the placeholder text.</p>
+            <p className="mt-1">
+              Participants would see it instead of the consent text your IRB approved. You can
+              change it by editing a copy, in Settings.
+            </p>
+            <label className="mt-2 flex items-baseline gap-2">
+              <input
+                type="checkbox"
+                checked={placeholderAccepted}
+                onChange={(event) => setPlaceholderAccepted(event.target.checked)}
+              />
+              This is only a test, so launch it anyway
+            </label>
+          </div>
+        )}
         {launch.error && (
           <p role="alert" className="mb-4 text-sm text-rose-800">
             {launch.error.message}
@@ -168,7 +188,9 @@ function LaunchButton({ study, version }: { study: StudySummary; version: StudyV
           <button
             type="button"
             onClick={() => launch.mutate()}
-            disabled={launch.isPending}
+            disabled={
+              launch.isPending || !info.data || (placeholderConsent && !placeholderAccepted)
+            }
             className="rounded bg-emerald-700 px-3 py-1.5 text-sm text-white disabled:opacity-40"
           >
             Launch it
@@ -275,7 +297,16 @@ export function StudiesPage() {
                     </p>
                   )}
                 </div>
-                <EditButton study={study} />
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    to="/studies/$studyId/monitor"
+                    params={{ studyId: study.id }}
+                    className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+                  >
+                    Monitor and download
+                  </Link>
+                  <EditButton study={study} />
+                </div>
               </div>
 
               <ul className="mt-3 divide-y divide-stone-200 border-t border-stone-200">

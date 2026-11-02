@@ -14,6 +14,7 @@ import "./index.css";
 import { CastPage } from "./pages/CastPage.tsx";
 import { DraftPage } from "./pages/DraftPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
+import { MonitorPage } from "./pages/MonitorPage.tsx";
 import { NewStudyPage } from "./pages/NewStudyPage.tsx";
 import { PreviewPage } from "./pages/PreviewPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
@@ -98,6 +99,12 @@ const castRoute = createRoute({
   component: CastPage,
 });
 
+const monitorRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/studies/$studyId/monitor",
+  component: MonitorPage,
+});
+
 const router = createRouter({
   routeTree: rootRoute.addChildren([
     studiesRoute,
@@ -106,6 +113,7 @@ const router = createRouter({
     draftRoute,
     settingsRoute,
     castRoute,
+    monitorRoute,
   ]),
 });
 

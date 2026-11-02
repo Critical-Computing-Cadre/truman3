@@ -1,3 +1,4 @@
+export { hasPlaceholderConsent, STARTING_CONSENT } from "./consent.ts";
 export {
   type ActorDefinition,
   actorDefinitionSchema,

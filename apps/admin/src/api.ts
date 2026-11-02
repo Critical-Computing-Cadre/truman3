@@ -38,6 +38,25 @@ export async function upload<T>(path: string, form: FormData): Promise<T> {
   return parse<T>(await fetch(`/api${path}`, { method: "POST", body: form }));
 }
 
+/** Fetches a file, and saves it the way a link to it would. */
+export async function download(path: string, body: object): Promise<void> {
+  const response = await fetch(`/api${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    await parse(response);
+  }
+  const name = response.headers.get("content-disposition")?.match(/filename="(.+)"/)?.[1];
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name ?? "download.zip";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function post<T>(path: string, body: object = {}): Promise<T> {
   return parse<T>(
     await fetch(`/api${path}`, {
@@ -88,6 +107,8 @@ export interface PreviewInfo {
     commentBox: string;
   }[];
   posts: { offsetMs: number; conditions: string[] }[];
+  /** The consent page still has the text a new study starts with. */
+  placeholderConsent: boolean;
 }
 
 export interface PreviewResponse extends FeedResponse {

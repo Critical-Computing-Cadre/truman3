@@ -103,7 +103,13 @@ test("someone builds a study from nothing, with no terminal, and a participant j
   await saveAndLaunch(page);
   const study = page.getByRole("listitem").filter({ hasText: title }).first();
   await study.getByRole("button", { name: "Launch", exact: true }).click();
-  await page.getByRole("button", { name: "Launch it" }).click();
+
+  // The consent page was never changed, so launching takes an extra step.
+  const launching = page.getByRole("dialog", { name: /Launch version/ });
+  await expect(launching.getByText(/still has the placeholder text/)).toBeVisible();
+  await expect(launching.getByRole("button", { name: "Launch it" })).toBeDisabled();
+  await launching.getByLabel(/only a test/).check();
+  await launching.getByRole("button", { name: "Launch it" }).click();
   await expect(study.getByText("Open to participants")).toBeVisible();
 
   const context = await browser.newContext();
@@ -115,6 +121,40 @@ test("someone builds a study from nothing, with no terminal, and a participant j
   await participant.getByLabel("Name", { exact: true }).fill("Joiner");
   await participant.getByRole("button", { name: "Save and continue" }).click();
   await expect(participant.getByText(body)).toBeVisible();
+  await participant.getByRole("button", { name: "Reply" }).click();
+  await participant.getByLabel("Write a comment").fill("Hello");
+  await participant.getByLabel("Write a comment").press("Enter");
+  await expect(participant.locator("article").getByText("Hello", { exact: true })).toBeVisible();
+
+  // The team can watch it without a terminal.
+  await study.getByRole("link", { name: "Monitor and download" }).click();
+  await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  const conditions = page.getByRole("region", { name: "By condition" });
+  await expect(conditions.getByRole("row", { name: /control/ })).toContainText("1");
+  await expect(page.getByText("Active in the last 15 minutes")).toBeVisible();
+  await expect(page.getByRole("region", { name: /Where people/ })).toContainText("In the feed");
+  await page.screenshot({ path: testInfo.outputPath("monitor.png"), fullPage: true });
+
+  // Download the data, as a real file.
+  const [file] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Download", exact: true }).click(),
+  ]);
+  expect(file.suggestedFilename().startsWith(`${slug}-`)).toBe(true);
+  await page.getByText("Who has downloaded it").click();
+  await expect(page.getByText(/other-lab@example\.edu/)).toBeVisible();
+
+  // Someone asks to withdraw, and they're gone.
+  const withdraw = page.getByRole("region", { name: "Withdraw a participant" });
+  await withdraw.getByLabel("Their recruitment ID").fill(`NEW-${stamp}`);
+  await withdraw.getByRole("button", { name: "Withdraw" }).click();
+  await page
+    .getByRole("dialog", { name: "Confirm withdrawal" })
+    .getByRole("button", { name: "Delete their data" })
+    .click();
+  await expect(withdraw.getByRole("status")).toContainText("Withdrawn");
+  await expect(page.getByText(/1 withdrew/)).toBeVisible();
+
   await context.close();
 });
 
