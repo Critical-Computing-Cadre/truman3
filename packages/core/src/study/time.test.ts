@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseStudyTime } from "./time.ts";
+import { formatStudyTime, parseStudyTime } from "./time.ts";
 
 describe("parseStudyTime", () => {
   it.each([
@@ -24,5 +24,18 @@ describe("parseStudyTime", () => {
 
   it.each(["", "5", "2:5", "2:60", "a:bc", "1:00:60", "1.5:00"])("rejects %j", (text) => {
     expect(parseStudyTime(text)).toBeNull();
+  });
+});
+
+describe("formatStudyTime", () => {
+  it.each([
+    [0, "0:00"],
+    [4 * 60_000, "0:04"],
+    [2 * 3_600_000 + 5 * 60_000, "2:05"],
+    [-(20 * 3_600_000 + 35 * 60_000), "-20:35"],
+    [-5 * 60_000, "-0:05"],
+  ])("writes %d", (ms, text) => {
+    expect(formatStudyTime(ms)).toBe(text);
+    expect(parseStudyTime(text)).toBe(ms);
   });
 });

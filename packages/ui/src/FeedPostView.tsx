@@ -20,6 +20,8 @@ export interface FeedPostViewProps {
   belowComments?: ReactNode;
   /** A note about a post or comment. The admin app uses it to label condition targeting. */
   renderNote?: (contentId: string) => ReactNode;
+  /** Replaces how the text is drawn. The admin app uses it to edit text where it appears. */
+  renderBody?: (contentId: string, body: string) => ReactNode;
 }
 
 function Comment({
@@ -27,7 +29,11 @@ function Comment({
   actions,
   renderAuthor,
   renderNote,
-}: { comment: FeedComment } & Pick<FeedPostViewProps, "actions" | "renderAuthor" | "renderNote">) {
+  renderBody,
+}: { comment: FeedComment } & Pick<
+  FeedPostViewProps,
+  "actions" | "renderAuthor" | "renderNote" | "renderBody"
+>) {
   const author = (className: string, children: ReactNode) =>
     renderAuthor ? (
       renderAuthor(comment.author, className, children)
@@ -58,10 +64,17 @@ function Comment({
         <Avatar name={comment.author.name} url={comment.author.pictureUrl} size="h-8 w-8" />,
       )}
       <div className="min-w-0 flex-1">
-        <p className="text-sm break-words whitespace-pre-wrap">
-          {author("mr-1 font-semibold", comment.author.name)}
-          {comment.body}
-        </p>
+        {renderBody ? (
+          <div className="text-sm">
+            {author("font-semibold", comment.author.name)}
+            {renderBody(comment.id, comment.body)}
+          </div>
+        ) : (
+          <p className="text-sm break-words whitespace-pre-wrap">
+            {author("mr-1 font-semibold", comment.author.name)}
+            {comment.body}
+          </p>
+        )}
         <p className="mt-0.5 flex gap-3 text-xs text-stone-500">
           <span>{shortTime(comment.at)}</span>
           <button
@@ -100,6 +113,7 @@ export function FeedPostView({
   renderAuthor,
   belowComments,
   renderNote,
+  renderBody,
 }: FeedPostViewProps) {
   const headerAuthor = (
     <>
@@ -144,7 +158,11 @@ export function FeedPostView({
         {post.imageUrl && (
           <img src={post.imageUrl} alt="" loading="lazy" className="w-full bg-stone-200" />
         )}
-        {post.body && <p className="p-3 break-words whitespace-pre-wrap">{post.body}</p>}
+        {renderBody ? (
+          <div className="p-3">{renderBody(post.id, post.body)}</div>
+        ) : (
+          post.body && <p className="p-3 break-words whitespace-pre-wrap">{post.body}</p>
+        )}
         {renderNote && <div className="px-3 pb-2 empty:hidden">{renderNote(post.id)}</div>}
       </div>
 
@@ -186,6 +204,7 @@ export function FeedPostView({
                 {...(actions ? { actions } : {})}
                 {...(renderAuthor ? { renderAuthor } : {})}
                 {...(renderNote ? { renderNote } : {})}
+                {...(renderBody ? { renderBody } : {})}
               />
             ))}
           </ul>

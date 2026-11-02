@@ -2,7 +2,13 @@ import { type StudySettings, studySettingsSchema } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { assembleFeed, feedSettingsFor } from "@truman3/feed";
 import { and, eq, isNull } from "drizzle-orm";
-import { shapeFeedPosts, toCandidate } from "../feed/build.ts";
+import {
+  type FeedActor,
+  type FeedContent,
+  loadAuthors,
+  shapeFeedPosts,
+  toCandidate,
+} from "../feed/build.ts";
 
 /** A study version's frozen details, for researchers to look at. */
 export async function loadVersion(db: Database, versionId: string) {
@@ -27,17 +33,18 @@ export function scriptedContent(db: Database, versionId: string) {
 
 /**
  * What a new participant in this condition would see at this point in the study. It uses the same
- * rules and shaping as the real feed, but writes nothing, since looking isn't participating.
+ * rules and shaping as the real feed, but writes nothing, since looking isn't participating. It
+ * works on frozen versions and on drafts alike.
  */
-export async function previewFeed(
-  db: Database,
+export async function previewContent(
+  rows: readonly FeedContent[],
+  authors: (ids: string[]) => Promise<ReadonlyMap<string, FeedActor>>,
   mediaPublicUrl: string,
-  version: { id: string; seed: number; settings: StudySettings },
+  version: { seed: number; settings: StudySettings },
   conditionKey: string,
   elapsedMs: number,
   now = new Date(),
 ) {
-  const rows = await scriptedContent(db, version.id);
   const worldStartMs = now.getTime() - elapsedMs;
 
   const feed = assembleFeed(
@@ -53,7 +60,8 @@ export async function previewFeed(
     { nowMs: now.getTime(), seed: version.seed },
   );
 
-  const posts = await shapeFeedPosts(db, {
+  const posts = await shapeFeedPosts({
+    loadAuthors: authors,
     mediaPublicUrl,
     feed,
     rows,
@@ -73,4 +81,21 @@ export async function previewFeed(
   }
 
   return { posts, targeting };
+}
+
+export async function previewFeed(
+  db: Database,
+  mediaPublicUrl: string,
+  version: { id: string; seed: number; settings: StudySettings },
+  conditionKey: string,
+  elapsedMs: number,
+) {
+  return previewContent(
+    await scriptedContent(db, version.id),
+    (ids) => loadAuthors(db, ids),
+    mediaPublicUrl,
+    version,
+    conditionKey,
+    elapsedMs,
+  );
 }

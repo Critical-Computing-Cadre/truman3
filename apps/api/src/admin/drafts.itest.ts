@@ -1,0 +1,595 @@
+import { randomUUID } from "node:crypto";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { addResearcherToTeam, setUpTeam } from "@truman3/accounts";
+import type { FeedPost, FeedResponse } from "@truman3/core";
+import { schema } from "@truman3/db";
+import { createTestDatabase } from "@truman3/db/testing";
+import { createStorage, storageConfigFromEnv } from "@truman3/storage";
+import { importStudyFolder } from "@truman3/study-import";
+import { and, eq, isNull } from "drizzle-orm";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createApp } from "../app.ts";
+
+let database: Awaited<ReturnType<typeof createTestDatabase>>;
+let app: ReturnType<typeof createApp>;
+const storage = createStorage(storageConfigFromEnv());
+const dirs: string[] = [];
+
+async function signIn(email: string, password: string) {
+  const response = await app.request("/admin/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  return (response.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+}
+
+async function lab() {
+  const id = randomUUID().slice(0, 8);
+  const slug = `lab-${id}`;
+  const { teamId, password } = await setUpTeam(database.db, {
+    teamName: slug,
+    slug,
+    email: `${id}@example.edu`,
+    name: "Owner",
+  });
+
+  const dir = mkdtempSync(path.join(tmpdir(), "truman-draft-"));
+  dirs.push(dir);
+  const files: Record<string, string> = {
+    "study.yaml": `
+schemaVersion: 1
+slug: draft-${id}
+title: Draft test
+site: { name: Demo }
+length: { days: 2 }
+entry: { idParam: PID, idLabel: ID, source: test }
+conditions:
+  assignment: { method: blocked, blockSize: 2 }
+  arms: [{ key: a }, { key: b }]
+media: { baseUrl: "https://cdn.example.com/m" }
+flow: [{ step: feed }]
+`,
+    "actors.csv": "username,name,bio\nann,Ann,Ann's bio\nbob,Bob,\n",
+    "posts.csv": [
+      "id,body,picture,actor,likes,time,condition",
+      "p1,original text,photo.jpg,ann,4,-1:00,",
+      "for-a,only a,,bob,0,-0:30,a",
+      "for-b,only b,,bob,0,-0:30,b",
+    ].join("\n"),
+    "comments.csv": "id,body,actor,postID,likes,time\nc1,a comment,bob,p1,2,-0:50\n",
+    "reactions.csv": "on,nth,type,actor,after,body\npost,0,reply,ann,0:01,Nice\n",
+  };
+  for (const [name, text] of Object.entries(files)) {
+    mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+    writeFileSync(path.join(dir, name), text);
+  }
+  const imported = await importStudyFolder(database.db, storage, dir, { teamId });
+  if (imported.status === "failed") {
+    throw new Error(imported.issues.map((issue) => issue.message).join("\n"));
+  }
+
+  const cookie = await signIn(`${id}@example.edu`, password as string);
+  return {
+    id,
+    teamSlug: slug,
+    slug: `draft-${id}`,
+    cookie,
+    versionId: imported.studyVersionId,
+  };
+}
+
+type Lab = Awaited<ReturnType<typeof lab>>;
+
+const call = (cookie: string, method: string, url: string, body?: object) =>
+  app.request(url, {
+    method,
+    headers: { "content-type": "application/json", cookie },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+
+async function open(team: Lab) {
+  const response = await call(team.cookie, "POST", `/admin/versions/${team.versionId}/draft`);
+  expect(response.status).toBe(200);
+  return (await response.json()) as { draftId: string; created: boolean };
+}
+
+interface DraftPreview extends FeedResponse {
+  items: Record<string, { actorId: string; timeMs: number; conditions: string[]; origin: string }>;
+}
+
+async function preview(team: Lab, draftId: string, condition = "a", elapsedMs = 0) {
+  const response = await call(
+    team.cookie,
+    "GET",
+    `/admin/drafts/${draftId}/preview?condition=${condition}&elapsedMs=${elapsedMs}`,
+  );
+  expect(response.status).toBe(200);
+  return (await response.json()) as DraftPreview;
+}
+
+const findPost = (posts: FeedPost[], body: string) => {
+  const post = posts.find((item) => item.body === body);
+  if (!post) {
+    throw new Error(`No post "${body}" in: ${posts.map((item) => item.body).join(", ")}`);
+  }
+  return post;
+};
+
+const edit = (team: Lab, draftId: string, itemId: string, changes: object) =>
+  call(team.cookie, "PATCH", `/admin/drafts/${draftId}/items/${itemId}`, { changes });
+
+async function enterAsParticipant(slug: string) {
+  const response = await app.request(`/studies/${slug}/enter`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ externalId: `p-${randomUUID()}` }),
+  });
+  return (response.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+}
+
+async function participantFeed(cookie: string) {
+  const response = await app.request("/feed", { headers: { cookie } });
+  return ((await response.json()) as FeedResponse).posts;
+}
+
+beforeAll(async () => {
+  database = await createTestDatabase();
+  app = createApp({
+    pingDatabase: database.ping,
+    db: database.db,
+    storage,
+    mediaPublicUrl: "http://media.test",
+    getClientIp: () => undefined,
+    secureCookies: true,
+  });
+});
+
+afterAll(async () => {
+  storage.close();
+  await database.destroy();
+  for (const dir of dirs) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+describe("starting a draft", () => {
+  it("copies everything from the version, looking exactly the same", async () => {
+    const team = await lab();
+    const { draftId, created } = await open(team);
+
+    expect(created).toBe(true);
+    const framed = await call(
+      team.cookie,
+      "GET",
+      `/admin/versions/${team.versionId}/preview?condition=a&elapsedMs=0`,
+    );
+    const version = (await framed.json()) as FeedResponse;
+    const draft = await preview(team, draftId);
+
+    const strip = (posts: FeedPost[]) =>
+      posts.map(({ id: _id, at: _at, comments, ...post }) => ({
+        ...post,
+        comments: comments.map(({ id: _commentId, at: _commentAt, ...comment }) => comment),
+      }));
+    expect(strip(draft.posts)).toEqual(strip(version.posts));
+  });
+
+  it("carries over reactions, which aren't visible until someone posts", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+
+    const items = await database.db
+      .select()
+      .from(schema.draftItems)
+      .where(and(eq(schema.draftItems.draftId, draftId), eq(schema.draftItems.kind, "reaction")));
+    expect(items).toHaveLength(1);
+  });
+
+  it("gives everyone on the team the same draft", async () => {
+    const team = await lab();
+    const first = await open(team);
+    const second = await open(team);
+
+    expect(second).toEqual({ draftId: first.draftId, created: false });
+  });
+
+  it("shows up on the studies list", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+
+    const response = await call(team.cookie, "GET", "/admin/studies");
+    const { studies } = (await response.json()) as {
+      studies: { openDraftId: string; role: string }[];
+    };
+
+    expect(studies[0]).toMatchObject({ openDraftId: draftId, role: "owner" });
+  });
+});
+
+describe("editing", () => {
+  it("changes what the feed shows right away", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    const response = await edit(team, draftId, post.id, { body: "new text" });
+
+    expect(response.status).toBe(200);
+    expect(findPost((await preview(team, draftId)).posts, "new text").id).toBe(post.id);
+  });
+
+  it("never touches the frozen version, or anyone in the study", async () => {
+    const team = await lab();
+    const participant = await enterAsParticipant(team.slug);
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    await edit(team, draftId, post.id, { body: "changed in draft" });
+
+    expect((await participantFeed(participant)).map((item) => item.body)).toContain(
+      "original text",
+    );
+    expect((await participantFeed(participant)).map((item) => item.body)).not.toContain(
+      "changed in draft",
+    );
+  });
+
+  it("can change the author, timing, and conditions", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await preview(team, draftId);
+    const post = findPost(before.posts, "original text");
+    const bobId = before.items[findPost(before.posts, "only a").id]?.actorId;
+
+    await edit(team, draftId, post.id, { actorId: bobId, conditions: ["b"], timeMs: 3_600_000 });
+
+    expect((await preview(team, draftId, "a")).posts.map((item) => item.body)).not.toContain(
+      "original text",
+    );
+    expect((await preview(team, draftId, "b")).posts.map((item) => item.body)).not.toContain(
+      "original text",
+    );
+    const later = await preview(team, draftId, "b", 3_600_000);
+    expect(findPost(later.posts, "original text").author.username).toBe("bob");
+  });
+
+  it("refuses an author who isn't in this study", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    const response = await edit(team, draftId, post.id, { actorId: randomUUID() });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("refuses fields that don't exist", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    expect((await edit(team, draftId, post.id, { sneaky: true })).status).toBe(400);
+  });
+
+  it("records every change, with who made it", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    await edit(team, draftId, post.id, { body: "one" });
+    await edit(team, draftId, post.id, { body: "two" });
+
+    const history = await database.db
+      .select()
+      .from(schema.draftItemHistory)
+      .where(eq(schema.draftItemHistory.itemId, post.id));
+    expect(history.map((row) => (row.data as { body: string }).body)).toEqual(["one", "two"]);
+    expect(history.map((row) => row.revision)).toEqual([2, 3]);
+    expect(history.every((row) => row.researcherId)).toBe(true);
+  });
+
+  it("lets two people edit different posts, keeping both changes", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const { posts } = await preview(team, draftId);
+    const first = findPost(posts, "original text");
+    const second = findPost(posts, "only a");
+
+    await Promise.all([
+      edit(team, draftId, first.id, { body: "first change" }),
+      edit(team, draftId, second.id, { body: "second change" }),
+    ]);
+
+    const bodies = (await preview(team, draftId)).posts.map((post) => post.body);
+    expect(bodies).toContain("first change");
+    expect(bodies).toContain("second change");
+  });
+
+  it("when two people edit the same post, the last save wins and both are in the history", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    await Promise.all([
+      edit(team, draftId, post.id, { body: "version A" }),
+      edit(team, draftId, post.id, { body: "version B" }),
+    ]);
+
+    const history = await database.db
+      .select()
+      .from(schema.draftItemHistory)
+      .where(eq(schema.draftItemHistory.itemId, post.id));
+    expect(history.map((row) => (row.data as { body: string }).body).sort()).toEqual([
+      "version A",
+      "version B",
+    ]);
+    expect(history.map((row) => row.revision).sort()).toEqual([2, 3]);
+  });
+});
+
+describe("adding and removing", () => {
+  it("adds a post, marked as written by a researcher", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await preview(team, draftId);
+    const actorId = before.items[findPost(before.posts, "only a").id]?.actorId;
+
+    const response = await call(team.cookie, "POST", `/admin/drafts/${draftId}/items`, {
+      kind: "post",
+      fields: { body: "brand new", actorId, timeMs: 0, conditions: [] },
+    });
+
+    expect(response.status).toBe(200);
+    const after = await preview(team, draftId);
+    const post = findPost(after.posts, "brand new");
+    expect(after.items[post.id]?.origin).toBe("researcher");
+  });
+
+  it("adds a comment to a post", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await preview(team, draftId);
+    const post = findPost(before.posts, "original text");
+
+    await call(team.cookie, "POST", `/admin/drafts/${draftId}/items`, {
+      kind: "comment",
+      fields: {
+        body: "new comment",
+        actorId: before.items[post.id]?.actorId,
+        postId: post.id,
+        timeMs: 0,
+        conditions: [],
+      },
+    });
+
+    const comments = findPost((await preview(team, draftId)).posts, "original text").comments;
+    expect(comments.map((comment) => comment.body)).toContain("new comment");
+  });
+
+  it("removes a post and its comments, keeping them in the history", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    const response = await call(team.cookie, "DELETE", `/admin/drafts/${draftId}/items/${post.id}`);
+
+    expect(await response.json()).toEqual({ deleted: 2 });
+    expect((await preview(team, draftId)).posts.map((item) => item.body)).not.toContain(
+      "original text",
+    );
+    const history = await database.db
+      .select()
+      .from(schema.draftItemHistory)
+      .where(eq(schema.draftItemHistory.draftId, draftId));
+    expect(history.filter((row) => row.action === "delete")).toHaveLength(2);
+  });
+
+  it("won't remove an author who still has content", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await preview(team, draftId);
+    const actorId = before.items[findPost(before.posts, "only a").id]?.actorId;
+
+    const response = await call(team.cookie, "DELETE", `/admin/drafts/${draftId}/items/${actorId}`);
+
+    expect(response.status).toBe(409);
+  });
+});
+
+describe("saving a new version", () => {
+  it("makes a new version, which new participants get, and earlier ones don't", async () => {
+    const team = await lab();
+    const earlier = await enterAsParticipant(team.slug);
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+    await edit(team, draftId, post.id, { body: "edited for v2" });
+
+    const response = await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+
+    expect(await response.json()).toEqual({ status: "frozen", version: 2 });
+
+    const later = await enterAsParticipant(team.slug);
+    expect((await participantFeed(later)).map((item) => item.body)).toContain("edited for v2");
+    expect((await participantFeed(earlier)).map((item) => item.body)).toContain("original text");
+  });
+
+  it("keeps everything that wasn't changed: authors, images, likes, comments, reactions", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+    await edit(team, draftId, post.id, { body: "edited" });
+
+    await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+
+    const participant = await enterAsParticipant(team.slug);
+    const shown = findPost(await participantFeed(participant), "edited");
+    expect(shown).toMatchObject({
+      imageUrl: "https://cdn.example.com/m/photo.jpg",
+      likes: 4,
+      author: { username: "ann", name: "Ann" },
+    });
+    expect(shown.comments.map((comment) => comment.body)).toEqual(["a comment"]);
+
+    const [study] = await database.db
+      .select()
+      .from(schema.studies)
+      .where(eq(schema.studies.slug, team.slug));
+    const [newest] = await database.db
+      .select()
+      .from(schema.studyVersions)
+      .where(and(eq(schema.studyVersions.studyId, study!.id), eq(schema.studyVersions.version, 2)));
+    const reactions = await database.db
+      .select()
+      .from(schema.scriptedReactions)
+      .where(eq(schema.scriptedReactions.studyVersionId, newest!.id));
+    expect(reactions).toHaveLength(1);
+  });
+
+  it("records where each item came from, in the frozen version", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await preview(team, draftId);
+    const edited = findPost(before.posts, "original text");
+    await edit(team, draftId, edited.id, { body: "edited" });
+    await call(team.cookie, "POST", `/admin/drafts/${draftId}/items`, {
+      kind: "post",
+      fields: { body: "brand new", actorId: before.items[edited.id]?.actorId, timeMs: 0 },
+    });
+
+    await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+
+    const rows = await database.db
+      .select({ body: schema.content.body, provenance: schema.content.provenance })
+      .from(schema.content)
+      .innerJoin(schema.studyVersions, eq(schema.studyVersions.id, schema.content.studyVersionId))
+      .where(and(eq(schema.studyVersions.version, 2), isNull(schema.content.worldId)));
+    const provenance = (body: string) => rows.find((row) => row.body === body)?.provenance;
+
+    expect(provenance("edited")).toEqual({ origin: "file", edited: true });
+    expect(provenance("brand new")).toEqual({ origin: "researcher" });
+    expect(provenance("only a")).toEqual({ origin: "file" });
+  });
+
+  it("closes the draft, so it can't be edited, and a new one can start", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+    await edit(team, draftId, post.id, { body: "edited" });
+    await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+
+    expect((await edit(team, draftId, post.id, { body: "too late" })).status).toBe(409);
+    expect((await open(team)).draftId).not.toBe(draftId);
+  });
+
+  it("refuses when something's wrong, explaining what", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const { posts } = await preview(team, draftId);
+    const post = findPost(posts, "original text");
+    await edit(team, draftId, post.comments[0]?.id as string, { timeMs: -999_000_000 });
+
+    const response = await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as { error: string }).error).toContain("timed before");
+  });
+
+  it("does nothing when nothing changed", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+
+    const response = await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+
+    expect(await response.json()).toEqual({ status: "unchanged", version: 1 });
+  });
+});
+
+describe("who can edit", () => {
+  it("requires signing in", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    expect((await app.request(`/admin/drafts/${draftId}`)).status).toBe(401);
+  });
+
+  it("keeps another team out completely", async () => {
+    const mine = await lab();
+    const theirs = await lab();
+    const { draftId } = await open(mine);
+    const post = findPost((await preview(mine, draftId)).posts, "original text");
+
+    expect((await edit(theirs, draftId, post.id, { body: "x" })).status).toBe(404);
+    expect((await call(theirs.cookie, "GET", `/admin/drafts/${draftId}`)).status).toBe(404);
+    expect(
+      (await call(theirs.cookie, "POST", `/admin/versions/${mine.versionId}/draft`)).status,
+    ).toBe(404);
+    expect((await call(theirs.cookie, "POST", `/admin/drafts/${draftId}/freeze`)).status).toBe(404);
+  });
+
+  it("lets a viewer look but not change anything", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+    const email = `viewer-${team.id}@example.edu`;
+    const added = await addResearcherToTeam(database.db, {
+      teamSlug: team.teamSlug,
+      email,
+      name: "Viewer",
+      role: "viewer",
+    });
+    const viewer = await signIn(email, (added as { password: string }).password);
+
+    const info = await call(viewer, "GET", `/admin/drafts/${draftId}`);
+    expect(((await info.json()) as { canEdit: boolean }).canEdit).toBe(false);
+
+    expect(
+      (
+        await call(viewer, "PATCH", `/admin/drafts/${draftId}/items/${post.id}`, {
+          changes: { body: "x" },
+        })
+      ).status,
+    ).toBe(403);
+    expect((await call(viewer, "POST", `/admin/drafts/${draftId}/freeze`)).status).toBe(403);
+    expect((await call(viewer, "DELETE", `/admin/drafts/${draftId}/items/${post.id}`)).status).toBe(
+      403,
+    );
+  });
+
+  it("lets an editor change things", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+    const email = `editor-${team.id}@example.edu`;
+    const added = await addResearcherToTeam(database.db, {
+      teamSlug: team.teamSlug,
+      email,
+      name: "Editor",
+      role: "editor",
+    });
+    const editor = await signIn(email, (added as { password: string }).password);
+
+    const response = await call(editor, "PATCH", `/admin/drafts/${draftId}/items/${post.id}`, {
+      changes: { body: "by the editor" },
+    });
+
+    expect(response.status).toBe(200);
+  });
+});
+
+describe("what participants can't see", () => {
+  it("doesn't send provenance or draft details to participants", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+    await edit(team, draftId, post.id, { body: "edited" });
+    await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+
+    const participant = await enterAsParticipant(team.slug);
+    const text = await (await app.request("/feed", { headers: { cookie: participant } })).text();
+
+    expect(text).not.toContain("provenance");
+    expect(text).not.toContain("origin");
+  });
+});

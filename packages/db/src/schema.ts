@@ -272,6 +272,8 @@ export const content = pgTable(
     /** Its order in the study definition, for the scripted ranker. */
     position: integer(),
     baseLikes: integer("base_likes").notNull().default(0),
+    /** Where it came from: a file, a researcher, a pack, or a model. See packages/drafts. */
+    provenance: jsonb().notNull().default({}),
     conditions: text().array().notNull().default(sql`'{}'`),
     class: text(),
     /** The ID this had in the study definition, such as a row in posts.csv. */
@@ -496,6 +498,79 @@ export const excludedEntries = pgTable(
     idHash: text("id_hash").notNull(),
   },
   (table) => [primaryKey({ columns: [table.studyId, table.idHash] })],
+);
+
+/** A version of a study being worked on. A study has at most one open at a time. */
+export const studyDrafts = pgTable(
+  "study_drafts",
+  {
+    id: id(),
+    studyId: uuid("study_id")
+      .notNull()
+      .references(() => studies.id),
+    basedOnVersionId: uuid("based_on_version_id").references(() => studyVersions.id),
+    settings: jsonb().notNull(),
+    pages: jsonb().notNull().default({}),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => researchers.id),
+    createdAt: time("created_at").notNull().defaultNow(),
+    updatedAt: time("updated_at").notNull().defaultNow(),
+    /** When it was saved as a version. After that it can't be edited. */
+    closedAt: time("closed_at"),
+    frozenVersionId: uuid("frozen_version_id").references(() => studyVersions.id),
+  },
+  (table) => [
+    uniqueIndex("study_drafts_one_open").on(table.studyId).where(sql`${table.closedAt} is null`),
+  ],
+);
+
+/**
+ * One actor, post, comment, or reaction in a draft, saved on its own so several people can work at
+ * once without conflicting.
+ */
+export const draftItems = pgTable(
+  "draft_items",
+  {
+    id: id(),
+    draftId: uuid("draft_id")
+      .notNull()
+      .references(() => studyDrafts.id),
+    kind: text().notNull(),
+    data: jsonb().notNull(),
+    /** Where it came from. Written from the start, since it can't be reconstructed later. */
+    provenance: jsonb().notNull(),
+    position: integer().notNull().default(0),
+    revision: integer().notNull().default(1),
+    updatedBy: uuid("updated_by").references(() => researchers.id),
+    updatedAt: time("updated_at").notNull().defaultNow(),
+    /** Removed items stay, so they can be restored. */
+    deletedAt: time("deleted_at"),
+  },
+  (table) => [
+    index("draft_items_draft").on(table.draftId, table.kind),
+    check("draft_items_kind", inList(table.kind, ["actor", "post", "comment", "reaction"])),
+  ],
+);
+
+/** Every change to a draft item: who, when, and what it became. */
+export const draftItemHistory = pgTable(
+  "draft_item_history",
+  {
+    id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    itemId: uuid("item_id").notNull(),
+    draftId: uuid("draft_id")
+      .notNull()
+      .references(() => studyDrafts.id),
+    revision: integer().notNull(),
+    action: text().notNull(),
+    data: jsonb().notNull(),
+    researcherId: uuid("researcher_id")
+      .notNull()
+      .references(() => researchers.id),
+    at: time("at").notNull().defaultNow(),
+  },
+  (table) => [index("draft_item_history_item").on(table.itemId, table.id)],
 );
 
 /** A record that a participant's data was deleted. Holds no data about what was deleted. */

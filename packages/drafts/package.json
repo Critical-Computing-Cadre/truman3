@@ -1,0 +1,24 @@
+{
+  "name": "@truman3/drafts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@truman3/core": "workspace:*",
+    "@truman3/db": "workspace:*",
+    "@truman3/study-files": "workspace:*",
+    "@truman3/study-import": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "7.0.2"
+  }
+}

@@ -21,4 +21,12 @@ export function parseStudyTime(text: string): number | null {
   return sign === "-" && magnitude !== 0 ? -magnitude : magnitude;
 }
 
+/** The reverse of parseStudyTime: milliseconds back to hours and minutes, like "-20:35". */
+export function formatStudyTime(ms: number): string {
+  const totalMinutes = Math.round(Math.abs(ms) / MINUTE_MS);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = String(totalMinutes % 60).padStart(2, "0");
+  return `${ms < 0 && totalMinutes > 0 ? "-" : ""}${hours}:${minutes}`;
+}
+
 export { HOUR_MS };

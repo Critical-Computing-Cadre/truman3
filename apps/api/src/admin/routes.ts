@@ -3,7 +3,7 @@ import { findResearcherByEmail, hashPassword, verifyPassword } from "@truman3/ac
 import { feedResponseSchema, platformStyleFor } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { feedSettingsFor } from "@truman3/feed";
-import { asc, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { mediaUrl } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
@@ -89,6 +89,8 @@ const studiesRoute = createRoute({
                 slug: z.string(),
                 team: z.string(),
                 participants: z.number(),
+                role: z.string(),
+                openDraftId: z.string().nullable(),
                 versions: z.array(
                   z.object({
                     id: z.string(),
@@ -174,7 +176,11 @@ const previewRoute = createRoute({
 /** The study IDs a researcher's teams own. Every admin route that touches a study starts here. */
 export async function studiesForResearcher(db: Database, researcherId: string) {
   return db
-    .select({ study: schema.studies, teamName: schema.teams.name })
+    .select({
+      study: schema.studies,
+      teamName: schema.teams.name,
+      role: schema.teamMemberships.role,
+    })
     .from(schema.teamMemberships)
     .innerJoin(schema.teams, eq(schema.teams.id, schema.teamMemberships.teamId))
     .innerJoin(schema.studies, eq(schema.studies.teamId, schema.teams.id))
@@ -264,6 +270,14 @@ export function createAdminRoutes({
           .from(schema.studyVersions)
           .where(inArray(schema.studyVersions.studyId, studyIds))
       : [];
+    const drafts = studyIds.length
+      ? await db
+          .select({ id: schema.studyDrafts.id, studyId: schema.studyDrafts.studyId })
+          .from(schema.studyDrafts)
+          .where(
+            and(inArray(schema.studyDrafts.studyId, studyIds), isNull(schema.studyDrafts.closedAt)),
+          )
+      : [];
     const counts = studyIds.length
       ? await db
           .select({ studyId: schema.participants.studyId, total: count() })
@@ -274,11 +288,13 @@ export function createAdminRoutes({
 
     return c.json(
       {
-        studies: rows.map(({ study, teamName }) => ({
+        studies: rows.map(({ study, teamName, role }) => ({
           id: study.id,
           slug: study.slug,
           team: teamName,
           participants: counts.find((item) => item.studyId === study.id)?.total ?? 0,
+          role,
+          openDraftId: drafts.find((draft) => draft.studyId === study.id)?.id ?? null,
           versions: versions
             .filter((version) => version.studyId === study.id)
             .sort((a, b) => b.version - a.version)

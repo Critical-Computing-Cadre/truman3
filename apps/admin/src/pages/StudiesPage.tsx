@@ -1,6 +1,30 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { get, type StudySummary } from "../api.ts";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { get, post, type StudySummary } from "../api.ts";
+
+function EditButton({ study }: { study: StudySummary }) {
+  const navigate = useNavigate();
+  const latest = study.versions[0];
+  const open = useMutation({
+    mutationFn: () => post<{ draftId: string }>(`/admin/versions/${latest?.id}/draft`),
+    onSuccess: ({ draftId }) => navigate({ to: "/drafts/$draftId", params: { draftId } }),
+  });
+
+  if (study.role === "viewer" || !latest) {
+    return null;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => open.mutate()}
+      disabled={open.isPending}
+      className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+    >
+      {study.openDraftId ? "Keep editing" : `Edit a copy of version ${latest.version}`}
+    </button>
+  );
+}
 
 export function StudiesPage() {
   const list = useQuery({
@@ -26,6 +50,7 @@ export function StudiesPage() {
                 {study.team} · {study.participants} participants
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
+                <EditButton study={study} />
                 {[latest, ...older].map(
                   (version) =>
                     version && (

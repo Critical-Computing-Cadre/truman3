@@ -149,6 +149,27 @@ export async function importStudyFolder(
   }
 
   const { keys: mediaKeys, uploaded: mediaUploaded } = await storeMedia(study, folder, storage);
+  return freezeStudy(db, study, mediaKeys, issues, mediaUploaded, { teamId });
+}
+
+export interface FreezeOptions {
+  teamId?: string | undefined;
+  /** Where each post and comment came from. Files are the default. */
+  provenanceFor?: (kind: "post" | "comment", ref: string) => object;
+}
+
+/**
+ * Saves a checked study as a new frozen version. Studies from files and from the builder both come
+ * through here, so they get the same treatment. The same content twice changes nothing.
+ */
+export async function freezeStudy(
+  db: Database,
+  study: StudyDefinition,
+  mediaKeys: Map<string, string>,
+  issues: StudyIssue[],
+  mediaUploaded: number,
+  { teamId, provenanceFor = () => ({ origin: "file" }) }: FreezeOptions = {},
+): Promise<ImportResult> {
   const contentHash = hashStudy(study, mediaKeys);
   const { settings } = study;
 
@@ -281,6 +302,7 @@ export async function importStudyFolder(
             offsetMs: post.timeMs,
             position: positions.get(post.ref),
             baseLikes: drawLikes(post.likes, settings.likes.posts),
+            provenance: provenanceFor("post", post.ref),
             conditions: post.conditions,
             class: post.class,
             sourceRef: post.ref,
@@ -302,6 +324,7 @@ export async function importStudyFolder(
           body: comment.body,
           offsetMs: comment.timeMs,
           baseLikes: drawLikes(comment.likes, settings.likes.comments),
+          provenance: provenanceFor("comment", comment.ref),
           conditions: comment.conditions,
           class: comment.class,
           sourceRef: comment.ref,

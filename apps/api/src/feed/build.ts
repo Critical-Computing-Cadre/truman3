@@ -11,7 +11,36 @@ import { and, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import type { ParticipantContext } from "../participants/session.ts";
 
 type ContentRow = typeof schema.content.$inferSelect;
-type ActorRow = typeof schema.actors.$inferSelect;
+
+/** What the feed needs about a post or comment, whether it's frozen or still a draft. */
+export type FeedContent = Pick<
+  ContentRow,
+  | "id"
+  | "kind"
+  | "parentId"
+  | "authorActorId"
+  | "body"
+  | "mediaKey"
+  | "offsetMs"
+  | "visibleAt"
+  | "position"
+  | "baseLikes"
+  | "conditions"
+>;
+
+/** What the feed needs about an author. */
+export interface FeedActor {
+  id: string;
+  username: string;
+  profile: unknown;
+}
+
+export async function loadAuthors(db: Database, ids: string[]): Promise<Map<string, FeedActor>> {
+  const rows = ids.length
+    ? await db.select().from(schema.actors).where(inArray(schema.actors.id, ids))
+    : [];
+  return new Map(rows.map((actor) => [actor.id, actor]));
+}
 
 interface ActorProfile {
   name?: string;
@@ -24,14 +53,14 @@ export function mediaUrl(key: string, publicUrl: string): string {
 }
 
 /** Scripted content is timed from the start of the world. Everything else has an actual time. */
-export function contentTimeMs(item: ContentRow, worldStartMs: number): number {
+export function contentTimeMs(item: FeedContent, worldStartMs: number): number {
   if (item.visibleAt) {
     return item.visibleAt.getTime();
   }
   return worldStartMs + (item.offsetMs ?? 0);
 }
 
-export function toCandidate(item: ContentRow, worldStartMs: number): FeedCandidate {
+export function toCandidate(item: FeedContent, worldStartMs: number): FeedCandidate {
   return {
     id: item.id,
     kind: item.kind as FeedCandidate["kind"],
@@ -82,38 +111,34 @@ async function loadViewerState(db: Database, context: ParticipantContext) {
 }
 
 /** Turns what the feed decided into what a browser draws. */
-export async function shapeFeedPosts(
-  db: Database,
-  {
-    mediaPublicUrl,
-    feed,
-    rows,
-    worldStartMs,
-    viewerActorId,
-    likedContentIds,
-    flaggedContentIds,
-    likesFromReactions,
-  }: {
-    mediaPublicUrl: string;
-    feed: AssembledFeed;
-    rows: readonly ContentRow[];
-    worldStartMs: number;
-    viewerActorId: string;
-    likedContentIds: ReadonlySet<string>;
-    flaggedContentIds: ReadonlySet<string>;
-    likesFromReactions: ReadonlyMap<string, number>;
-  },
-): Promise<FeedPost[]> {
+export async function shapeFeedPosts({
+  loadAuthors,
+  mediaPublicUrl,
+  feed,
+  rows,
+  worldStartMs,
+  viewerActorId,
+  likedContentIds,
+  flaggedContentIds,
+  likesFromReactions,
+}: {
+  loadAuthors: (ids: string[]) => Promise<ReadonlyMap<string, FeedActor>>;
+  mediaPublicUrl: string;
+  feed: AssembledFeed;
+  rows: readonly FeedContent[];
+  worldStartMs: number;
+  viewerActorId: string;
+  likedContentIds: ReadonlySet<string>;
+  flaggedContentIds: ReadonlySet<string>;
+  likesFromReactions: ReadonlyMap<string, number>;
+}): Promise<FeedPost[]> {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const shownIds = feed.posts.flatMap((post) => [post.id, ...post.commentIds]);
-  const authorIds = [...new Set(shownIds.map((id) => (byId.get(id) as ContentRow).authorActorId))];
-  const authors = authorIds.length
-    ? await db.select().from(schema.actors).where(inArray(schema.actors.id, authorIds))
-    : [];
-  const authorById = new Map(authors.map((actor) => [actor.id, actor]));
+  const authorIds = [...new Set(shownIds.map((id) => (byId.get(id) as FeedContent).authorActorId))];
+  const authorById = await loadAuthors(authorIds);
 
   const toAuthor = (actorId: string): FeedAuthor => {
-    const actor = authorById.get(actorId) as ActorRow;
+    const actor = authorById.get(actorId) as FeedActor;
     const profile = actor.profile as ActorProfile;
     return {
       username: actor.username,
@@ -123,7 +148,7 @@ export async function shapeFeedPosts(
     };
   };
 
-  const common = (item: ContentRow) => {
+  const common = (item: FeedContent) => {
     const liked = likedContentIds.has(item.id);
     return {
       id: item.id,
@@ -137,11 +162,11 @@ export async function shapeFeedPosts(
   };
 
   return feed.posts.map((post) => {
-    const item = byId.get(post.id) as ContentRow;
+    const item = byId.get(post.id) as FeedContent;
     return {
       ...common(item),
       imageUrl: item.mediaKey ? mediaUrl(item.mediaKey, mediaPublicUrl) : null,
-      comments: post.commentIds.map((id) => common(byId.get(id) as ContentRow)),
+      comments: post.commentIds.map((id) => common(byId.get(id) as FeedContent)),
     };
   });
 }
@@ -236,7 +261,8 @@ export async function buildFeed(
     })),
   });
 
-  return shapeFeedPosts(db, {
+  return shapeFeedPosts({
+    loadAuthors: (ids) => loadAuthors(db, ids),
     mediaPublicUrl,
     feed,
     rows,
