@@ -4,7 +4,7 @@ Truman 3 is a monorepo. This page separates what exists today from what's planne
 
 ## What exists today
 
-Phase 1 is underway. Studies can be defined and validated, but they can't run yet.
+Phase 1 is underway. Studies can be defined, validated, and imported, but they can't run yet.
 
 | Path                       | What it is                                                            |
 | -------------------------- | --------------------------------------------------------------------- |
@@ -16,6 +16,8 @@ Phase 1 is underway. Studies can be defined and validated, but they can't run ye
 | `packages/ui`              | Shared React components                                               |
 | `apps/cli`                 | The `pnpm study` command                                              |
 | `packages/study-files`     | Reads study folders (CSV and YAML), and converts older Truman studies |
+| `packages/study-import`    | Saves a study as a frozen version, and stores its media               |
+| `packages/storage`         | File storage over S3, so the same code works locally and on AWS       |
 | `studies/examples/eatsnap` | The classic example study, converted from `truman_2023`               |
 | `compose.yaml`             | Local Postgres and S3-compatible storage                              |
 

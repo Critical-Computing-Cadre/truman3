@@ -1,0 +1,337 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import {
+  createRandom,
+  hasErrors,
+  pickFrom,
+  type StudyDefinition,
+  type StudyIssue,
+} from "@truman3/core";
+import { type Database, schema } from "@truman3/db";
+import type { Storage } from "@truman3/storage";
+import { loadStudyFolder, MEDIA_FOLDERS } from "@truman3/study-files";
+import { and, desc, eq } from "drizzle-orm";
+
+const UPLOAD_CONCURRENCY = 16;
+const INSERT_BATCH_SIZE = 500;
+
+const CONTENT_TYPES: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+};
+
+export type ImportResult =
+  | { status: "failed"; issues: StudyIssue[] }
+  | {
+      status: "imported" | "unchanged";
+      studyVersionId: string;
+      version: number;
+      contentHash: string;
+      issues: StudyIssue[];
+      mediaUploaded: number;
+    };
+
+/** Sorts object keys, so the same study always hashes the same regardless of key order. */
+function stableStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, item) =>
+    item && typeof item === "object" && !Array.isArray(item)
+      ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b)))
+      : item,
+  );
+}
+
+/** Where an item came from is only for error messages, so it isn't part of a study's identity. */
+function withoutSource<T extends { source?: unknown }>(items: T[]) {
+  return items.map(({ source: _source, ...item }) => item);
+}
+
+function hashStudy(study: StudyDefinition, mediaKeys: Map<string, string>): string {
+  const identity = {
+    settings: study.settings,
+    pages: study.pages,
+    actors: withoutSource(study.actors),
+    posts: withoutSource(study.posts),
+    comments: withoutSource(study.comments),
+    reactions: withoutSource(study.reactions),
+    media: [...mediaKeys.entries()].sort(([a], [b]) => a.localeCompare(b)),
+  };
+  return createHash("sha256").update(stableStringify(identity)).digest("hex");
+}
+
+function chunks<T>(items: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
+}
+
+/**
+ * Stores each image under a hash of its contents, so identical images are only stored once, and a
+ * study version's images can't change later. Hosted media stays where it is.
+ */
+async function storeMedia(
+  study: StudyDefinition,
+  folder: string,
+  storage: Storage,
+): Promise<{ keys: Map<string, string>; uploaded: number }> {
+  const { site, media } = study.settings;
+  const files = new Map<string, string>();
+
+  for (const actor of study.actors) {
+    if (actor.picture) {
+      files.set(path.join(MEDIA_FOLDERS.actors, actor.picture), actor.picture);
+    }
+  }
+  for (const post of study.posts) {
+    if (post.picture) {
+      files.set(path.join(MEDIA_FOLDERS.posts, post.picture), post.picture);
+    }
+  }
+  for (const image of [site.logo, site.favicon, site.homepageImage]) {
+    if (image) {
+      files.set(image, image);
+    }
+  }
+
+  const keys = new Map<string, string>();
+
+  if (media.baseUrl) {
+    const base = media.baseUrl.endsWith("/") ? media.baseUrl : `${media.baseUrl}/`;
+    for (const file of files.keys()) {
+      keys.set(file, new URL(path.basename(file), base).toString());
+    }
+    return { keys, uploaded: 0 };
+  }
+
+  await storage.ensureBucket();
+
+  let uploaded = 0;
+  const pending = [...files.keys()];
+  const worker = async () => {
+    for (let file = pending.pop(); file; file = pending.pop()) {
+      const body = readFileSync(path.join(folder, file));
+      const extension = path.extname(file).toLowerCase();
+      const key = `media/${createHash("sha256").update(body).digest("hex")}${extension}`;
+      keys.set(file, key);
+
+      if (!(await storage.exists(key))) {
+        await storage.put(key, body, CONTENT_TYPES[extension] ?? "application/octet-stream");
+        uploaded += 1;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: UPLOAD_CONCURRENCY }, worker));
+
+  return { keys, uploaded };
+}
+
+/**
+ * Validates a study folder, stores its media, and saves it as a new frozen version. Importing the
+ * same content again changes nothing. Everything goes in one transaction, so a failure can't leave
+ * half a study behind.
+ */
+export async function importStudyFolder(
+  db: Database,
+  storage: Storage,
+  folder: string,
+): Promise<ImportResult> {
+  const { definition: study, issues } = loadStudyFolder(folder);
+  if (!study || hasErrors(issues)) {
+    return { status: "failed", issues };
+  }
+
+  const { keys: mediaKeys, uploaded: mediaUploaded } = await storeMedia(study, folder, storage);
+  const contentHash = hashStudy(study, mediaKeys);
+  const { settings } = study;
+
+  return db.transaction(async (tx) => {
+    const [existingStudy] = await tx
+      .select()
+      .from(schema.studies)
+      .where(eq(schema.studies.slug, settings.slug));
+    const [newStudy] = existingStudy
+      ? []
+      : await tx.insert(schema.studies).values({ slug: settings.slug }).returning();
+    const studyRow = existingStudy ?? newStudy;
+    if (!studyRow) {
+      throw new Error("The study row wasn't created.");
+    }
+
+    const [sameContent] = await tx
+      .select()
+      .from(schema.studyVersions)
+      .where(
+        and(
+          eq(schema.studyVersions.studyId, studyRow.id),
+          eq(schema.studyVersions.contentHash, contentHash),
+        ),
+      );
+    if (sameContent) {
+      return {
+        status: "unchanged",
+        studyVersionId: sameContent.id,
+        version: sameContent.version,
+        contentHash,
+        issues,
+        mediaUploaded,
+      };
+    }
+
+    const [latest] = await tx
+      .select({ version: schema.studyVersions.version })
+      .from(schema.studyVersions)
+      .where(eq(schema.studyVersions.studyId, studyRow.id))
+      .orderBy(desc(schema.studyVersions.version))
+      .limit(1);
+    const versionNumber = (latest?.version ?? 0) + 1;
+
+    // Derived from the content, so the same study always draws the same like counts.
+    const seed = Number.parseInt(contentHash.slice(0, 12), 16);
+    const random = createRandom(seed);
+
+    const site = { ...settings.site };
+    for (const field of ["logo", "favicon", "homepageImage"] as const) {
+      const image = site[field];
+      if (image) {
+        site[field] = mediaKeys.get(image) as string;
+      }
+    }
+
+    const [version] = await tx
+      .insert(schema.studyVersions)
+      .values({
+        studyId: studyRow.id,
+        version: versionNumber,
+        settings: { ...settings, site },
+        pages: study.pages,
+        contentHash,
+        seed,
+      })
+      .returning();
+    if (!version) {
+      throw new Error("The version row wasn't created.");
+    }
+    const studyVersionId = version.id;
+
+    await tx.insert(schema.conditions).values(
+      settings.conditions.arms.map((arm) => ({
+        studyVersionId,
+        key: arm.key,
+        factors: arm.factors,
+        weight: arm.weight,
+      })),
+    );
+    await tx.insert(schema.assignmentCounters).values({ studyVersionId });
+
+    const actorIds = new Map<string, string>();
+    for (const batch of chunks(study.actors, INSERT_BATCH_SIZE)) {
+      const rows = await tx
+        .insert(schema.actors)
+        .values(
+          batch.map((actor) => ({
+            studyVersionId,
+            username: actor.username,
+            driver: "scripted",
+            conditions: actor.conditions,
+            class: actor.class,
+            profile: {
+              name: actor.name,
+              gender: actor.gender,
+              age: actor.age,
+              location: actor.location,
+              bio: actor.bio,
+              picture:
+                actor.picture && mediaKeys.get(path.join(MEDIA_FOLDERS.actors, actor.picture)),
+            },
+          })),
+        )
+        .returning({ id: schema.actors.id, username: schema.actors.username });
+      for (const row of rows) {
+        actorIds.set(row.username, row.id);
+      }
+    }
+    const actorId = (username: string) => actorIds.get(username) as string;
+
+    const drawLikes = (explicit: number | undefined, distribution: number[] | undefined) =>
+      explicit ?? (distribution ? pickFrom(distribution, random) : 0);
+
+    const postIds = new Map<string, string>();
+    for (const batch of chunks(study.posts, INSERT_BATCH_SIZE)) {
+      const rows = await tx
+        .insert(schema.content)
+        .values(
+          batch.map((post) => ({
+            studyVersionId,
+            authorActorId: actorId(post.actor),
+            kind: "post",
+            body: post.body,
+            mediaKey: post.picture && mediaKeys.get(path.join(MEDIA_FOLDERS.posts, post.picture)),
+            offsetMs: post.timeMs,
+            baseLikes: drawLikes(post.likes, settings.likes.posts),
+            conditions: post.conditions,
+            class: post.class,
+            sourceRef: post.ref,
+          })),
+        )
+        .returning({ id: schema.content.id, sourceRef: schema.content.sourceRef });
+      for (const row of rows) {
+        postIds.set(row.sourceRef as string, row.id);
+      }
+    }
+
+    for (const batch of chunks(study.comments, INSERT_BATCH_SIZE)) {
+      await tx.insert(schema.content).values(
+        batch.map((comment) => ({
+          studyVersionId,
+          parentId: postIds.get(comment.post) as string,
+          authorActorId: actorId(comment.actor),
+          kind: "comment",
+          body: comment.body,
+          offsetMs: comment.timeMs,
+          baseLikes: drawLikes(comment.likes, settings.likes.comments),
+          conditions: comment.conditions,
+          class: comment.class,
+          sourceRef: comment.ref,
+        })),
+      );
+    }
+
+    for (const batch of chunks(study.reactions, INSERT_BATCH_SIZE)) {
+      await tx.insert(schema.scriptedReactions).values(
+        batch.map((reaction) => ({
+          studyVersionId,
+          on: reaction.on,
+          nth: reaction.nth,
+          type: reaction.type,
+          actorId: actorId(reaction.actor),
+          afterMs: reaction.afterMs,
+          body: reaction.body,
+          conditions: reaction.conditions,
+          class: reaction.class,
+        })),
+      );
+    }
+
+    // Last, because the database refuses changes to the version's contents from here on.
+    await tx
+      .update(schema.studyVersions)
+      .set({ frozenAt: new Date() })
+      .where(eq(schema.studyVersions.id, studyVersionId));
+
+    return {
+      status: "imported",
+      studyVersionId,
+      version: versionNumber,
+      contentHash,
+      issues,
+      mediaUploaded,
+    };
+  });
+}
