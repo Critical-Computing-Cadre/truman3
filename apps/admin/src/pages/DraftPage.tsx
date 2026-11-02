@@ -12,6 +12,7 @@ import {
   send,
   upload,
 } from "../api.ts";
+import { PostTimeline } from "../components/PostTimeline.tsx";
 import { TimelineControls, useTimeline } from "../components/TimelineControls.tsx";
 
 /** Everything that changes a draft goes through here, and then redraws what depends on it. */
@@ -28,6 +29,11 @@ function useDraftEdits(draftId: string) {
     }),
     create: useMutation({
       mutationFn: (body: { kind: "post" | "comment"; fields: object }) => send("POST", base, body),
+      onSettled: refresh,
+    }),
+    move: useMutation({
+      mutationFn: ({ itemId, timeMs }: { itemId: string; timeMs: number }) =>
+        send("POST", `${base}/${itemId}/move`, { timeMs }),
       onSettled: refresh,
     }),
     remove: useMutation({
@@ -244,7 +250,12 @@ function ItemDetails({
     if (parsed === null) {
       setTimeProblem(true);
     } else if (parsed !== details.timeMs) {
-      change({ timeMs: parsed });
+      // A post takes its comments with it, the same as dragging it on the timeline.
+      if (kind === "post") {
+        edits.move.mutate({ itemId, timeMs: parsed });
+      } else {
+        change({ timeMs: parsed });
+      }
     }
   };
 
@@ -398,6 +409,8 @@ function AddComment({
   );
 }
 
+const SCROLL_CORRECTIONS_MS = [250, 700, 1500];
+
 /** The feed in one condition, where anything can be clicked and changed. */
 function EditableFeed({
   draftId,
@@ -405,12 +418,15 @@ function EditableFeed({
   condition,
   elapsedMs,
   edits,
+  highlightId,
 }: {
   draftId: string;
   info: DraftInfo;
   condition: string;
   elapsedMs: number;
   edits: DraftEdits;
+  /** A post chosen on the timeline, to bring into view. */
+  highlightId?: string | null;
 }) {
   const feed = useQuery({
     queryKey: ["draft", draftId, "feed", condition, elapsedMs],
@@ -420,6 +436,25 @@ function EditableFeed({
       ),
     placeholderData: keepPreviousData,
   });
+
+  const shownIds = feed.data?.posts.map(({ id }) => id).join();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs again once the post has loaded
+  useEffect(() => {
+    if (!highlightId) {
+      return;
+    }
+    const bringIntoView = () =>
+      document.querySelector(`[data-post="${highlightId}"]`)?.scrollIntoView({ block: "center" });
+
+    // Photos above it load as the page moves, which pushes it down, so this corrects for them.
+    bringIntoView();
+    const timers = SCROLL_CORRECTIONS_MS.map((delay) => setTimeout(bringIntoView, delay));
+    return () => {
+      for (const timer of timers) {
+        clearTimeout(timer);
+      }
+    };
+  }, [highlightId, shownIds]);
 
   const items = feed.data?.items ?? {};
   const kinds = new Map<string, "post" | "comment">();
@@ -486,37 +521,42 @@ function EditableFeed({
         <p className="rounded-lg bg-white p-6 text-center text-stone-500">No posts to show.</p>
       )}
       {feed.data?.posts.map((shown) => (
-        <FeedPostView
+        <div
           key={shown.id}
-          post={shown}
-          renderNote={note}
-          {...(info.canEdit
-            ? {
-                renderBody: (contentId: string, body: string) => (
-                  <EditableText
-                    value={body}
-                    required={kinds.get(contentId) === "comment"}
-                    label={`Text of this ${kinds.get(contentId) ?? "post"}`}
-                    onSave={(text) =>
-                      edits.update.mutate({ itemId: contentId, changes: { body: text } })
-                    }
-                  />
-                ),
-                wrapImage: (image: React.ReactNode) => (
-                  <ImageDrop itemId={shown.id} image={image} edits={edits} />
-                ),
-                belowComments: (
-                  <AddComment
-                    postId={shown.id}
-                    info={info}
-                    elapsedMs={elapsedMs}
-                    postTimeMs={items[shown.id]?.timeMs ?? 0}
-                    edits={edits}
-                  />
-                ),
-              }
-            : {})}
-        />
+          data-post={shown.id}
+          className={highlightId === shown.id ? "rounded-lg ring-2 ring-sky-500" : ""}
+        >
+          <FeedPostView
+            post={shown}
+            renderNote={note}
+            {...(info.canEdit
+              ? {
+                  renderBody: (contentId: string, body: string) => (
+                    <EditableText
+                      value={body}
+                      required={kinds.get(contentId) === "comment"}
+                      label={`Text of this ${kinds.get(contentId) ?? "post"}`}
+                      onSave={(text) =>
+                        edits.update.mutate({ itemId: contentId, changes: { body: text } })
+                      }
+                    />
+                  ),
+                  wrapImage: (image: React.ReactNode) => (
+                    <ImageDrop itemId={shown.id} image={image} edits={edits} />
+                  ),
+                  belowComments: (
+                    <AddComment
+                      postId={shown.id}
+                      info={info}
+                      elapsedMs={elapsedMs}
+                      postTimeMs={items[shown.id]?.timeMs ?? 0}
+                      edits={edits}
+                    />
+                  ),
+                }
+              : {})}
+          />
+        </div>
       ))}
     </section>
   );
@@ -620,13 +660,18 @@ export function DraftPage() {
   });
   const edits = useDraftEdits(draftId);
   const timeline = useTimeline(info.data?.lengthMs ?? 0);
+  const [arranging, setArranging] = useState(true);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   if (!info.data) {
     return null;
   }
 
   const current = timeline.condition ?? info.data.conditions[0]?.key ?? "";
-  const failure = edits.update.error ?? edits.create.error ?? edits.remove.error;
+  const failure =
+    edits.update.error ?? edits.create.error ?? edits.remove.error ?? edits.move.error;
+  const windowHours = info.data.conditions.find(({ key }) => key === current)?.windowHours ?? null;
+  const { lengthMs } = info.data;
   const issues = info.data.issues.filter(({ severity }) => severity === "error");
 
   return (
@@ -647,6 +692,36 @@ export function DraftPage() {
         current={current}
         extra={info.data.canEdit && <SaveVersion draftId={draftId} info={info.data} />}
       />
+
+      {/* Not pinned with the controls above, or it would cover half the screen while reading the feed. */}
+      <div className="border-b border-stone-200 bg-white px-3 pb-2">
+        <div className="mx-auto max-w-5xl pt-2">
+          <button
+            type="button"
+            aria-expanded={arranging}
+            onClick={() => setArranging(!arranging)}
+            className="text-xs underline"
+          >
+            {arranging ? "Hide posts on the timeline" : "Show posts on the timeline"}
+          </button>
+          {arranging && (
+            <PostTimeline
+              posts={info.data.posts}
+              lengthMs={lengthMs}
+              windowHours={windowHours}
+              condition={current}
+              elapsedMs={timeline.elapsedMs}
+              canEdit={info.data.canEdit}
+              onMove={(itemId, timeMs) => edits.move.mutate({ itemId, timeMs })}
+              onSelect={(itemId, timeMs) => {
+                timeline.setPlaying(false);
+                timeline.setElapsedMs(Math.min(lengthMs, Math.max(0, timeMs)));
+                setHighlightId(itemId);
+              }}
+            />
+          )}
+        </div>
+      </div>
 
       <div className="mx-auto max-w-5xl px-3 pt-3 text-sm">
         {info.data.closed && (
@@ -684,6 +759,7 @@ export function DraftPage() {
           condition={current}
           elapsedMs={timeline.shownElapsedMs}
           edits={edits}
+          highlightId={highlightId}
         />
         {timeline.compare && timeline.compare !== current && (
           <EditableFeed

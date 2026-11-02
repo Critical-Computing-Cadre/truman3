@@ -598,6 +598,95 @@ describe("who can edit", () => {
   });
 });
 
+describe("moving a post in time", () => {
+  const move = (team: Lab, draftId: string, itemId: string, timeMs: number, cookie = team.cookie) =>
+    call(cookie, "POST", `/admin/drafts/${draftId}/items/${itemId}/move`, { timeMs });
+
+  it("changes when it appears", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "only a");
+
+    const response = await move(team, draftId, post.id, 5 * 3_600_000);
+
+    expect(response.status).toBe(200);
+    const bodies = async (elapsedMs: number) =>
+      (await preview(team, draftId, "a", elapsedMs)).posts.map((item) => item.body);
+    expect(await bodies(0)).not.toContain("only a");
+    expect(await bodies(5 * 3_600_000)).toContain("only a");
+  });
+
+  it("takes its comments with it, keeping the same gap", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await preview(team, draftId);
+    const post = findPost(before.posts, "original text");
+    const commentId = post.comments[0]?.id as string;
+    const gap = (before.items[commentId]?.timeMs ?? 0) - (before.items[post.id]?.timeMs ?? 0);
+
+    await move(team, draftId, post.id, 10 * 3_600_000);
+
+    const after = await preview(team, draftId, "a", 11 * 3_600_000);
+    expect(after.items[post.id]?.timeMs).toBe(10 * 3_600_000);
+    expect(after.items[commentId]?.timeMs).toBe(10 * 3_600_000 + gap);
+  });
+
+  it("can't leave a comment before its post, however far it moves", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    await move(team, draftId, post.id, 40 * 3_600_000);
+
+    const info = await call(team.cookie, "GET", `/admin/drafts/${draftId}`);
+    const { issues } = (await info.json()) as { issues: { severity: string }[] };
+    expect(issues.filter(({ severity }) => severity === "error")).toEqual([]);
+  });
+
+  it("goes in the history, for the post and its comments", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+
+    await move(team, draftId, post.id, 3_600_000);
+
+    const history = await database.db
+      .select()
+      .from(schema.draftItemHistory)
+      .where(eq(schema.draftItemHistory.draftId, draftId));
+    expect(history).toHaveLength(2);
+  });
+
+  it("does nothing when dropped back where it was", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await preview(team, draftId);
+    const post = findPost(before.posts, "original text");
+
+    const response = await move(team, draftId, post.id, before.items[post.id]?.timeMs as number);
+
+    expect(await response.json()).toEqual({ moved: 0 });
+    const history = await database.db
+      .select()
+      .from(schema.draftItemHistory)
+      .where(eq(schema.draftItemHistory.draftId, draftId));
+    expect(history).toEqual([]);
+  });
+
+  it("only moves posts, in this draft, for people who can edit", async () => {
+    const team = await lab();
+    const other = await lab();
+    const { draftId } = await open(team);
+    const post = findPost((await preview(team, draftId)).posts, "original text");
+    const commentId = post.comments[0]?.id as string;
+
+    expect((await move(team, draftId, commentId, 0)).status).toBe(404);
+    expect((await move(team, draftId, randomUUID(), 0)).status).toBe(404);
+    expect((await move(team, draftId, post.id, 0, other.cookie)).status).toBe(404);
+    expect((await move(team, draftId, post.id, 0, "")).status).toBe(401);
+  });
+});
+
 describe("images", () => {
   const PNG = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==",

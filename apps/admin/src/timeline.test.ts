@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { describeTime, postsPerBar, postsThatNeverAppear } from "./timeline.ts";
+import {
+  describeOffset,
+  describeTime,
+  layoutMarkers,
+  postPlacement,
+  postsPerBar,
+  postsThatNeverAppear,
+  timeAtFraction,
+  timelineRange,
+} from "./timeline.ts";
 
 const HOUR = 3_600_000;
 const post = (hours: number, conditions: string[] = []) => ({
@@ -58,5 +67,96 @@ describe("describeTime", () => {
     [1.5 * HOUR, "Day 1, 1h 30m in"],
   ])("describes %d", (elapsed, text) => {
     expect(describeTime(elapsed)).toBe(text);
+  });
+});
+
+describe("timelineRange", () => {
+  it("covers the study and the feed window before it", () => {
+    expect(timelineRange([post(1)], 48 * HOUR, 24)).toEqual({
+      startMs: -24 * HOUR,
+      endMs: 48 * HOUR,
+    });
+  });
+
+  it("stretches to include posts outside the study, so they can be reached", () => {
+    expect(timelineRange([post(-76), post(70)], 48 * HOUR, 24)).toEqual({
+      startMs: -76 * HOUR,
+      endMs: 70 * HOUR,
+    });
+  });
+
+  it("has no time before the start without a window or earlier posts", () => {
+    expect(timelineRange([], 48 * HOUR, null).startMs).toBe(0);
+  });
+});
+
+describe("timeAtFraction", () => {
+  const range = { startMs: -10 * HOUR, endMs: 10 * HOUR };
+
+  it("finds the time along the line", () => {
+    expect(timeAtFraction(0, range)).toBe(-10 * HOUR);
+    expect(timeAtFraction(0.5, range)).toBe(0);
+    expect(timeAtFraction(1, range)).toBe(10 * HOUR);
+  });
+
+  it("rounds to tidy times", () => {
+    expect(timeAtFraction(0.5001, range) % (5 * 60_000)).toBe(0);
+  });
+
+  it("stays on the line when the pointer goes past the ends", () => {
+    expect(timeAtFraction(-1, range)).toBe(-10 * HOUR);
+    expect(timeAtFraction(2, range)).toBe(10 * HOUR);
+  });
+});
+
+describe("postPlacement", () => {
+  it.each([
+    [-25, "early"],
+    [-24, "ok"],
+    [0, "ok"],
+    [47, "ok"],
+    [48, "late"],
+    [100, "late"],
+  ])("a post at hour %d is %s", (hours, expected) => {
+    expect(postPlacement(hours * HOUR, 48 * HOUR, 24)).toBe(expected);
+  });
+
+  it("has nothing too early without a window", () => {
+    expect(postPlacement(-1000 * HOUR, 48 * HOUR, null)).toBe("ok");
+  });
+});
+
+describe("layoutMarkers", () => {
+  const range = { startMs: 0, endMs: 100 * HOUR };
+  const item = (id: string, hours: number) => ({ id, offsetMs: hours * HOUR });
+
+  it("puts each post at its time", () => {
+    expect(layoutMarkers([item("a", 50)], range)).toEqual([{ id: "a", left: 50, row: 0 }]);
+  });
+
+  it("stacks posts that would overlap, and shares a row when they wouldn't", () => {
+    const rows = Object.fromEntries(
+      layoutMarkers([item("a", 10), item("b", 10.1), item("c", 50)], range).map(({ id, row }) => [
+        id,
+        row,
+      ]),
+    );
+    expect(rows).toEqual({ a: 0, b: 1, c: 0 });
+  });
+
+  it("doesn't grow forever when many posts land together", () => {
+    const many = Array.from({ length: 50 }, (_, i) => item(`p${i}`, 10));
+    const rows = layoutMarkers(many, range).map(({ row }) => row);
+    expect(Math.max(...rows)).toBe(9);
+  });
+});
+
+describe("describeOffset", () => {
+  it("says how long before they start", () => {
+    expect(describeOffset(-1.5 * HOUR)).toBe("1h 30m before they start");
+  });
+
+  it("uses the study's time after that", () => {
+    expect(describeOffset(6 * HOUR)).toBe("Day 1, 6h in");
   });
 });

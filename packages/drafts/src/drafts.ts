@@ -380,6 +380,70 @@ export async function updateItem(
 }
 
 /**
+ * Moves a post in time, and its comments by the same amount, so a conversation stays together. This
+ * also means dragging a post can't leave a comment timed before its post.
+ */
+export async function moveItem(
+  db: Database,
+  draftId: string,
+  itemId: string,
+  researcherId: string,
+  timeMs: number,
+): Promise<{ moved: number } | EditProblem> {
+  return db.transaction(async (tx) => {
+    if (!(await isOpen(tx, draftId))) {
+      return CLOSED;
+    }
+
+    const rows = await tx
+      .select()
+      .from(schema.draftItems)
+      .where(and(eq(schema.draftItems.draftId, draftId), isNull(schema.draftItems.deletedAt)))
+      .for("update");
+    const post = rows.find(({ id, kind }) => id === itemId && kind === "post");
+    if (!post) {
+      return NOT_FOUND;
+    }
+
+    const delta = timeMs - (post.data as { timeMs: number }).timeMs;
+    if (delta === 0) {
+      return { moved: 0 };
+    }
+
+    const moving = [
+      post,
+      ...rows.filter((row) => (row.data as { postId?: string }).postId === itemId),
+    ];
+    const history: Parameters<typeof writeHistory>[1] = [];
+    for (const row of moving) {
+      const data = row.data as { timeMs: number };
+      const updated = { ...data, timeMs: data.timeMs + delta };
+      await tx
+        .update(schema.draftItems)
+        .set({
+          data: updated,
+          revision: row.revision + 1,
+          provenance: { ...(row.provenance as Provenance), edited: true },
+          updatedBy: researcherId,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.draftItems.id, row.id));
+      history.push({
+        itemId: row.id,
+        draftId,
+        revision: row.revision + 1,
+        action: "update",
+        data: updated,
+        researcherId,
+      });
+    }
+    await writeHistory(tx, history);
+    await touchDraft(tx, draftId);
+    return { moved: moving.length };
+  });
+}
+
+/**
  * Removes an item, along with any comments on it. It stays in the history, so it can be restored.
  * An author who still has content can't be removed.
  */

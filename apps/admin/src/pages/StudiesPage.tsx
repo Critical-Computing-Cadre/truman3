@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { get, post, type StudySummary } from "../api.ts";
+import { get, type PreviewInfo, post, type StudySummary } from "../api.ts";
+import { postsThatNeverAppear } from "../timeline.ts";
 
 const PARTICIPANT_APP = import.meta.env.VITE_PARTICIPANT_URL ?? "http://localhost:5180";
 
@@ -81,6 +82,20 @@ function LaunchButton({ study, version }: { study: StudySummary; version: StudyV
   const client = useQueryClient();
   const dialog = useRef<HTMLDialogElement>(null);
   const live = study.versions.find(({ id }) => id === study.liveVersionId);
+  const [opened, setOpened] = useState(false);
+
+  // Launching is the last chance to catch this, so it's worked out for each condition here.
+  const info = useQuery({
+    queryKey: ["preview-info", version.id],
+    queryFn: () => get<PreviewInfo>(`/admin/versions/${version.id}/preview-info`),
+    enabled: opened,
+  });
+  const neverAppear = Math.max(
+    0,
+    ...(info.data?.conditions ?? []).map(({ key, windowHours }) =>
+      postsThatNeverAppear(info.data?.posts ?? [], key, info.data?.lengthMs ?? 0, windowHours),
+    ),
+  );
 
   const launch = useMutation({
     mutationFn: () => post(`/admin/versions/${version.id}/launch`),
@@ -94,7 +109,10 @@ function LaunchButton({ study, version }: { study: StudySummary; version: StudyV
     <>
       <button
         type="button"
-        onClick={() => dialog.current?.showModal()}
+        onClick={() => {
+          setOpened(true);
+          dialog.current?.showModal();
+        }}
         className="rounded bg-emerald-700 px-3 py-1.5 text-sm text-white"
       >
         Launch
@@ -113,6 +131,12 @@ function LaunchButton({ study, version }: { study: StudySummary; version: StudyV
             <li>
               The {live.participants} people on version {live.version} stay on it. Your data would
               then span two versions, which your analysis will need to account for.
+            </li>
+          )}
+          {neverAppear > 0 && (
+            <li className="text-amber-900">
+              {neverAppear} posts can never appear to participants, because of when they're timed.
+              You can fix this by editing a copy, and dragging them onto the timeline.
             </li>
           )}
         </ul>

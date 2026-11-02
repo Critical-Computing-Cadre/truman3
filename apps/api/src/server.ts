@@ -14,6 +14,7 @@ const env = z
     NODE_ENV: z.string().optional(),
     /** Only set this behind a load balancer, or anyone could fake their address. */
     TRUST_PROXY: z.stringbool().default(false),
+    LOGIN_ATTEMPTS_PER_MINUTE: z.coerce.number().int().positive().default(10),
   })
   .parse(process.env);
 
@@ -22,11 +23,10 @@ const storage = createStorage(storageConfigFromEnv());
 await storage.ensureBucket();
 /** Generous, since many participants can share one address on a campus network. */
 const ENTRY_ATTEMPTS_PER_MINUTE = 120;
-const LOGIN_ATTEMPTS_PER_MINUTE = 10;
 
 const app = createApp({
   allowEntryAttempt: createRateLimiter({ max: ENTRY_ATTEMPTS_PER_MINUTE, windowMs: 60_000 }),
-  allowLoginAttempt: createRateLimiter({ max: LOGIN_ATTEMPTS_PER_MINUTE, windowMs: 60_000 }),
+  allowLoginAttempt: createRateLimiter({ max: env.LOGIN_ATTEMPTS_PER_MINUTE, windowMs: 60_000 }),
   pingDatabase: database.ping,
   db: database.db,
   storage,

@@ -8,6 +8,7 @@ export {
   freezeDraft,
   type LoadedDraft,
   loadDraft,
+  moveItem,
   openDraft,
   updateItem,
 } from "./drafts.ts";

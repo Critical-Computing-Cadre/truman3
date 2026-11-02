@@ -101,7 +101,14 @@ export interface DraftInfo {
   lengthMs: number;
   conditions: PreviewInfo["conditions"];
   actors: { id: string; username: string; name: string }[];
-  posts: PreviewInfo["posts"];
+  posts: {
+    id: string;
+    offsetMs: number;
+    conditions: string[];
+    body: string;
+    authorName: string;
+    imageUrl: string | null;
+  }[];
   issues: { severity: "error" | "warning"; message: string }[];
 }
 

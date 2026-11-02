@@ -64,6 +64,8 @@ export default async function globalSetup() {
         DATABASE_URL: database.url,
         PORT: String(API_PORT),
         NODE_ENV: "development",
+        // These tests sign in far more often than a person does.
+        LOGIN_ATTEMPTS_PER_MINUTE: "1000",
       },
       stdio: "inherit",
     }),

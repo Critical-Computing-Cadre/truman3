@@ -11,6 +11,7 @@ import {
   freezeDraft,
   type LoadedDraft,
   loadDraft,
+  moveItem,
   openDraft,
   type PostData,
   type Provenance,
@@ -84,7 +85,16 @@ const infoRoute = createRoute({
               }),
             ),
             actors: z.array(z.object({ id: z.string(), username: z.string(), name: z.string() })),
-            posts: z.array(z.object({ offsetMs: z.number(), conditions: z.array(z.string()) })),
+            posts: z.array(
+              z.object({
+                id: z.string(),
+                offsetMs: z.number(),
+                conditions: z.array(z.string()),
+                body: z.string(),
+                authorName: z.string(),
+                imageUrl: z.string().nullable(),
+              }),
+            ),
             issues: z.array(
               z.object({ severity: z.enum(["error", "warning"]), message: z.string() }),
             ),
@@ -205,6 +215,21 @@ const updateItemRoute = createRoute({
       content: { "application/json": { schema: z.object({ revision: z.number() }) } },
     },
     400: errorResponse("The change isn't valid"),
+    409: errorResponse("The draft is already saved as a version"),
+    ...commonErrors,
+  },
+});
+
+const moveItemRoute = createRoute({
+  method: "post",
+  path: "/admin/drafts/{draftId}/items/{itemId}/move",
+  summary: "Change when a post appears. Its comments move with it",
+  request: { params: itemParams, ...jsonBody(z.object({ timeMs: z.number().int() })) },
+  responses: {
+    200: {
+      description: "Moved",
+      content: { "application/json": { schema: z.object({ moved: z.number() }) } },
+    },
     409: errorResponse("The draft is already saved as a version"),
     ...commonErrors,
   },
@@ -362,7 +387,17 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           .filter((item) => item.kind === "post")
           .map((item) => {
             const data = item.data as PostData;
-            return { offsetMs: data.timeMs, conditions: data.conditions };
+            const author = items.find(({ id }) => id === data.actorId)?.data as
+              | ActorData
+              | undefined;
+            return {
+              id: item.id,
+              offsetMs: data.timeMs,
+              conditions: data.conditions,
+              body: data.body,
+              authorName: author?.name ?? "",
+              imageUrl: data.picture ? mediaUrl(data.picture, mediaPublicUrl) : null,
+            };
           }),
         issues: checkDraft(loaded).map(({ severity, message }) => ({ severity, message })),
       },
@@ -486,6 +521,27 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
         return c.json({ error: result.message }, 404);
       }
       return c.json({ error: result.message }, result.problem === "closed" ? 409 : 400);
+    }
+    return c.json(result, 200);
+  });
+
+  app.openapi(moveItemRoute, async (c) => {
+    const { draftId, itemId } = c.req.valid("param");
+    const editing = await forEditing(c, draftId);
+    if ("failure" in editing) {
+      const [body, status] = editing.failure;
+      return c.json(body, status);
+    }
+
+    const result = await moveItem(
+      db,
+      draftId,
+      itemId,
+      editing.researcher.id,
+      c.req.valid("json").timeMs,
+    );
+    if ("problem" in result) {
+      return c.json({ error: result.message }, result.problem === "not-found" ? 404 : 409);
     }
     return c.json(result, 200);
   });

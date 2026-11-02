@@ -181,6 +181,7 @@ test("a researcher edits in the feed, saves, tries it, launches, and a new parti
   await page.screenshot({ path: testInfo.outputPath("studies.png") });
   await v2.getByRole("button", { name: "Launch" }).click();
   await expect(page.getByText(/New participants will get this version/)).toBeVisible();
+  await expect(page.getByText(/posts can never appear to participants/)).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("launching.png") });
   await page.getByRole("button", { name: "Launch it" }).click();
   await expect(v2.getByText("Live")).toBeVisible();
