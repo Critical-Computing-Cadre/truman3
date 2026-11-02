@@ -406,6 +406,8 @@ export const feedImpressions = pgTable(
     surface: text().notNull().default("feed"),
     ranker: text().notNull(),
     rankerVersion: text("ranker_version").notNull(),
+    /** The seed used for this order, so it can be reproduced. */
+    seed: bigint({ mode: "number" }),
     items: jsonb().notNull(),
     fallbackUsed: boolean("fallback_used").notNull().default(false),
     shownAt: time("shown_at").notNull().defaultNow(),
@@ -450,6 +452,8 @@ export const excludedEntries = pgTable(
 export const dataDeletions = pgTable("data_deletions", {
   id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   participantId: uuid("participant_id").notNull(),
+  /** Which study, so reports can say how many people declined or withdrew. */
+  studyId: uuid("study_id").references(() => studies.id),
   reason: text().notNull(),
   requestedBy: text("requested_by").notNull(),
   eventsDeleted: integer("events_deleted").notNull(),

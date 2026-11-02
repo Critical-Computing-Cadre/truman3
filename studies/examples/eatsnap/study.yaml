@@ -23,6 +23,8 @@ conditions:
     - key: troll
     - key: ambig_flag
     - key: unambig_none
+platform:
+  style: photo
 feed:
   ranker: chronological
   windowHours: 24

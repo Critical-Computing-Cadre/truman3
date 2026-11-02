@@ -8,7 +8,9 @@ Two related rules:
 
 1. **Values from older Truman studies are not platform constants.** Things like a 24-hour feed window, a 10-minute pin on new posts, how like counts get drawn, or a 1.5-second read threshold are study design decisions. Each one is a setting. If a study doesn't turn on a behavior, it doesn't happen. Whatever a study used is frozen with its version, so it can be reported in a methods section.
 
-   Some choices have no default at all, so a researcher has to make them. Condition assignment is one: every study has to choose `uniform` or `blocked`.
+   Everyday choices have plain, easy defaults, so a new study doesn't have to spell everything out: a chronological feed and posts with text, photos, or both. The values used are frozen with the version either way.
+
+   A choice that shapes the analysis has no default, so a researcher has to make it. Condition assignment is one: every study has to choose `uniform` or `blocked`.
 
 2. **A study definition is a data structure, not a set of files.** `packages/core` defines what a valid study is and how to check it, independent of where it came from. CSV and YAML files are one way to produce a study definition. A visual builder, a script, or an agent are others, and they share the same rules and plain-language error messages.
 

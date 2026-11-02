@@ -8,6 +8,12 @@ const feedRoute = createRoute({
   method: "get",
   path: "/feed",
   summary: "What the signed-in participant sees right now",
+  request: {
+    query: z.object({
+      /** A number the app picks on each page load, for studies that reshuffle on each visit. */
+      visit: z.coerce.number().int().nonnegative().optional(),
+    }),
+  },
   responses: {
     200: {
       description: "The feed, in order. Showing it is recorded in feed_impressions",
@@ -29,7 +35,9 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
       return c.json({ error: "Please sign in." }, 401);
     }
 
-    const posts = await buildFeed({ db, mediaPublicUrl }, context);
+    const posts = await buildFeed({ db, mediaPublicUrl }, context, {
+      visit: c.req.valid("query").visit,
+    });
     return c.json({ posts }, 200);
   });
 

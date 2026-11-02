@@ -19,7 +19,11 @@ const storage = createStorage(storageConfigFromEnv());
 const folders: string[] = [];
 let counter = 0;
 
-async function importStudy(feed = "{ ranker: chronological }") {
+async function importStudy(
+  feed = "{ ranker: chronological }",
+  extra = "",
+  arms = "[{ key: a }, { key: b }]",
+) {
   counter += 1;
   const slug = `actions-${counter}`;
   const dir = mkdtempSync(path.join(tmpdir(), "truman-actions-"));
@@ -34,8 +38,9 @@ length: { days: 10 }
 entry: { idParam: PID, idLabel: ID, source: test }
 conditions:
   assignment: { method: blocked, blockSize: 2 }
-  arms: [{ key: a }, { key: b }]
+  arms: ${arms}
 feed: ${feed}
+${extra}
 media: { baseUrl: "https://cdn.example.com/m" }
 flow: [{ step: feed }]
 `,
@@ -365,6 +370,47 @@ describe("posting", () => {
     await sendPost(person, { body: "once", ...same });
 
     expect((await feedOf(person)).filter((post) => post.body === "once")).toHaveLength(1);
+  });
+});
+
+describe("the platform's style", () => {
+  const JPEG_FILE = () => new File([JPEG], "photo.jpg", { type: "image/jpeg" });
+
+  it("photo platforms need a photo, with an optional caption", async () => {
+    const person = await enter(await importStudy(undefined, "platform: { style: photo }"));
+
+    expect((await sendPost(person, { body: "just text" })).status).toBe(400);
+    expect((await sendPost(person, { image: JPEG_FILE() })).status).toBe(200);
+    expect((await sendPost(person, { body: "caption", image: JPEG_FILE() })).status).toBe(200);
+  });
+
+  it("text platforms don't take photos", async () => {
+    const person = await enter(await importStudy(undefined, "platform: { style: text }"));
+
+    expect((await sendPost(person, { body: "text", image: JPEG_FILE() })).status).toBe(400);
+    expect((await sendPost(person, { body: "text" })).status).toBe(200);
+  });
+
+  it("takes either by default", async () => {
+    const person = await enter(await importStudy());
+
+    expect((await sendPost(person, { body: "text" })).status).toBe(200);
+    expect((await sendPost(person, { image: JPEG_FILE() })).status).toBe(200);
+  });
+
+  it("can differ by condition", async () => {
+    const slug = await importStudy(
+      undefined,
+      "",
+      "[{ key: a, platform: { style: text } }, { key: b, platform: { style: photo } }]",
+    );
+    const first = await enter(slug);
+    const second = await enter(slug);
+    const textPerson = first.key === "a" ? first : second;
+    const photoPerson = first.key === "a" ? second : first;
+
+    expect((await sendPost(textPerson, { body: "x" })).status).toBe(200);
+    expect((await sendPost(photoPerson, { body: "x" })).status).toBe(400);
   });
 });
 

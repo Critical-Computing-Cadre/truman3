@@ -51,6 +51,7 @@ export interface FlowState {
   position: number;
   pageText: string | null;
   canFinish: boolean;
+  platformStyle: "photo" | "text" | "mixed";
   site: { name: string; logoUrl: string | null; faviconUrl: string | null };
 }
 

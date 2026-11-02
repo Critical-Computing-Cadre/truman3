@@ -155,6 +155,40 @@ describe("validateStudy", () => {
     expect(hasErrors(validateStudy(balanced))).toBe(false);
   });
 
+  it("checks what exit and decline links can fill in", () => {
+    const found = messages(
+      study({
+        settings: settings({
+          flow: [
+            { step: "feed" },
+            { step: "exit", redirect: "https://survey.example.com/s?id={prolificId}" },
+          ],
+        }),
+      }),
+    );
+    expect(found.join()).toContain("uses {prolificId}");
+  });
+
+  it("warns when an exit link wouldn't identify anyone", () => {
+    const exitTo = (redirect: string) =>
+      messages(
+        study({ settings: settings({ flow: [{ step: "feed" }, { step: "exit", redirect }] }) }),
+      );
+
+    expect(exitTo("https://survey.example.com/s").join()).toContain("{externalId}");
+    expect(exitTo("https://survey.example.com/s?PROLIFIC_PID={externalId}")).toEqual([]);
+  });
+
+  it("warns when reshuffling is asked for but nothing shuffles", () => {
+    expect(
+      messages(
+        study({
+          settings: settings({ feed: { ranker: "chronological", reshuffleEachVisit: true } }),
+        }),
+      ).join(),
+    ).toContain("reshuffleEachVisit");
+  });
+
   it("checks the shape of the flow", () => {
     const found = messages(
       study({

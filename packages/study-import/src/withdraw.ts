@@ -11,6 +11,31 @@ export type WithdrawResult =
  * entering this study again. The database goes first: if deleting files then fails, this reports
  * the error, and the files need removing by hand, under uploads/<world id>/.
  */
+export async function deleteParticipant(
+  db: Database,
+  storage: Storage,
+  participantId: string,
+  reason: string,
+  requestedBy: string,
+) {
+  const worlds = await db
+    .select({ worldId: schema.worldMemberships.worldId })
+    .from(schema.worldMemberships)
+    .where(eq(schema.worldMemberships.participantId, participantId));
+
+  const [row] = await db.execute<{ deleted: number }>(
+    sql`select delete_participant_data(${participantId}, ${reason}, ${requestedBy}) as deleted`,
+  );
+
+  let filesDeleted = 0;
+  for (const { worldId } of worlds) {
+    filesDeleted += await storage.deletePrefix(`uploads/${worldId}/`);
+  }
+
+  return { eventsDeleted: Number(row?.deleted ?? 0), filesDeleted };
+}
+
+/** Finds a participant by their recruitment ID and deletes them. */
 export async function withdrawParticipant(
   db: Database,
   storage: Storage,
@@ -30,19 +55,12 @@ export async function withdrawParticipant(
     return { status: "not-found" };
   }
 
-  const worlds = await db
-    .select({ worldId: schema.worldMemberships.worldId })
-    .from(schema.worldMemberships)
-    .where(eq(schema.worldMemberships.participantId, participant.id));
-
-  const [row] = await db.execute<{ deleted: number }>(
-    sql`select delete_participant_data(${participant.id}, ${request.reason}, ${request.requestedBy}) as deleted`,
+  const deleted = await deleteParticipant(
+    db,
+    storage,
+    participant.id,
+    request.reason,
+    request.requestedBy,
   );
-
-  let filesDeleted = 0;
-  for (const { worldId } of worlds) {
-    filesDeleted += await storage.deletePrefix(`uploads/${worldId}/`);
-  }
-
-  return { status: "withdrawn", eventsDeleted: Number(row?.deleted ?? 0), filesDeleted };
+  return { status: "withdrawn", ...deleted };
 }

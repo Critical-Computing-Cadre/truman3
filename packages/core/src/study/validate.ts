@@ -1,4 +1,5 @@
 import type { StudyDefinition } from "./definition.ts";
+import { LINK_PLACEHOLDERS } from "./links.ts";
 import { HOUR_MS } from "./time.ts";
 
 export interface StudyIssue {
@@ -123,6 +124,40 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     if ((step.step === "consent" || step.step === "page") && !(step.page in study.pages)) {
       error(`The flow uses the page "${step.page}", which doesn't exist.`);
     }
+  }
+
+  const checkLink = (link: string, label: string) => {
+    for (const [, name] of link.matchAll(/\{(\w*)\}/g)) {
+      if (!LINK_PLACEHOLDERS.includes(name as (typeof LINK_PLACEHOLDERS)[number])) {
+        error(
+          `${label} uses {${name}}. It can only use ${LINK_PLACEHOLDERS.map((item) => `{${item}}`).join(" and ")}.`,
+        );
+      }
+    }
+  };
+  for (const step of settings.flow) {
+    if (step.step === "exit" && step.redirect) {
+      checkLink(step.redirect, "The exit link");
+      if (!step.redirect.includes("{externalId}") && !step.redirect.includes("{participantId}")) {
+        warning(
+          "The exit link doesn't pass on who this is, so survey answers can't be matched to study data. Add {externalId} to it.",
+        );
+      }
+    }
+    if (step.step === "consent" && step.declineRedirect) {
+      checkLink(step.declineRedirect, "The decline link");
+    }
+  }
+
+  const usesShuffle = [
+    settings.feed.ranker,
+    ...settings.conditions.arms.map((arm) => arm.feed?.ranker),
+  ].includes("shuffle");
+  const asksReshuffle =
+    settings.feed.reshuffleEachVisit ||
+    settings.conditions.arms.some((arm) => arm.feed?.reshuffleEachVisit);
+  if (asksReshuffle && !usesShuffle) {
+    warning("reshuffleEachVisit does nothing unless a condition uses the shuffle ranker.");
   }
 
   const lengthMs = settings.length.days * 24 * HOUR_MS;

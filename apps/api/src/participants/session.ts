@@ -19,6 +19,8 @@ export function hashSessionToken(token: string): string {
 /** Everything about a signed-in participant that handling a request needs. */
 export interface ParticipantContext {
   participantId: string;
+  /** Their recruitment ID. Never send this to the browser, except inside an exit link. */
+  externalId: string;
   studyVersionId: string;
   worldId: string;
   actorId: string;
@@ -41,6 +43,7 @@ export async function loadParticipantContext(
   const [row] = await db
     .select({
       participantId: schema.sessions.participantId,
+      externalId: schema.participants.externalId,
       worldId: schema.worldMemberships.worldId,
       actorId: schema.worldMemberships.actorId,
       studyVersionId: schema.worlds.studyVersionId,

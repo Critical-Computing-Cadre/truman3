@@ -27,6 +27,8 @@ corepack enable pnpm --install-directory ~/.local/bin
 - Admin app: http://localhost:5181
 - API: http://localhost:3000/health/ready
 
+To connect a study to Prolific and a survey, see [docs/guides/connecting-prolific-and-surveys.md](docs/guides/connecting-prolific-and-surveys.md).
+
 See [docs/architecture.md](docs/architecture.md) for how it fits together and [docs/adr](docs/adr) for why.
 
 ## Acknowledgments

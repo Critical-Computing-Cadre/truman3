@@ -88,13 +88,15 @@ export interface BuildFeedOptions {
   authorActorId?: string;
   /** Replaces the settings the condition would use, as on a profile page. */
   settings?: FeedSettings;
+  /** Changes on each page load. Only matters to studies that reshuffle on each visit. */
+  visit?: number | undefined;
 }
 
 /** Works out what a participant sees now, and records that it was shown. */
 export async function buildFeed(
   { db, mediaPublicUrl }: FeedDependencies,
   context: ParticipantContext,
-  { now = new Date(), surface = "feed", authorActorId, settings }: BuildFeedOptions = {},
+  { now = new Date(), surface = "feed", authorActorId, settings, visit }: BuildFeedOptions = {},
 ): Promise<FeedPost[]> {
   const worldStartMs = context.worldStartedAt.getTime();
 
@@ -116,6 +118,12 @@ export async function buildFeed(
   const inScope = (row: ContentRow) =>
     !authorActorId || postAuthors.get(row.parentId ?? row.id) === authorActorId;
 
+  const feedSettings = settings ?? feedSettingsFor(context.settings, context.conditionKey);
+  const seed =
+    feedSettings.reshuffleEachVisit && visit !== undefined
+      ? (context.seed ^ visit) >>> 0
+      : context.seed;
+
   const feed = assembleFeed(
     rows.filter(inScope).map((row) => toCandidate(row, worldStartMs)),
     {
@@ -125,8 +133,8 @@ export async function buildFeed(
       viewedContentIds: state.viewedContentIds,
       blockedActorIds: state.blockedActorIds,
     },
-    settings ?? feedSettingsFor(context.settings, context.conditionKey),
-    { nowMs: now.getTime(), seed: context.seed },
+    feedSettings,
+    { nowMs: now.getTime(), seed },
   );
 
   const byId = new Map(rows.map((row) => [row.id, row]));
@@ -183,6 +191,7 @@ export async function buildFeed(
     surface,
     ranker: feed.ranker,
     rankerVersion: feed.rankerVersion,
+    seed: feed.seed,
     shownAt: now,
     items: feed.posts.map((post, index) => ({
       contentId: post.id,

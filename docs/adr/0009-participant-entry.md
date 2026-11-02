@@ -27,6 +27,8 @@ The account creation step keeps the feel of signing up for a real app, which the
 
 The recruitment ID is the only credential, so anyone who knows a participant's ID can enter as them. These IDs aren't public, but they aren't secret either. It's a reasonable trade-off for a low-risk, anonymous study. It isn't suitable for a study collecting sensitive disclosures. Such a study would need a stronger option first.
 
+Someone who declines consent is treated like a withdrawal: their data is deleted, and that ID can't enter the study again. Ideally this never happens, because people who don't consent shouldn't have reached the study at all.
+
 Attempts to enter are rate limited per address, to slow down guessing. The limit is generous, since a campus network can put many participants behind one address.
 
 ## Related

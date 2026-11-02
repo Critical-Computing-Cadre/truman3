@@ -3,11 +3,13 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { FeedResponse } from "@truman3/core";
+import { schema } from "@truman3/db";
 import { createTestDatabase } from "@truman3/db/testing";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { exportStudy } from "@truman3/study-export";
 import { importStudyFolder } from "@truman3/study-import";
 import { parse } from "csv-parse/sync";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
 
@@ -296,6 +298,23 @@ describe("exportStudy", () => {
 
     expect(content.find((row) => row.body?.includes("HYPERLINK"))?.body).toBe("'=HYPERLINK(1)");
     expect(codebook).toContain("apostrophe");
+  });
+
+  it("counts people who declined or withdrew, without including them", async () => {
+    const leaving = await enter("PROLIFIC-LEAVING-789");
+    expect(leaving).toBeTruthy();
+    const [row] = await database.db
+      .select({ id: schema.participants.id })
+      .from(schema.participants)
+      .where(eq(schema.participants.externalId, "PROLIFIC-LEAVING-789"));
+    await database.db.execute(
+      sql`select delete_participant_data(${row!.id}, 'withdrew', 'researcher')`,
+    );
+
+    const { codebook, participants } = await exported();
+
+    expect(codebook).toContain("0 declined consent, and 1 withdrew");
+    expect(participants.map((item) => item.participant_id)).not.toContain(row!.id);
   });
 
   it("writes a codebook with the study's frozen settings and every file", async () => {

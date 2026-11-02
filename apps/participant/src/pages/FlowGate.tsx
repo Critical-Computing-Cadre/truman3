@@ -1,12 +1,84 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { ApiError, type FlowState, get, type Me, post, postForm } from "../api.ts";
 import { Shell } from "../components/Shell.tsx";
 import { startTracking } from "../tracking.ts";
 import { Message } from "./Message.tsx";
 
-function PageStep({ flow, label, onDone }: { flow: FlowState; label: string; onDone: () => void }) {
+function ConsentStep({
+  flow,
+  onDone,
+  onDeclined,
+}: {
+  flow: FlowState;
+  onDone: () => void;
+  onDeclined: (message: string) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const decline = useMutation({
+    mutationFn: () =>
+      post<{ message: string; redirectUrl: string | null }>("/me/flow/decline", {
+        position: flow.position,
+      }),
+    onSuccess: ({ message, redirectUrl }) => {
+      if (redirectUrl) {
+        window.location.assign(redirectUrl);
+      } else {
+        onDeclined(message);
+      }
+    },
+  });
+
+  return (
+    <PageStep flow={flow} label="I agree" onDone={onDone}>
+      {confirming ? (
+        <div className="mt-4 rounded border border-stone-300 p-4">
+          <p className="mb-3">
+            If you don't agree, you won't be able to take part, and you can't come back later.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => decline.mutate()}
+              disabled={decline.isPending}
+              className="rounded bg-stone-900 px-4 py-2 text-white disabled:opacity-40"
+            >
+              I don't want to take part
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="rounded border border-stone-300 px-4 py-2"
+            >
+              Go back
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className="mt-2 w-full rounded border border-stone-300 py-2.5 font-medium"
+        >
+          I do not agree
+        </button>
+      )}
+    </PageStep>
+  );
+}
+
+function PageStep({
+  flow,
+  label,
+  onDone,
+  children,
+}: {
+  flow: FlowState;
+  label: string;
+  onDone: () => void;
+  children?: ReactNode;
+}) {
   const advance = useMutation({
     mutationFn: () => post("/me/flow/advance", { position: flow.position }),
     onSuccess: onDone,
@@ -25,6 +97,7 @@ function PageStep({ flow, label, onDone }: { flow: FlowState; label: string; onD
       >
         {label}
       </button>
+      {children}
     </main>
   );
 }
@@ -172,12 +245,13 @@ function ExitStep({
 export function FlowGate() {
   const client = useQueryClient();
   const [finished, setFinished] = useState(false);
+  const [declined, setDeclined] = useState<string | null>(null);
 
   const flow = useQuery({
     queryKey: ["flow"],
     queryFn: () => get<FlowState>("/me/flow"),
     retry: false,
-    enabled: !finished,
+    enabled: !finished && declined === null,
   });
 
   const site = flow.data?.site;
@@ -202,6 +276,9 @@ export function FlowGate() {
 
   const refresh = () => client.invalidateQueries({ queryKey: ["flow"] });
 
+  if (declined !== null) {
+    return <Message title={declined} />;
+  }
   if (finished) {
     return <Message title="Thank you!" body="You're all done. You can close this page." />;
   }
@@ -222,7 +299,7 @@ export function FlowGate() {
 
   switch (flow.data.step) {
     case "consent":
-      return <PageStep flow={flow.data} label="I agree" onDone={refresh} />;
+      return <ConsentStep flow={flow.data} onDone={refresh} onDeclined={setDeclined} />;
     case "page":
       return <PageStep flow={flow.data} label="Continue" onDone={refresh} />;
     case "account":
