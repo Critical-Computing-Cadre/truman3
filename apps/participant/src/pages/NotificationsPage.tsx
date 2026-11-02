@@ -1,8 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Avatar, shortTime } from "@truman3/ui";
 import { useEffect, useRef } from "react";
 import { get, type NotificationItem, post } from "../api.ts";
-import { Avatar } from "../components/Avatar.tsx";
-import { shortTime } from "../components/time.ts";
 
 function describe(item: NotificationItem): string {
   const [first] = item.actors;

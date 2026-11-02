@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@source "../../../packages/ui/src";
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-stone-100 text-stone-900 antialiased;
+}

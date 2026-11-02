@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 /** Separate ports, so this can run while `pnpm dev` is running. */
 export const API_PORT = 3210;
 export const APP_PORT = 5190;
+export const ADMIN_PORT = 5191;
 
 export default defineConfig({
   testDir: "./tests",

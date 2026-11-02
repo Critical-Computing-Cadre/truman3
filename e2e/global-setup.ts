@@ -2,10 +2,11 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { loadEnvFile } from "node:process";
+import { setUpTeam } from "@truman3/accounts";
 import { createTestDatabase } from "@truman3/db/testing";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { importStudyFolder } from "@truman3/study-import";
-import { API_PORT, APP_PORT } from "./playwright.config.ts";
+import { ADMIN_PORT, API_PORT, APP_PORT } from "./playwright.config.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 export const STATE_FILE = path.join(import.meta.dirname, ".e2e-state.json");
@@ -45,7 +46,14 @@ export default async function globalSetup() {
   if (result.status === "failed") {
     throw new Error(result.issues.map((issue) => issue.message).join("\n"));
   }
-  writeFileSync(STATE_FILE, JSON.stringify({ databaseUrl: database.url }));
+  const email = "researcher@example.edu";
+  const { password } = await setUpTeam(database.db, {
+    teamName: "Test Lab",
+    slug: "test-lab",
+    email,
+    name: "A Researcher",
+  });
+  writeFileSync(STATE_FILE, JSON.stringify({ databaseUrl: database.url, email, password }));
 
   const processes: ChildProcess[] = [
     spawn("node", ["src/server.ts"], {
@@ -64,10 +72,16 @@ export default async function globalSetup() {
       env: { ...process.env, API_PROXY_TARGET: `http://localhost:${API_PORT}` },
       stdio: "ignore",
     }),
+    spawn("node", ["node_modules/vite/bin/vite.js", "--port", String(ADMIN_PORT)], {
+      cwd: path.join(ROOT, "apps/admin"),
+      env: { ...process.env, API_PROXY_TARGET: `http://localhost:${API_PORT}` },
+      stdio: "ignore",
+    }),
   ];
 
   await waitFor(`http://localhost:${API_PORT}/health/ready`, "The API");
   await waitFor(`http://localhost:${APP_PORT}/`, "The participant app");
+  await waitFor(`http://localhost:${ADMIN_PORT}/`, "The admin app");
 
   return async () => {
     for (const child of processes) {

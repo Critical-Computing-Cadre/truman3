@@ -1,10 +1,14 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { findResearcherByEmail, hashPassword, verifyPassword } from "@truman3/accounts";
+import { feedResponseSchema, platformStyleFor } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
+import { feedSettingsFor } from "@truman3/feed";
 import { asc, count, eq, inArray } from "drizzle-orm";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { mediaUrl } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { hashSessionToken } from "../participants/session.ts";
+import { loadVersion, previewFeed, scriptedContent } from "./preview.ts";
 import { createResearcherSession, RESEARCHER_COOKIE, researcherFromRequest } from "./session.ts";
 
 const errorSchema = z.object({ error: z.string() });
@@ -103,6 +107,70 @@ const studiesRoute = createRoute({
   },
 });
 
+const versionParams = z.object({ versionId: z.uuid() });
+
+const previewInfoRoute = createRoute({
+  method: "get",
+  path: "/admin/versions/{versionId}/preview-info",
+  summary: "What's needed to look through a study version",
+  request: { params: versionParams },
+  responses: {
+    200: {
+      description: "Its conditions, length, and the timing of its posts",
+      content: {
+        "application/json": {
+          schema: z.object({
+            title: z.string(),
+            slug: z.string(),
+            version: z.number(),
+            siteName: z.string(),
+            siteLogoUrl: z.string().nullable(),
+            lengthMs: z.number(),
+            conditions: z.array(
+              z.object({
+                key: z.string(),
+                ranker: z.string(),
+                windowHours: z.number().nullable(),
+                platformStyle: z.string(),
+              }),
+            ),
+            posts: z.array(z.object({ offsetMs: z.number(), conditions: z.array(z.string()) })),
+          }),
+        },
+      },
+    },
+    401: notSignedIn,
+    404: errorResponse("No such version on this researcher's teams"),
+  },
+});
+
+const previewRoute = createRoute({
+  method: "get",
+  path: "/admin/versions/{versionId}/preview",
+  summary: "What a new participant would see, in a condition, at a point in the study",
+  request: {
+    params: versionParams,
+    query: z.object({
+      condition: z.string().min(1),
+      elapsedMs: z.coerce.number().int().nonnegative(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "The feed, as participants see it. Nothing is recorded",
+      content: {
+        "application/json": {
+          schema: feedResponseSchema.extend({
+            targeting: z.record(z.string(), z.array(z.string())),
+          }),
+        },
+      },
+    },
+    401: notSignedIn,
+    404: errorResponse("No such version or condition on this researcher's teams"),
+  },
+});
+
 /** The study IDs a researcher's teams own. Every admin route that touches a study starts here. */
 export async function studiesForResearcher(db: Database, researcherId: string) {
   return db
@@ -119,12 +187,14 @@ const NO_ACCOUNT_HASH = hashPassword("no account has this password");
 
 export function createAdminRoutes({
   db,
+  mediaPublicUrl,
   secureCookies,
   getClientIp,
   allowLoginAttempt,
 }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const pleaseSignIn = { error: "Please sign in." };
+  const notAvailable = { error: "This isn't available." };
 
   app.openapi(loginRoute, async (c) => {
     const { email, password } = c.req.valid("json");
@@ -222,6 +292,75 @@ export function createAdminRoutes({
       },
       200,
     );
+  });
+
+  /** A version, if this researcher's teams have access to it. */
+  const versionForResearcher = async (researcherId: string, versionId: string) => {
+    const version = await loadVersion(db, versionId);
+    if (!version) {
+      return null;
+    }
+    const allowed = await studiesForResearcher(db, researcherId);
+    return allowed.some(({ study }) => study.id === version.studyId) ? version : null;
+  };
+
+  app.openapi(previewInfoRoute, async (c) => {
+    const researcher = await researcherFromRequest(c, db);
+    if (!researcher) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const found = await versionForResearcher(researcher.id, c.req.valid("param").versionId);
+    if (!found) {
+      return c.json(notAvailable, 404);
+    }
+
+    const { settings } = found;
+    const rows = await scriptedContent(db, found.version.id);
+
+    return c.json(
+      {
+        title: settings.title,
+        slug: found.slug,
+        version: found.version.version,
+        siteName: settings.site.name,
+        siteLogoUrl: settings.site.logo ? mediaUrl(settings.site.logo, mediaPublicUrl) : null,
+        lengthMs: settings.length.days * 24 * 3_600_000,
+        conditions: settings.conditions.arms.map(({ key }) => {
+          const feed = feedSettingsFor(settings, key);
+          return {
+            key,
+            ranker: feed.ranker,
+            windowHours: feed.windowHours ?? null,
+            platformStyle: platformStyleFor(settings, key),
+          };
+        }),
+        posts: rows
+          .filter((row) => row.kind === "post")
+          .map((row) => ({ offsetMs: row.offsetMs ?? 0, conditions: row.conditions })),
+      },
+      200,
+    );
+  });
+
+  app.openapi(previewRoute, async (c) => {
+    const researcher = await researcherFromRequest(c, db);
+    if (!researcher) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const found = await versionForResearcher(researcher.id, c.req.valid("param").versionId);
+    const { condition, elapsedMs } = c.req.valid("query");
+    if (!found?.settings.conditions.arms.some(({ key }) => key === condition)) {
+      return c.json(notAvailable, 404);
+    }
+
+    const preview = await previewFeed(
+      db,
+      mediaPublicUrl,
+      { id: found.version.id, seed: found.version.seed, settings: found.settings },
+      condition,
+      elapsedMs,
+    );
+    return c.json(preview, 200);
   });
 
   return app;

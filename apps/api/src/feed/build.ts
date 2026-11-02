@@ -1,6 +1,7 @@
 import type { FeedAuthor, FeedPost } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import {
+  type AssembledFeed,
   assembleFeed,
   type FeedCandidate,
   type FeedSettings,
@@ -30,7 +31,7 @@ export function contentTimeMs(item: ContentRow, worldStartMs: number): number {
   return worldStartMs + (item.offsetMs ?? 0);
 }
 
-function toCandidate(item: ContentRow, worldStartMs: number): FeedCandidate {
+export function toCandidate(item: ContentRow, worldStartMs: number): FeedCandidate {
   return {
     id: item.id,
     kind: item.kind as FeedCandidate["kind"],
@@ -78,6 +79,71 @@ async function loadViewerState(db: Database, context: ParticipantContext) {
     viewedContentIds: idsOfKind("view"),
     blockedActorIds: new Set(blocks.map((row) => row.targetActorId)),
   };
+}
+
+/** Turns what the feed decided into what a browser draws. */
+export async function shapeFeedPosts(
+  db: Database,
+  {
+    mediaPublicUrl,
+    feed,
+    rows,
+    worldStartMs,
+    viewerActorId,
+    likedContentIds,
+    flaggedContentIds,
+    likesFromReactions,
+  }: {
+    mediaPublicUrl: string;
+    feed: AssembledFeed;
+    rows: readonly ContentRow[];
+    worldStartMs: number;
+    viewerActorId: string;
+    likedContentIds: ReadonlySet<string>;
+    flaggedContentIds: ReadonlySet<string>;
+    likesFromReactions: ReadonlyMap<string, number>;
+  },
+): Promise<FeedPost[]> {
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const shownIds = feed.posts.flatMap((post) => [post.id, ...post.commentIds]);
+  const authorIds = [...new Set(shownIds.map((id) => (byId.get(id) as ContentRow).authorActorId))];
+  const authors = authorIds.length
+    ? await db.select().from(schema.actors).where(inArray(schema.actors.id, authorIds))
+    : [];
+  const authorById = new Map(authors.map((actor) => [actor.id, actor]));
+
+  const toAuthor = (actorId: string): FeedAuthor => {
+    const actor = authorById.get(actorId) as ActorRow;
+    const profile = actor.profile as ActorProfile;
+    return {
+      username: actor.username,
+      name: profile.name ?? actor.username,
+      pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+      isViewer: actor.id === viewerActorId,
+    };
+  };
+
+  const common = (item: ContentRow) => {
+    const liked = likedContentIds.has(item.id);
+    return {
+      id: item.id,
+      author: toAuthor(item.authorActorId),
+      body: item.body,
+      at: new Date(contentTimeMs(item, worldStartMs)).toISOString(),
+      likes: item.baseLikes + (likesFromReactions.get(item.id) ?? 0) + (liked ? 1 : 0),
+      liked,
+      flagged: flaggedContentIds.has(item.id),
+    };
+  };
+
+  return feed.posts.map((post) => {
+    const item = byId.get(post.id) as ContentRow;
+    return {
+      ...common(item),
+      imageUrl: item.mediaKey ? mediaUrl(item.mediaKey, mediaPublicUrl) : null,
+      comments: post.commentIds.map((id) => common(byId.get(id) as ContentRow)),
+    };
+  });
 }
 
 export interface BuildFeedOptions {
@@ -137,25 +203,6 @@ export async function buildFeed(
     { nowMs: now.getTime(), seed },
   );
 
-  const byId = new Map(rows.map((row) => [row.id, row]));
-  const shownIds = feed.posts.flatMap((post) => [post.id, ...post.commentIds]);
-  const authorIds = [...new Set(shownIds.map((id) => (byId.get(id) as ContentRow).authorActorId))];
-  const authors = authorIds.length
-    ? await db.select().from(schema.actors).where(inArray(schema.actors.id, authorIds))
-    : [];
-  const authorById = new Map(authors.map((actor) => [actor.id, actor]));
-
-  const toAuthor = (actorId: string): FeedAuthor => {
-    const actor = authorById.get(actorId) as ActorRow;
-    const profile = actor.profile as ActorProfile;
-    return {
-      username: actor.username,
-      name: profile.name ?? actor.username,
-      pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
-      isViewer: actor.id === context.actorId,
-    };
-  };
-
   const reactionLikes = await db
     .select({ contentId: schema.notifications.targetContentId })
     .from(schema.notifications)
@@ -170,19 +217,6 @@ export async function buildFeed(
   for (const { contentId } of reactionLikes) {
     likesFromReactions.set(contentId, (likesFromReactions.get(contentId) ?? 0) + 1);
   }
-
-  const common = (item: ContentRow) => {
-    const liked = state.likedContentIds.has(item.id);
-    return {
-      id: item.id,
-      author: toAuthor(item.authorActorId),
-      body: item.body,
-      at: new Date(contentTimeMs(item, worldStartMs)).toISOString(),
-      likes: item.baseLikes + (likesFromReactions.get(item.id) ?? 0) + (liked ? 1 : 0),
-      liked,
-      flagged: state.flaggedContentIds.has(item.id),
-    };
-  };
 
   await db.insert(schema.feedImpressions).values({
     worldId: context.worldId,
@@ -202,12 +236,14 @@ export async function buildFeed(
     })),
   });
 
-  return feed.posts.map((post) => {
-    const item = byId.get(post.id) as ContentRow;
-    return {
-      ...common(item),
-      imageUrl: item.mediaKey ? mediaUrl(item.mediaKey, mediaPublicUrl) : null,
-      comments: post.commentIds.map((id) => common(byId.get(id) as ContentRow)),
-    };
+  return shapeFeedPosts(db, {
+    mediaPublicUrl,
+    feed,
+    rows,
+    worldStartMs,
+    viewerActorId: context.actorId,
+    likedContentIds: state.likedContentIds,
+    flaggedContentIds: state.flaggedContentIds,
+    likesFromReactions,
   });
 }
