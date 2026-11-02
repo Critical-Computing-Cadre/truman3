@@ -21,7 +21,7 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
-  # Starts the Docker Compose services and confirms the real API reaches Postgres.
+  # Tests that need real services: migrations, database rules, and the API reaching Postgres.
   services:
     runs-on: ubuntu-latest
     steps:
@@ -34,6 +34,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: cp .env.example .env
       - run: docker compose up --detach --wait
+      - run: pnpm db:migrate
+      - run: pnpm test:integration
       - name: Start the API
         run: pnpm --filter @truman3/api start &
       - name: Check the API is ready
