@@ -11,6 +11,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ApiError, get, post, type Researcher } from "./api.ts";
 import "./index.css";
+import { DraftPage } from "./pages/DraftPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
 import { PreviewPage } from "./pages/PreviewPage.tsx";
 import { StudiesPage } from "./pages/StudiesPage.tsx";
@@ -70,7 +71,15 @@ const previewRoute = createRoute({
   component: PreviewPage,
 });
 
-const router = createRouter({ routeTree: rootRoute.addChildren([studiesRoute, previewRoute]) });
+const draftRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/drafts/$draftId",
+  component: DraftPage,
+});
+
+const router = createRouter({
+  routeTree: rootRoute.addChildren([studiesRoute, previewRoute, draftRoute]),
+});
 
 declare module "@tanstack/react-router" {
   interface Register {
