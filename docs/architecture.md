@@ -19,6 +19,7 @@ Phase 1 is underway. Studies can be defined, validated, and imported, and partic
 | `packages/study-files`     | Reads study folders (CSV and YAML), and converts older Truman studies                |
 | `packages/study-import`    | Saves a study as a frozen version, and stores its media                              |
 | `packages/storage`         | File storage over S3, so the same code works locally and on AWS                      |
+| `packages/study-export`    | Writes a study's data as CSVs with a codebook                                        |
 | `studies/examples/eatsnap` | The classic example study, converted from `truman_2023`                              |
 | `compose.yaml`             | Local Postgres and S3-compatible storage                                             |
 

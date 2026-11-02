@@ -20,8 +20,10 @@
   },
   "devDependencies": {
     "@truman3/storage": "workspace:*",
+    "@truman3/study-export": "workspace:*",
     "@truman3/study-import": "workspace:*",
     "@types/node": "^24.19.2",
+    "csv-parse": "7.0.3",
     "typescript": "7.0.2"
   }
 }

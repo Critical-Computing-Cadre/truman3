@@ -10,6 +10,7 @@
     "@truman3/core": "workspace:*",
     "@truman3/db": "workspace:*",
     "@truman3/storage": "workspace:*",
+    "@truman3/study-export": "workspace:*",
     "@truman3/study-files": "workspace:*",
     "@truman3/study-import": "workspace:*"
   },
