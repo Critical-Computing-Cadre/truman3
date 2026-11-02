@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import Markdown from "react-markdown";
-import { ApiError, type FlowState, get, type Me, post, postForm } from "../api.ts";
+import { ApiError, type FlowState, get, meQuery, post, postForm } from "../api.ts";
 import { Shell } from "../components/Shell.tsx";
 import { startTracking } from "../tracking.ts";
 import { Message } from "./Message.tsx";
@@ -102,8 +102,9 @@ function PageStep({
   );
 }
 
-function AccountStep({ flow, onDone }: { flow: FlowState; onDone: () => void }) {
-  const me = useQuery({ queryKey: ["me"], queryFn: () => get<Me>("/me") });
+function AccountStep({ flow, onDone }: { flow: FlowState; onDone: () => Promise<void> }) {
+  const client = useQueryClient();
+  const me = useQuery(meQuery);
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
@@ -121,7 +122,12 @@ function AccountStep({ flow, onDone }: { flow: FlowState; onDone: () => void }) 
       });
       await post("/me/flow/advance", { position: flow.position });
     },
-    onSuccess: onDone,
+    onSuccess: async () => {
+      // Otherwise the feed would open with the details from before they filled this in.
+      await client.invalidateQueries({ queryKey: meQuery.queryKey });
+      // Waiting for the next step keeps the button disabled, so a second click can't send this again.
+      await onDone();
+    },
   });
 
   const submit = (event: FormEvent) => {
@@ -179,6 +185,9 @@ function AccountStep({ flow, onDone }: { flow: FlowState; onDone: () => void }) 
         </label>
         <label className={labelClass}>
           Profile picture
+          <span className="text-sm font-normal text-stone-500">
+            Optional. If you skip it, one is made for you.
+          </span>
           <input
             type="file"
             accept="image/*"

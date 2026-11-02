@@ -63,7 +63,7 @@ function Comment({
     <li className="flex gap-2">
       {author(
         "shrink-0",
-        <Avatar name={comment.author.name} url={comment.author.pictureUrl} size="h-8 w-8" />,
+        <Avatar seed={comment.author.username} url={comment.author.pictureUrl} size="h-8 w-8" />,
       )}
       <div className="min-w-0 flex-1">
         {renderBody ? (
@@ -124,7 +124,7 @@ export function FeedPostView({
 
   const headerAuthor = (
     <>
-      <Avatar name={post.author.name} url={post.author.pictureUrl} />
+      <Avatar seed={post.author.username} url={post.author.pictureUrl} />
       <span className="truncate font-semibold">{post.author.name}</span>
     </>
   );
@@ -201,18 +201,20 @@ export function FeedPostView({
 
       {(post.comments.length > 0 || belowComments) && (
         <div className="space-y-3 border-t border-stone-200 p-3">
-          <ul className="space-y-3">
-            {post.comments.map((comment) => (
-              <Comment
-                key={comment.id}
-                comment={comment}
-                {...(actions ? { actions } : {})}
-                {...(renderAuthor ? { renderAuthor } : {})}
-                {...(renderNote ? { renderNote } : {})}
-                {...(renderBody ? { renderBody } : {})}
-              />
-            ))}
-          </ul>
+          {post.comments.length > 0 && (
+            <ul className="space-y-3">
+              {post.comments.map((comment) => (
+                <Comment
+                  key={comment.id}
+                  comment={comment}
+                  {...(actions ? { actions } : {})}
+                  {...(renderAuthor ? { renderAuthor } : {})}
+                  {...(renderNote ? { renderNote } : {})}
+                  {...(renderBody ? { renderBody } : {})}
+                />
+              ))}
+            </ul>
+          )}
           {belowComments}
         </div>
       )}

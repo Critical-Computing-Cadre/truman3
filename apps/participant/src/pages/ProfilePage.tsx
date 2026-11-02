@@ -50,9 +50,9 @@ export function ProfilePage() {
   const button = "rounded border border-stone-300 px-3 py-1.5 text-sm";
 
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div className="mx-auto max-w-xl space-y-3 sm:space-y-4">
       <section className="flex flex-col items-center gap-2 bg-white p-6 text-center shadow-sm sm:rounded-lg">
-        <Avatar name={actor.name} url={actor.pictureUrl} size="h-24 w-24" />
+        <Avatar seed={actor.username} url={actor.pictureUrl} size="h-24 w-24" />
         <h1 className="text-xl font-semibold">{actor.name}</h1>
         <p className="text-sm text-stone-500">@{actor.username}</p>
         {actor.bio && <p className="whitespace-pre-wrap">{actor.bio}</p>}

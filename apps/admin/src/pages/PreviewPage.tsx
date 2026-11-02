@@ -1,8 +1,11 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { FeedPostView } from "@truman3/ui";
+import { CommentBox, CreatePostBar, FeedPostView } from "@truman3/ui";
 import { get, type PreviewInfo, type PreviewResponse } from "../api.ts";
 import { TimelineControls, useTimeline } from "../components/TimelineControls.tsx";
+
+/** Stands in for a participant, who'd see their own picture on these. */
+const VIEWER = "a participant";
 
 /** One condition's feed at one moment, drawn exactly as participants see it. */
 function FeedColumn({
@@ -42,11 +45,17 @@ function FeedColumn({
         {condition}{" "}
         <span className="font-normal text-stone-500">({feed.data?.posts.length ?? 0} posts)</span>
       </h2>
+      <CreatePostBar seed={VIEWER} pictureUrl={null} showPhoto={true} />
       {feed.data?.posts.length === 0 && (
         <p className="rounded-lg bg-white p-6 text-center text-stone-500">No posts to show.</p>
       )}
       {feed.data?.posts.map((post) => (
-        <FeedPostView key={post.id} post={post} renderNote={note} />
+        <FeedPostView
+          key={post.id}
+          post={post}
+          renderNote={note}
+          belowComments={<CommentBox seed={VIEWER} pictureUrl={null} />}
+        />
       ))}
     </section>
   );

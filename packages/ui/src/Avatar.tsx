@@ -1,21 +1,35 @@
+import { identicon } from "./identicon.ts";
+
+/**
+ * Someone's picture. Without one, they get a picture made from their username, so `seed` should
+ * stay the same for a person wherever they appear.
+ */
 export function Avatar({
-  name,
+  seed,
   url,
   size = "h-10 w-10",
+  shape = "rounded-full",
 }: {
-  name: string;
+  seed: string;
   url: string | null;
   size?: string;
+  shape?: string;
 }) {
   if (url) {
-    return <img src={url} alt="" loading="lazy" className={`${size} rounded-full object-cover`} />;
+    return <img src={url} alt="" loading="lazy" className={`${size} ${shape} object-cover`} />;
   }
+  const { color, cells } = identicon(seed);
   return (
-    <span
+    // The margin of one square keeps the corners from being cut off by a round picture.
+    <svg
       aria-hidden="true"
-      className={`${size} flex items-center justify-center rounded-full bg-stone-300 font-medium text-stone-700`}
+      viewBox="-1 -1 7 7"
+      shapeRendering="crispEdges"
+      className={`${size} ${shape} block shrink-0 bg-stone-100`}
     >
-      {name.slice(0, 1).toUpperCase()}
-    </span>
+      {cells.map(([column, row]) => (
+        <rect key={`${column},${row}`} x={column} y={row} width="1" height="1" fill={color} />
+      ))}
+    </svg>
   );
 }

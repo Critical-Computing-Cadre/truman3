@@ -135,8 +135,9 @@ test("a participant goes through the whole study, and the export matches what th
 
   // Comment on a scripted post.
   await scripted.getByRole("button", { name: "Reply" }).click();
+  await expect(scripted.getByLabel("Write a comment")).toBeFocused();
   await scripted.getByLabel("Write a comment").fill("Looks great!");
-  await scripted.getByRole("button", { name: "Post", exact: true }).click();
+  await scripted.getByRole("button", { name: "Send comment" }).click();
   await expect(scripted.getByText("Looks great!")).toBeVisible();
 
   // Flag a different scripted post.
@@ -147,13 +148,16 @@ test("a participant goes through the whole study, and the export matches what th
 
   // Make a post with a photo, through real upload.
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.getByLabel("Write a post").fill("My first post");
-  await page.getByLabel("Add a photo").setInputFiles({
+  await page.getByRole("button", { name: "Create a post" }).click();
+  const newPost = page.getByRole("dialog");
+  await newPost.getByLabel("Write a post").fill("My first post");
+  await newPost.getByLabel("Add a photo").setInputFiles({
     name: "photo.png",
     mimeType: "image/png",
     buffer: PNG,
   });
-  await page.locator("form").first().getByRole("button", { name: "Post", exact: true }).click();
+  await newPost.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(newPost).toBeHidden();
   const mine = posts.filter({ hasText: "My first post" });
   await expect(mine).toBeVisible();
   const photo = mine.locator("img").last();
@@ -311,16 +315,60 @@ test("a photo platform asks for a photo when posting", async ({ page }, testInfo
     `photo_${testInfo.project.name}_${Date.now() % 100000}`,
   );
 
-  const post = page.locator("form").first().getByRole("button", { name: "Post", exact: true });
-  await page.getByLabel("Write a post").fill("Only words");
+  await page.getByRole("button", { name: "Create a post" }).click();
+  const newPost = page.getByRole("dialog");
+  const post = newPost.getByRole("button", { name: "Post", exact: true });
+  await newPost.getByLabel("Write a post").fill("Only words");
   await expect(post).toBeDisabled();
 
-  await page.getByLabel("Add a photo").setInputFiles({
+  await newPost.getByLabel("Add a photo").setInputFiles({
     name: "photo.png",
     mimeType: "image/png",
     buffer: PNG,
   });
   await expect(post).toBeEnabled();
+});
+
+test("the feed has a profile card, a post window, and comment boxes like the original", async ({
+  page,
+}, testInfo) => {
+  const username = `classic_${testInfo.project.name}_${Date.now() % 100000}`;
+  await goToFeed(page, unique("CLASSIC", testInfo), username);
+
+  // The account details they just gave are used straight away.
+  await expect(page.getByRole("link", { name: "Profile" })).toHaveAttribute(
+    "href",
+    `/u/${username}`,
+  );
+
+  // With no picture uploaded, one is made from the username.
+  const bar = page.getByRole("button", { name: "Create a post" });
+  await expect(bar.locator("xpath=..").locator("svg").first()).toBeVisible();
+
+  // The profile card needs room, so phones use the Profile link instead.
+  const card = page.getByRole("region", { name: "Your profile" });
+  if (testInfo.project.name === "desktop") {
+    await expect(card.getByText(`@${username}`)).toBeVisible();
+    await expect(card.locator("svg")).toBeVisible();
+  } else {
+    await expect(card).toBeHidden();
+  }
+
+  // Every post has a box ready to type in, and enter sends.
+  const first = page.locator("article").first();
+  const box = first.getByLabel("Write a comment");
+  await expect(box).toBeVisible();
+  await box.fill("Sent with enter");
+  await box.press("Enter");
+  await expect(first.getByText("Sent with enter")).toBeVisible();
+  await expect(box).toHaveValue("");
+
+  // Writing a post happens in a window, which can be closed without posting.
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await bar.click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
 });
 
 test("the layout fits a phone without sideways scrolling", async ({ page }, testInfo) => {

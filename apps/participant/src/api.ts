@@ -65,6 +65,9 @@ export interface Me {
   unreadNotifications: number;
 }
 
+/** Shared, so everything showing the viewer's details uses one copy and one request. */
+export const meQuery = { queryKey: ["me"], queryFn: () => get<Me>("/me") };
+
 export interface EntryInfo {
   siteName: string;
   logoUrl: string | null;

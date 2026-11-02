@@ -45,7 +45,7 @@ export function NotificationsPage() {
   const items = list.data?.notifications ?? [];
 
   return (
-    <div className="bg-white shadow-sm sm:rounded-lg">
+    <div className="mx-auto max-w-xl bg-white shadow-sm sm:rounded-lg">
       <h1 className="p-4 text-xl font-semibold">Notifications</h1>
       {list.data && items.length === 0 && (
         <p className="p-6 text-center text-stone-500">Nothing yet.</p>
@@ -53,7 +53,10 @@ export function NotificationsPage() {
       <ul className="divide-y divide-stone-200">
         {items.map((item) => (
           <li key={item.key} className={`flex gap-3 p-3 ${item.unread ? "bg-amber-50" : ""}`}>
-            <Avatar name={item.actors[0]?.name ?? ""} url={item.actors[0]?.pictureUrl ?? null} />
+            <Avatar
+              seed={item.actors[0]?.username ?? ""}
+              url={item.actors[0]?.pictureUrl ?? null}
+            />
             <div className="min-w-0 flex-1">
               <p className="break-words">{describe(item)}</p>
               {item.targetBody && (
