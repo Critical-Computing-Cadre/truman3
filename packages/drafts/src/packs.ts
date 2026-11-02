@@ -4,6 +4,7 @@ import {
   createRandom,
   hasErrors,
   pickFrom,
+  STARTING_CONSENT,
   type StudyDefinition,
   type StudyIssue,
   type StudySettings,
@@ -188,10 +189,6 @@ export async function savePackFromFolder(
     contents: packContents(definition, keys),
   });
 }
-
-const STARTING_CONSENT = `# Consent
-
-Replace this with the consent text your IRB approved.`;
 
 export interface StartStudy {
   teamId: string;

@@ -1,3 +1,4 @@
+import { hasPlaceholderConsent } from "./consent.ts";
 import type { StudyDefinition } from "./definition.ts";
 import { LINK_PLACEHOLDERS } from "./links.ts";
 import { HOUR_MS } from "./time.ts";
@@ -43,6 +44,10 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
         `The block size (${assignment.blockSize}) has to divide evenly by the total condition weight (${totalWeight}), or blocks can't be balanced.`,
       );
     }
+  }
+
+  if (hasPlaceholderConsent(settings, study.pages)) {
+    warning("The consent page still has the placeholder text. Replace it before launching.");
   }
 
   // Two conditions a participant couldn't tell apart are usually a mistake. This comes first, since

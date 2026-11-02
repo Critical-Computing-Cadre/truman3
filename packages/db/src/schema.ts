@@ -504,6 +504,21 @@ export const excludedEntries = pgTable(
   (table) => [primaryKey({ columns: [table.studyId, table.idHash] })],
 );
 
+/** Each time someone downloaded a study's data, and whether it could identify people. */
+export const studyExports = pgTable(
+  "study_exports",
+  {
+    id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    studyId: uuid("study_id")
+      .notNull()
+      .references(() => studies.id),
+    by: text().notNull(),
+    includedRecruitmentIds: boolean("included_recruitment_ids").notNull().default(false),
+    at: time("at").notNull().defaultNow(),
+  },
+  (table) => [index("study_exports_study").on(table.studyId, table.id)],
+);
+
 /** Each time a study was launched or closed to new participants, and by whom. */
 export const studyLaunches = pgTable(
   "study_launches",

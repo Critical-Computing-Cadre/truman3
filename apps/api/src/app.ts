@@ -3,6 +3,7 @@ import { healthResponseSchema } from "@truman3/core";
 import { createActionRoutes } from "./actions/routes.ts";
 import { createDraftRoutes } from "./admin/drafts.ts";
 import { createLaunchRoutes } from "./admin/launch.ts";
+import { createMonitorRoutes } from "./admin/monitor.ts";
 import { createPackRoutes } from "./admin/packs.ts";
 import { createAdminRoutes } from "./admin/routes.ts";
 import { createFeedRoutes } from "./feed/routes.ts";
@@ -71,6 +72,7 @@ export function createApp({ pingDatabase, ...participantDependencies }: AppDepen
   app.route("/", createAdminRoutes(participantDependencies));
   app.route("/", createDraftRoutes(participantDependencies));
   app.route("/", createPackRoutes(participantDependencies));
+  app.route("/", createMonitorRoutes(participantDependencies));
   app.route("/", createLaunchRoutes(participantDependencies));
 
   app.doc("/openapi.json", {

@@ -824,7 +824,9 @@ function SaveVersion({ draftId, info }: { draftId: string; info: DraftInfo }) {
         return;
       }
       dialog.current?.close();
-      await client.invalidateQueries({ queryKey: ["studies"] });
+      // Dropped rather than refreshed, or the list would first show its old versions, and the
+      // Launch buttons would move just as someone reaches for one.
+      client.removeQueries({ queryKey: ["studies"] });
       await navigate({ to: "/" });
     },
   });
