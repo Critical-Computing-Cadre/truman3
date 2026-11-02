@@ -71,6 +71,13 @@
       "when": 1793595395343,
       "tag": "0009_teams",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793596857173,
+      "tag": "0010_drafts",
+      "breakpoints": true
     }
   ]
 }

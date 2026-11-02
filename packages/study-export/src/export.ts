@@ -25,6 +25,15 @@ export type ExportResult =
       files: string[];
     };
 
+/** Who or what wrote it, for methods reporting. Doesn't name the researcher. */
+function provenanceLabel(provenance: unknown): string {
+  const { origin, edited } = provenance as { origin?: string; edited?: boolean };
+  if (!origin) {
+    return "";
+  }
+  return edited ? `${origin}, then edited` : origin;
+}
+
 function writeCsv(
   folder: string,
   name: string,
@@ -352,6 +361,7 @@ export async function exportStudy(
         "author",
         "body",
         "media",
+        "provenance",
         "offset_ms",
         "visible_at",
         "base_likes",
@@ -369,6 +379,7 @@ export async function exportStudy(
         author: actorLabel(item.authorActorId),
         body: safeText(item.body),
         media: item.mediaKey ?? "",
+        provenance: provenanceLabel(item.provenance),
         offset_ms: item.offsetMs ?? "",
         visible_at: iso(item.visibleAt),
         base_likes: item.baseLikes,
@@ -468,6 +479,10 @@ const FILE_DOCS: Record<string, [string, string][]> = {
   ],
   "content.csv": [
     ["origin", "scripted, from the study definition, or world, created during the study"],
+    [
+      "provenance",
+      "For scripted content, who wrote it: file, researcher, pack, or generated, and whether it was later edited",
+    ],
     ["participant_id", "For world content, whose world it was in"],
     ["author", "A username, or participant:<id> for a participant"],
     ["offset_ms", "For scripted content, when it appears relative to the start"],

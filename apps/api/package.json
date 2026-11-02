@@ -14,6 +14,7 @@
     "@truman3/accounts": "workspace:*",
     "@truman3/core": "workspace:*",
     "@truman3/db": "workspace:*",
+    "@truman3/drafts": "workspace:*",
     "@truman3/feed": "workspace:*",
     "drizzle-orm": "0.45.4",
     "hono": "4.13.14",
