@@ -41,7 +41,11 @@ const flowStepSchema = z.discriminatedUnion("step", [
   z.strictObject({ step: z.literal("consent"), page: z.string().min(1) }),
   z.strictObject({ step: z.literal("account") }),
   z.strictObject({ step: z.literal("page"), page: z.string().min(1) }),
-  z.strictObject({ step: z.literal("feed") }),
+  z.strictObject({
+    step: z.literal("feed"),
+    /** When a participant may choose to move on. Leave out to keep them here until the study ends. */
+    finishAfterMinutes: z.number().nonnegative().optional(),
+  }),
   z.strictObject({ step: z.literal("exit"), redirect: z.url().optional() }),
 ]);
 

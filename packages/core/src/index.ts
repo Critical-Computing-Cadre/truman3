@@ -24,4 +24,5 @@ export {
 } from "./feed.ts";
 export { type HealthResponse, healthResponseSchema } from "./health.ts";
 export { createRandom, pickFrom, shuffled } from "./random.ts";
+export { type CurrentFlowStep, canLeaveFeed, currentFlowStep } from "./study/flow.ts";
 export * from "./study/index.ts";

@@ -233,7 +233,7 @@ const profileRoute = createRoute({
 });
 
 /** Finds content this participant can act on: visible to them, now, in their world. */
-async function findVisibleContent(
+export async function findVisibleContent(
   db: Database,
   context: ParticipantContext,
   id: string,

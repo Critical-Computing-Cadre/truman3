@@ -98,6 +98,8 @@ export const participants = pgTable(
     externalId: text("external_id").notNull(),
     source: text().notNull(),
     status: text().notNull().default("active"),
+    /** Which step of the study's flow they're on, counting from 0. */
+    flowPosition: integer("flow_position").notNull().default(0),
     enrolledAt: time("enrolled_at").notNull().defaultNow(),
   },
   (table) => [

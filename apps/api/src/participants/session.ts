@@ -26,6 +26,7 @@ export interface ParticipantContext {
   conditionId: string;
   conditionKey: string;
   worldStartedAt: Date;
+  flowPosition: number;
   /** The world's random seed. */
   seed: number;
   settings: StudySettings;
@@ -45,6 +46,7 @@ export async function loadParticipantContext(
       studyVersionId: schema.worlds.studyVersionId,
       worldStartedAt: schema.worlds.startedAt,
       seed: schema.worlds.seed,
+      flowPosition: schema.participants.flowPosition,
       settings: schema.studyVersions.settings,
     })
     .from(schema.sessions)

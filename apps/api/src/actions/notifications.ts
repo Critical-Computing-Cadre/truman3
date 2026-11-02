@@ -196,7 +196,9 @@ export async function listNotifications(
 
     if (existing) {
       existing.actors.push(toActor(row.actorId));
-      existing.at = at > existing.at ? at : existing.at;
+      if (at > existing.at) {
+        existing.at = at;
+      }
       existing.unread = existing.unread || unread;
       continue;
     }
