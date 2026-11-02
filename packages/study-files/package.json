@@ -1,0 +1,22 @@
+{
+  "name": "@truman3/study-files",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@truman3/core": "workspace:*",
+    "csv-parse": "7.0.3",
+    "csv-stringify": "6.9.0",
+    "yaml": "2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "7.0.2"
+  }
+}
