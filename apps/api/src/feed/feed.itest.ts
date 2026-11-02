@@ -249,6 +249,40 @@ describe("GET /feed", () => {
     expect(first.length).toBeGreaterThan(1);
   });
 
+  describe("reshuffling", () => {
+    const visit = async (cookie: string, number: number) => {
+      const response = await app.request(`/feed?visit=${number}`, { headers: { cookie } });
+      return ((await response.json()) as FeedResponse).posts.map((post) => post.id);
+    };
+
+    it("keeps one order per person by default, whatever the visit", async () => {
+      const slug = await importStudy("{ ranker: shuffle }");
+      const person = await enter(slug, uniqueId());
+
+      expect(await visit(person.cookie, 1)).toEqual(await visit(person.cookie, 2));
+    });
+
+    it("changes on each visit when the study asks, and stays reproducible", async () => {
+      const slug = await importStudy("{ ranker: shuffle, reshuffleEachVisit: true }");
+      const person = await enter(slug, uniqueId());
+
+      const orders = new Set<string>();
+      for (const number of [1, 2, 3, 4, 5, 6, 7, 8]) {
+        orders.add((await visit(person.cookie, number)).join());
+      }
+      expect(orders.size).toBeGreaterThan(1);
+
+      expect(await visit(person.cookie, 5)).toEqual(await visit(person.cookie, 5));
+
+      const impressions = await database.db
+        .select()
+        .from(schema.feedImpressions)
+        .where(eq(schema.feedImpressions.worldId, person.worldId));
+      expect(new Set(impressions.map((row) => row.seed)).size).toBeGreaterThan(1);
+      expect(impressions.every((row) => row.seed !== null)).toBe(true);
+    });
+  });
+
   it("uses the study's order for the scripted ranker", async () => {
     const slug = await importStudy("{ ranker: scripted }");
     const person = await enter(slug, uniqueId());

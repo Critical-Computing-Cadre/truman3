@@ -1,5 +1,5 @@
 import { hasErrors, type StudyIssue } from "@truman3/core";
-import { createDb } from "@truman3/db";
+import { createDb, schema } from "@truman3/db";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { exportStudy } from "@truman3/study-export";
 import { convertLegacyStudy, loadStudyFolder } from "@truman3/study-files";
@@ -61,7 +61,11 @@ async function importStudy(folder: string): Promise<number> {
   const database = createDb(databaseUrl);
   const storage = createStorage(storageConfigFromEnv());
   try {
-    const result = await importStudyFolder(database.db, storage, folder);
+    // A lab has one team, so new studies go there. A second team would need a way to choose.
+    const teams = await database.db.select({ id: schema.teams.id }).from(schema.teams);
+    const result = await importStudyFolder(database.db, storage, folder, {
+      teamId: teams.length === 1 ? teams[0]?.id : undefined,
+    });
     printIssues(result.issues);
 
     if (result.status === "failed") {

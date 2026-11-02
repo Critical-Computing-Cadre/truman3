@@ -10,21 +10,22 @@ Phase 1 is built. Studies can be defined, validated, and imported, and participa
 | -------------------------- | ------------------------------------------------------------------------------------ |
 | `apps/api`                 | Hono API: health routes and the OpenAPI spec                                         |
 | `apps/participant`         | React app for participants: entry, the study flow, feed, notifications, and profiles |
-| `apps/admin`               | React app for researchers: a placeholder page for now                                |
+| `apps/admin`               | React app for researchers: sign in, list studies, and look through the real feed     |
 | `packages/core`            | Shared Zod schemas and types                                                         |
 | `packages/db`              | Postgres connection through Drizzle; no tables yet                                   |
 | `packages/feed`            | What a viewer sees and in what order, as plain functions, plus the rankers           |
-| `packages/ui`              | Shared React components                                                              |
+| `packages/ui`              | The feed as participants see it, drawn the same way in both apps                     |
 | `apps/cli`                 | The `pnpm study` command                                                             |
 | `packages/study-files`     | Reads study folders (CSV and YAML), and converts older Truman studies                |
 | `packages/study-import`    | Saves a study as a frozen version, and stores its media                              |
 | `packages/storage`         | File storage over S3, so the same code works locally and on AWS                      |
+| `packages/accounts`        | Teams, researcher accounts, and passwords                                            |
 | `packages/study-export`    | Writes a study's data as CSVs with a codebook                                        |
 | `studies/examples/eatsnap` | The classic example study, converted from `truman_2023`                              |
 | `compose.yaml`             | Local Postgres and S3-compatible storage                                             |
 | `e2e`                      | A real browser going through the whole example study                                 |
 
-Before real participants, this still needs production hosting, separate database roles, a decision on who can read media, and moderation of uploaded images.
+Before real participants, this still needs production hosting, separate database roles, and a decision on who can read media.
 
 A request today looks like this:
 

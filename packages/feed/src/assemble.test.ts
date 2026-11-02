@@ -45,6 +45,7 @@ const viewer = (overrides: Partial<FeedViewer> = {}): FeedViewer => ({
 
 const settings = (overrides: Partial<FeedSettings> = {}): FeedSettings => ({
   ranker: "chronological",
+  reshuffleEachVisit: false,
   removeFlagged: false,
   removeBlocked: false,
   ...overrides,

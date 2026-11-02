@@ -1,13 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FeedResponse } from "@truman3/core";
 import { type FormEvent, useRef, useState } from "react";
-import { get, postForm } from "../api.ts";
+import { type FlowState, get, postForm } from "../api.ts";
 import { PostCard } from "../components/PostCard.tsx";
 
-function Composer() {
+/** Picked once per page load, for studies that reshuffle the feed on each visit. */
+const VISIT = Math.floor(Math.random() * 2 ** 31);
+
+const COMPOSER = {
+  photo: { placeholder: "Add a caption...", ready: (_text: boolean, image: boolean) => image },
+  text: { placeholder: "What's new?", ready: (text: boolean) => text },
+  mixed: { placeholder: "What's new?", ready: (text: boolean, image: boolean) => text || image },
+};
+
+function Composer({ style }: { style: FlowState["platformStyle"] }) {
   const client = useQueryClient();
   const [body, setBody] = useState("");
   const [image, setImage] = useState<File | null>(null);
+  const { placeholder, ready } = COMPOSER[style];
   const fileInput = useRef<HTMLInputElement>(null);
 
   const create = useMutation({
@@ -34,22 +44,24 @@ function Composer() {
         rows={2}
         value={body}
         onChange={(event) => setBody(event.target.value)}
-        placeholder="What's new?"
+        placeholder={placeholder}
         className="w-full rounded border border-stone-300 px-3 py-2 text-base"
       />
       <div className="flex items-center justify-between gap-2">
-        <input
-          ref={fileInput}
-          aria-label="Add a photo"
-          type="file"
-          accept="image/*"
-          onChange={(event) => setImage(event.target.files?.[0] ?? null)}
-          className="min-w-0 text-sm"
-        />
+        {style !== "text" && (
+          <input
+            ref={fileInput}
+            aria-label="Add a photo"
+            type="file"
+            accept="image/*"
+            onChange={(event) => setImage(event.target.files?.[0] ?? null)}
+            className="min-w-0 text-sm"
+          />
+        )}
         <button
           type="submit"
-          disabled={create.isPending || (!body.trim() && !image)}
-          className="rounded bg-stone-900 px-4 py-2 text-sm text-white disabled:opacity-40"
+          disabled={create.isPending || !ready(body.trim().length > 0, image !== null)}
+          className="ml-auto rounded bg-stone-900 px-4 py-2 text-sm text-white disabled:opacity-40"
         >
           Post
         </button>
@@ -64,11 +76,15 @@ function Composer() {
 }
 
 export function FeedPage() {
-  const feed = useQuery({ queryKey: ["feed"], queryFn: () => get<FeedResponse>("/feed") });
+  const feed = useQuery({
+    queryKey: ["feed"],
+    queryFn: () => get<FeedResponse>(`/feed?visit=${VISIT}`),
+  });
+  const flow = useQuery({ queryKey: ["flow"], queryFn: () => get<FlowState>("/me/flow") });
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      <Composer />
+      {flow.data && <Composer style={flow.data.platformStyle} />}
       {feed.data?.posts.length === 0 && (
         <p className="p-6 text-center text-stone-500">No posts to show.</p>
       )}

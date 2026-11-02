@@ -4,8 +4,12 @@ const keySchema = z
   .string()
   .regex(/^[a-z0-9][a-z0-9_-]*$/, "Use lowercase letters, numbers, dashes, and underscores");
 
+const rankerSchema = z.enum(["chronological", "shuffle", "scripted"]);
+
 const feedSettingsSchema = z.strictObject({
-  ranker: z.enum(["chronological", "shuffle", "scripted"]),
+  ranker: rankerSchema.default("chronological"),
+  /** With the shuffle ranker: a new order each visit, instead of one order per participant. */
+  reshuffleEachVisit: z.boolean().default(false),
   /** How far back the feed reaches, in hours. Leave out for no limit. */
   windowHours: z.number().positive().optional(),
   /** How long a participant's own new post stays on top. Leave out to not pin. */
@@ -16,12 +20,19 @@ const feedSettingsSchema = z.strictObject({
 
 /** What a condition can change. No defaults here, or leaving something out would reset it. */
 const feedOverridesSchema = z.strictObject({
-  ranker: feedSettingsSchema.shape.ranker.optional(),
+  ranker: rankerSchema.optional(),
+  reshuffleEachVisit: z.boolean().optional(),
   windowHours: feedSettingsSchema.shape.windowHours,
   pinOwnPostsMinutes: feedSettingsSchema.shape.pinOwnPostsMinutes,
   removeFlagged: z.boolean().optional(),
   removeBlocked: z.boolean().optional(),
 });
+
+/**
+ * What kind of platform this is, which decides what participants' posts must contain. A photo
+ * platform is like Instagram, a text platform is like X, and mixed takes either.
+ */
+const platformStyleSchema = z.enum(["photo", "text", "mixed"]);
 
 const armSchema = z.strictObject({
   key: keySchema,
@@ -30,6 +41,7 @@ const armSchema = z.strictObject({
   weight: z.number().int().positive().default(1),
   /** Settings that differ in this condition. */
   feed: feedOverridesSchema.optional(),
+  platform: z.strictObject({ style: platformStyleSchema }).optional(),
 });
 
 const assignmentSchema = z.discriminatedUnion("method", [
@@ -38,7 +50,14 @@ const assignmentSchema = z.discriminatedUnion("method", [
 ]);
 
 const flowStepSchema = z.discriminatedUnion("step", [
-  z.strictObject({ step: z.literal("consent"), page: z.string().min(1) }),
+  z.strictObject({
+    step: z.literal("consent"),
+    page: z.string().min(1),
+    /** What someone sees after declining. On Prolific, this should say to return their submission. */
+    declineMessage: z.string().min(1).optional(),
+    /** Where to send someone after declining, instead of showing a message. */
+    declineRedirect: z.url().optional(),
+  }),
   z.strictObject({ step: z.literal("account") }),
   z.strictObject({ step: z.literal("page"), page: z.string().min(1) }),
   z.strictObject({
@@ -75,7 +94,8 @@ export const studySettingsSchema = z.strictObject({
     assignment: assignmentSchema,
     arms: z.array(armSchema).min(1),
   }),
-  feed: feedSettingsSchema,
+  platform: z.strictObject({ style: platformStyleSchema }).prefault({ style: "mixed" }),
+  feed: feedSettingsSchema.prefault({}),
   /**
    * Values to draw from, with equal chance, for content that doesn't set its own like count.
    * Repeat a value to make it more likely. Leave out for zero likes.

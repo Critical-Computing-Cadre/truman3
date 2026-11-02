@@ -12,6 +12,7 @@ export function feedSettingsFor(settings: StudySettings, conditionKey: string): 
   const changes = settings.conditions.arms.find(({ key }) => key === conditionKey)?.feed;
   return {
     ranker: changes?.ranker ?? base.ranker,
+    reshuffleEachVisit: changes?.reshuffleEachVisit ?? base.reshuffleEachVisit,
     windowHours: changes?.windowHours ?? base.windowHours,
     pinOwnPostsMinutes: changes?.pinOwnPostsMinutes ?? base.pinOwnPostsMinutes,
     removeFlagged: changes?.removeFlagged ?? base.removeFlagged,
@@ -46,6 +47,8 @@ export interface AssembledFeed {
   posts: AssembledPost[];
   ranker: string;
   rankerVersion: string;
+  /** The seed used, so this exact order can be reproduced. */
+  seed: number;
 }
 
 export interface AssembleOptions {
@@ -125,6 +128,7 @@ export function assembleFeed(
       ...pinned.map(({ id }) => withComments({ id }, true)),
       ...ranked.map((post) => withComments(post, false)),
     ],
+    seed,
     ranker: ranker.name,
     rankerVersion: ranker.version,
   };

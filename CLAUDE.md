@@ -19,6 +19,7 @@ pnpm study validate <folder>   # check a study; see also: pnpm study convert
 pnpm study import <folder>     # save it as a frozen version
 pnpm study export <slug> <folder>   # write CSVs and a codebook
 pnpm study withdraw <slug> <id> <your name> [reason]   # delete a participant's data
+pnpm admin setup <team name> <team slug> <email> <name>   # create a team and its first researcher
 docker compose up --detach --wait   # local Postgres and S3-compatible storage
 ```
 

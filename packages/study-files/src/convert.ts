@@ -104,6 +104,8 @@ export function convertLegacyStudy(legacyRepo: string, outFolder: string, slug: 
       source: "prolific",
     },
     conditions: { assignment: { method: "uniform" }, arms },
+    // Older Truman required a photo on every post.
+    platform: { style: "photo" },
     feed: {
       ranker: env.FEED_ORDER === "SHUFFLE" ? "shuffle" : "chronological",
       windowHours: 24,

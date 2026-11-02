@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import type { FeedPost } from "@truman3/core";
+import { Avatar } from "@truman3/ui";
 import { useRef, useState } from "react";
 import { get, post as send } from "../api.ts";
-import { Avatar } from "../components/Avatar.tsx";
 import { PostCard } from "../components/PostCard.tsx";
 
 interface ActorPage {

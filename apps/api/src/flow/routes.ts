@@ -1,12 +1,24 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
-import { canLeaveFeed, currentFlowStep, eventPayloadSchemas } from "@truman3/core";
+import {
+  canLeaveFeed,
+  currentFlowStep,
+  eventPayloadSchemas,
+  fillLinkTemplate,
+  platformStyleFor,
+} from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
+import { deleteParticipant } from "@truman3/study-import";
 import { eq } from "drizzle-orm";
+import { deleteCookie } from "hono/cookie";
 import { actionMetaSchema } from "../actions/request.ts";
 import { findVisibleContent } from "../actions/routes.ts";
 import { mediaUrl } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
-import { type ParticipantContext, participantFromRequest } from "../participants/session.ts";
+import {
+  type ParticipantContext,
+  participantFromRequest,
+  SESSION_COOKIE,
+} from "../participants/session.ts";
 
 const errorSchema = z.object({ error: z.string() });
 
@@ -18,6 +30,8 @@ const flowStateSchema = z.object({
   pageText: z.string().nullable(),
   /** On the feed step, whether they can choose to finish now. */
   canFinish: z.boolean(),
+  /** What their posts must contain. */
+  platformStyle: z.enum(["photo", "text", "mixed"]),
   site: z.object({
     name: z.string(),
     logoUrl: z.string().nullable(),
@@ -79,6 +93,40 @@ const advanceRoute = createRoute({
   },
 });
 
+const declineRoute = createRoute({
+  method: "post",
+  path: "/me/flow/decline",
+  summary: "Decline consent, which works like withdrawing",
+  request: {
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: z.object({ position: z.number().int().nonnegative() }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Their data is deleted, and this ID can't enter this study again",
+      content: {
+        "application/json": {
+          schema: z.object({ message: z.string(), redirectUrl: z.string().nullable() }),
+        },
+      },
+    },
+    401: {
+      description: "Not signed in",
+      content: { "application/json": { schema: errorSchema } },
+    },
+    409: {
+      description: "They aren't on a consent step",
+      content: { "application/json": { schema: errorSchema } },
+    },
+  },
+});
+
 /** Timing the browser reports. Anything that changes state has its own route instead. */
 const reportedEventSchema = z.discriminatedUnion("type", [
   actionMetaSchema.extend({
@@ -120,6 +168,11 @@ const reportRoute = createRoute({
       content: { "application/json": { schema: errorSchema } },
     },
   },
+});
+
+const linkValues = ({ participantId, externalId }: ParticipantContext) => ({
+  participantId,
+  externalId,
 });
 
 /** Finishing is final (ADR 9): they're marked completed, and every session stops working. */
@@ -178,7 +231,7 @@ async function advance(
       return {
         outcome: "moved" as const,
         finished: true,
-        redirectUrl: template?.replace("{participantId}", context.participantId) ?? null,
+        redirectUrl: template ? fillLinkTemplate(template, linkValues(context)) : null,
       };
     }
 
@@ -203,7 +256,7 @@ async function advance(
   });
 }
 
-export function createFlowRoutes({ db, mediaPublicUrl }: ParticipantRouteDependencies) {
+export function createFlowRoutes({ db, storage, mediaPublicUrl }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const pleaseSignIn = { error: "Please sign in." };
 
@@ -229,6 +282,7 @@ export function createFlowRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
         position,
         pageText: step && "page" in step ? (pages[step.page] ?? "") : null,
         canFinish: step ? canLeaveFeed(step, elapsedMs) : false,
+        platformStyle: platformStyleFor(context.settings, context.conditionKey),
         site: {
           name: site.name,
           logoUrl: site.logo ? mediaUrl(site.logo, mediaPublicUrl) : null,
@@ -250,6 +304,34 @@ export function createFlowRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
       return c.json({ error: result.message }, 409);
     }
     return c.json({ finished: result.finished, redirectUrl: result.redirectUrl }, 200);
+  });
+
+  app.openapi(declineRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+
+    const elapsedMs = Date.now() - context.worldStartedAt.getTime();
+    const { step, position } = currentFlowStep(context.settings, context.flowPosition, elapsedMs);
+    if (step?.step !== "consent" || c.req.valid("json").position !== position) {
+      return c.json({ error: "This can't be declined now." }, 409);
+    }
+
+    // Worked out first, since deleting removes what they're based on.
+    const redirectUrl = step.declineRedirect
+      ? fillLinkTemplate(step.declineRedirect, linkValues(context))
+      : null;
+    await deleteParticipant(db, storage, context.participantId, "declined consent", "participant");
+    deleteCookie(c, SESSION_COOKIE, { path: "/" });
+
+    return c.json(
+      {
+        message: step.declineMessage ?? "You've chosen not to take part. You can close this page.",
+        redirectUrl,
+      },
+      200,
+    );
   });
 
   app.openapi(reportRoute, async (c) => {

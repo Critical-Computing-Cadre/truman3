@@ -298,6 +298,119 @@ describe("finishing", () => {
   });
 });
 
+describe("the exit link", () => {
+  const studyWithExit = (redirect: string) =>
+    importStudy(`
+flow:
+  - { step: feed }
+  - { step: exit, redirect: "${redirect}" }
+`);
+
+  it("passes the recruitment ID, so a participant never has to type it", async () => {
+    const slug = await studyWithExit(
+      "https://survey.example.com/s?PROLIFIC_PID={externalId}&USER_ID={participantId}",
+    );
+    const person = await enter(slug, `P&${counter} x`);
+    await startedAgo(person, 2 * DAY);
+
+    const { redirectUrl } = (await (await advance(person, 1)).json()) as { redirectUrl: string };
+    const params = new URL(redirectUrl).searchParams;
+
+    expect(params.get("PROLIFIC_PID")).toBe(person.externalId);
+    expect(params.get("USER_ID")).toBe(person.participantId);
+  });
+
+  it("isn't shown to the browser until they finish", async () => {
+    const slug = await studyWithExit("https://survey.example.com/s?PROLIFIC_PID={externalId}");
+    const person = await enter(slug);
+
+    const flow = await app.request("/me/flow", { headers: { cookie: person.cookie } });
+
+    expect(await flow.text()).not.toContain(person.externalId);
+  });
+});
+
+describe("declining consent", () => {
+  const CONSENT = `
+flow:
+  - { step: consent, page: pages/consent.md, declineMessage: "Please return your submission." }
+  - { step: feed }
+`;
+  const decline = (person: Person, position = 0) =>
+    app.request("/me/flow/decline", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: person.cookie },
+      body: JSON.stringify({ position }),
+    });
+
+  it("works like a withdrawal: their data is gone, and they can't come back", async () => {
+    const slug = await importStudy(CONSENT);
+    const person = await enter(slug);
+
+    const response = await decline(person);
+
+    expect(await response.json()).toEqual({
+      message: "Please return your submission.",
+      redirectUrl: null,
+    });
+    expect(await eventsOf(person)).toEqual([]);
+    expect(
+      await database.db
+        .select()
+        .from(schema.participants)
+        .where(eq(schema.participants.id, person.participantId)),
+    ).toEqual([]);
+    expect((await app.request("/me/flow", { headers: { cookie: person.cookie } })).status).toBe(
+      401,
+    );
+
+    const again = await app.request(`/studies/${slug}/enter`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ externalId: person.externalId }),
+    });
+    expect(again.status).toBe(403);
+  });
+
+  it("leaves a record that says why, for counting in reports", async () => {
+    const person = await enter(await importStudy(CONSENT));
+    await decline(person);
+
+    const [record] = await database.db
+      .select()
+      .from(schema.dataDeletions)
+      .where(eq(schema.dataDeletions.participantId, person.participantId));
+    expect(record).toMatchObject({ reason: "declined consent", requestedBy: "participant" });
+    expect(record?.studyId).toBeTruthy();
+  });
+
+  it("has a default message, and can send them to a link instead", async () => {
+    const plain = await enter(
+      await importStudy("flow: [{ step: consent, page: pages/consent.md }, { step: feed }]"),
+    );
+    expect(await (await decline(plain)).json()).toMatchObject({
+      message: expect.stringContaining("chosen not to take part"),
+    });
+
+    const linked = await enter(
+      await importStudy(
+        'flow: [{ step: consent, page: pages/consent.md, declineRedirect: "https://x.example/r?id={externalId}" }, { step: feed }]',
+      ),
+    );
+    expect(await (await decline(linked)).json()).toMatchObject({
+      redirectUrl: `https://x.example/r?id=${linked.externalId}`,
+    });
+  });
+
+  it("can't be used after they've moved past consent", async () => {
+    const person = await enter(await importStudy(CONSENT));
+    await advance(person, 0);
+
+    expect((await decline(person, 1)).status).toBe(409);
+    expect(await statusOf(person)).toBe("active");
+  });
+});
+
 describe("timing reports", () => {
   const report = (person: Person, events: object[]) =>
     app.request("/events", {

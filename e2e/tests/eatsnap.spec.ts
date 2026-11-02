@@ -281,6 +281,48 @@ test("someone without a link is asked for their ID, and a wrong link goes nowher
   await expect(page.getByRole("button", { name: "I agree" })).toBeVisible();
 });
 
+test("declining consent ends things for good, after confirming", async ({ page }, testInfo) => {
+  const externalId = unique("DECLINE", testInfo);
+  await page.goto(joinLink(externalId));
+
+  // A stray tap doesn't end it.
+  await page.getByRole("button", { name: "I do not agree" }).click();
+  await page.getByRole("button", { name: "Go back" }).click();
+  await expect(page.getByRole("button", { name: "I agree" })).toBeVisible();
+
+  await page.getByRole("button", { name: "I do not agree" }).click();
+  await page.getByRole("button", { name: "I don't want to take part" }).click();
+  await expect(page.getByRole("heading", { name: /chosen not to take part/ })).toBeVisible();
+
+  const rows = await database.db
+    .select()
+    .from(schema.participants)
+    .where(eq(schema.participants.externalId, externalId));
+  expect(rows).toEqual([]);
+
+  await page.goto(joinLink(externalId));
+  await expect(page.getByRole("alert")).toHaveText("This account is no longer active.");
+});
+
+test("a photo platform asks for a photo when posting", async ({ page }, testInfo) => {
+  await goToFeed(
+    page,
+    unique("PHOTO", testInfo),
+    `photo_${testInfo.project.name}_${Date.now() % 100000}`,
+  );
+
+  const post = page.locator("form").first().getByRole("button", { name: "Post", exact: true });
+  await page.getByLabel("Write a post").fill("Only words");
+  await expect(post).toBeDisabled();
+
+  await page.getByLabel("Add a photo").setInputFiles({
+    name: "photo.png",
+    mimeType: "image/png",
+    buffer: PNG,
+  });
+  await expect(post).toBeEnabled();
+});
+
 test("the layout fits a phone without sideways scrolling", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "phone", "Only applies to the phone size.");
 

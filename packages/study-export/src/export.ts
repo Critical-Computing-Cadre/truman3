@@ -136,6 +136,11 @@ export async function exportStudy(
     return actor.participantId ? `participant:${actor.participantId}` : safeText(actor.username);
   };
 
+  const deletions = await db
+    .select({ reason: schema.dataDeletions.reason })
+    .from(schema.dataDeletions)
+    .where(eq(schema.dataDeletions.studyId, study.id));
+
   mkdirSync(folder, { recursive: true });
   const files: string[] = [];
 
@@ -295,6 +300,7 @@ export async function exportStudy(
         "surface",
         "ranker",
         "ranker_version",
+        "seed",
         "fallback_used",
         "shown_at",
         "position",
@@ -318,6 +324,7 @@ export async function exportStudy(
           surface: impression.surface,
           ranker: impression.ranker,
           ranker_version: impression.rankerVersion,
+          seed: impression.seed ?? "",
           fallback_used: impression.fallbackUsed,
           shown_at: iso(impression.shownAt),
           position: item.position,
@@ -397,6 +404,7 @@ export async function exportStudy(
         settings: studySettingsSchema.parse(version.settings),
       })),
       eventTypes: [...new Set(events.map((event) => event.type))].sort(),
+      deletions,
       counts: {
         participants: participants.length,
         completed: participants.filter(({ status }) => status === "completed").length,
@@ -454,6 +462,7 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ["impression_id", "One showing of a feed or profile. It has one row per post"],
     ["surface", "Where it was shown: feed or profile"],
     ["ranker, ranker_version", "What ordered it"],
+    ["seed", "The random seed used, so a shuffled order can be reproduced"],
     ["position", "Its place in the list, from 0. Being listed doesn't mean it was looked at"],
     ["comment_ids", "Comments shown with it, separated by |"],
   ],
@@ -477,6 +486,7 @@ function buildCodebook(input: {
     settings: StudySettings;
   }[];
   eventTypes: string[];
+  deletions: { reason: string }[];
   counts: { participants: number; completed: number; events: number; impressions: number };
   options: ExportOptions;
   exportedAt: Date;
@@ -488,6 +498,8 @@ function buildCodebook(input: {
     `Exported ${input.exportedAt.toISOString()}.`,
     "",
     `${counts.participants} participants, ${counts.completed} completed. ${counts.events} events. ${counts.impressions} feed showings.`,
+    "",
+    `${input.deletions.length} people's data has been deleted and isn't in these files: ${input.deletions.filter(({ reason }) => reason === "declined consent").length} declined consent, and ${input.deletions.filter(({ reason }) => reason !== "declined consent").length} withdrew.`,
     "",
     "## Reading this data",
     "",

@@ -1,5 +1,5 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
-import { feedPostSchema } from "@truman3/core";
+import { checkNewPost, feedPostSchema, platformStyleFor } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, isNull, or } from "drizzle-orm";
 import { buildFeed, contentTimeMs, mediaUrl } from "../feed/build.ts";
@@ -92,7 +92,7 @@ const postRoute = createRoute({
       description: "Recorded. On a repeat of the same action, it returns the earlier post",
       content: { "application/json": { schema: z.object({ id: z.uuid() }) } },
     },
-    400: errorResponse("No text or image, or the image can't be used"),
+    400: errorResponse("It doesn't fit this platform's style, or the image can't be used"),
     401: notSignedIn,
   },
 });
@@ -456,8 +456,13 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json({ id: repeat.contentId }, 200);
     }
 
-    if (!text && !form.image) {
-      return c.json({ error: "Add some text or a photo." }, 400);
+    const problem = checkNewPost(
+      platformStyleFor(context.settings, context.conditionKey),
+      text.length > 0,
+      form.image !== undefined,
+    );
+    if (problem) {
+      return c.json({ error: problem }, 400);
     }
 
     let mediaKey: string | null = null;
@@ -614,6 +619,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       // A profile shows all of someone's posts, newest first, whatever the feed's rules are.
       settings: {
         ranker: "chronological",
+        reshuffleEachVisit: false,
         removeFlagged: context.settings.feed.removeFlagged,
         removeBlocked: false,
       },
