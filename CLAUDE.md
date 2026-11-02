@@ -6,10 +6,19 @@ A social media simulation platform for research. Start with `docs/architecture.m
 
 ```
 pnpm dev         # API on :3000, participant app on :5180, admin app on :5181
+                 # the example study is at http://localhost:5180/join/eatsnap
 pnpm check       # format and lint (pnpm format to fix)
 pnpm typecheck
 pnpm test
+pnpm test:integration   # tests named *.itest.ts; needs Docker services running
+pnpm test:e2e           # a real browser through the whole example study; needs Docker services
+pnpm db:migrate         # bring your database up to date
+pnpm db:generate        # create a migration after changing packages/db/src/schema.ts
 pnpm build
+pnpm study validate <folder>   # check a study; see also: pnpm study convert
+pnpm study import <folder>     # save it as a frozen version
+pnpm study export <slug> <folder>   # write CSVs and a codebook
+pnpm study withdraw <slug> <id> <your name> [reason]   # delete a participant's data
 docker compose up --detach --wait   # local Postgres and S3-compatible storage
 ```
 
@@ -26,6 +35,8 @@ People have to be able to follow and extend everything here, including students 
 
 - The API (`apps/api`) is the only path that changes study state. Participants, agents, and admin tools all go through it.
 - Shared types and schemas live in `packages/core`, defined once with Zod.
+- Events get written only through `recordEvent` in `packages/db`. New event types start in `packages/core/src/events.ts`.
+- Migrations are never edited once merged. Rules Drizzle can't express, like triggers, go in a custom migration (`drizzle-kit generate --custom`).
 - Relative imports include the `.ts` or `.tsx` extension. Node runs TypeScript directly (ADR 0001), so TypeScript features that need compiling, like `enum`, are not allowed.
 - Secrets go in `.env`, which is not committed. New settings get added to `.env.example`.
 

@@ -1,0 +1,21 @@
+{
+  "name": "@truman3/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@truman3/db": "workspace:*",
+    "@truman3/storage": "workspace:*",
+    "@truman3/study-export": "workspace:*",
+    "@truman3/study-import": "workspace:*",
+    "@types/node": "^24.19.2",
+    "csv-parse": "7.0.3",
+    "drizzle-orm": "0.45.4",
+    "typescript": "7.0.2"
+  }
+}

@@ -1,0 +1,223 @@
+import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
+import { and, count, eq, gt, inArray, lte } from "drizzle-orm";
+import { mediaUrl } from "../feed/build.ts";
+import type { ParticipantContext } from "../participants/session.ts";
+
+interface ActorProfile {
+  name?: string;
+  picture?: string;
+}
+
+/**
+ * Sets up any scripted reactions to a participant's nth post or comment. A reply becomes a comment
+ * with a future `visible_at`. Nothing has to run later, since the feed and notifications only count
+ * what has come due.
+ */
+export async function scheduleReactions(
+  tx: Transaction,
+  context: ParticipantContext,
+  trigger: {
+    on: "post" | "comment";
+    nth: number;
+    contentId: string;
+    /** The post a reply should appear on. */
+    postId: string;
+    now: Date;
+  },
+) {
+  const reactions = await tx
+    .select()
+    .from(schema.scriptedReactions)
+    .where(
+      and(
+        eq(schema.scriptedReactions.studyVersionId, context.studyVersionId),
+        eq(schema.scriptedReactions.on, trigger.on),
+        eq(schema.scriptedReactions.nth, trigger.nth),
+      ),
+    );
+
+  for (const reaction of reactions) {
+    if (reaction.conditions.length > 0 && !reaction.conditions.includes(context.conditionKey)) {
+      continue;
+    }
+
+    const dueAt = new Date(trigger.now.getTime() + reaction.afterMs);
+    let replyContentId: string | null = null;
+
+    if (reaction.type === "reply") {
+      const [reply] = await tx
+        .insert(schema.content)
+        .values({
+          studyVersionId: context.studyVersionId,
+          worldId: context.worldId,
+          parentId: trigger.postId,
+          authorActorId: reaction.actorId,
+          kind: "comment",
+          body: reaction.body ?? "",
+          visibleAt: dueAt,
+          class: reaction.class,
+        })
+        .returning({ id: schema.content.id });
+      replyContentId = reply?.id ?? null;
+    }
+
+    await tx.insert(schema.notifications).values({
+      worldId: context.worldId,
+      recipientActorId: context.actorId,
+      actorId: reaction.actorId,
+      type: reaction.type,
+      targetContentId: trigger.contentId,
+      replyContentId,
+      dueAt,
+    });
+
+    await recordEvent(tx, {
+      type: "reaction.scheduled",
+      payload: {
+        reaction: reaction.type as "read" | "like" | "reply",
+        dueAt: dueAt.toISOString(),
+      },
+      worldId: context.worldId,
+      studyVersionId: context.studyVersionId,
+      participantId: context.participantId,
+      conditionId: context.conditionId,
+      actorId: reaction.actorId,
+      targetContentId: trigger.contentId,
+      source: "script",
+      occurredAt: trigger.now,
+    });
+  }
+}
+
+async function lastViewedAt(db: Database, context: ParticipantContext): Promise<Date | null> {
+  const [membership] = await db
+    .select({ viewedAt: schema.worldMemberships.notificationsViewedAt })
+    .from(schema.worldMemberships)
+    .where(
+      and(
+        eq(schema.worldMemberships.worldId, context.worldId),
+        eq(schema.worldMemberships.participantId, context.participantId),
+      ),
+    );
+  return membership?.viewedAt ?? null;
+}
+
+export async function countUnreadNotifications(
+  db: Database,
+  context: ParticipantContext,
+  now = new Date(),
+): Promise<number> {
+  const viewedAt = await lastViewedAt(db, context);
+  const [row] = await db
+    .select({ total: count() })
+    .from(schema.notifications)
+    .where(
+      and(
+        eq(schema.notifications.worldId, context.worldId),
+        eq(schema.notifications.recipientActorId, context.actorId),
+        lte(schema.notifications.dueAt, now),
+        viewedAt ? gt(schema.notifications.dueAt, viewedAt) : undefined,
+      ),
+    );
+  return row?.total ?? 0;
+}
+
+export interface NotificationItem {
+  key: string;
+  type: "read" | "like" | "reply";
+  actors: { username: string; name: string; pictureUrl: string | null }[];
+  /** Whether this reacts to their post or their comment. */
+  targetKind: "post" | "comment";
+  targetBody: string;
+  targetImageUrl: string | null;
+  replyBody: string | null;
+  at: string;
+  unread: boolean;
+}
+
+/**
+ * Notifications that have come due, newest first. Reads and likes on the same content get grouped
+ * into one, as old Truman did ("Ann and 3 others liked your post"). Replies stay separate.
+ */
+export async function listNotifications(
+  db: Database,
+  context: ParticipantContext,
+  mediaPublicUrl: string,
+  now = new Date(),
+): Promise<NotificationItem[]> {
+  const viewedAt = await lastViewedAt(db, context);
+  const rows = await db
+    .select()
+    .from(schema.notifications)
+    .where(
+      and(
+        eq(schema.notifications.worldId, context.worldId),
+        eq(schema.notifications.recipientActorId, context.actorId),
+        lte(schema.notifications.dueAt, now),
+      ),
+    );
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const actorRows = await db
+    .select()
+    .from(schema.actors)
+    .where(inArray(schema.actors.id, [...new Set(rows.map((row) => row.actorId))]));
+  const contentIds = [
+    ...new Set(
+      rows.flatMap((row) => [
+        row.targetContentId,
+        ...(row.replyContentId ? [row.replyContentId] : []),
+      ]),
+    ),
+  ];
+  const contentRows = await db
+    .select()
+    .from(schema.content)
+    .where(inArray(schema.content.id, contentIds));
+
+  const actorById = new Map(actorRows.map((actor) => [actor.id, actor]));
+  const contentById = new Map(contentRows.map((item) => [item.id, item]));
+  const toActor = (actorId: string) => {
+    const actor = actorById.get(actorId);
+    const profile = (actor?.profile ?? {}) as ActorProfile;
+    return {
+      username: actor?.username ?? "",
+      name: profile.name ?? actor?.username ?? "",
+      pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+    };
+  };
+
+  const groups = new Map<string, NotificationItem>();
+  for (const row of rows) {
+    const key = row.type === "reply" ? row.id : `${row.type}:${row.targetContentId}`;
+    const at = row.dueAt.toISOString();
+    const unread = !viewedAt || row.dueAt > viewedAt;
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.actors.push(toActor(row.actorId));
+      if (at > existing.at) {
+        existing.at = at;
+      }
+      existing.unread = existing.unread || unread;
+      continue;
+    }
+
+    const target = contentById.get(row.targetContentId);
+    groups.set(key, {
+      key,
+      type: row.type as NotificationItem["type"],
+      actors: [toActor(row.actorId)],
+      targetKind: target?.kind === "comment" ? "comment" : "post",
+      targetBody: target?.body ?? "",
+      targetImageUrl: target?.mediaKey ? mediaUrl(target.mediaKey, mediaPublicUrl) : null,
+      replyBody: row.replyContentId ? (contentById.get(row.replyContentId)?.body ?? null) : null,
+      at,
+      unread,
+    });
+  }
+
+  return [...groups.values()].sort((a, b) => b.at.localeCompare(a.at));
+}

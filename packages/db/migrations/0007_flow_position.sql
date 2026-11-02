@@ -1,0 +1,1 @@
+ALTER TABLE "participants" ADD COLUMN "flow_position" integer DEFAULT 0 NOT NULL;

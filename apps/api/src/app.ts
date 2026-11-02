@@ -1,5 +1,12 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { healthResponseSchema } from "@truman3/core";
+import { createActionRoutes } from "./actions/routes.ts";
+import { createFeedRoutes } from "./feed/routes.ts";
+import { createFlowRoutes } from "./flow/routes.ts";
+import {
+  createParticipantRoutes,
+  type ParticipantRouteDependencies,
+} from "./participants/routes.ts";
 
 const readinessResponseSchema = z.object({
   status: z.enum(["ok", "unavailable"]),
@@ -33,12 +40,12 @@ const readinessRoute = createRoute({
   },
 });
 
-export interface AppDependencies {
+export interface AppDependencies extends ParticipantRouteDependencies {
   pingDatabase: () => Promise<void>;
 }
 
 /** Builds the API. Dependencies are passed in so tests can run without a database. */
-export function createApp({ pingDatabase }: AppDependencies) {
+export function createApp({ pingDatabase, ...participantDependencies }: AppDependencies) {
   const app = new OpenAPIHono();
 
   app.openapi(healthRoute, (c) => c.json({ status: "ok" as const }, 200));
@@ -52,6 +59,11 @@ export function createApp({ pingDatabase }: AppDependencies) {
       return c.json({ status: "unavailable" as const }, 503);
     }
   });
+
+  app.route("/", createParticipantRoutes(participantDependencies));
+  app.route("/", createFeedRoutes(participantDependencies));
+  app.route("/", createActionRoutes(participantDependencies));
+  app.route("/", createFlowRoutes(participantDependencies));
 
   app.doc("/openapi.json", {
     openapi: "3.0.0",

@@ -1,0 +1,96 @@
+import { createHash, randomBytes } from "node:crypto";
+import { type StudySettings, studySettingsSchema } from "@truman3/core";
+import { type Database, schema } from "@truman3/db";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import type { Context } from "hono";
+import { getCookie } from "hono/cookie";
+
+/** A neutral name, since participant-facing details shouldn't reveal this is a study. */
+export const SESSION_COOKIE = "session";
+
+export function newSessionToken(): string {
+  return randomBytes(32).toString("base64url");
+}
+
+export function hashSessionToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+/** Everything about a signed-in participant that handling a request needs. */
+export interface ParticipantContext {
+  participantId: string;
+  studyVersionId: string;
+  worldId: string;
+  actorId: string;
+  /** Their current condition, which can change in adaptive designs. */
+  conditionId: string;
+  conditionKey: string;
+  worldStartedAt: Date;
+  flowPosition: number;
+  /** The world's random seed. */
+  seed: number;
+  settings: StudySettings;
+}
+
+/** Finds who a session token belongs to. Returns null if it's unknown, expired, or they're out. */
+export async function loadParticipantContext(
+  db: Database,
+  token: string,
+  now = new Date(),
+): Promise<ParticipantContext | null> {
+  const [row] = await db
+    .select({
+      participantId: schema.sessions.participantId,
+      worldId: schema.worldMemberships.worldId,
+      actorId: schema.worldMemberships.actorId,
+      studyVersionId: schema.worlds.studyVersionId,
+      worldStartedAt: schema.worlds.startedAt,
+      seed: schema.worlds.seed,
+      flowPosition: schema.participants.flowPosition,
+      settings: schema.studyVersions.settings,
+    })
+    .from(schema.sessions)
+    .innerJoin(
+      schema.worldMemberships,
+      and(
+        eq(schema.worldMemberships.participantId, schema.sessions.participantId),
+        isNull(schema.worldMemberships.leftAt),
+      ),
+    )
+    .innerJoin(schema.worlds, eq(schema.worlds.id, schema.worldMemberships.worldId))
+    .innerJoin(schema.studyVersions, eq(schema.studyVersions.id, schema.worlds.studyVersionId))
+    .innerJoin(schema.participants, eq(schema.participants.id, schema.sessions.participantId))
+    .where(
+      and(
+        eq(schema.sessions.tokenHash, hashSessionToken(token)),
+        gt(schema.sessions.expiresAt, now),
+        eq(schema.participants.status, "active"),
+      ),
+    )
+    .limit(1);
+  if (!row) {
+    return null;
+  }
+
+  const [assignment] = await db
+    .select({ conditionId: schema.assignments.conditionId, conditionKey: schema.conditions.key })
+    .from(schema.assignments)
+    .innerJoin(schema.conditions, eq(schema.conditions.id, schema.assignments.conditionId))
+    .where(eq(schema.assignments.participantId, row.participantId))
+    .orderBy(desc(schema.assignments.id))
+    .limit(1);
+  if (!assignment) {
+    return null;
+  }
+
+  return { ...row, ...assignment, settings: studySettingsSchema.parse(row.settings) };
+}
+
+/** The signed-in participant for a request, or null. */
+export async function participantFromRequest(
+  c: Context,
+  db: Database,
+): Promise<ParticipantContext | null> {
+  const token = getCookie(c, SESSION_COOKIE);
+  return token ? loadParticipantContext(db, token) : null;
+}

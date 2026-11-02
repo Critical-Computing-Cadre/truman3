@@ -1,0 +1,74 @@
+# The classic Truman example study, converted from cornellsml/truman_2023. These values reproduce
+# how that version behaved. They are this study's design decisions, not platform defaults.
+schemaVersion: 1
+slug: eatsnap
+title: EatSnap example study
+site:
+  name: EatSnap.Love
+  logo: media/site/logo.png
+  favicon: media/site/favicon.ico
+  homepageImage: media/site/homepage.jpg
+length:
+  days: 2
+entry:
+  idParam: PROLIFIC_PID
+  idLabel: Prolific ID
+  source: prolific
+conditions:
+  assignment:
+    method: uniform
+  arms:
+    - key: marginal
+    - key: unambig_flag
+    - key: troll
+    - key: ambig_flag
+    - key: unambig_none
+feed:
+  ranker: chronological
+  windowHours: 24
+  pinOwnPostsMinutes: 10
+  removeFlagged: false
+  removeBlocked: true
+likes:
+  posts:
+    - 1
+    - 1
+    - 1
+    - 2
+    - 2
+    - 2
+    - 3
+    - 3
+    - 4
+    - 4
+    - 5
+    - 6
+  comments:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 2
+    - 2
+    - 3
+    - 4
+flow:
+  - step: consent
+    page: pages/consent.md
+  - step: account
+  - step: page
+    page: pages/community-rules.md
+  - step: feed
+  - step: exit
