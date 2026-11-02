@@ -224,6 +224,9 @@ importers:
       '@truman3/db':
         specifier: workspace:*
         version: link:../../packages/db
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(postgres@4.0.0)
       hono:
         specifier: 4.13.14
         version: 4.13.14
@@ -231,6 +234,12 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
     devDependencies:
+      '@truman3/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
+      '@truman3/study-import':
+        specifier: workspace:*
+        version: link:../../packages/study-import
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --env-file-if-exists=../../.env --watch src/server.ts",
+    "dev": "NODE_ENV=development node --env-file-if-exists=../../.env --watch src/server.ts",
     "start": "node --env-file-if-exists=../../.env src/server.ts",
     "typecheck": "tsc"
   },
@@ -13,10 +13,13 @@
     "@hono/zod-openapi": "1.6.3",
     "@truman3/core": "workspace:*",
     "@truman3/db": "workspace:*",
+    "drizzle-orm": "0.45.4",
     "hono": "4.13.14",
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@truman3/storage": "workspace:*",
+    "@truman3/study-import": "workspace:*",
     "@types/node": "^24.19.2",
     "typescript": "7.0.2"
   }
