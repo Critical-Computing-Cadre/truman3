@@ -185,7 +185,7 @@ export class TrumanStack extends Stack {
     // The load balancer has no public address. CloudFront reaches it from inside the network.
     const balancerFirewall = new ec2.SecurityGroup(this, "BalancerFirewall", {
       vpc,
-      description: "The API's load balancer. Only CloudFront gets in.",
+      description: "The load balancer for the API. Only CloudFront gets in.",
       allowAllOutbound: false,
     });
     const prefixList = CLOUDFRONT_PREFIX_LISTS[stage.region];
