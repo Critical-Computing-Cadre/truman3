@@ -304,3 +304,72 @@ describe("feedSettingsFor", () => {
     });
   });
 });
+
+describe("replies to replies", () => {
+  const thread = [
+    post("p", 10),
+    comment("first", "p", 9),
+    comment("second", "p", 8),
+    comment("reply", "first", 7),
+    comment("deeper", "reply", 6),
+  ];
+  const assemble = (
+    candidates: readonly FeedCandidate[],
+    threaded: boolean,
+    who: FeedViewer = viewer(),
+    feed: FeedSettings = settings(),
+  ) => assembleFeed(candidates, who, feed, { nowMs: NOW, seed: 1, threaded }).posts[0];
+
+  it("puts a reply right after what it replies to, with how far down it is", () => {
+    const shown = assemble(thread, true);
+    expect(shown?.commentIds).toEqual(["first", "reply", "deeper", "second"]);
+    expect(shown?.commentDepths).toEqual({ first: 0, reply: 1, deeper: 2, second: 0 });
+  });
+
+  it("shows the same comments as one list in time order without threads", () => {
+    const shown = assemble(thread, false);
+    expect(shown?.commentIds).toEqual(["first", "second", "reply", "deeper"]);
+    expect(Object.values(shown?.commentDepths ?? {})).toEqual([0, 0, 0, 0]);
+  });
+
+  it.each([true, false])(
+    "hides replies along with a flagged comment (threaded: %s)",
+    (threaded) => {
+      const shown = assemble(
+        thread,
+        threaded,
+        viewer({ flaggedContentIds: new Set(["first"]) }),
+        settings({ removeFlagged: true }),
+      );
+      expect(shown?.commentIds).toEqual(["second"]);
+    },
+  );
+
+  it("doesn't show a reply before the comment it replies to has appeared", () => {
+    const shown = assemble(
+      [post("p", 10), comment("later", "p", -1), comment("early", "later", 1)],
+      true,
+    );
+    expect(shown?.commentIds).toEqual([]);
+  });
+
+  it("hides a reply in a condition its comment isn't in", () => {
+    const shown = assemble(
+      [
+        post("p", 10),
+        comment("other", "p", 9, { conditions: ["b"] }),
+        comment("reply", "other", 8),
+      ],
+      true,
+    );
+    expect(shown?.commentIds).toEqual([]);
+  });
+
+  it("survives a circle of replies", () => {
+    const shown = assemble(
+      [post("p", 10), comment("x", "y", 9), comment("y", "x", 8), comment("fine", "p", 7)],
+      true,
+    );
+    expect(shown?.commentIds).toEqual(["fine"]);
+  });
+});

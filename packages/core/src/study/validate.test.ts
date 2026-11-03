@@ -311,3 +311,73 @@ describe("content for a feature that's off", () => {
     expect(found.join()).not.toContain("Comments are off");
   });
 });
+
+describe("replies to replies", () => {
+  const comment = (ref: string, overrides: Record<string, unknown> = {}) => ({
+    ref,
+    body: "text",
+    actor: "ann",
+    post: "1",
+    timeMs: 10,
+    ...overrides,
+  });
+  const threads = (on: boolean) =>
+    settings({ platform: { style: "mixed", features: { threads: on } } });
+
+  it("accepts a reply to a comment on the same post", () => {
+    const definition = study({
+      settings: threads(true),
+      comments: [comment("a"), comment("b", { replyTo: "a" })],
+    });
+    expect(hasErrors(validateStudy(definition))).toBe(false);
+  });
+
+  it.each([
+    ["a comment that doesn't exist", [comment("b", { replyTo: "nope" })], /doesn't exist/],
+    [
+      "a comment on another post",
+      [comment("a", { post: "2" }), comment("b", { replyTo: "a" })],
+      /on another post/,
+    ],
+    [
+      "a comment that comes later",
+      [comment("a", { timeMs: 20 }), comment("b", { replyTo: "a" })],
+      /before the comment it replies to/,
+    ],
+    ["itself", [comment("b", { replyTo: "b" })], /circle of replies/],
+    [
+      "a circle",
+      [comment("a", { replyTo: "b" }), comment("b", { replyTo: "a" })],
+      /circle of replies/,
+    ],
+  ])("refuses a reply to %s", (_name, comments, message) => {
+    const definition = study({
+      settings: threads(true),
+      posts: [
+        { ref: "1", body: "hello", actor: "ann", timeMs: 0 },
+        { ref: "2", body: "other", actor: "ann", timeMs: 0 },
+      ],
+      comments,
+    });
+    expect(messages(definition).join("\n")).toMatch(message);
+    expect(hasErrors(validateStudy(definition))).toBe(true);
+  });
+
+  it("warns that replies flatten where threads are off", () => {
+    const definition = study({
+      settings: threads(false),
+      comments: [comment("a"), comment("b", { replyTo: "a" })],
+    });
+    expect(messages(definition).join("\n")).toMatch(/1 replies show as ordinary comments/);
+  });
+
+  it("warns when a reply is in a condition its comment isn't", () => {
+    const definition = study({
+      settings: settings({
+        conditions: { assignment: { method: "uniform" }, arms: [{ key: "a" }, { key: "b" }] },
+      }),
+      comments: [comment("a", { conditions: ["a"] }), comment("b", { replyTo: "a" })],
+    });
+    expect(messages(definition).join("\n")).toMatch(/won't show in b/);
+  });
+});

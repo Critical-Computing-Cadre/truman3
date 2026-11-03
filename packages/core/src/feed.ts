@@ -8,8 +8,13 @@ export const feedAuthorSchema = z.object({
   isViewer: z.boolean(),
 });
 
+/** How deep a thread can go. It keeps deep threads readable on a phone, and the work bounded. */
+export const MAX_REPLY_DEPTH = 16;
+
 export const feedCommentSchema = z.object({
   id: z.string(),
+  /** How many replies down this is. 0 is directly on the post. Always 0 without threads. */
+  depth: z.number().int().nonnegative(),
   author: feedAuthorSchema,
   body: z.string(),
   at: z.iso.datetime(),

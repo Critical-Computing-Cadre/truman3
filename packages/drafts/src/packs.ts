@@ -303,6 +303,7 @@ export async function startStudy(
     const actorIds = new Map(actors.map(({ username }) => [username, crypto.randomUUID()]));
     const postIds = new Map(posts.map(({ ref }) => [ref, crypto.randomUUID()]));
     const actorId = (username: string) => actorIds.get(username) as string;
+    const commentIds = new Map(comments.map(({ ref }) => [ref, crypto.randomUUID()]));
 
     const rows: (typeof schema.draftItems.$inferInsert)[] = [
       ...actors.map((actor, position) => ({
@@ -325,7 +326,8 @@ export async function startStudy(
           likes: drawLikes(likes, settings.likes.posts),
         },
       })),
-      ...comments.map(({ actor, post, likes, ...comment }, position) => ({
+      ...comments.map(({ actor, post, likes, replyTo, ...comment }, position) => ({
+        id: commentIds.get(comment.ref) as string,
         draftId: draft.id,
         kind: "comment",
         position,
@@ -334,6 +336,10 @@ export async function startStudy(
           ...comment,
           actorId: actorId(actor),
           postId: postIds.get(post) as string,
+          // A reply whose comment was left out of this study sits on the post instead.
+          ...(replyTo && commentIds.has(replyTo)
+            ? { replyToId: commentIds.get(replyTo) as string }
+            : {}),
           likes: drawLikes(likes, settings.likes.comments),
         },
       })),

@@ -31,6 +31,8 @@ export const itemDataSchemas = {
     body: z.string().min(1),
     actorId: z.uuid(),
     postId: z.uuid(),
+    /** The comment this replies to, if it isn't directly on the post. */
+    replyToId: z.uuid().optional(),
     timeMs: z.number().int(),
     likes: z.number().int().nonnegative(),
     ...targeting,

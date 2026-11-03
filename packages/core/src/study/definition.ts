@@ -185,6 +185,8 @@ export const commentDefinitionSchema = z.object({
   body: z.string().min(1),
   actor: z.string().min(1),
   post: z.string().min(1),
+  /** The comment this replies to, if it isn't directly on the post. */
+  replyTo: z.string().min(1).optional(),
   timeMs: z.number().int(),
   likes: z.number().int().nonnegative().optional(),
   ...targetingFields,

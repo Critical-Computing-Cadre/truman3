@@ -109,6 +109,20 @@ export async function openDraft(
     }
     const asId = (oldId: string) => newId.get(oldId) as string;
 
+    // In a frozen version a comment's parent can be another comment. A draft keeps both.
+    const contentById = new Map(content.map((row) => [row.id, row]));
+    const commentPlace = (comment: (typeof content)[number]) => {
+      const parentId = comment.parentId as string;
+      let top = contentById.get(parentId) as (typeof content)[number];
+      while (top.parentId) {
+        top = contentById.get(top.parentId) as (typeof content)[number];
+      }
+      return {
+        postId: asId(top.id),
+        ...(parentId === top.id ? {} : { replyToId: asId(parentId) }),
+      };
+    };
+
     const fromFile: Provenance = { origin: "file" };
     const optional = (key: string, value: unknown) =>
       value === null || value === undefined || value === "" ? {} : { [key]: value };
@@ -156,7 +170,7 @@ export async function openDraft(
           data:
             item.kind === "post"
               ? { ...shared, ...optional("picture", item.mediaKey) }
-              : { ...shared, postId: asId(item.parentId as string) },
+              : { ...shared, ...commentPlace(item) },
         };
       }),
       ...reactions.map((reaction, position) => ({
@@ -261,6 +275,12 @@ async function checkReferences(tx: Transaction, draftId: string, data: Record<st
   }
   if (typeof data.postId === "string" && !(await itemExists(tx, draftId, "post", data.postId))) {
     return "That post isn't in this study.";
+  }
+  if (
+    typeof data.replyToId === "string" &&
+    !(await itemExists(tx, draftId, "comment", data.replyToId))
+  ) {
+    return "That comment isn't in this study.";
   }
   return null;
 }
@@ -728,7 +748,18 @@ export async function deleteItem(
       return { problem: "in-use" as const, message: "This person still has posts or comments." };
     }
 
+    // Replies go with what they reply to, however far down.
     const removing = [item, ...rows.filter((row) => points(row, "postId"))];
+    const removingIds = new Set(removing.map(({ id }) => id));
+    for (let i = 0; i < removing.length; i++) {
+      for (const row of rows) {
+        const { replyToId } = row.data as { replyToId?: string };
+        if (replyToId === removing[i]?.id && !removingIds.has(row.id)) {
+          removingIds.add(row.id);
+          removing.push(row);
+        }
+      }
+    }
     await tx
       .update(schema.draftItems)
       .set({

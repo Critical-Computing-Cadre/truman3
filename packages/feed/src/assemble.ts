@@ -38,8 +38,10 @@ export interface FeedViewer {
 }
 
 export interface AssembledPost extends RankedPost {
-  /** In time order, oldest first. */
+  /** Oldest first. With threads, each reply comes right after what it replies to. */
   commentIds: string[];
+  /** How many replies down each comment is. 0 is directly on the post. */
+  commentDepths: Record<string, number>;
   pinned: boolean;
 }
 
@@ -54,6 +56,8 @@ export interface AssembledFeed {
 export interface AssembleOptions {
   nowMs: number;
   seed: number;
+  /** Nest replies under what they reply to. Otherwise the same comments are one list in time order. */
+  threaded?: boolean;
 }
 
 /**
@@ -65,7 +69,7 @@ export function assembleFeed(
   candidates: readonly FeedCandidate[],
   viewer: FeedViewer,
   settings: FeedSettings,
-  { nowMs, seed }: AssembleOptions,
+  { nowMs, seed, threaded = false }: AssembleOptions,
 ): AssembledFeed {
   const earliestMs =
     settings.windowHours === undefined ? null : nowMs - settings.windowHours * HOUR_MS;
@@ -91,12 +95,30 @@ export function assembleFeed(
     (item) => item.kind === "post" && (earliestMs === null || item.timeMs >= earliestMs),
   );
 
+  const shownById = new Map(shown.map((item) => [item.id, item]));
+
+  /** A comment's post, or null if it or anything it replies to is hidden. */
+  const postOf = (comment: FeedCandidate): string | null => {
+    const seen = new Set<string>();
+    let current = comment;
+    while (current.kind === "comment") {
+      const parent = current.parentId ? shownById.get(current.parentId) : undefined;
+      if (!parent || seen.has(current.id)) {
+        return null;
+      }
+      seen.add(current.id);
+      current = parent;
+    }
+    return current.id;
+  };
+
   const commentsByPost = new Map<string, FeedCandidate[]>();
   for (const comment of shown) {
-    if (comment.kind === "comment" && comment.parentId) {
-      const siblings = commentsByPost.get(comment.parentId) ?? [];
+    const postId = comment.kind === "comment" ? postOf(comment) : null;
+    if (postId) {
+      const siblings = commentsByPost.get(postId) ?? [];
       siblings.push(comment);
-      commentsByPost.set(comment.parentId, siblings);
+      commentsByPost.set(postId, siblings);
     }
   }
 
@@ -115,13 +137,31 @@ export function assembleFeed(
     { seed, viewedPostIds: viewer.viewedContentIds },
   );
 
-  const withComments = (post: RankedPost, isPin: boolean): AssembledPost => ({
-    ...post,
-    pinned: isPin,
-    commentIds: (commentsByPost.get(post.id) ?? [])
-      .sort((a, b) => a.timeMs - b.timeMs || a.id.localeCompare(b.id))
-      .map(({ id }) => id),
-  });
+  const withComments = (post: RankedPost, isPin: boolean): AssembledPost => {
+    const comments = (commentsByPost.get(post.id) ?? []).sort(
+      (a, b) => a.timeMs - b.timeMs || a.id.localeCompare(b.id),
+    );
+    const commentIds: string[] = [];
+    const commentDepths: Record<string, number> = {};
+    const addUnder = (parentId: string, depth: number) => {
+      for (const comment of comments) {
+        if (comment.parentId === parentId) {
+          commentIds.push(comment.id);
+          commentDepths[comment.id] = depth;
+          addUnder(comment.id, depth + 1);
+        }
+      }
+    };
+    if (threaded) {
+      addUnder(post.id, 0);
+    } else {
+      for (const { id } of comments) {
+        commentIds.push(id);
+        commentDepths[id] = 0;
+      }
+    }
+    return { ...post, pinned: isPin, commentIds, commentDepths };
+  };
 
   return {
     posts: [

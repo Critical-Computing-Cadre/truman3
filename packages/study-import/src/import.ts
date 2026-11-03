@@ -327,11 +327,23 @@ export async function freezeStudy(
       }
     }
 
-    for (const batch of chunks(study.comments, INSERT_BATCH_SIZE)) {
+    // A reply points at its comment, so that comment has to go in first.
+    const commentIds = new Map(study.comments.map(({ ref }) => [ref, crypto.randomUUID()]));
+    const commentsByRef = new Map(study.comments.map((comment) => [comment.ref, comment]));
+    const depthOf = (comment: (typeof study.comments)[number]): number => {
+      const parent = comment.replyTo ? commentsByRef.get(comment.replyTo) : undefined;
+      return parent ? depthOf(parent) + 1 : 0;
+    };
+    const parentsFirst = [...study.comments].sort((a, b) => depthOf(a) - depthOf(b));
+
+    for (const batch of chunks(parentsFirst, INSERT_BATCH_SIZE)) {
       await tx.insert(schema.content).values(
         batch.map((comment) => ({
+          id: commentIds.get(comment.ref) as string,
           studyVersionId,
-          parentId: postIds.get(comment.post) as string,
+          parentId: comment.replyTo
+            ? (commentIds.get(comment.replyTo) as string)
+            : (postIds.get(comment.post) as string),
           authorActorId: actorId(comment.actor),
           kind: "comment",
           body: comment.body,

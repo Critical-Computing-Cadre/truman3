@@ -40,6 +40,7 @@ export function draftToDefinition(
 
   const usernames = new Map(actors.map(({ item, data }) => [item.id, data.username]));
   const postRefs = new Map(posts.map(({ item, data }) => [item.id, data.ref]));
+  const commentRefs = new Map(comments.map(({ item, data }) => [item.id, data.ref]));
   const usernameOf = (actorId: string) => usernames.get(actorId) ?? "(missing actor)";
 
   const mediaKeys = new Map<string, string>();
@@ -75,10 +76,11 @@ export function draftToDefinition(
     ),
     actors: actors.map(({ data }) => data),
     posts: posts.map(({ data: { actorId, ...post } }) => ({ ...post, actor: usernameOf(actorId) })),
-    comments: comments.map(({ data: { actorId, postId, ...comment } }) => ({
+    comments: comments.map(({ data: { actorId, postId, replyToId, ...comment } }) => ({
       ...comment,
       actor: usernameOf(actorId),
       post: postRefs.get(postId) ?? "(missing post)",
+      ...(replyToId ? { replyTo: commentRefs.get(replyToId) ?? "(missing comment)" } : {}),
     })),
     reactions: reactions.map(({ data: { actorId, ...reaction } }) => ({
       ...reaction,

@@ -26,7 +26,7 @@ const POSTS: CsvSpec = {
 };
 const COMMENTS: CsvSpec = {
   required: ["id", "body", "actor", "postID", "time"],
-  optional: ["likes", "condition", "class"],
+  optional: ["replyToID", "likes", "condition", "class"],
 };
 const REACTIONS: CsvSpec = {
   required: ["on", "nth", "type", "actor", "after"],
@@ -168,6 +168,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
         body: cells.body || "(missing)",
         actor: cells.actor || `(row ${row})`,
         post: cells.postID || `(row ${row})`,
+        ...optional("replyTo", cells.replyToID || undefined),
         timeMs: time(cells.time, "time", "comments.csv", row),
         ...optional("likes", wholeNumber(cells.likes, "likes", "comments.csv", row)),
         ...targeting(cells, "comments.csv", row),

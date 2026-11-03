@@ -1,6 +1,7 @@
 import type { FeedComment, FeedPost } from "@truman3/core";
 import { useFeature } from "../platform.tsx";
 import type { PostActions } from "../post-props.ts";
+import { replyIndent } from "./comments.tsx";
 
 /** The flag button under a post. */
 export function PostFlagButton({ post, actions }: { post: FeedPost; actions?: PostActions }) {
@@ -67,7 +68,10 @@ export function FlaggedComment({
   actions?: PostActions | undefined;
 }) {
   return (
-    <li className="flex items-center justify-between rounded bg-stone-800 px-3 py-2 text-sm text-white">
+    <li
+      style={replyIndent(comment.depth)}
+      className="flex items-center justify-between rounded bg-stone-800 px-3 py-2 text-sm text-white"
+    >
       <span>You flagged this comment.</span>
       <button
         type="button"

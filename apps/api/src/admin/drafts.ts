@@ -227,6 +227,7 @@ const fieldsSchema = z.strictObject({
   picture: z.string().regex(STORED_IMAGE).nullable().optional(),
   actorId: z.uuid().optional(),
   postId: z.uuid().optional(),
+  replyToId: z.uuid().optional(),
   timeMs: z.number().int().optional(),
   likes: z.number().int().nonnegative().optional(),
   conditions: z.array(z.string()).optional(),
@@ -438,7 +439,7 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
       return {
         id: item.id,
         kind: item.kind,
-        parentId: data.postId ?? null,
+        parentId: data.replyToId ?? data.postId ?? null,
         authorActorId: data.actorId,
         body: data.body,
         mediaKey: data.picture ?? null,
