@@ -124,7 +124,8 @@ test("someone builds a study from nothing, with no terminal, and a participant j
   await participant.getByRole("button", { name: "Reply" }).click();
   await participant.getByLabel("Write a comment").fill("Hello");
   await participant.getByLabel("Write a comment").press("Enter");
-  await expect(participant.locator("article").getByText("Hello", { exact: true })).toBeVisible();
+  // In the comment list, since the box they typed it in has the same words until it clears.
+  await expect(participant.locator("article li").filter({ hasText: "Hello" })).toBeVisible();
 
   // The team can watch it without a terminal.
   await study.getByRole("link", { name: "Monitor and download" }).click();
