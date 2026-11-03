@@ -17,6 +17,7 @@ import { LoginPage } from "./pages/LoginPage.tsx";
 import { MonitorPage } from "./pages/MonitorPage.tsx";
 import { NewStudyPage } from "./pages/NewStudyPage.tsx";
 import { PreviewPage } from "./pages/PreviewPage.tsx";
+import { ProlificPage } from "./pages/ProlificPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { StudiesPage } from "./pages/StudiesPage.tsx";
 
@@ -105,6 +106,12 @@ const monitorRoute = createRoute({
   component: MonitorPage,
 });
 
+const prolificRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/studies/$studyId/prolific",
+  component: ProlificPage,
+});
+
 const router = createRouter({
   routeTree: rootRoute.addChildren([
     studiesRoute,
@@ -114,6 +121,7 @@ const router = createRouter({
     settingsRoute,
     castRoute,
     monitorRoute,
+    prolificRoute,
   ]),
 });
 

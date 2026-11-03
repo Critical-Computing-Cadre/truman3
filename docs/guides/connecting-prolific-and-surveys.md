@@ -4,6 +4,23 @@ The goal is that participants never have to type or copy an ID. Each system pass
 
 These steps use Qualtrics and Prolific. Other survey tools work the same way if they can read a value from their link. Those products change, so **always test with their preview links before launching.**
 
+## The quickest way: from the admin app
+
+If your server has `TRUMAN_SECRET_KEY` set, open a study's **Monitor and download** page, then **Recruit on Prolific**. You can:
+
+1. **Connect your own Prolific account** with an API token, created on Prolific under Settings. Each person connects their own, so you can do exactly what your Prolific account allows.
+2. **Create an unpublished draft,** with the right link and completion codes. This spends nothing. You choose the audience and publish it on Prolific. Truman never publishes.
+3. **Set what you expect** before paying someone: minutes viewing posts, posts seen, and actions. Not meeting these never rejects anyone. It means a person looks at them.
+4. **See submissions beside what people did here,** then approve and pay bonuses, with a confirmation first.
+
+**People get sent back on their own.** If your exit step has no survey link, finishing sends them to Prolific with the right code, and declining consent sends them with a code asking them to return their submission. That replaces any decline message you wrote, unless you've set your own decline link.
+
+**With a survey after Truman,** the page shows the link to paste into your survey's end, as in step 3 below. Automatic approval isn't available there, because Truman can't choose their code. Use **Select everyone who passes** instead.
+
+**Someone with no match** has probably withdrawn or declined, since both delete their ID here. Approving them is your call.
+
+The rest of this guide is how to do it by hand, and how to connect a survey.
+
 ## How the ID travels
 
 ```

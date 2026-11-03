@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import type { Context } from "hono";
 import { setCookie } from "hono/cookie";
 import { countUnreadNotifications } from "../actions/notifications.ts";
+import type { ProlificConfig } from "../admin/prolific.ts";
 import { mediaUrl } from "../feed/build.ts";
 import { summarizeDevice } from "./device.ts";
 import { enterStudy, entrySettings } from "./enter.ts";
@@ -120,6 +121,8 @@ export interface ParticipantRouteDependencies {
   allowEntryAttempt?: (ipAddress: string) => boolean;
   /** Decides whether a researcher's login can be tried right now. Leave out for no limit. */
   allowLoginAttempt?: (key: string) => boolean;
+  /** How to reach Prolific. Leave out and researchers can't connect to it. */
+  prolific?: ProlificConfig;
 }
 
 export function createParticipantRoutes(dependencies: ParticipantRouteDependencies) {

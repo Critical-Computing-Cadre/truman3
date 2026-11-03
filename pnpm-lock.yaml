@@ -251,6 +251,9 @@ importers:
       '@truman3/feed':
         specifier: workspace:*
         version: link:../../packages/feed
+      '@truman3/recruit':
+        specifier: workspace:*
+        version: link:../../packages/recruit
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(postgres@4.0.0)
@@ -380,6 +383,9 @@ importers:
       '@truman3/drafts':
         specifier: workspace:*
         version: link:../packages/drafts
+      '@truman3/recruit':
+        specifier: workspace:*
+        version: link:../packages/recruit
       '@truman3/storage':
         specifier: workspace:*
         version: link:../packages/storage
@@ -492,6 +498,15 @@ importers:
       '@truman3/core':
         specifier: workspace:*
         version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
+  packages/recruit:
     devDependencies:
       '@types/node':
         specifier: ^24.19.2

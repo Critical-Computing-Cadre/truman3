@@ -672,3 +672,80 @@ export const dataDeletions = pgTable("data_deletions", {
   eventsDeleted: integer("events_deleted").notNull(),
   deletedAt: time("deleted_at").notNull().defaultNow(),
 });
+
+/**
+ * One researcher's Prolific token, encrypted. It's theirs rather than the team's, so Prolific
+ * decides what each person can do (ADR 17).
+ */
+export const prolificConnections = pgTable("prolific_connections", {
+  researcherId: uuid("researcher_id")
+    .primaryKey()
+    .references(() => researchers.id, { onDelete: "cascade" }),
+  tokenEncrypted: text("token_encrypted").notNull(),
+  connectedAt: time("connected_at").notNull().defaultNow(),
+});
+
+/** The Prolific study a study recruits through. Participants' submissions stay on Prolific. */
+export const prolificLinks = pgTable(
+  "prolific_links",
+  {
+    studyId: uuid("study_id")
+      .primaryKey()
+      .references(() => studies.id),
+    prolificStudyId: text("prolific_study_id").notNull(),
+    reviewMode: text("review_mode").notNull(),
+    /** finished, declined, and for automatic review, needsReview. */
+    codes: jsonb().notNull(),
+    /** What's expected of someone before they're approved. */
+    rules: jsonb().notNull().default({}),
+    createdBy: text("created_by").notNull(),
+    createdAt: time("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    check("prolific_links_review_mode", inList(table.reviewMode, ["manual", "automatic"])),
+  ],
+);
+
+/**
+ * A bonus set up on Prolific. Paying twice pays people twice, so `paying_at` is claimed before the
+ * call to pay, and a payment that may have gone through can never be repeated from here.
+ */
+export const prolificBonuses = pgTable(
+  "prolific_bonuses",
+  {
+    id: text().primaryKey(),
+    studyId: uuid("study_id")
+      .notNull()
+      .references(() => studies.id),
+    people: integer().notNull(),
+    totalAmount: integer("total_amount").notNull(),
+    createdBy: text("created_by").notNull(),
+    payingAt: time("paying_at"),
+    paidBy: text("paid_by"),
+  },
+  (table) => [index("prolific_bonuses_study").on(table.studyId)],
+);
+
+/** Each thing someone did on Prolific from here that touches people or money. */
+export const prolificActions = pgTable(
+  "prolific_actions",
+  {
+    id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    studyId: uuid("study_id")
+      .notNull()
+      .references(() => studies.id),
+    by: text().notNull(),
+    action: text().notNull(),
+    people: integer(),
+    /** In the smallest unit of the currency, as Prolific reported it. */
+    amount: integer(),
+    at: time("at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("prolific_actions_study").on(table.studyId, table.id),
+    check(
+      "prolific_actions_action",
+      inList(table.action, ["created draft", "approved", "paid bonus", "unlinked"]),
+    ),
+  ],
+);

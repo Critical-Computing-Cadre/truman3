@@ -4,6 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 export const API_PORT = 3210;
 export const APP_PORT = 5190;
 export const ADMIN_PORT = 5191;
+export const PROLIFIC_PORT = 3211;
 
 export default defineConfig({
   testDir: "./tests",

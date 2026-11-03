@@ -16,6 +16,7 @@
     "@truman3/db": "workspace:*",
     "@truman3/drafts": "workspace:*",
     "@truman3/feed": "workspace:*",
+    "@truman3/recruit": "workspace:*",
     "drizzle-orm": "0.45.4",
     "fflate": "0.8.2",
     "hono": "4.13.14",

@@ -5,6 +5,7 @@ import { createDraftRoutes } from "./admin/drafts.ts";
 import { createLaunchRoutes } from "./admin/launch.ts";
 import { createMonitorRoutes } from "./admin/monitor.ts";
 import { createPackRoutes } from "./admin/packs.ts";
+import { createProlificRoutes } from "./admin/prolific.ts";
 import { createAdminRoutes } from "./admin/routes.ts";
 import { createFeedRoutes } from "./feed/routes.ts";
 import { createFlowRoutes } from "./flow/routes.ts";
@@ -74,6 +75,7 @@ export function createApp({ pingDatabase, ...participantDependencies }: AppDepen
   app.route("/", createPackRoutes(participantDependencies));
   app.route("/", createMonitorRoutes(participantDependencies));
   app.route("/", createLaunchRoutes(participantDependencies));
+  app.route("/", createProlificRoutes(participantDependencies));
 
   app.doc("/openapi.json", {
     openapi: "3.0.0",
