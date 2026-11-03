@@ -26,7 +26,7 @@ Phase 1 is built. Studies can be defined, validated, and imported, and participa
 | `compose.yaml`             | Local Postgres and S3-compatible storage                                                   |
 | `e2e`                      | A real browser going through the whole example study                                       |
 
-Before real participants, this still needs production hosting, separate database roles, and a decision on who can read media.
+Before real participants, this still needs production hosting, separate database roles, and a decision on who can read media. [Deploying](guides/deploying.md) says what's ready and what isn't.
 
 A request today looks like this:
 

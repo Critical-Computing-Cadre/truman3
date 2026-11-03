@@ -122,6 +122,8 @@ export interface ParticipantRouteDependencies {
   allowEntryAttempt?: (ipAddress: string) => boolean;
   /** Decides whether a researcher's login can be tried right now. Leave out for no limit. */
   allowLoginAttempt?: (key: string) => boolean;
+  /** The participant app's public address, shown to researchers as the study link. */
+  participantAppUrl?: string;
   /** How to reach Prolific. Leave out and researchers can't connect to it. */
   prolific?: ProlificConfig;
 }

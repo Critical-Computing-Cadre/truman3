@@ -18,6 +18,8 @@
     "db:migrate": "node --env-file-if-exists=.env packages/db/src/migrate-cli.ts",
     "db:generate": "pnpm --filter @truman3/db db:generate",
     "test:e2e": "pnpm --filter @truman3/e2e test",
+    "test:e2e:built": "pnpm build && E2E_BUILT=1 pnpm --filter @truman3/e2e test",
+    "check:container": "sh scripts/check-container.sh",
     "admin": "node --env-file-if-exists=.env apps/cli/src/admin.ts"
   },
   "devDependencies": {

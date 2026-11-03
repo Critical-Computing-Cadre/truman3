@@ -10,7 +10,13 @@ import { savePackFromFolder } from "@truman3/drafts";
 import { createFakeProlific } from "@truman3/recruit/testing";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { importStudyFolder } from "@truman3/study-import";
-import { ADMIN_PORT, API_PORT, APP_PORT, PROLIFIC_PORT } from "./playwright.config.ts";
+import {
+  ADMIN_PORT,
+  API_PORT,
+  APP_PORT,
+  PROLIFIC_PORT,
+  TEST_BUILT_APPS,
+} from "./playwright.config.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 export const STATE_FILE = path.join(import.meta.dirname, ".e2e-state.json");
@@ -45,6 +51,18 @@ function startFakeProlific() {
   return server;
 }
 
+/** Vite directly rather than through pnpm, which wouldn't pass along the signal to stop it. */
+function startApp(app: "participant" | "admin", port: number) {
+  // Either the dev server, or the built files with the same /api forwarding that production has.
+  // `vite preview` listens on one address here, so the browser can reach it by name or by number.
+  const mode = TEST_BUILT_APPS ? ["preview", "--host", "127.0.0.1"] : [];
+  return spawn("node", ["node_modules/vite/bin/vite.js", ...mode, "--port", String(port)], {
+    cwd: path.join(ROOT, "apps", app),
+    env: { ...process.env, API_PROXY_TARGET: `http://localhost:${API_PORT}` },
+    stdio: "ignore",
+  });
+}
+
 async function waitFor(url: string, name: string) {
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
@@ -65,6 +83,13 @@ async function waitFor(url: string, name: string) {
  * and the real participant app, all separate from anything used for development.
  */
 export default async function globalSetup() {
+  if (TEST_BUILT_APPS) {
+    for (const app of ["participant", "admin"]) {
+      if (!existsSync(path.join(ROOT, "apps", app, "dist/index.html"))) {
+        throw new Error("These tests use the built apps. Run `pnpm build` first.");
+      }
+    }
+  }
   const envFile = path.join(ROOT, ".env");
   if (existsSync(envFile)) {
     loadEnvFile(envFile);
@@ -133,7 +158,7 @@ export default async function globalSetup() {
         ...process.env,
         DATABASE_URL: database.url,
         PORT: String(API_PORT),
-        NODE_ENV: "development",
+        NODE_ENV: TEST_BUILT_APPS ? "production" : "development",
         TRUMAN_SECRET_KEY: randomBytes(32).toString("base64"),
         PROLIFIC_API_URL: `http://localhost:${PROLIFIC_PORT}`,
         PARTICIPANT_APP_URL: `http://localhost:${APP_PORT}`,
@@ -142,21 +167,8 @@ export default async function globalSetup() {
       },
       stdio: "inherit",
     }),
-    // Vite directly rather than through pnpm, which wouldn't pass along the signal to stop it.
-    spawn("node", ["node_modules/vite/bin/vite.js", "--port", String(APP_PORT)], {
-      cwd: path.join(ROOT, "apps/participant"),
-      env: { ...process.env, API_PROXY_TARGET: `http://localhost:${API_PORT}` },
-      stdio: "ignore",
-    }),
-    spawn("node", ["node_modules/vite/bin/vite.js", "--port", String(ADMIN_PORT)], {
-      cwd: path.join(ROOT, "apps/admin"),
-      env: {
-        ...process.env,
-        API_PROXY_TARGET: `http://localhost:${API_PORT}`,
-        VITE_PARTICIPANT_URL: `http://localhost:${APP_PORT}`,
-      },
-      stdio: "ignore",
-    }),
+    startApp("participant", APP_PORT),
+    startApp("admin", ADMIN_PORT),
   ];
 
   const fakeProlific = startFakeProlific();

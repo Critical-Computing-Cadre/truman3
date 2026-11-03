@@ -80,6 +80,7 @@ export interface StudySummary {
   participants: number;
   role: string;
   liveVersionId: string | null;
+  participantUrl: string;
   openDraftId: string | null;
   draftTitle: string | null;
   versions: {

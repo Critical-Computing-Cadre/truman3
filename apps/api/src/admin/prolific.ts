@@ -19,6 +19,7 @@ import {
   unmetRules,
 } from "@truman3/recruit";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { describeError } from "../errors.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { researcherFromRequest } from "./session.ts";
 
@@ -358,7 +359,7 @@ export function createProlificRoutes({ db, prolific: config }: ParticipantRouteD
         return { status: 400 as const, message: `Prolific said: ${error.message}` };
       }
     }
-    console.error("Prolific request failed:", error instanceof Error ? error.message : "unknown");
+    console.error("Prolific request failed:", describeError(error));
     return { status: 502 as const, message: "Prolific couldn't be reached. Try again." };
   };
 

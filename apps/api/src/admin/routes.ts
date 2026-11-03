@@ -90,6 +90,8 @@ const studiesRoute = createRoute({
                 team: z.string(),
                 participants: z.number(),
                 liveVersionId: z.string().nullable(),
+                /** Where this study's participants go. Built on the server, so builds name no domain. */
+                participantUrl: z.string(),
                 role: z.string(),
                 openDraftId: z.string().nullable(),
                 draftTitle: z.string().nullable(),
@@ -205,6 +207,7 @@ export function createAdminRoutes({
   secureCookies,
   getClientIp,
   allowLoginAttempt,
+  participantAppUrl = "http://localhost:5180",
 }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const pleaseSignIn = { error: "Please sign in." };
@@ -321,6 +324,7 @@ export function createAdminRoutes({
             .filter((version) => version.studyId === study.id)
             .reduce((sum, version) => sum + participantsOn(version.id), 0),
           liveVersionId: study.liveVersionId,
+          participantUrl: participantAppUrl,
           role,
           openDraftId: drafts.find((draft) => draft.studyId === study.id)?.id ?? null,
           draftTitle:
