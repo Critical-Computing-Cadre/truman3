@@ -52,8 +52,8 @@ export function draftToDefinition(
     }
   }
   for (const { item, data } of posts) {
-    if (data.picture) {
-      mediaKeys.set(path.join(MEDIA_FOLDERS.posts, data.picture), data.picture);
+    for (const picture of data.pictures ?? []) {
+      mediaKeys.set(path.join(MEDIA_FOLDERS.posts, picture), picture);
     }
     provenance.set(`post:${data.ref}`, item.provenance as Provenance);
   }

@@ -153,7 +153,10 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     body: cells.body ?? "",
     actor: cells.actor || `(row ${row})`,
     timeMs: time(cells.time, "time", "posts.csv", row),
-    ...optional("picture", cells.picture),
+    pictures: (cells.picture ?? "")
+      .split("|")
+      .map((name) => name.trim())
+      .filter(Boolean),
     ...optional("likes", wholeNumber(cells.likes, "likes", "posts.csv", row)),
     ...optional("ups", wholeNumber(cells.ups, "ups", "posts.csv", row)),
     ...optional("downs", wholeNumber(cells.downs, "downs", "posts.csv", row)),
@@ -235,7 +238,9 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       checkMedia(MEDIA_FOLDERS.actors, actor.picture, actor.source);
     }
     for (const post of posts) {
-      checkMedia(MEDIA_FOLDERS.posts, post.picture, post.source);
+      for (const picture of post.pictures) {
+        checkMedia(MEDIA_FOLDERS.posts, picture, post.source);
+      }
     }
     for (const image of [settings.data.site.logo, settings.data.site.favicon]) {
       if (image && !existsSync(path.join(folder, image))) {

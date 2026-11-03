@@ -1,3 +1,4 @@
+import { MAX_ATTACHMENTS } from "../feed.ts";
 import { hasPlaceholderConsent } from "./consent.ts";
 import type { StudyDefinition } from "./definition.ts";
 import { LINK_PLACEHOLDERS } from "./links.ts";
@@ -96,6 +97,12 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     if (on.threads && !on.comments) {
       warning(`Replies to replies are on in "${arm.key}", but they need comments, which are off.`);
     }
+    const galleries = study.posts.filter((post) => applies(post) && post.pictures.length > 1);
+    if (!on.galleries && galleries.length > 0) {
+      warning(
+        `Several photos on a post are off in "${arm.key}", so ${galleries.length} posts show only their first.`,
+      );
+    }
     const reactions = study.reactions.filter(applies);
     if (!on.comments && reactions.some(({ type }) => type === "reply")) {
       warning(`Comments are off in "${arm.key}", so its scripted replies won't happen.`);
@@ -155,8 +162,11 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     posts.set(post.ref, post);
     checkActor(post.actor, label, post.source);
     checkConditions(post.conditions, label, post.source);
-    if (!post.body && !post.picture) {
+    if (!post.body && post.pictures.length === 0) {
       error(`${label} has no text and no picture.`, post.source);
+    }
+    if (post.pictures.length > MAX_ATTACHMENTS) {
+      error(`${label} has more than ${MAX_ATTACHMENTS} pictures.`, post.source);
     }
   }
 

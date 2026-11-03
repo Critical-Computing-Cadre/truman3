@@ -91,7 +91,9 @@ export function packContents(
     })),
     posts: posts.map((post) => ({
       ...withoutSource(post),
-      ...stored(MEDIA_FOLDERS.posts, post.picture),
+      pictures: post.pictures.map(
+        (picture) => mediaKeys.get(path.join(MEDIA_FOLDERS.posts, picture)) ?? picture,
+      ),
     })),
     comments: comments.map(withoutSource),
     reactions: reactions.map(withoutSource),
@@ -113,7 +115,7 @@ function summarize(contents: PackContents): PackSummary {
     conditions: contents.arms.map(({ key }) => key),
     targeted: items.filter(({ conditions }) => conditions.length > 0).length,
     images: contents.posts
-      .flatMap(({ picture }) => (picture ? [picture] : []))
+      .flatMap(({ pictures }) => pictures.slice(0, 1))
       .slice(0, IMAGES_IN_SUMMARY),
   };
 }

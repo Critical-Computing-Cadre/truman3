@@ -346,9 +346,10 @@ describe("posting", () => {
     expect(response.status).toBe(200);
     const post = await findPost(person, "my post");
     expect(post.author.isViewer).toBe(true);
-    expect(post.imageUrl).toContain(`/uploads/${person.worldId}/`);
+    const url = post.attachments[0]?.url ?? "";
+    expect(url).toContain(`/uploads/${person.worldId}/`);
 
-    const key = post.imageUrl?.replace("http://media.test/", "") ?? "";
+    const key = url.replace("http://media.test/", "");
     const fetched = await fetch(`${process.env.MEDIA_PUBLIC_URL}/${key}`);
     expect(new Uint8Array(await fetched.arrayBuffer())).toEqual(JPEG);
   });

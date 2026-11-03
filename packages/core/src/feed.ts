@@ -27,11 +27,21 @@ export const feedCommentSchema = z.object({
   flagged: z.boolean(),
 });
 
+/** The most photos one post can have. */
+export const MAX_ATTACHMENTS = 10;
+
+/** A file on a post. Each has a type, so other kinds, such as video, can join images. */
+export const attachmentSchema = z.object({ type: z.enum(["image"]), key: z.string() });
+export type Attachment = z.infer<typeof attachmentSchema>;
+
+export const feedAttachmentSchema = z.object({ type: z.enum(["image"]), url: z.string() });
+export type FeedAttachment = z.infer<typeof feedAttachmentSchema>;
+
 export const feedPostSchema = z.object({
   id: z.string(),
   author: feedAuthorSchema,
   body: z.string(),
-  imageUrl: z.string().nullable(),
+  attachments: z.array(feedAttachmentSchema),
   at: z.iso.datetime(),
   likes: z.number(),
   liked: z.boolean(),

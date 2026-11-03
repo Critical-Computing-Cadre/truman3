@@ -35,6 +35,12 @@ export const FEATURES = {
     version: 1,
     events: ["content.created"],
   },
+  galleries: {
+    name: "Several photos on a post",
+    description: "Posts can show several photos, and participants can add several to theirs.",
+    version: 1,
+    events: ["content.created"],
+  },
   likes: {
     name: "Likes",
     description: "Participants can like posts and comments.",

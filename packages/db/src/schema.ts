@@ -1,3 +1,4 @@
+import type { Attachment } from "@truman3/core";
 import { type SQL, sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
@@ -270,7 +271,8 @@ export const content = pgTable(
       .references(() => actors.id),
     kind: text().notNull(),
     body: text().notNull().default(""),
-    mediaKey: text("media_key"),
+    /** Its files, in order. Each has a type and a stored key or hosted URL. */
+    attachments: jsonb().$type<Attachment[]>().notNull().default([]),
     offsetMs: bigint("offset_ms", { mode: "number" }),
     visibleAt: time("visible_at"),
     /** Its order in the study definition, for the scripted ranker. */

@@ -92,8 +92,8 @@ export async function storeMedia(
     }
   }
   for (const post of study.posts) {
-    if (post.picture) {
-      files.set(path.join(MEDIA_FOLDERS.posts, post.picture), post.picture);
+    for (const picture of post.pictures) {
+      files.set(path.join(MEDIA_FOLDERS.posts, picture), picture);
     }
   }
   for (const image of [site.logo, site.favicon, site.homepageImage]) {
@@ -311,7 +311,10 @@ export async function freezeStudy(
             authorActorId: actorId(post.actor),
             kind: "post",
             body: post.body,
-            mediaKey: post.picture && mediaKeys.get(path.join(MEDIA_FOLDERS.posts, post.picture)),
+            attachments: post.pictures.map((picture) => ({
+              type: "image" as const,
+              key: mediaKeys.get(path.join(MEDIA_FOLDERS.posts, picture)) as string,
+            })),
             offsetMs: post.timeMs,
             position: positions.get(post.ref),
             baseLikes: drawLikes(post.likes, settings.likes.posts),

@@ -1,9 +1,11 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import {
+  type Attachment,
   checkNewPost,
   type FeatureKey,
   featureOn,
   feedPostSchema,
+  MAX_ATTACHMENTS,
   MAX_REPLY_DEPTH,
   platformStyleFor,
 } from "@truman3/core";
@@ -107,7 +109,11 @@ const postRoute = createRoute({
         "multipart/form-data": {
           schema: actionMetaSchema.extend({
             body: z.string().max(5000).default(""),
-            image: z.instanceof(File).optional().openapi({ type: "string", format: "binary" }),
+            /** Repeat this field for several photos, on a platform with galleries. */
+            image: z
+              .union([z.instanceof(File), z.array(z.instanceof(File))])
+              .optional()
+              .openapi({ type: "string", format: "binary" }),
           }),
         },
       },
@@ -586,19 +592,27 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json({ id: repeat.contentId }, 200);
     }
 
+    const images = [form.image ?? []].flat();
     const problem = checkNewPost(
       platformStyleFor(context.settings, context.conditionKey),
       text.length > 0,
-      form.image !== undefined,
+      images.length > 0,
     );
     if (problem) {
       return c.json({ error: problem }, 400);
     }
 
-    let mediaKey: string | null = null;
-    if (form.image) {
-      mediaKey = await storeUploadedImage(storage, context.worldId, form.image);
-      if (!mediaKey) {
+    if (images.length > 1 && isOff(context, "galleries")) {
+      return c.json(featureOff, 403);
+    }
+    if (images.length > MAX_ATTACHMENTS) {
+      return c.json({ error: `A post can have up to ${MAX_ATTACHMENTS} photos.` }, 400);
+    }
+
+    const attachments: Attachment[] = [];
+    for (const image of images) {
+      const key = await storeUploadedImage(storage, context.worldId, image);
+      if (!key) {
         return c.json(
           {
             error: `That photo can't be used. Use a JPEG, PNG, GIF, or WebP under ${MAX_IMAGE_BYTES / 1024 / 1024} MB.`,
@@ -606,6 +620,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           400,
         );
       }
+      attachments.push({ type: "image", key });
     }
 
     try {
@@ -619,7 +634,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
             authorActorId: context.actorId,
             kind: "post",
             body: text,
-            mediaKey,
+            attachments,
             visibleAt: now,
           })
           .returning({ id: schema.content.id });

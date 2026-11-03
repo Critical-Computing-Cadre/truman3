@@ -154,6 +154,7 @@ export interface DraftItemDetails {
   likes: number;
   ups: number;
   downs: number;
+  pictures: string[];
   origin: string;
 }
 

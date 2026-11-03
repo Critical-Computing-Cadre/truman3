@@ -108,7 +108,7 @@ function describeChange(action: string, rows: { data: unknown; previousData: unk
       if (before && before.timeMs !== after.timeMs) {
         return `moved ${quote(after)}${extra}`;
       }
-      if (before && before.picture !== after.picture) {
+      if (before && JSON.stringify(before.pictures) !== JSON.stringify(after.pictures)) {
         return `changed the photo on ${quote(after)}`;
       }
       return `changed ${quote(after)}`;

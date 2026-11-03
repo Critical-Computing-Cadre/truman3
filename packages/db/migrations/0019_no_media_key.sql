@@ -1,0 +1,1 @@
+ALTER TABLE "content" DROP COLUMN "media_key";

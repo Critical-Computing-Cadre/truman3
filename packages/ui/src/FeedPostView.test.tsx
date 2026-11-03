@@ -10,7 +10,7 @@ const POST: FeedPost = {
   id: "p1",
   author,
   body: "A post",
-  imageUrl: null,
+  attachments: [],
   at: new Date(Date.now() - 2 * 3_600_000).toISOString(),
   likes: 3,
   liked: false,
@@ -211,5 +211,32 @@ describe("votes", () => {
     expect(onVote).toHaveBeenLastCalledWith("p1", "down");
     fireEvent.click(screen.getAllByRole("button", { name: "Vote up" })[0] as HTMLElement);
     expect(onVote).toHaveBeenLastCalledWith("p1", null);
+  });
+});
+
+describe("photos", () => {
+  afterEach(cleanup);
+  const url = (name: string) => ({ type: "image" as const, url: `https://cdn.test/${name}` });
+
+  const withGalleries = (galleries: boolean) =>
+    render(
+      <PlatformProvider
+        platform={{ layout: "classic", features: { ...TEMPLATES.classic.features, galleries } }}
+      >
+        <FeedPostView post={{ ...POST, attachments: [url("a.jpg"), url("b.jpg")] }} />
+      </PlatformProvider>,
+    );
+
+  it("shows only the first photo without galleries", () => {
+    const { container } = withGalleries(false);
+    expect(container.querySelectorAll("img")).toHaveLength(1);
+    expect(screen.queryByText("1 of 2")).toBeNull();
+  });
+
+  it("shows every photo with galleries, and says how many", () => {
+    const { container } = withGalleries(true);
+    expect(container.querySelectorAll("img")).toHaveLength(2);
+    expect(screen.getByText("2 of 2")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "2 photos" })).toBeTruthy();
   });
 });

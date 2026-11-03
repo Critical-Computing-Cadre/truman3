@@ -39,10 +39,15 @@ export async function post<T>(path: string, body: object = {}): Promise<T> {
 }
 
 /** For anything that includes a file. */
-export async function postForm<T>(path: string, fields: Record<string, string | File>): Promise<T> {
+export async function postForm<T>(
+  path: string,
+  fields: Record<string, string | File | File[]>,
+): Promise<T> {
   const form = new FormData();
   for (const [key, value] of Object.entries({ ...actionMeta(), ...fields })) {
-    form.append(key, value);
+    for (const each of Array.isArray(value) ? value : [value]) {
+      form.append(key, each);
+    }
   }
   return parse<T>(await fetch(`/api${path}`, { method: "POST", body: form }));
 }
