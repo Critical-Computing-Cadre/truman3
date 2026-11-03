@@ -1,6 +1,6 @@
 # Deploying
 
-What it takes to run Truman 3 somewhere other than your laptop. The infrastructure code doesn't exist yet, so this describes the pieces and how to check them. [ADR 19](../adr/0019-how-truman-runs-in-production.md) and [ADR 21](../adr/0021-the-api-has-its-own-login-and-admin-lives-under-a-path.md) explain why they're like this.
+What it takes to run Truman 3 somewhere other than your laptop. [ADR 19](../adr/0019-how-truman-runs-in-production.md), [ADR 21](../adr/0021-the-api-has-its-own-login-and-admin-lives-under-a-path.md), and [ADR 23](../adr/0023-staging-runs-on-aws-from-cdk.md) explain why it's like this. To run it on AWS, see [Running it on AWS](#running-it-on-aws).
 
 ## The pieces
 
@@ -70,17 +70,86 @@ Both run in CI, and neither touches your development database.
 
 Keep the real values out of the repo. `.env.example` describes these too.
 
-| Setting                                                              | Needed                 | What it is                                                          |
-| -------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------- |
-| `DATABASE_URL`                                                       | Yes                    | The Postgres connection, as `truman_app`                            |
-| `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Yes                    | Media storage                                                       |
-| `S3_ENDPOINT`                                                        | Not on AWS             | For another S3-compatible service                                   |
-| `MEDIA_PUBLIC_URL`                                                   | Yes                    | Where browsers fetch media from                                     |
-| `PARTICIPANT_APP_URL`                                                | Yes                    | The participant address, for study links                            |
-| `TRUMAN_SECRET_KEY`                                                  | For Prolific           | Encrypts Prolific tokens. Changing it means everyone connects again |
-| `TRUST_PROXY`                                                        | Behind a load balancer | Set to `true` so addresses come from `X-Forwarded-For`              |
+| Setting                                    | Needed                 | What it is                                                          |
+| ------------------------------------------ | ---------------------- | ------------------------------------------------------------------- |
+| `DATABASE_URL`                             | Yes                    | The Postgres connection, as `truman_app`                            |
+| `S3_REGION`, `S3_BUCKET`                   | Yes                    | Media storage                                                       |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Not on AWS             | Both or neither. Without them, storage uses the container's role    |
+| `S3_ENDPOINT`                              | Not on AWS             | For another S3-compatible service                                   |
+| `MEDIA_PUBLIC_URL`                         | Yes                    | Where browsers fetch media from                                     |
+| `PARTICIPANT_APP_URL`                      | Yes                    | The participant address, for study links                            |
+| `TRUMAN_SECRET_KEY`                        | For Prolific           | Encrypts Prolific tokens. Changing it means everyone connects again |
+| `TRUST_PROXY`                              | Behind a load balancer | Set to `true` so addresses come from `X-Forwarded-For`              |
 
 The image sets `NODE_ENV=production`, which turns on secure cookies and the shorter error logs.
+
+## Running it on AWS
+
+`infra/` describes all of this in AWS CDK. Staging is in `infra/lib/stages.ts`, and **it isn't for real participants.** Building it asks AWS nothing, so `pnpm build`, then `pnpm --filter @truman3/infra synth`, works with no credentials, and CI runs it.
+
+| What                     | Where                       | Why                                                                                      |
+| ------------------------ | --------------------------- | ---------------------------------------------------------------------------------------- |
+| CloudFront               | Everywhere                  | The one way in. Sends each path below where it goes                                      |
+| `/*`, `/admin/*`         | A private S3 bucket         | The apps. `app-router.js` sends other paths to the right page                            |
+| `/api/*`                 | Load balancer, then API     | The balancer has no public address, and CloudFront reaches it privately                  |
+| `/media/*`, `/uploads/*` | A private S3 bucket         | Readable only through CloudFront, by anyone with the link for now                        |
+| The API                  | Fargate, in a public subnet | Its firewall lets in only the balancer. It can reach out, with no NAT gateway to pay for |
+| Postgres                 | RDS, in a private subnet    | Lets in only the API's firewall                                                          |
+| Passwords and the key    | Secrets Manager             | Containers get them by reference                                                         |
+
+### Before the first deployment
+
+These need a signed-in AWS profile. They only read.
+
+```
+aws ec2 describe-availability-zones --region us-east-1 --profile <profile> --query "AvailabilityZones[].[ZoneName,ZoneId]" --output text
+aws ec2 describe-managed-prefix-lists --region us-east-1 --profile <profile> --filters Name=prefix-list-name,Values=com.amazonaws.global.cloudfront.origin-facing --query "PrefixLists[].PrefixListId" --output text
+```
+
+- **Zones.** CloudFront can't reach a private load balancer in `use1-az3`, and zone names mean different zones in each account. If either name in `stages.ts` is `use1-az3` in this account, pick another.
+- **Prefix list.** It should print the ID in `truman-stack.ts`. If it's different, change it there.
+
+### The first deployment
+
+The API can't start until the database is updated, and the update's task has to exist first, so this goes in three steps. Run these from `infra/`, after `pnpm build` in the repo's root. Docker has to be running.
+
+```
+pnpm exec cdk bootstrap aws://<account>/us-east-1 --profile <profile>    # once per account
+pnpm run deploy -c apiTasks=0 --profile <profile>                        # everything but the API
+```
+
+Then run the `UpdateDatabaseCommand` that printed, with `--profile`, and wait for it to finish. Its log is in `/truman3-staging/tasks`. Then start the API:
+
+```
+pnpm run deploy --profile <profile>
+```
+
+To create the first team, run the `AdminCommand` that printed, with `--profile` and this added:
+
+```
+--overrides '{"containerOverrides":[{"name":"task","command":["node","apps/cli/src/admin.ts","setup","<team name>","<team slug>","<email>","<name>"]}]}'
+```
+
+**The password appears in `/truman3-staging/tasks`.** That log is kept for one day, and anyone who can read logs in this account can read it. Copy it, and delete the log stream.
+
+### Later deployments
+
+If a change includes a migration, stop the API, update the database, and start it again, as above. If it doesn't, `pnpm run deploy --profile <profile>` is enough. CI doesn't deploy yet.
+
+### Costing less, and removing it
+
+```
+pnpm run deploy -c apiTasks=0 --profile <profile>                          # stops the API
+aws rds stop-db-instance --db-instance-identifier <id> --profile <profile> # stops the database
+```
+
+RDS starts a stopped database again after 7 days, so this has to be repeated. The load balancer still costs money, and only removing everything stops that:
+
+```
+pnpm run destroy --profile <profile>
+```
+
+On staging this deletes the data too. A stage with `holdsRealData` on keeps its database, media, and secrets, and refuses to be deleted until someone turns its protection off.
 
 ## Reading production logs
 
@@ -96,8 +165,8 @@ Look up the Postgres code, and reproduce it locally, where errors log in full. W
 
 These are known gaps. Don't run real participants until they're closed.
 
-- **AWS credentials.** Storage requires an access key today, and should use the container's role on AWS. It also tries to create a missing bucket when starting.
 - **Private media.** Anyone with the link can read an uploaded photo.
-- **Several domains.** The apps work on any domain, but `PARTICIPANT_APP_URL` is one address, so every study's link uses it. A study needs its own address setting.
+- **Several domains.** The apps work on any domain, and a stage can list them with a certificate, but `PARTICIPANT_APP_URL` is one address, so every study's link uses it. A study needs its own address setting.
 - **`TRUST_PROXY` reads the first address in `X-Forwarded-For`,** which a visitor can fake. Through CloudFront and a load balancer, it should count from the end. This affects rate limits, and the stored address for studies that opt in.
-- **Backups, a tested restore, the infrastructure code, and CI that deploys.**
+- **A tested restore, and CI that deploys.** Automatic database backups are on, but nobody has restored one.
+- **Storage tries to create a missing bucket when starting.** On AWS the bucket is always there, so this does nothing.

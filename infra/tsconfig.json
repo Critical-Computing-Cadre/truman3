@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.base.json",
+  // CDK's own types don't hold up under this setting.
+  "compilerOptions": { "exactOptionalPropertyTypes": false },
+  "include": ["bin", "lib"]
+}

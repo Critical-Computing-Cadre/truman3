@@ -1,0 +1,7 @@
+{
+  "app": "node bin/truman.ts",
+  "requireApproval": "broadening",
+  "output": "cdk.out",
+  "versionReporting": false,
+  "notices": false
+}

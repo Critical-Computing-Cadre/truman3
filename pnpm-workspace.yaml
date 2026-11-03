@@ -2,6 +2,7 @@ packages:
   - apps/*
   - packages/*
   - e2e
+  - infra
 
 # Install scripts are off by default, since they can run anything. esbuild's only checks that its
 # binary works, and the binary comes as a regular dependency, so it isn't needed.

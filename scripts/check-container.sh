@@ -23,6 +23,9 @@ compose up --build --detach --wait api
 echo "Updating the database a second time, which should change nothing..."
 compose run --rm migrate
 
+echo "Checking the image can create researchers, which a deployment needs at the start..."
+compose run --rm --no-deps api node apps/cli/src/admin.ts 2>&1 | grep -q "pnpm admin setup"
+
 echo "Checking the API's login can't change the rules..."
 as_app() {
   compose exec -T -e PGPASSWORD=app_password postgres \
