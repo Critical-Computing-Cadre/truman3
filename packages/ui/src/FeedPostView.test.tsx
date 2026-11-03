@@ -14,6 +14,9 @@ const POST: FeedPost = {
   at: new Date(Date.now() - 2 * 3_600_000).toISOString(),
   likes: 3,
   liked: false,
+  ups: 0,
+  downs: 0,
+  vote: null,
   flagged: false,
   comments: [
     {
@@ -24,6 +27,9 @@ const POST: FeedPost = {
       at: new Date().toISOString(),
       likes: 0,
       liked: false,
+      ups: 0,
+      downs: 0,
+      vote: null,
       flagged: false,
     },
   ],
@@ -50,7 +56,7 @@ describe("FeedPostView", () => {
   });
 
   it("reports actions when they're provided", () => {
-    const actions = { onLike: vi.fn(), onFlag: vi.fn(), onReply: vi.fn() };
+    const actions = { onLike: vi.fn(), onVote: vi.fn(), onFlag: vi.fn(), onReply: vi.fn() };
     render(<FeedPostView post={POST} actions={actions} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Like \(3\)/ }));
@@ -61,7 +67,7 @@ describe("FeedPostView", () => {
   });
 
   it("covers a flagged post, with a way to undo it", () => {
-    const actions = { onLike: vi.fn(), onFlag: vi.fn(), onReply: vi.fn() };
+    const actions = { onLike: vi.fn(), onVote: vi.fn(), onFlag: vi.fn(), onReply: vi.fn() };
     render(<FeedPostView post={{ ...POST, flagged: true }} actions={actions} />);
 
     expect(screen.getByText("You've flagged this!")).toBeTruthy();
@@ -135,7 +141,13 @@ describe("replies to replies", () => {
       >
         <FeedPostView
           post={{ ...POST, comments: [comment, { ...comment, id: "c2", body: "Below", depth: 2 }] }}
-          actions={{ onLike: vi.fn(), onFlag: vi.fn(), onReply: vi.fn(), onReplyTo }}
+          actions={{
+            onLike: vi.fn(),
+            onVote: vi.fn(),
+            onFlag: vi.fn(),
+            onReply: vi.fn(),
+            onReplyTo,
+          }}
         />
       </PlatformProvider>,
     );
@@ -160,5 +172,44 @@ describe("replies to replies", () => {
     withThreads(true);
     expect(screen.getByText("Below").closest("li")?.style.marginLeft).toBe("2.5rem");
     expect(screen.getByText("A comment").closest("li")?.style.marginLeft).toBe("");
+  });
+});
+
+describe("votes", () => {
+  afterEach(cleanup);
+
+  const withVotes = (votes: boolean, onVote = vi.fn()) => {
+    const voted = { ...POST, ups: 7, downs: 2, vote: "up" as const };
+    render(
+      <PlatformProvider
+        platform={{ layout: "classic", features: { ...TEMPLATES.classic.features, votes } }}
+      >
+        <FeedPostView
+          post={voted}
+          actions={{ onLike: vi.fn(), onVote, onFlag: vi.fn(), onReply: vi.fn() }}
+        />
+      </PlatformProvider>,
+    );
+    return onVote;
+  };
+
+  it("doesn't show when the feature's off, as in Classic", () => {
+    withVotes(false);
+    expect(screen.queryByRole("button", { name: "Vote up" })).toBeNull();
+  });
+
+  it("shows the score, and says which way this viewer voted", () => {
+    withVotes(true);
+    expect(screen.getAllByTestId("score")[0]?.textContent).toBe("Score 5");
+    const up = screen.getAllByRole("button", { name: "Vote up" })[0] as HTMLElement;
+    expect(up.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("changes a vote, or takes it back when it's pressed again", () => {
+    const onVote = withVotes(true);
+    fireEvent.click(screen.getAllByRole("button", { name: "Vote down" })[0] as HTMLElement);
+    expect(onVote).toHaveBeenLastCalledWith("p1", "down");
+    fireEvent.click(screen.getAllByRole("button", { name: "Vote up" })[0] as HTMLElement);
+    expect(onVote).toHaveBeenLastCalledWith("p1", null);
   });
 });

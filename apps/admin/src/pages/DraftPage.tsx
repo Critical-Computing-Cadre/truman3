@@ -437,6 +437,24 @@ function ItemDetails({
             className={`${field} w-20`}
           />
         </label>
+        {info.conditions.some(({ features }) => features.votes) &&
+          (["ups", "downs"] as const).map((key) => (
+            <label key={key} className="flex items-center gap-2">
+              {key === "ups" ? "Up votes" : "Down votes"}
+              <input
+                type="number"
+                min={0}
+                defaultValue={details[key]}
+                onBlur={(event) => {
+                  const count = Number(event.target.value);
+                  if (Number.isInteger(count) && count >= 0 && count !== details[key]) {
+                    change({ [key]: count });
+                  }
+                }}
+                className={`${field} w-20`}
+              />
+            </label>
+          ))}
         <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <legend className="float-left mr-2">Shown in</legend>
           {info.conditions.map(({ key }) => (

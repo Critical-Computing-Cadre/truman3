@@ -196,7 +196,7 @@ function RulesFields({ rules, onChange }: { rules: Rules; onChange: (rules: Rule
 }
 
 const RULES_HINT =
-  "Blank means no rule. Actions are posts, comments, likes, flags, and follows. Not meeting a rule never rejects anyone: it means a person looks at them.";
+  "Blank means no rule. Actions are posts, comments, likes, votes, flags, and follows. Not meeting a rule never rejects anyone: it means a person looks at them.";
 
 function DraftCard({ studyId, state }: { studyId: string; state: StudyState }) {
   const client = useQueryClient();

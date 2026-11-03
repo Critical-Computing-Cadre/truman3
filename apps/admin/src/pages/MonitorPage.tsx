@@ -26,6 +26,7 @@ interface Monitor {
     posts: number;
     comments: number;
     likes: number;
+    votes: number;
     flags: number;
   }[];
   steps: { version: number; steps: { label: string; people: number }[] }[];
@@ -374,6 +375,7 @@ export function MonitorPage() {
               <th className={th}>Posts</th>
               <th className={th}>Comments</th>
               <th className={th}>Likes</th>
+              <th className={th}>Votes</th>
               <th className={th}>Flags</th>
             </tr>
           </thead>
@@ -392,6 +394,7 @@ export function MonitorPage() {
                 <td className={td}>{arm.posts}</td>
                 <td className={td}>{arm.comments}</td>
                 <td className={td}>{arm.likes}</td>
+                <td className={td}>{arm.votes}</td>
                 <td className={td}>{arm.flags}</td>
               </tr>
             ))}

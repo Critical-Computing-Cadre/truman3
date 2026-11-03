@@ -72,6 +72,12 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
     onSettled: () => client.invalidateQueries(),
   });
 
+  const vote = useMutation({
+    mutationFn: ({ id, value }: { id: string; value: "up" | "down" | null }) =>
+      send(`/content/${id}/vote`, { value }),
+    onSettled: () => client.invalidateQueries(),
+  });
+
   const comment = useMutation({
     mutationFn: (body: string) => send(`/content/${replyTo?.id ?? post.id}/comments`, { body }),
     onSuccess: () => {
@@ -95,6 +101,7 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
       rootRef={ref}
       actions={{
         onLike: (id, active) => action.mutate({ url: `/content/${id}/like`, active }),
+        onVote: (id, value) => vote.mutate({ id, value }),
         onFlag: (id, active) => action.mutate({ url: `/content/${id}/flag`, active }),
         onReply: () => {
           setReplying(true);

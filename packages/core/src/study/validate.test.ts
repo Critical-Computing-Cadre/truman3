@@ -381,3 +381,23 @@ describe("replies to replies", () => {
     expect(messages(definition).join("\n")).toMatch(/won't show in b/);
   });
 });
+
+describe("votes", () => {
+  it("warns about written votes and scripted votes where votes are off", () => {
+    const definition = study({
+      posts: [{ ref: "1", body: "hello", actor: "ann", timeMs: 0, ups: 4 }],
+      reactions: [{ on: "post", nth: 0, type: "down", actor: "ann", afterMs: 0 }],
+    });
+    const all = messages(definition).join("\n");
+    expect(all).toMatch(/1 written vote counts won't show/);
+    expect(all).toMatch(/scripted votes won't happen/);
+  });
+
+  it("doesn't warn where votes are on", () => {
+    const definition = study({
+      settings: settings({ platform: { style: "mixed", features: { votes: true } } }),
+      posts: [{ ref: "1", body: "hello", actor: "ann", timeMs: 0, ups: 4 }],
+    });
+    expect(messages(definition).join("\n")).not.toMatch(/Votes are off/);
+  });
+});

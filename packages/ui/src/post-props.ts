@@ -4,6 +4,7 @@ import type { ReactNode, Ref } from "react";
 /** What a viewer can do. Leave these out to show a post that looks real but can't be acted on. */
 export interface PostActions {
   onLike: (contentId: string, active: boolean) => void;
+  onVote: (contentId: string, value: "up" | "down" | null) => void;
   onFlag: (contentId: string, active: boolean) => void;
   onReply: () => void;
   /** Reply to one comment, on a platform with threads. */

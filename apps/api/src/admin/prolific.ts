@@ -262,7 +262,7 @@ export async function activityOf(
       participantId: schema.events.participantId,
       viewedMs: sql<string>`coalesce(sum((${schema.events.payload}->>'dwellMs')::numeric) filter (where ${schema.events.type} = 'content.viewed'), 0)`,
       postsSeen: sql<string>`count(distinct ${schema.events.targetContentId}) filter (where ${schema.events.type} = 'content.viewed')`,
-      actions: sql<string>`count(*) filter (where ${schema.events.type} in ('content.created', 'content.liked', 'content.flagged', 'actor.followed'))`,
+      actions: sql<string>`count(*) filter (where ${schema.events.type} in ('content.created', 'content.liked', 'content.voted', 'content.flagged', 'actor.followed'))`,
     })
     .from(schema.events)
     .where(

@@ -76,7 +76,8 @@ export async function previewContent(
     viewerActorId: "",
     likedContentIds: new Set(),
     flaggedContentIds: new Set(),
-    likesFromReactions: new Map(),
+    scriptedCounts: new Map(),
+    viewerVotes: new Map(),
   });
 
   const targeting: Record<string, string[]> = {};

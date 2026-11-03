@@ -156,6 +156,8 @@ export async function openDraft(
           actorId: asId(item.authorActorId),
           timeMs: item.offsetMs ?? 0,
           likes: item.baseLikes,
+          ups: item.baseUps,
+          downs: item.baseDowns,
           conditions: item.conditions,
           ...optional("class", item.class),
         };

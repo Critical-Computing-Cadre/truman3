@@ -22,11 +22,11 @@ const ACTORS: CsvSpec = {
 };
 const POSTS: CsvSpec = {
   required: ["id", "actor", "time"],
-  optional: ["body", "picture", "likes", "condition", "class"],
+  optional: ["body", "picture", "likes", "ups", "downs", "condition", "class"],
 };
 const COMMENTS: CsvSpec = {
   required: ["id", "body", "actor", "postID", "time"],
-  optional: ["replyToID", "likes", "condition", "class"],
+  optional: ["replyToID", "likes", "ups", "downs", "condition", "class"],
 };
 const REACTIONS: CsvSpec = {
   required: ["on", "nth", "type", "actor", "after"],
@@ -155,6 +155,8 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     timeMs: time(cells.time, "time", "posts.csv", row),
     ...optional("picture", cells.picture),
     ...optional("likes", wholeNumber(cells.likes, "likes", "posts.csv", row)),
+    ...optional("ups", wholeNumber(cells.ups, "ups", "posts.csv", row)),
+    ...optional("downs", wholeNumber(cells.downs, "downs", "posts.csv", row)),
     ...targeting(cells, "posts.csv", row),
   }));
 
@@ -171,6 +173,8 @@ export function loadStudyFolder(folder: string): LoadedStudy {
         ...optional("replyTo", cells.replyToID || undefined),
         timeMs: time(cells.time, "time", "comments.csv", row),
         ...optional("likes", wholeNumber(cells.likes, "likes", "comments.csv", row)),
+        ...optional("ups", wholeNumber(cells.ups, "ups", "comments.csv", row)),
+        ...optional("downs", wholeNumber(cells.downs, "downs", "comments.csv", row)),
         ...targeting(cells, "comments.csv", row),
       };
     },
@@ -185,8 +189,14 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       rowError(file, row, `"${on}" in on has to be post or comment.`);
       continue;
     }
-    if (type !== "read" && type !== "like" && type !== "reply") {
-      rowError(file, row, `"${type}" in type has to be read, like, or reply.`);
+    if (
+      type !== "read" &&
+      type !== "like" &&
+      type !== "reply" &&
+      type !== "up" &&
+      type !== "down"
+    ) {
+      rowError(file, row, `"${type}" in type has to be read, like, reply, up, or down.`);
       continue;
     }
     reactions.push({

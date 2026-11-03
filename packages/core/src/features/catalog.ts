@@ -41,6 +41,12 @@ export const FEATURES = {
     version: 1,
     events: ["content.liked", "content.unliked"],
   },
+  votes: {
+    name: "Up and down votes",
+    description: "Participants can vote posts and comments up or down, and see the score.",
+    version: 1,
+    events: ["content.voted"],
+  },
   flagging: {
     name: "Flagging",
     description: "Participants can flag posts and comments.",

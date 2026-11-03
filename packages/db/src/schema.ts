@@ -276,6 +276,8 @@ export const content = pgTable(
     /** Its order in the study definition, for the scripted ranker. */
     position: integer(),
     baseLikes: integer("base_likes").notNull().default(0),
+    baseUps: integer("base_ups").notNull().default(0),
+    baseDowns: integer("base_downs").notNull().default(0),
     /** Where it came from: a file, a researcher, a pack, or a model. See packages/drafts. */
     provenance: jsonb().notNull().default({}),
     conditions: text().array().notNull().default(sql`'{}'`),
@@ -327,7 +329,7 @@ export const scriptedReactions = pgTable(
   (table) => [
     index("scripted_reactions_trigger").on(table.studyVersionId, table.on, table.nth),
     check("scripted_reactions_on", inList(table.on, ["post", "comment"])),
-    check("scripted_reactions_type", inList(table.type, ["read", "like", "reply"])),
+    check("scripted_reactions_type", inList(table.type, ["read", "like", "reply", "up", "down"])),
   ],
 );
 
@@ -389,7 +391,7 @@ export const contentInteractions = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.worldId, table.actorId, table.contentId, table.kind] }),
-    check("content_interactions_kind", inList(table.kind, ["like", "flag", "view"])),
+    check("content_interactions_kind", inList(table.kind, ["like", "up", "down", "flag", "view"])),
   ],
 );
 
@@ -442,7 +444,7 @@ export const notifications = pgTable(
   },
   (table) => [
     index("notifications_recipient").on(table.worldId, table.recipientActorId, table.dueAt),
-    check("notifications_type", inList(table.type, ["read", "like", "reply"])),
+    check("notifications_type", inList(table.type, ["read", "like", "reply", "up", "down"])),
   ],
 );
 
