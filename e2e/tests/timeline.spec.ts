@@ -63,9 +63,13 @@ test("dragging a post that can never appear onto the timeline fixes it", async (
   await expect.poll(count).toBe(before - 1);
 
   // Clicking it shows it in the feed, at that moment.
-  const moved = page.getByTestId("post-timeline").getByRole("button", {
-    name: new RegExp(text.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
-  });
+  // Other posts can start with the same words, and one past the end of the study can't be selected.
+  const moved = page
+    .getByTestId("post-timeline")
+    .getByRole("button", {
+      name: new RegExp(text.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    })
+    .and(page.locator(':not([data-placement="late"])'));
   await moved.first().click();
   const feed = page.getByRole("region", { name: /Feed in/ }).first();
   await expect(feed.locator(".ring-sky-500")).toBeVisible();

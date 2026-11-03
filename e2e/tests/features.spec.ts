@@ -199,3 +199,44 @@ test("a researcher turns votes on and sets a score, and a participant votes", as
   await scored.screenshot({ path: testInfo.outputPath("votes.png") });
   await context.close();
 });
+
+test("settings can't be changed while they're saving, so nothing is lost", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+
+  await page.goto(ADMIN);
+  await page.getByLabel("Email").fill(otherLabEmail);
+  await page.getByLabel("Password").fill(otherLabPassword);
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await page.getByRole("link", { name: "New study" }).click();
+  await page.getByLabel("Title").fill(`Saving ${Date.now() % 1_000_000}`);
+  await page.getByRole("radio", { name: /EatSnap pack/ }).check();
+  await page.getByRole("radio", { name: /Just the background/ }).check();
+  await page.getByRole("radio", { name: /^Blocked/ }).check();
+  await page.getByRole("button", { name: "Start the study" }).click();
+  await page.getByRole("link", { name: "Settings" }).click();
+
+  // A slow connection, which leaves time to change something during the save.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/admin/drafts/*/settings", async (route) => {
+    if (route.request().method() === "PUT") {
+      await held;
+    }
+    await route.continue();
+  });
+
+  const settings = page.getByRole("region", { name: "Study and platform" });
+  await settings.getByLabel(/^Text/).check();
+  await settings.getByRole("button", { name: "Save changes" }).click();
+  await expect(settings.getByLabel(/^Mixed/)).toBeDisabled();
+
+  release();
+  await expect(settings.getByLabel(/^Mixed/)).toBeEnabled();
+  await expect(settings.getByLabel(/^Text/)).toBeChecked();
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
