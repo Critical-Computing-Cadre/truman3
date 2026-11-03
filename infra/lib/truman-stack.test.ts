@@ -117,6 +117,20 @@ describe("what can be reached from outside", () => {
     }
   });
 
+  it("describes firewalls only in characters AWS accepts", () => {
+    const allowed = /^[a-zA-Z0-9. _\-:/()#,@[\]+=&;{}!$*]*$/;
+    const groups = template.findResources("AWS::EC2::SecurityGroup");
+    const rules = template.findResources("AWS::EC2::SecurityGroupIngress");
+    const descriptions = [
+      ...Object.values(groups).map((group) => group.Properties.GroupDescription),
+      ...Object.values(rules).map((rule) => rule.Properties.Description ?? ""),
+    ];
+    expect(descriptions.length).toBeGreaterThan(0);
+    for (const description of descriptions) {
+      expect(description).toMatch(allowed);
+    }
+  });
+
   it("lets only CloudFront into the load balancer, and only that into the API", () => {
     const rules = resources(template, "AWS::EC2::SecurityGroupIngress").map(
       ({ Properties }) => Properties,
