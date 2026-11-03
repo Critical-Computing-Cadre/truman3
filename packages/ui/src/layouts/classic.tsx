@@ -1,7 +1,7 @@
 import type { FeedComment } from "@truman3/core";
 import type { ReactNode } from "react";
 import { Avatar } from "../Avatar.tsx";
-import { ReplyButton } from "../features/comments.tsx";
+import { CommentReplyButton, ReplyButton, replyIndent } from "../features/comments.tsx";
 import {
   CommentFlagButton,
   FlaggedComment,
@@ -35,7 +35,7 @@ function Comment({
   }
 
   return (
-    <li className="flex gap-2">
+    <li className="flex gap-2" style={replyIndent(comment.depth)}>
       {author(
         "shrink-0",
         <Avatar seed={comment.author.username} url={comment.author.pictureUrl} size="h-8 w-8" />,
@@ -55,6 +55,7 @@ function Comment({
         <p className="mt-0.5 flex gap-3 text-xs text-stone-500">
           <span>{shortTime(comment.at)}</span>
           <CommentLikeButton comment={comment} actions={actions} />
+          <CommentReplyButton comment={comment} actions={actions} />
           <CommentFlagButton comment={comment} actions={actions} />
         </p>
         {renderNote?.(comment.id)}

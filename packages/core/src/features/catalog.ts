@@ -28,6 +28,13 @@ export const FEATURES = {
     version: 1,
     events: ["content.created"],
   },
+  threads: {
+    name: "Replies to replies",
+    description:
+      "Participants can reply to a comment, and replies sit under it. Off, the same comments show in time order.",
+    version: 1,
+    events: ["content.created"],
+  },
   likes: {
     name: "Likes",
     description: "Participants can like posts and comments.",

@@ -23,7 +23,7 @@ export const TEMPLATES = {
     name: "Classic",
     description: "Truman's original platform: a feed of posts with comments open below each.",
     layout: "classic",
-    features: allFeatures,
+    features: { ...allFeatures, threads: false },
   },
 } as const satisfies Record<string, TemplateDefinition>;
 

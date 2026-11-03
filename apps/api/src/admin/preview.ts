@@ -1,4 +1,4 @@
-import { type StudySettings, studySettingsSchema } from "@truman3/core";
+import { featureOn, type StudySettings, studySettingsSchema } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { assembleFeed, feedSettingsFor } from "@truman3/feed";
 import { and, eq, isNull } from "drizzle-orm";
@@ -60,7 +60,11 @@ export async function previewContent(
       blockedActorIds: new Set(),
     },
     feedSettingsFor(version.settings, conditionKey),
-    { nowMs: now.getTime(), seed: version.seed },
+    {
+      nowMs: now.getTime(),
+      seed: version.seed,
+      threaded: featureOn(version.settings, conditionKey, "threads"),
+    },
   );
 
   const posts = await shapeFeedPosts({

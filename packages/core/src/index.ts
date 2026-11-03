@@ -22,6 +22,7 @@ export {
   feedCommentSchema,
   feedPostSchema,
   feedResponseSchema,
+  MAX_REPLY_DEPTH,
 } from "./feed.ts";
 export { type HealthResponse, healthResponseSchema } from "./health.ts";
 export { createRandom, pickFrom, shuffled } from "./random.ts";

@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import {
+  DEFAULT_TEMPLATE,
   FEATURE_KEYS,
   FEATURES,
   type FeatureKey,
   fillLinkTemplate,
   type StudySettings,
+  TEMPLATES,
 } from "@truman3/core";
 import { type ReactNode, useState } from "react";
 import Markdown from "react-markdown";
@@ -318,7 +320,10 @@ function StudyForm({
           <label key={key} className="flex items-baseline gap-2 text-sm">
             <input
               type="checkbox"
-              checked={value.platform.features?.[key] ?? true}
+              checked={
+                value.platform.features?.[key] ??
+                TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features[key]
+              }
               onChange={(event) =>
                 set({
                   ...value,

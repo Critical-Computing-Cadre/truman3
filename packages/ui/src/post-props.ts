@@ -1,4 +1,4 @@
-import type { FeedAuthor, FeedPost } from "@truman3/core";
+import type { FeedAuthor, FeedComment, FeedPost } from "@truman3/core";
 import type { ReactNode, Ref } from "react";
 
 /** What a viewer can do. Leave these out to show a post that looks real but can't be acted on. */
@@ -6,6 +6,8 @@ export interface PostActions {
   onLike: (contentId: string, active: boolean) => void;
   onFlag: (contentId: string, active: boolean) => void;
   onReply: () => void;
+  /** Reply to one comment, on a platform with threads. */
+  onReplyTo?: (comment: FeedComment) => void;
 }
 
 export interface FeedPostViewProps {

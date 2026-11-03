@@ -323,14 +323,14 @@ describe("commenting", () => {
     expect((await findPost(person, "first")).comments).toHaveLength(2);
   });
 
-  it("can't be empty, and only goes on posts", async () => {
+  it("can't be empty, and only goes on posts unless threads are on", async () => {
     const person = await enter(await importStudy());
     const post = await findPost(person, "first");
 
     expect((await send(person, `/content/${post.id}/comments`, { body: "  " })).status).toBe(400);
     expect(
       (await send(person, `/content/${post.comments[0]?.id}/comments`, { body: "hi" })).status,
-    ).toBe(404);
+    ).toBe(403);
   });
 });
 

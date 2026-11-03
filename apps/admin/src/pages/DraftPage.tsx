@@ -465,12 +465,15 @@ function ItemDetails({
 
 function AddComment({
   postId,
+  replyToId,
   info,
   elapsedMs,
   postTimeMs,
   edits,
 }: {
   postId: string;
+  /** Makes this a reply to that comment. */
+  replyToId?: string;
   info: DraftInfo;
   elapsedMs: number;
   postTimeMs: number;
@@ -488,6 +491,7 @@ function AddComment({
           body: body.trim(),
           actorId,
           postId,
+          ...(replyToId ? { replyToId } : {}),
           timeMs: Math.max(elapsedMs, postTimeMs),
           conditions: [],
         },
@@ -499,7 +503,7 @@ function AddComment({
   return (
     <form onSubmit={submit} className="flex flex-wrap gap-2 text-sm">
       <select
-        aria-label="Comment written by"
+        aria-label={replyToId ? "Reply written by" : "Comment written by"}
         value={actorId}
         onChange={(event) => setActorId(event.target.value)}
         className="max-w-32 rounded border border-stone-300 bg-white px-1"
@@ -511,10 +515,10 @@ function AddComment({
         ))}
       </select>
       <input
-        aria-label="Add a comment"
+        aria-label={replyToId ? "Add a reply" : "Add a comment"}
         value={body}
         onChange={(event) => setBody(event.target.value)}
-        placeholder="Add a comment..."
+        placeholder={replyToId ? "Add a reply..." : "Add a comment..."}
         className="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1"
       />
       <button
@@ -668,7 +672,28 @@ function EditableFeed({
           <PlatformProvider platform={info.conditions.find(({ key }) => key === condition)}>
             <FeedPostView
               post={shown}
-              renderNote={note}
+              renderNote={(contentId) => (
+                <>
+                  {note(contentId)}
+                  {info.canEdit &&
+                    kinds.get(contentId) === "comment" &&
+                    info.conditions.find(({ key }) => key === condition)?.features.threads && (
+                      <details className="mt-1 text-xs">
+                        <summary className="cursor-pointer text-stone-500">Add a reply</summary>
+                        <div className="mt-1">
+                          <AddComment
+                            postId={shown.id}
+                            replyToId={contentId}
+                            info={info}
+                            elapsedMs={elapsedMs}
+                            postTimeMs={items[contentId]?.timeMs ?? 0}
+                            edits={edits}
+                          />
+                        </div>
+                      </details>
+                    )}
+                </>
+              )}
               {...(info.canEdit
                 ? {
                     renderBody: (contentId: string, body: string) => (

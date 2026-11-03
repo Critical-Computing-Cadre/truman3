@@ -87,6 +87,15 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     if (!on.comments && hidden > 0) {
       warning(`Comments are off in "${arm.key}", so ${hidden} written comments won't show there.`);
     }
+    const replies = study.comments.filter((item) => applies(item) && item.replyTo).length;
+    if (on.comments && !on.threads && replies > 0) {
+      warning(
+        `Replies to replies are off in "${arm.key}", so ${replies} replies show as ordinary comments, in time order.`,
+      );
+    }
+    if (on.threads && !on.comments) {
+      warning(`Replies to replies are on in "${arm.key}", but they need comments, which are off.`);
+    }
     const reactions = study.reactions.filter(applies);
     if (!on.comments && reactions.some(({ type }) => type === "reply")) {
       warning(`Comments are off in "${arm.key}", so its scripted replies won't happen.`);
@@ -157,6 +166,47 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       error(`${label} is on post "${comment.post}", which doesn't exist.`, comment.source);
     } else if (comment.timeMs < post.timeMs) {
       error(`${label} is timed before the post it's on ("${post.ref}").`, comment.source);
+    }
+  }
+
+  const commentsByRef = new Map(study.comments.map((comment) => [comment.ref, comment]));
+  for (const comment of study.comments) {
+    if (!comment.replyTo) {
+      continue;
+    }
+    const label = `Comment "${comment.ref}"`;
+    const parent = commentsByRef.get(comment.replyTo);
+    if (!parent) {
+      error(`${label} replies to "${comment.replyTo}", which doesn't exist.`, comment.source);
+      continue;
+    }
+    if (parent.post !== comment.post) {
+      error(`${label} replies to "${parent.ref}", which is on another post.`, comment.source);
+    }
+    if (comment.timeMs < parent.timeMs) {
+      error(`${label} is timed before the comment it replies to.`, comment.source);
+    }
+    if (parent.conditions.length > 0) {
+      const missing = (comment.conditions.length > 0 ? comment.conditions : [...armKeys]).filter(
+        (key) => !parent.conditions.includes(key),
+      );
+      if (missing.length > 0) {
+        warning(
+          `${label} won't show in ${missing.join(", ")}, because "${parent.ref}", which it replies to, isn't there.`,
+        );
+      }
+    }
+    const seen = new Set([comment.ref]);
+    for (
+      let above = parent;
+      above;
+      above = commentsByRef.get(above.replyTo ?? "") as typeof parent
+    ) {
+      if (seen.has(above.ref)) {
+        error(`${label} is part of a circle of replies.`, comment.source);
+        break;
+      }
+      seen.add(above.ref);
     }
   }
 

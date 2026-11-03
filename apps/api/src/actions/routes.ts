@@ -4,6 +4,7 @@ import {
   type FeatureKey,
   featureOn,
   feedPostSchema,
+  MAX_REPLY_DEPTH,
   platformStyleFor,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
@@ -63,7 +64,7 @@ const flagRoute = createRoute({
 const commentRoute = createRoute({
   method: "post",
   path: "/content/{id}/comments",
-  summary: "Comment on a post",
+  summary: "Comment on a post, or with threads, reply to a comment",
   request: {
     params: contentParams,
     ...jsonBody(actionMetaSchema.extend({ body: z.string().trim().min(1).max(5000) })),
@@ -75,7 +76,7 @@ const commentRoute = createRoute({
     },
     401: notSignedIn,
     403: errorResponse("That feature is off in this condition"),
-    404: errorResponse("Not a post this participant can see"),
+    404: errorResponse("Nothing this participant can see or reply to"),
   },
 });
 
@@ -284,6 +285,24 @@ export async function findVisibleContent(
   return appeared && inCondition ? item : null;
 }
 
+/** Whether all of a thread above this is visible, and it isn't already as deep as threads go. */
+async function canReplyUnder(
+  db: Database,
+  context: ParticipantContext,
+  target: NonNullable<Awaited<ReturnType<typeof findVisibleContent>>>,
+  now: Date,
+) {
+  let current = target;
+  for (let depth = 0; current.parentId; depth++) {
+    const parent = await findVisibleContent(db, context, current.parentId, now);
+    if (!parent || depth + 1 >= MAX_REPLY_DEPTH) {
+      return false;
+    }
+    current = parent;
+  }
+  return true;
+}
+
 /** An event for something the participant did, with the fields every such event shares. */
 function participantEvent(context: ParticipantContext, occurredAt: string, clientEventId: string) {
   return {
@@ -422,7 +441,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json(featureOff, 403);
     }
     const now = new Date();
-    const { id: postId } = c.req.valid("param");
+    const { id: targetId } = c.req.valid("param");
     const body = c.req.valid("json");
 
     const repeat = await findRepeat(db, context.worldId, body.clientEventId);
@@ -430,8 +449,14 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json({ id: repeat.contentId }, 200);
     }
 
-    const post = await findVisibleContent(db, context, postId, now);
-    if (post?.kind !== "post") {
+    const target = await findVisibleContent(db, context, targetId, now);
+    if (!target) {
+      return c.json(notAvailable, 404);
+    }
+    if (target.kind === "comment" && isOff(context, "threads")) {
+      return c.json(featureOff, 403);
+    }
+    if (!(await canReplyUnder(db, context, target, now))) {
       return c.json(notAvailable, 404);
     }
 
@@ -443,7 +468,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           .values({
             studyVersionId: context.studyVersionId,
             worldId: context.worldId,
-            parentId: postId,
+            parentId: targetId,
             authorActorId: context.actorId,
             kind: "comment",
             body: body.body,
@@ -462,7 +487,14 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           throw new RepeatedAction();
         }
 
-        await scheduleReactions(tx, context, { on: "comment", nth, contentId, postId, now });
+        await scheduleReactions(tx, context, {
+          on: "comment",
+          nth,
+          contentId,
+          // Without threads, a comment is always on a post, and a scripted reply goes on it too.
+          replyUnderId: isOff(context, "threads") ? targetId : contentId,
+          now,
+        });
         return contentId;
       });
       return c.json({ id }, 200);
@@ -545,7 +577,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           on: "post",
           nth,
           contentId,
-          postId: contentId,
+          replyUnderId: contentId,
           now,
         });
         return contentId;

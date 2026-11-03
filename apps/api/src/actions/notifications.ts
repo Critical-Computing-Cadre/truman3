@@ -21,8 +21,8 @@ export async function scheduleReactions(
     on: "post" | "comment";
     nth: number;
     contentId: string;
-    /** The post a reply should appear on. */
-    postId: string;
+    /** What a scripted reply should appear under: the post, or with threads, the comment. */
+    replyUnderId: string;
     now: Date;
   },
 ) {
@@ -61,7 +61,7 @@ export async function scheduleReactions(
         .values({
           studyVersionId: context.studyVersionId,
           worldId: context.worldId,
-          parentId: trigger.postId,
+          parentId: trigger.replyUnderId,
           authorActorId: reaction.actorId,
           kind: "comment",
           body: reaction.body ?? "",

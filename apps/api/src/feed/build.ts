@@ -177,7 +177,10 @@ export async function shapeFeedPosts({
     return {
       ...common(item),
       imageUrl: item.mediaKey ? mediaUrl(item.mediaKey, mediaPublicUrl) : null,
-      comments: post.commentIds.map((id) => common(byId.get(id) as FeedContent)),
+      comments: post.commentIds.map((id) => ({
+        ...common(byId.get(id) as FeedContent),
+        depth: post.commentDepths[id] ?? 0,
+      })),
     };
   });
 }
@@ -216,9 +219,16 @@ export async function buildFeed(
     );
 
   const state = await loadViewerState(db, context);
-  const postAuthors = new Map(rows.map((row) => [row.id, row.authorActorId]));
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
+  const postOf = (row: ContentRow) => {
+    let current = row;
+    for (let step = 0; current.parentId && step < rows.length; step++) {
+      current = rowsById.get(current.parentId) as ContentRow;
+    }
+    return current;
+  };
   const inScope = (row: ContentRow) =>
-    !authorActorId || postAuthors.get(row.parentId ?? row.id) === authorActorId;
+    !authorActorId || postOf(row).authorActorId === authorActorId;
 
   const feedSettings = settings ?? feedSettingsFor(context.settings, context.conditionKey);
   const seed =
@@ -238,7 +248,11 @@ export async function buildFeed(
       blockedActorIds: state.blockedActorIds,
     },
     feedSettings,
-    { nowMs: now.getTime(), seed },
+    {
+      nowMs: now.getTime(),
+      seed,
+      threaded: featureOn(context.settings, context.conditionKey, "threads"),
+    },
   );
 
   const reactionLikes = await db

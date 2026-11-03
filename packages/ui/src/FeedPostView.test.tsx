@@ -18,6 +18,7 @@ const POST: FeedPost = {
   comments: [
     {
       id: "c1",
+      depth: 0,
       author,
       body: "A comment",
       at: new Date().toISOString(),
@@ -117,5 +118,47 @@ describe("features", () => {
   it("drops the row of buttons when nothing's left in it", () => {
     render(withFeatures({ comments: false, likes: false, flagging: false }));
     expect(screen.queryAllByRole("button")).toEqual([]);
+  });
+});
+
+describe("replies to replies", () => {
+  afterEach(cleanup);
+
+  const withThreads = (threads: boolean, onReplyTo = vi.fn()) => {
+    const comment = POST.comments[0] as FeedPost["comments"][number];
+    render(
+      <PlatformProvider
+        platform={{
+          layout: "classic",
+          features: { ...TEMPLATES.classic.features, threads },
+        }}
+      >
+        <FeedPostView
+          post={{ ...POST, comments: [comment, { ...comment, id: "c2", body: "Below", depth: 2 }] }}
+          actions={{ onLike: vi.fn(), onFlag: vi.fn(), onReply: vi.fn(), onReplyTo }}
+        />
+      </PlatformProvider>,
+    );
+    return onReplyTo;
+  };
+
+  it("offers a reply on each comment when threads are on, and passes on which one", () => {
+    const onReplyTo = withThreads(true);
+    // One for the post, and one for each comment.
+    const buttons = screen.getAllByRole("button", { name: "Reply" });
+    expect(buttons).toHaveLength(3);
+    fireEvent.click(buttons[2] as HTMLElement);
+    expect(onReplyTo.mock.calls[0]?.[0]).toMatchObject({ id: "c2" });
+  });
+
+  it("offers no reply on comments when threads are off", () => {
+    withThreads(false);
+    expect(screen.getAllByRole("button", { name: "Reply" })).toHaveLength(1);
+  });
+
+  it("indents a comment by how far down it is", () => {
+    withThreads(true);
+    expect(screen.getByText("Below").closest("li")?.style.marginLeft).toBe("2.5rem");
+    expect(screen.getByText("A comment").closest("li")?.style.marginLeft).toBe("");
   });
 });
