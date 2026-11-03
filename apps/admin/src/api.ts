@@ -1,4 +1,4 @@
-import type { FeedResponse, StudySettings } from "@truman3/core";
+import type { FeatureSet, FeedResponse, LayoutKey, StudySettings } from "@truman3/core";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -105,6 +105,8 @@ export interface PreviewInfo {
     windowHours: number | null;
     platformStyle: string;
     commentBox: string;
+    layout: LayoutKey;
+    features: FeatureSet;
   }[];
   posts: { offsetMs: number; conditions: string[] }[];
   /** The consent page still has the text a new study starts with. */

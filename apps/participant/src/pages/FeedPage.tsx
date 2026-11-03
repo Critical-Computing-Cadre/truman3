@@ -157,7 +157,7 @@ export function FeedPage() {
         )}
       </aside>
       <div className="min-w-0 space-y-3 sm:space-y-4">
-        {flow.data && me.data && (
+        {flow.data?.features.posting && me.data && (
           <>
             <CreatePostBar
               seed={me.data.username}

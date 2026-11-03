@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { FEATURE_KEYS } from "../features/catalog.ts";
+import { LAYOUT_KEYS, TEMPLATE_KEYS } from "../features/templates.ts";
 
 const keySchema = z
   .string()
@@ -40,6 +42,9 @@ const platformStyleSchema = z.enum(["photo", "text", "mixed"]);
  */
 const commentBoxSchema = z.enum(["open", "onReply"]);
 
+/** Features to turn on or off. Whatever's left out comes from the template. */
+const featureChangesSchema = z.partialRecord(z.enum(FEATURE_KEYS), z.boolean());
+
 const armSchema = z.strictObject({
   key: keySchema,
   /** Labels for multi-factor designs, so exports can split by factor. */
@@ -51,6 +56,7 @@ const armSchema = z.strictObject({
     .strictObject({
       style: platformStyleSchema.optional(),
       commentBox: commentBoxSchema.optional(),
+      features: featureChangesSchema.optional(),
     })
     .optional(),
 });
@@ -106,7 +112,15 @@ export const studySettingsSchema = z.strictObject({
     arms: z.array(armSchema).min(1),
   }),
   platform: z
-    .strictObject({ style: platformStyleSchema, commentBox: commentBoxSchema.optional() })
+    .strictObject({
+      style: platformStyleSchema,
+      commentBox: commentBoxSchema.optional(),
+      /** The starting point for this platform. Leave out for Classic. */
+      template: z.enum(TEMPLATE_KEYS).optional(),
+      /** Set when a version freezes, so later changes to a template can't affect it. */
+      layout: z.enum(LAYOUT_KEYS).optional(),
+      features: featureChangesSchema.optional(),
+    })
     .prefault({ style: "mixed" }),
   feed: feedSettingsSchema.prefault({}),
   /**

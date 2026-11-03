@@ -393,6 +393,44 @@ test("a study can show the comment box only after pressing Reply", async ({ page
   await expect(first.getByLabel("Write a comment")).toHaveCount(0);
 });
 
+test("a condition without some features doesn't show them to participants", async ({
+  page,
+}, testInfo) => {
+  // Conditions choose this in their settings. Server refusals are tested with the API.
+  await page.route("**/api/me/flow", async (route) => {
+    const response = await route.fetch();
+    const flow = await response.json();
+    await route.fulfill({
+      response,
+      json: {
+        ...flow,
+        features: {
+          ...flow.features,
+          notifications: false,
+          posting: false,
+          likes: false,
+          following: false,
+        },
+      },
+    });
+  });
+  await goToFeed(
+    page,
+    unique("FEATURES", testInfo),
+    `features_${testInfo.project.name}_${Date.now() % 100000}`,
+  );
+
+  const first = page.locator("article").first();
+  await expect(first.getByRole("button", { name: "Reply" })).toBeVisible();
+  await expect(first.getByRole("button", { name: /Like/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Notifications/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /post/i })).toHaveCount(0);
+
+  await first.getByRole("link").first().click();
+  await expect(page.getByRole("button", { name: "Block" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Follow" })).toHaveCount(0);
+});
+
 test("someone can edit their profile after the account step", async ({ page }, testInfo) => {
   const username = `edit_${testInfo.project.name}_${Date.now() % 100000}`;
   const externalId = unique("EDIT", testInfo);

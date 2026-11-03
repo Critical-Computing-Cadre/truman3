@@ -18,7 +18,13 @@ export {
   type CommentBox,
   checkNewPost,
   commentBoxFor,
+  featureOn,
+  featuresFor,
+  freezePlatform,
+  layoutFor,
   type PlatformStyle,
+  type PlatformView,
+  platformFor,
   platformStyleFor,
 } from "./platform.ts";
 export { formatStudyTime, parseStudyTime } from "./time.ts";

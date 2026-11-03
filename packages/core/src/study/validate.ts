@@ -1,6 +1,7 @@
 import { hasPlaceholderConsent } from "./consent.ts";
 import type { StudyDefinition } from "./definition.ts";
 import { LINK_PLACEHOLDERS } from "./links.ts";
+import { featuresFor } from "./platform.ts";
 import { HOUR_MS } from "./time.ts";
 
 export interface StudyIssue {
@@ -73,6 +74,34 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       );
     } else {
       conditionLooks.set(looks, arm.key);
+    }
+  }
+
+  // Content written for a feature that's off in a condition never shows there, which is easy to miss
+  // when features differ between conditions.
+  for (const arm of settings.conditions.arms) {
+    const on = featuresFor(settings, arm.key);
+    const applies = (item: { conditions: string[] }) =>
+      item.conditions.length === 0 || item.conditions.includes(arm.key);
+    const hidden = study.comments.filter(applies).length;
+    if (!on.comments && hidden > 0) {
+      warning(`Comments are off in "${arm.key}", so ${hidden} written comments won't show there.`);
+    }
+    const reactions = study.reactions.filter(applies);
+    if (!on.comments && reactions.some(({ type }) => type === "reply")) {
+      warning(`Comments are off in "${arm.key}", so its scripted replies won't happen.`);
+    }
+    if (!on.likes && reactions.some(({ type }) => type === "like")) {
+      warning(`Likes are off in "${arm.key}", so its scripted likes won't happen.`);
+    }
+    if (!on.notifications && reactions.some(({ type }) => type === "read")) {
+      warning(`Notifications are off in "${arm.key}", so its "read" reactions won't show.`);
+    }
+    if (!on.posting && reactions.some((reaction) => reaction.on === "post")) {
+      warning(`Writing posts is off in "${arm.key}", so reactions to their posts can't happen.`);
+    }
+    if (!on.comments && reactions.some((reaction) => reaction.on === "comment")) {
+      warning(`Comments are off in "${arm.key}", so reactions to their comments can't happen.`);
     }
   }
 

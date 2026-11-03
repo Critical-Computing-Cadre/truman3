@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import { fillLinkTemplate, type StudySettings } from "@truman3/core";
+import {
+  FEATURE_KEYS,
+  FEATURES,
+  type FeatureKey,
+  fillLinkTemplate,
+  type StudySettings,
+} from "@truman3/core";
 import { type ReactNode, useState } from "react";
 import Markdown from "react-markdown";
 import { type DraftSections, type DraftSettings, get, send } from "../api.ts";
@@ -306,6 +312,29 @@ function StudyForm({
           },
         ]}
       />
+      <fieldset className="space-y-1">
+        <legend className="text-sm font-medium">What's on this platform?</legend>
+        {FEATURE_KEYS.map((key) => (
+          <label key={key} className="flex items-baseline gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={value.platform.features?.[key] ?? true}
+              onChange={(event) =>
+                set({
+                  ...value,
+                  platform: {
+                    ...value.platform,
+                    features: { ...value.platform.features, [key]: event.target.checked },
+                  },
+                })
+              }
+            />
+            <span>
+              {FEATURES[key].name} <Hint>{FEATURES[key].description}</Hint>
+            </span>
+          </label>
+        ))}
+      </fieldset>
     </>
   );
 }
@@ -377,6 +406,7 @@ function SelectField({
 function ArmDifferences({ arm, set }: { arm: EditingArm; set: (arm: EditingArm) => void }) {
   const feed: Record<string, unknown> = arm.feed ?? {};
   const platform: Record<string, unknown> = arm.platform ?? {};
+  const features = arm.platform?.features ?? {};
 
   // Blank means the condition has no opinion, so the setting is left out rather than saved empty.
   const change = (group: "feed" | "platform", field: string, value: unknown) => {
@@ -390,7 +420,14 @@ function ArmDifferences({ arm, set }: { arm: EditingArm; set: (arm: EditingArm) 
     { value: "true", label: "Yes" },
     { value: "false", label: "No" },
   ];
-  const changed = Object.keys(feed).length + Object.keys(platform).length;
+  const setFeature = (key: FeatureKey, on: boolean | undefined) => {
+    const next = withoutUndefined({ ...features, [key]: on });
+    change("platform", "features", Object.keys(next).length > 0 ? next : undefined);
+  };
+  const changed =
+    Object.keys(feed).length +
+    Object.keys(platform).filter((field) => field !== "features").length +
+    Object.keys(features).length;
 
   return (
     <details className="text-sm">
@@ -445,6 +482,18 @@ function ArmDifferences({ arm, set }: { arm: EditingArm; set: (arm: EditingArm) 
           options={YES_NO}
           onChange={(value) => change("feed", "removeBlocked", yesNo(value))}
         />
+        {FEATURE_KEYS.map((key) => (
+          <SelectField
+            key={key}
+            label={FEATURES[key].name}
+            value={features[key] === undefined ? "" : String(features[key])}
+            options={[
+              { value: "true", label: "On" },
+              { value: "false", label: "Off" },
+            ]}
+            onChange={(value) => setFeature(key, yesNo(value))}
+          />
+        ))}
       </div>
     </details>
   );

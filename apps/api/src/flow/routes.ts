@@ -1,11 +1,11 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import {
   canLeaveFeed,
-  commentBoxFor,
   currentFlowStep,
   eventPayloadSchemas,
   fillLinkTemplate,
-  platformStyleFor,
+  LAYOUT_KEYS,
+  platformFor,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { deleteParticipant } from "@truman3/study-import";
@@ -36,6 +36,10 @@ const flowStateSchema = z.object({
   platformStyle: z.enum(["photo", "text", "mixed"]),
   /** Whether the comment box is always there, or appears on Reply. */
   commentBox: z.enum(["open", "onReply"]),
+  /** How posts are arranged. */
+  layout: z.enum(LAYOUT_KEYS),
+  /** Which building blocks this platform has in their condition. */
+  features: z.record(z.string(), z.boolean()),
   site: z.object({
     name: z.string(),
     logoUrl: z.string().nullable(),
@@ -288,8 +292,7 @@ export function createFlowRoutes({ db, storage, mediaPublicUrl }: ParticipantRou
         position,
         pageText: step && "page" in step ? (pages[step.page] ?? "") : null,
         canFinish: step ? canLeaveFeed(step, elapsedMs) : false,
-        platformStyle: platformStyleFor(context.settings, context.conditionKey),
-        commentBox: commentBoxFor(context.settings, context.conditionKey),
+        ...platformFor(context.settings, context.conditionKey),
         site: {
           name: site.name,
           logoUrl: site.logo ? mediaUrl(site.logo, mediaPublicUrl) : null,

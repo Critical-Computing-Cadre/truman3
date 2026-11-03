@@ -1,0 +1,153 @@
+import type { FeedComment } from "@truman3/core";
+import type { ReactNode } from "react";
+import { Avatar } from "../Avatar.tsx";
+import { ReplyButton } from "../features/comments.tsx";
+import {
+  CommentFlagButton,
+  FlaggedComment,
+  FlaggedPostCover,
+  PostFlagButton,
+} from "../features/flagging.tsx";
+import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
+import { useFeature } from "../platform.tsx";
+import type { FeedPostViewProps } from "../post-props.ts";
+import { shortTime } from "../time.ts";
+
+function Comment({
+  comment,
+  actions,
+  renderAuthor,
+  renderNote,
+  renderBody,
+}: { comment: FeedComment } & Pick<
+  FeedPostViewProps,
+  "actions" | "renderAuthor" | "renderNote" | "renderBody"
+>) {
+  const author = (className: string, children: ReactNode) =>
+    renderAuthor ? (
+      renderAuthor(comment.author, className, children)
+    ) : (
+      <span className={className}>{children}</span>
+    );
+
+  if (comment.flagged) {
+    return <FlaggedComment comment={comment} actions={actions} />;
+  }
+
+  return (
+    <li className="flex gap-2">
+      {author(
+        "shrink-0",
+        <Avatar seed={comment.author.username} url={comment.author.pictureUrl} size="h-8 w-8" />,
+      )}
+      <div className="min-w-0 flex-1">
+        {renderBody ? (
+          <div className="text-sm">
+            {author("font-semibold", comment.author.name)}
+            {renderBody(comment.id, comment.body)}
+          </div>
+        ) : (
+          <p className="text-sm break-words whitespace-pre-wrap">
+            {author("mr-1 font-semibold", comment.author.name)}
+            {comment.body}
+          </p>
+        )}
+        <p className="mt-0.5 flex gap-3 text-xs text-stone-500">
+          <span>{shortTime(comment.at)}</span>
+          <CommentLikeButton comment={comment} actions={actions} />
+          <CommentFlagButton comment={comment} actions={actions} />
+        </p>
+        {renderNote?.(comment.id)}
+      </div>
+    </li>
+  );
+}
+
+/**
+ * Truman's original post: author, then image, text, a row of buttons, and comments. It only
+ * arranges things. What each piece does and whether it appears belongs to its feature.
+ */
+export function ClassicPost({
+  post,
+  actions,
+  rootRef,
+  renderAuthor,
+  belowComments,
+  renderNote,
+  renderBody,
+  wrapImage,
+}: FeedPostViewProps) {
+  const commentsOn = useFeature("comments");
+  const likesOn = useFeature("likes");
+  const flaggingOn = useFeature("flagging");
+
+  const image = post.imageUrl ? (
+    <img src={post.imageUrl} alt="" loading="lazy" className="w-full bg-stone-200" />
+  ) : null;
+
+  const headerAuthor = (
+    <>
+      <Avatar seed={post.author.username} url={post.author.pictureUrl} />
+      <span className="truncate font-semibold">{post.author.name}</span>
+    </>
+  );
+  const headerClass = "flex min-w-0 flex-1 items-center gap-3";
+
+  return (
+    <article
+      ref={rootRef}
+      aria-label={`Post by ${post.author.name}`}
+      className="overflow-hidden bg-white shadow-sm sm:rounded-lg"
+    >
+      <header className="flex items-center gap-3 p-3">
+        {renderAuthor ? (
+          renderAuthor(post.author, headerClass, headerAuthor)
+        ) : (
+          <span className={headerClass}>{headerAuthor}</span>
+        )}
+        <time className="text-sm text-stone-500" dateTime={post.at}>
+          {shortTime(post.at)}
+        </time>
+      </header>
+
+      <div className="relative">
+        <FlaggedPostCover post={post} {...(actions ? { actions } : {})} />
+        {wrapImage ? wrapImage(image) : image}
+        {renderBody ? (
+          <div className="p-3">{renderBody(post.id, post.body)}</div>
+        ) : (
+          post.body && <p className="p-3 break-words whitespace-pre-wrap">{post.body}</p>
+        )}
+        {renderNote && <div className="px-3 pb-2 empty:hidden">{renderNote(post.id)}</div>}
+      </div>
+
+      {(commentsOn || likesOn || flaggingOn) && (
+        <div className="grid auto-cols-fr grid-flow-col border-t border-stone-200 text-sm text-stone-700">
+          <ReplyButton actions={actions} />
+          <PostFlagButton post={post} {...(actions ? { actions } : {})} />
+          <PostLikeButton post={post} {...(actions ? { actions } : {})} />
+        </div>
+      )}
+
+      {commentsOn && (post.comments.length > 0 || belowComments) && (
+        <div className="space-y-3 border-t border-stone-200 p-3">
+          {post.comments.length > 0 && (
+            <ul className="space-y-3">
+              {post.comments.map((comment) => (
+                <Comment
+                  key={comment.id}
+                  comment={comment}
+                  {...(actions ? { actions } : {})}
+                  {...(renderAuthor ? { renderAuthor } : {})}
+                  {...(renderNote ? { renderNote } : {})}
+                  {...(renderBody ? { renderBody } : {})}
+                />
+              ))}
+            </ul>
+          )}
+          {belowComments}
+        </div>
+      )}
+    </article>
+  );
+}

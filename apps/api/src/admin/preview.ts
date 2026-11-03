@@ -7,6 +7,7 @@ import {
   type FeedContent,
   loadAuthors,
   shapeFeedPosts,
+  shownOnThisPlatform,
   toCandidate,
 } from "../feed/build.ts";
 
@@ -48,7 +49,9 @@ export async function previewContent(
   const worldStartMs = now.getTime() - elapsedMs;
 
   const feed = assembleFeed(
-    rows.map((row) => toCandidate(row, worldStartMs)),
+    shownOnThisPlatform(rows, version.settings, conditionKey).map((row) =>
+      toCandidate(row, worldStartMs),
+    ),
     {
       actorId: "",
       conditionKey,

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
   createRandom,
+  freezePlatform,
   hasErrors,
   pickFrom,
   type StudyDefinition,
@@ -174,14 +175,16 @@ export interface FreezeOptions {
  */
 export async function freezeStudy(
   db: Database,
-  study: StudyDefinition,
+  unfrozen: StudyDefinition,
   mediaKeys: Map<string, string>,
   issues: StudyIssue[],
   mediaUploaded: number,
   { teamId, provenanceFor = () => ({ origin: "file" }) }: FreezeOptions = {},
 ): Promise<ImportResult> {
+  // Before hashing, so the hash covers what the template gave this version.
+  const settings = freezePlatform(unfrozen.settings);
+  const study: StudyDefinition = { ...unfrozen, settings };
   const contentHash = hashStudy(study, mediaKeys);
-  const { settings } = study;
 
   return db.transaction(async (tx) => {
     const [existingStudy] = await tx

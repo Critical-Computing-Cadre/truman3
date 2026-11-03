@@ -1,4 +1,4 @@
-import type { FeedAuthor, FeedPost } from "@truman3/core";
+import { type FeedAuthor, type FeedPost, featureOn, type StudySettings } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import {
   type AssembledFeed,
@@ -58,6 +58,17 @@ export function contentTimeMs(item: FeedContent, worldStartMs: number): number {
     return item.visibleAt.getTime();
   }
   return worldStartMs + (item.offsetMs ?? 0);
+}
+
+/** Comments stay off the screen, and out of what's recorded as shown, when the feature's off. */
+export function shownOnThisPlatform<T extends Pick<ContentRow, "kind">>(
+  rows: readonly T[],
+  settings: StudySettings,
+  conditionKey: string,
+): readonly T[] {
+  return featureOn(settings, conditionKey, "comments")
+    ? rows
+    : rows.filter(({ kind }) => kind !== "comment");
 }
 
 export function toCandidate(item: FeedContent, worldStartMs: number): FeedCandidate {
@@ -216,7 +227,9 @@ export async function buildFeed(
       : context.seed;
 
   const feed = assembleFeed(
-    rows.filter(inScope).map((row) => toCandidate(row, worldStartMs)),
+    shownOnThisPlatform(rows.filter(inScope), context.settings, context.conditionKey).map((row) =>
+      toCandidate(row, worldStartMs),
+    ),
     {
       actorId: context.actorId,
       conditionKey: context.conditionKey,

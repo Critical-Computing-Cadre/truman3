@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { FeedPost } from "@truman3/core";
+import { type FeatureKey, type FeedPost, TEMPLATES } from "@truman3/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FeedPostView } from "./FeedPostView.tsx";
+import { PlatformProvider } from "./platform.tsx";
 
 const author = { username: "ann", name: "Ann", pictureUrl: null, isViewer: false };
 
@@ -72,5 +73,49 @@ describe("FeedPostView", () => {
 
     expect(screen.getByText("note for p1")).toBeTruthy();
     expect(screen.getByText("note for c1")).toBeTruthy();
+  });
+});
+
+describe("features", () => {
+  afterEach(cleanup);
+
+  const withFeatures = (off: Partial<Record<FeatureKey, boolean>>) => (
+    <PlatformProvider
+      platform={{
+        layout: "classic",
+        features: { ...TEMPLATES.classic.features, ...off },
+      }}
+    >
+      <FeedPostView post={POST} belowComments={<p>A comment box</p>} />
+    </PlatformProvider>
+  );
+
+  it("shows everything on the Classic template, without being told", () => {
+    render(<FeedPostView post={POST} />);
+    for (const name of ["Reply", "Flag", /Like/]) {
+      expect(screen.getAllByRole("button", { name }).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("removes the likes feature from posts and comments", () => {
+    render(withFeatures({ likes: false }));
+    expect(screen.queryByRole("button", { name: /Like/ })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Flag" }).length).toBeGreaterThan(0);
+  });
+
+  it("removes the flagging feature", () => {
+    render(withFeatures({ flagging: false }));
+    expect(screen.queryByRole("button", { name: "Flag" })).toBeNull();
+  });
+
+  it("removes the comments feature, with the box and Reply button", () => {
+    render(withFeatures({ comments: false }));
+    expect(screen.queryByRole("button", { name: "Reply" })).toBeNull();
+    expect(screen.queryByText("A comment box")).toBeNull();
+  });
+
+  it("drops the row of buttons when nothing's left in it", () => {
+    render(withFeatures({ comments: false, likes: false, flagging: false }));
+    expect(screen.queryAllByRole("button")).toEqual([]);
   });
 });

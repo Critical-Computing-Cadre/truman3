@@ -1,3 +1,4 @@
+import { featuresFor } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, gt, inArray, lte } from "drizzle-orm";
 import { mediaUrl } from "../feed/build.ts";
@@ -38,6 +39,16 @@ export async function scheduleReactions(
 
   for (const reaction of reactions) {
     if (reaction.conditions.length > 0 && !reaction.conditions.includes(context.conditionKey)) {
+      continue;
+    }
+
+    // A reaction can't use a feature that's off in this condition.
+    const features = featuresFor(context.settings, context.conditionKey);
+    if (
+      (reaction.type === "reply" && !features.comments) ||
+      (reaction.type === "like" && !features.likes) ||
+      (reaction.type === "read" && !features.notifications)
+    ) {
       continue;
     }
 
