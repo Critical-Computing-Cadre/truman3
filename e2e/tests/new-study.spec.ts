@@ -189,6 +189,6 @@ test("a study starts from a pack, and can be saved as a new pack", async ({ page
   await expect(dialog.getByText(/Your team can start new studies from it/)).toBeVisible();
   await dialog.getByRole("button", { name: "Done" }).click();
 
-  await page.goto(`${ADMIN}/studies/new`);
+  await page.goto(`${ADMIN}/admin/studies/new`);
   await expect(page.getByRole("radio", { name: new RegExp(name) })).toBeVisible();
 });

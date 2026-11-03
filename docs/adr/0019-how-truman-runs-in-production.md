@@ -1,6 +1,6 @@
 # 19. How Truman runs in production
 
-**Status:** Accepted
+**Status:** Accepted. [ADR 21](0021-the-api-has-its-own-login-and-admin-lives-under-a-path.md) replaces what this says about the admin app's address.
 
 ## Decision
 

@@ -5,7 +5,7 @@ A social media simulation platform for research. Start with `docs/architecture.m
 ## Commands
 
 ```
-pnpm dev         # API on :3000, participant app on :5180, admin app on :5181
+pnpm dev         # API on :3000, participant app on :5180, admin app on :5181/admin
                  # the example study is at http://localhost:5180/join/eatsnap
 pnpm check       # format and lint (pnpm format to fix)
 pnpm typecheck

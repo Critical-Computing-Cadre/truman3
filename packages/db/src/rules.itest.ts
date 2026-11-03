@@ -148,7 +148,7 @@ function like(
 }
 
 beforeAll(async () => {
-  database = await createTestDatabase();
+  database = await createTestDatabase({ asOwner: true });
   db = database.db;
 });
 

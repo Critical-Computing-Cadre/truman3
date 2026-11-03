@@ -39,8 +39,11 @@ test.describe("what production serves", () => {
   });
 
   test("a page opened directly loads, and /api is on the same address", async ({ request }) => {
-    for (const port of [APP_PORT, ADMIN_PORT]) {
-      const page = await request.get(`http://localhost:${port}/some/deep/page`);
+    for (const [port, deepPage] of [
+      [APP_PORT, "/some/deep/page"],
+      [ADMIN_PORT, "/admin/some/deep/page"],
+    ] as const) {
+      const page = await request.get(`http://localhost:${port}${deepPage}`);
       expect(page.status()).toBe(200);
       expect(await page.text()).toContain('<div id="root">');
 
