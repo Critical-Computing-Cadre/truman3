@@ -26,15 +26,16 @@ export function detectImageType(bytes: Uint8Array): { extension: string; type: s
   return null;
 }
 
-/** Key prefix for everything participants upload, so a withdrawal can find and delete it. */
-export function uploadPrefix(worldId: string): string {
-  return `uploads/${worldId}/`;
+/** Where one participant's uploads go. Shared by nobody else, so a withdrawal deletes only theirs. */
+export function uploadPrefix(worldId: string, participantId: string): string {
+  return `uploads/${worldId}/${participantId}/`;
 }
 
 /** Stores a participant's image and returns its key. Returns null if it isn't a usable image. */
 export async function storeUploadedImage(
   storage: Storage,
   worldId: string,
+  participantId: string,
   file: File,
 ): Promise<string | null> {
   if (file.size === 0 || file.size > MAX_IMAGE_BYTES) {
@@ -45,7 +46,7 @@ export async function storeUploadedImage(
   if (!detected) {
     return null;
   }
-  const key = `${uploadPrefix(worldId)}${randomUUID()}.${detected.extension}`;
+  const key = `${uploadPrefix(worldId, participantId)}${randomUUID()}.${detected.extension}`;
   await storage.put(key, bytes, detected.type);
   return key;
 }

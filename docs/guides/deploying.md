@@ -92,7 +92,8 @@ The image sets `NODE_ENV=production`, which turns on secure cookies and the shor
 | CloudFront               | Everywhere                  | The one way in. Sends each path below where it goes                                      |
 | `/*`, `/admin/*`         | A private S3 bucket         | The apps. `app-router.js` sends other paths to the right page                            |
 | `/api/*`                 | Load balancer, then API     | The balancer has no public address, and CloudFront reaches it privately                  |
-| `/media/*`, `/uploads/*` | A private S3 bucket         | Readable only through CloudFront, by anyone with the link for now                        |
+| `/media/*`               | A private S3 bucket         | Study images, readable through CloudFront by anyone with the link. See ADR 25            |
+| `/api/media/uploads/*`   | The API, then S3            | What participants upload. The API checks who's asking, and CloudFront keeps no copy      |
 | The API                  | Fargate, in a public subnet | Its firewall lets in only the balancer. It can reach out, with no NAT gateway to pay for |
 | Postgres                 | RDS, in a private subnet    | Lets in only the API's firewall                                                          |
 | Passwords and the key    | Secrets Manager             | Containers get them by reference                                                         |
@@ -165,7 +166,6 @@ Look up the Postgres code, and reproduce it locally, where errors log in full. W
 
 These are known gaps. Don't run real participants until they're closed.
 
-- **Private media.** Anyone with the link can read an uploaded photo.
 - **Several domains.** The apps work on any domain, and a stage can list them with a certificate, but `PARTICIPANT_APP_URL` is one address, so every study's link uses it. A study needs its own address setting.
 - **`TRUST_PROXY` reads the first address in `X-Forwarded-For`,** which a visitor can fake. Through CloudFront and a load balancer, it should count from the end. This affects rate limits, and the stored address for studies that opt in.
 - **A tested restore, and CI that deploys.** Automatic database backups are on, but nobody has restored one.

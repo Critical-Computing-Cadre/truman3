@@ -49,9 +49,15 @@ interface ActorProfile {
   picture?: string;
 }
 
-/** A stored media key becomes a URL. Hosted media is already a full URL. */
+/**
+ * A stored media key becomes a URL. Hosted media is already a full URL, and what participants upload
+ * goes through the API, which checks who's asking. See ADR 25.
+ */
 export function mediaUrl(key: string, publicUrl: string): string {
-  return /^https?:\/\//.test(key) ? key : `${publicUrl}/${key}`;
+  if (/^https?:\/\//.test(key)) {
+    return key;
+  }
+  return key.startsWith("uploads/") ? `/api/media/${key}` : `${publicUrl}/${key}`;
 }
 
 /** Scripted content is timed from the start of the world. Everything else has an actual time. */

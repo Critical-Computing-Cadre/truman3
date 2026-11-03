@@ -611,7 +611,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
 
     const attachments: Attachment[] = [];
     for (const image of images) {
-      const key = await storeUploadedImage(storage, context.worldId, image);
+      const key = await storeUploadedImage(storage, context.worldId, context.participantId, image);
       if (!key) {
         return c.json(
           {
@@ -841,7 +841,12 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
 
     let picture: string | undefined;
     if (form.picture) {
-      const key = await storeUploadedImage(storage, context.worldId, form.picture);
+      const key = await storeUploadedImage(
+        storage,
+        context.worldId,
+        context.participantId,
+        form.picture,
+      );
       if (!key) {
         return c.json({ error: "That photo can't be used." }, 400);
       }

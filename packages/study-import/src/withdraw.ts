@@ -9,7 +9,7 @@ export type WithdrawResult =
 /**
  * Deletes everything about a participant, including images they uploaded, and stops that ID from
  * entering this study again. The database goes first: if deleting files then fails, this reports
- * the error, and the files need removing by hand, under uploads/<world id>/.
+ * the error, and the files need removing by hand, under uploads/<world id>/<participant id>/.
  */
 export async function deleteParticipant(
   db: Database,
@@ -29,7 +29,7 @@ export async function deleteParticipant(
 
   let filesDeleted = 0;
   for (const { worldId } of worlds) {
-    filesDeleted += await storage.deletePrefix(`uploads/${worldId}/`);
+    filesDeleted += await storage.deletePrefix(`uploads/${worldId}/${participantId}/`);
   }
 
   return { eventsDeleted: Number(row?.deleted ?? 0), filesDeleted };

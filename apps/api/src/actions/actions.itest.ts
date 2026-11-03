@@ -349,7 +349,7 @@ describe("posting", () => {
     const url = post.attachments[0]?.url ?? "";
     expect(url).toContain(`/uploads/${person.worldId}/`);
 
-    const key = url.replace("http://media.test/", "");
+    const key = url.replace("/api/media/", "");
     const fetched = await fetch(`${process.env.MEDIA_PUBLIC_URL}/${key}`);
     expect(new Uint8Array(await fetched.arrayBuffer())).toEqual(JPEG);
   });

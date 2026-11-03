@@ -11,6 +11,7 @@ import { createAdminRoutes } from "./admin/routes.ts";
 import { describeError } from "./errors.ts";
 import { createFeedRoutes } from "./feed/routes.ts";
 import { createFlowRoutes } from "./flow/routes.ts";
+import { createMediaRoutes } from "./media.ts";
 import {
   createParticipantRoutes,
   type ParticipantRouteDependencies,
@@ -85,6 +86,7 @@ export function createApp({
 
   app.route("/", createParticipantRoutes(participantDependencies));
   app.route("/", createFeedRoutes(participantDependencies));
+  app.route("/", createMediaRoutes(participantDependencies));
   app.route("/", createActionRoutes(participantDependencies));
   app.route("/", createFlowRoutes(participantDependencies));
   app.route("/", createAdminRoutes(participantDependencies));

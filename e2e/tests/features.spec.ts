@@ -276,6 +276,17 @@ test("a participant adds several photos, and sees them on their post", async ({
 
   const mine = participant.locator("article").filter({ hasText: "My photos" });
   await expect(mine.getByRole("region", { name: "2 photos" })).toBeVisible();
+
+  // The photos load for them, and not for anyone else with the address.
+  const photo = mine.getByRole("region", { name: "2 photos" }).locator("img").first();
+  await expect
+    .poll(() => photo.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBeGreaterThan(0);
+  const address = await photo.evaluate((image: HTMLImageElement) => image.src);
+  expect(address).toContain("/api/media/uploads/");
+  const stranger = await browser.newContext();
+  expect((await stranger.request.get(address)).status()).toBe(404);
+  await stranger.close();
   await context.close();
 });
 
