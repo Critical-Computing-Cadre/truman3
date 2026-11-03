@@ -8,7 +8,7 @@ import {
   platformStyleFor,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
-import { and, count, eq, isNull, or } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, or } from "drizzle-orm";
 import { buildFeed, contentTimeMs, mediaUrl } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { type ParticipantContext, participantFromRequest } from "../participants/session.ts";
@@ -40,6 +40,22 @@ const likeRoute = createRoute({
   path: "/content/{id}/like",
   summary: "Like or unlike a post or comment",
   request: { params: contentParams, ...jsonBody(toggleBodySchema) },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Not something this participant can see"),
+  },
+});
+
+const voteRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/vote",
+  summary: "Vote a post or comment up or down, or take a vote back",
+  request: {
+    params: contentParams,
+    ...jsonBody(actionMetaSchema.extend({ value: z.enum(["up", "down"]).nullable() })),
+  },
   responses: {
     200: okResponse("Recorded"),
     401: notSignedIn,
@@ -413,6 +429,52 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json(notAvailable, 404);
     }
     await applyLike(context, id, c.req.valid("json"));
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(voteRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "votes")) {
+      return c.json(featureOff, 403);
+    }
+    const { id: contentId } = c.req.valid("param");
+    if (!(await findVisibleContent(db, context, contentId, new Date()))) {
+      return c.json(notAvailable, 404);
+    }
+    const body = c.req.valid("json");
+    await db.transaction(async (tx) => {
+      const recorded = await recordEvent(tx, {
+        ...participantEvent(context, body.occurredAt, body.clientEventId),
+        type: "content.voted",
+        payload: { value: body.value },
+        targetContentId: contentId,
+      });
+      if (!recorded) {
+        return;
+      }
+      // Someone has one vote at a time, so a new one replaces the old.
+      await tx
+        .delete(schema.contentInteractions)
+        .where(
+          and(
+            eq(schema.contentInteractions.worldId, context.worldId),
+            eq(schema.contentInteractions.actorId, context.actorId),
+            eq(schema.contentInteractions.contentId, contentId),
+            inArray(schema.contentInteractions.kind, ["up", "down"]),
+          ),
+        );
+      if (body.value) {
+        await tx.insert(schema.contentInteractions).values({
+          worldId: context.worldId,
+          actorId: context.actorId,
+          contentId,
+          kind: body.value,
+        });
+      }
+    });
     return c.json({ ok: true as const }, 200);
   });
 

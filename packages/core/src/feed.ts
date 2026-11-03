@@ -20,6 +20,10 @@ export const feedCommentSchema = z.object({
   at: z.iso.datetime(),
   likes: z.number(),
   liked: z.boolean(),
+  ups: z.number(),
+  downs: z.number(),
+  /** How this viewer voted. */
+  vote: z.enum(["up", "down"]).nullable(),
   flagged: z.boolean(),
 });
 
@@ -31,6 +35,10 @@ export const feedPostSchema = z.object({
   at: z.iso.datetime(),
   likes: z.number(),
   liked: z.boolean(),
+  ups: z.number(),
+  downs: z.number(),
+  /** How this viewer voted. */
+  vote: z.enum(["up", "down"]).nullable(),
   flagged: z.boolean(),
   comments: z.array(feedCommentSchema),
 });

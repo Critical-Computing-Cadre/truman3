@@ -25,6 +25,8 @@ export type FeedContent = Pick<
   | "visibleAt"
   | "position"
   | "baseLikes"
+  | "baseUps"
+  | "baseDowns"
   | "conditions"
 >;
 
@@ -115,6 +117,11 @@ async function loadViewerState(db: Database, context: ParticipantContext) {
 
   return {
     likedContentIds: idsOfKind("like"),
+    viewerVotes: new Map(
+      interactions.flatMap(({ kind, contentId }) =>
+        kind === "up" || kind === "down" ? [[contentId, kind] as const] : [],
+      ),
+    ),
     flaggedContentIds: idsOfKind("flag"),
     viewedContentIds: idsOfKind("view"),
     blockedActorIds: new Set(blocks.map((row) => row.targetActorId)),
@@ -131,7 +138,8 @@ export async function shapeFeedPosts({
   viewerActorId,
   likedContentIds,
   flaggedContentIds,
-  likesFromReactions,
+  scriptedCounts,
+  viewerVotes,
 }: {
   loadAuthors: (ids: string[]) => Promise<ReadonlyMap<string, FeedActor>>;
   mediaPublicUrl: string;
@@ -141,7 +149,9 @@ export async function shapeFeedPosts({
   viewerActorId: string;
   likedContentIds: ReadonlySet<string>;
   flaggedContentIds: ReadonlySet<string>;
-  likesFromReactions: ReadonlyMap<string, number>;
+  /** What scripted actors have added so far, by type and content, such as `like:<id>`. */
+  scriptedCounts: ReadonlyMap<string, number>;
+  viewerVotes: ReadonlyMap<string, "up" | "down">;
 }): Promise<FeedPost[]> {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const shownIds = feed.posts.flatMap((post) => [post.id, ...post.commentIds]);
@@ -161,13 +171,18 @@ export async function shapeFeedPosts({
 
   const common = (item: FeedContent) => {
     const liked = likedContentIds.has(item.id);
+    const vote = viewerVotes.get(item.id) ?? null;
+    const scripted = (type: string) => scriptedCounts.get(`${type}:${item.id}`) ?? 0;
     return {
       id: item.id,
       author: toAuthor(item.authorActorId),
       body: item.body,
       at: new Date(contentTimeMs(item, worldStartMs)).toISOString(),
-      likes: item.baseLikes + (likesFromReactions.get(item.id) ?? 0) + (liked ? 1 : 0),
+      likes: item.baseLikes + scripted("like") + (liked ? 1 : 0),
       liked,
+      ups: item.baseUps + scripted("up") + (vote === "up" ? 1 : 0),
+      downs: item.baseDowns + scripted("down") + (vote === "down" ? 1 : 0),
+      vote,
       flagged: flaggedContentIds.has(item.id),
     };
   };
@@ -255,19 +270,20 @@ export async function buildFeed(
     },
   );
 
-  const reactionLikes = await db
-    .select({ contentId: schema.notifications.targetContentId })
+  const dueReactions = await db
+    .select({ type: schema.notifications.type, contentId: schema.notifications.targetContentId })
     .from(schema.notifications)
     .where(
       and(
         eq(schema.notifications.worldId, context.worldId),
-        eq(schema.notifications.type, "like"),
+        inArray(schema.notifications.type, ["like", "up", "down"]),
         lte(schema.notifications.dueAt, now),
       ),
     );
-  const likesFromReactions = new Map<string, number>();
-  for (const { contentId } of reactionLikes) {
-    likesFromReactions.set(contentId, (likesFromReactions.get(contentId) ?? 0) + 1);
+  const scriptedCounts = new Map<string, number>();
+  for (const { type, contentId } of dueReactions) {
+    const key = `${type}:${contentId}`;
+    scriptedCounts.set(key, (scriptedCounts.get(key) ?? 0) + 1);
   }
 
   await db.insert(schema.feedImpressions).values({
@@ -297,6 +313,7 @@ export async function buildFeed(
     viewerActorId: context.actorId,
     likedContentIds: state.likedContentIds,
     flaggedContentIds: state.flaggedContentIds,
-    likesFromReactions,
+    scriptedCounts,
+    viewerVotes: state.viewerVotes,
   });
 }

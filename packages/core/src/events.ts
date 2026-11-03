@@ -20,6 +20,8 @@ export const eventPayloadSchemas = {
   "content.created": z.strictObject({ kind: z.enum(["post", "comment"]) }),
   "content.liked": empty,
   "content.unliked": empty,
+  /** A vote replaces the one before it. Null means they took their vote back. */
+  "content.voted": z.strictObject({ value: z.enum(["up", "down"]).nullable() }),
   "content.flagged": empty,
   "content.unflagged": empty,
   /** The raw time on screen. Any minimum or maximum gets applied at analysis, not here. */
@@ -33,7 +35,7 @@ export const eventPayloadSchemas = {
   "notifications.viewed": empty,
   /** A scripted reaction was triggered by something a participant did. */
   "reaction.scheduled": z.strictObject({
-    reaction: z.enum(["read", "like", "reply"]),
+    reaction: z.enum(["read", "like", "reply", "up", "down"]),
     dueAt: z.iso.datetime(),
   }),
 } as const;

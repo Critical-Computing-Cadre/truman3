@@ -152,6 +152,8 @@ export interface DraftItemDetails {
   timeMs: number;
   conditions: string[];
   likes: number;
+  ups: number;
+  downs: number;
   origin: string;
 }
 

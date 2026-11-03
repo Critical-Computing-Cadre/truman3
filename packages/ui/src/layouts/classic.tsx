@@ -9,6 +9,7 @@ import {
   PostFlagButton,
 } from "../features/flagging.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
+import { VoteButtons } from "../features/votes.tsx";
 import { useFeature } from "../platform.tsx";
 import type { FeedPostViewProps } from "../post-props.ts";
 import { shortTime } from "../time.ts";
@@ -55,6 +56,7 @@ function Comment({
         <p className="mt-0.5 flex gap-3 text-xs text-stone-500">
           <span>{shortTime(comment.at)}</span>
           <CommentLikeButton comment={comment} actions={actions} />
+          <VoteButtons item={comment} actions={actions} />
           <CommentReplyButton comment={comment} actions={actions} />
           <CommentFlagButton comment={comment} actions={actions} />
         </p>
@@ -81,6 +83,7 @@ export function ClassicPost({
   const commentsOn = useFeature("comments");
   const likesOn = useFeature("likes");
   const flaggingOn = useFeature("flagging");
+  const votesOn = useFeature("votes");
 
   const image = post.imageUrl ? (
     <img src={post.imageUrl} alt="" loading="lazy" className="w-full bg-stone-200" />
@@ -122,8 +125,9 @@ export function ClassicPost({
         {renderNote && <div className="px-3 pb-2 empty:hidden">{renderNote(post.id)}</div>}
       </div>
 
-      {(commentsOn || likesOn || flaggingOn) && (
+      {(commentsOn || likesOn || flaggingOn || votesOn) && (
         <div className="grid auto-cols-fr grid-flow-col border-t border-stone-200 text-sm text-stone-700">
+          <VoteButtons item={post} actions={actions} className="py-3" />
           <ReplyButton actions={actions} />
           <PostFlagButton post={post} {...(actions ? { actions } : {})} />
           <PostLikeButton post={post} {...(actions ? { actions } : {})} />

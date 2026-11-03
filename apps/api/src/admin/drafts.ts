@@ -207,6 +207,8 @@ const previewRoute = createRoute({
                 timeMs: z.number(),
                 conditions: z.array(z.string()),
                 likes: z.number(),
+                ups: z.number(),
+                downs: z.number(),
                 origin: z.string(),
               }),
             ),
@@ -230,6 +232,8 @@ const fieldsSchema = z.strictObject({
   replyToId: z.uuid().optional(),
   timeMs: z.number().int().optional(),
   likes: z.number().int().nonnegative().optional(),
+  ups: z.number().int().nonnegative().optional(),
+  downs: z.number().int().nonnegative().optional(),
   conditions: z.array(z.string()).optional(),
   // For people in the cast.
   name: z.string().trim().min(1).max(100).optional(),
@@ -447,6 +451,8 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
         visibleAt: null,
         position: item.position,
         baseLikes: data.likes,
+        baseUps: data.ups ?? 0,
+        baseDowns: data.downs ?? 0,
         conditions: data.conditions,
       };
     });
@@ -668,7 +674,15 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
 
     const details: Record<
       string,
-      { actorId: string; timeMs: number; conditions: string[]; likes: number; origin: string }
+      {
+        actorId: string;
+        timeMs: number;
+        conditions: string[];
+        likes: number;
+        ups: number;
+        downs: number;
+        origin: string;
+      }
     > = {};
     for (const item of items) {
       if (item.kind === "post" || item.kind === "comment") {
@@ -678,6 +692,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           timeMs: data.timeMs,
           conditions: data.conditions,
           likes: data.likes,
+          ups: data.ups ?? 0,
+          downs: data.downs ?? 0,
           origin: (item.provenance as Provenance).origin,
         };
       }

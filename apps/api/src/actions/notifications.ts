@@ -47,6 +47,7 @@ export async function scheduleReactions(
     if (
       (reaction.type === "reply" && !features.comments) ||
       (reaction.type === "like" && !features.likes) ||
+      ((reaction.type === "up" || reaction.type === "down") && !features.votes) ||
       (reaction.type === "read" && !features.notifications)
     ) {
       continue;
@@ -85,7 +86,7 @@ export async function scheduleReactions(
     await recordEvent(tx, {
       type: "reaction.scheduled",
       payload: {
-        reaction: reaction.type as "read" | "like" | "reply",
+        reaction: reaction.type as "read" | "like" | "reply" | "up" | "down",
         dueAt: dueAt.toISOString(),
       },
       worldId: context.worldId,
@@ -126,6 +127,7 @@ export async function countUnreadNotifications(
       and(
         eq(schema.notifications.worldId, context.worldId),
         eq(schema.notifications.recipientActorId, context.actorId),
+        inArray(schema.notifications.type, SHOWN_TO_PARTICIPANTS),
         lte(schema.notifications.dueAt, now),
         viewedAt ? gt(schema.notifications.dueAt, viewedAt) : undefined,
       ),
@@ -146,6 +148,9 @@ export interface NotificationItem {
   unread: boolean;
 }
 
+/** Votes change a score without telling anyone who voted, as on the platforms that have them. */
+const SHOWN_TO_PARTICIPANTS = ["read", "like", "reply"];
+
 /**
  * Notifications that have come due, newest first. Reads and likes on the same content get grouped
  * into one, as old Truman did ("Ann and 3 others liked your post"). Replies stay separate.
@@ -164,6 +169,7 @@ export async function listNotifications(
       and(
         eq(schema.notifications.worldId, context.worldId),
         eq(schema.notifications.recipientActorId, context.actorId),
+        inArray(schema.notifications.type, SHOWN_TO_PARTICIPANTS),
         lte(schema.notifications.dueAt, now),
       ),
     );

@@ -177,6 +177,9 @@ export const postDefinitionSchema = z.object({
   /** Milliseconds relative to when a participant starts. */
   timeMs: z.number().int(),
   likes: z.number().int().nonnegative().optional(),
+  /** The scripted votes it starts with. */
+  ups: z.number().int().nonnegative().optional(),
+  downs: z.number().int().nonnegative().optional(),
   ...targetingFields,
 });
 
@@ -189,6 +192,9 @@ export const commentDefinitionSchema = z.object({
   replyTo: z.string().min(1).optional(),
   timeMs: z.number().int(),
   likes: z.number().int().nonnegative().optional(),
+  /** The scripted votes it starts with. */
+  ups: z.number().int().nonnegative().optional(),
+  downs: z.number().int().nonnegative().optional(),
   ...targetingFields,
 });
 
@@ -197,7 +203,7 @@ export const reactionDefinitionSchema = z.object({
   on: z.enum(["post", "comment"]),
   /** Which one, counting from 0. */
   nth: z.number().int().nonnegative(),
-  type: z.enum(["read", "like", "reply"]),
+  type: z.enum(["read", "like", "reply", "up", "down"]),
   actor: z.string().min(1),
   /** Milliseconds after the participant's post or comment. */
   afterMs: z.number().int().nonnegative(),

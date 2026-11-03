@@ -31,7 +31,7 @@ const DAYS_SHOWN = 60;
 const EXPORTS_SHOWN = 5;
 
 /** What people do that's worth watching for each condition, in a running study. */
-const WATCHED_ACTIONS = ["content.created", "content.liked", "content.flagged"];
+const WATCHED_ACTIONS = ["content.created", "content.liked", "content.voted", "content.flagged"];
 
 const monitorRoute = createRoute({
   method: "get",
@@ -65,6 +65,7 @@ const monitorRoute = createRoute({
                 posts: z.number(),
                 comments: z.number(),
                 likes: z.number(),
+                votes: z.number(),
                 flags: z.number(),
               }),
             ),
@@ -345,6 +346,7 @@ export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencie
             posts: actionCount(key, "content.created", "post"),
             comments: actionCount(key, "content.created", "comment"),
             likes: actionCount(key, "content.liked"),
+            votes: actionCount(key, "content.voted"),
             flags: actionCount(key, "content.flagged"),
           };
         }),

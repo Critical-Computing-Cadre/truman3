@@ -103,6 +103,15 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     if (!on.likes && reactions.some(({ type }) => type === "like")) {
       warning(`Likes are off in "${arm.key}", so its scripted likes won't happen.`);
     }
+    if (!on.votes && reactions.some(({ type }) => type === "up" || type === "down")) {
+      warning(`Votes are off in "${arm.key}", so its scripted votes won't happen.`);
+    }
+    const voted = [...study.posts, ...study.comments].filter(
+      (item) => applies(item) && (item.ups || item.downs),
+    ).length;
+    if (!on.votes && voted > 0) {
+      warning(`Votes are off in "${arm.key}", so ${voted} written vote counts won't show there.`);
+    }
     if (!on.notifications && reactions.some(({ type }) => type === "read")) {
       warning(`Notifications are off in "${arm.key}", so its "read" reactions won't show.`);
     }

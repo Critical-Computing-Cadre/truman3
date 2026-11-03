@@ -22,9 +22,13 @@ export interface ParticipantSummary {
   /** What's liked or flagged at the end, after any undoing. */
   contentLiked: number;
   contentFlagged: number;
+  /** How many pieces of content they'd voted up or down at the end. */
+  contentUpvoted: number;
+  contentDownvoted: number;
   /** Every click, including ones later undone. */
   likeActions: number;
   flagActions: number;
+  voteActions: number;
   actorsFollowed: number;
   actorsBlocked: number;
   actorsReported: number;
@@ -51,8 +55,11 @@ export function summarizeEvents(
     commentsCreated: 0,
     contentLiked: 0,
     contentFlagged: 0,
+    contentUpvoted: 0,
+    contentDownvoted: 0,
     likeActions: 0,
     flagActions: 0,
+    voteActions: 0,
     actorsFollowed: 0,
     actorsBlocked: 0,
     actorsReported: 0,
@@ -62,6 +69,7 @@ export function summarizeEvents(
   };
 
   const liked = new Set<string>();
+  const votes = new Map<string, string>();
   const flagged = new Set<string>();
   const following = new Set<string>();
   const blocked = new Set<string>();
@@ -103,6 +111,16 @@ export function summarizeEvents(
       case "content.unliked":
         change(liked, event.targetContentId, false);
         break;
+      case "content.voted":
+        summary.voteActions += 1;
+        if (event.targetContentId) {
+          if (payload.value) {
+            votes.set(event.targetContentId, String(payload.value));
+          } else {
+            votes.delete(event.targetContentId);
+          }
+        }
+        break;
       case "content.flagged":
         summary.flagActions += 1;
         change(flagged, event.targetContentId, true);
@@ -140,6 +158,8 @@ export function summarizeEvents(
 
   summary.contentLiked = liked.size;
   summary.contentFlagged = flagged.size;
+  summary.contentUpvoted = [...votes.values()].filter((value) => value === "up").length;
+  summary.contentDownvoted = [...votes.values()].filter((value) => value === "down").length;
   summary.actorsFollowed = following.size;
   summary.actorsBlocked = blocked.size;
   summary.actorsReported = reported.size;
