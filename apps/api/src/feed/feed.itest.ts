@@ -167,7 +167,7 @@ describe("GET /feed", () => {
     const shared = (await feedOf(person.cookie)).find((post) => post.body === "for everyone");
 
     expect(shared).toMatchObject({
-      imageUrl: "https://cdn.example.com/m/photo.jpg",
+      attachments: [{ type: "image", url: "https://cdn.example.com/m/photo.jpg" }],
       likes: 4,
       liked: false,
       flagged: false,

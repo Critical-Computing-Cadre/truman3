@@ -1,3 +1,4 @@
+import { MAX_ATTACHMENTS } from "@truman3/core";
 import { z } from "zod";
 
 const targeting = {
@@ -20,7 +21,7 @@ export const itemDataSchemas = {
   post: z.strictObject({
     ref: z.string().min(1),
     body: z.string(),
-    picture: z.string().optional(),
+    pictures: z.array(z.string()).max(MAX_ATTACHMENTS).optional(),
     actorId: z.uuid(),
     timeMs: z.number().int(),
     likes: z.number().int().nonnegative(),

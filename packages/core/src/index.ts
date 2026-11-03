@@ -14,14 +14,19 @@ export {
 } from "./events.ts";
 export * from "./features/index.ts";
 export {
+  type Attachment,
+  attachmentSchema,
+  type FeedAttachment,
   type FeedAuthor,
   type FeedComment,
   type FeedPost,
   type FeedResponse,
+  feedAttachmentSchema,
   feedAuthorSchema,
   feedCommentSchema,
   feedPostSchema,
   feedResponseSchema,
+  MAX_ATTACHMENTS,
   MAX_REPLY_DEPTH,
 } from "./feed.ts";
 export { type HealthResponse, healthResponseSchema } from "./health.ts";

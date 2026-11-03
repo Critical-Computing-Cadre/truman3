@@ -18,15 +18,19 @@ const COMPOSER = {
 /** The window for writing a post, opened from the bar at the top of the feed. */
 function NewPostDialog({
   style,
+  several,
   dialogRef,
 }: {
   style: FlowState["platformStyle"];
+  /** Whether this platform lets a post have several photos. */
+  several: boolean;
   dialogRef: RefObject<HTMLDialogElement | null>;
 }) {
   const client = useQueryClient();
   const [body, setBody] = useState("");
-  const [image, setImage] = useState<File | null>(null);
+  const [images, setImages] = useState<File[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const image = images[0];
   const { placeholder, ready } = COMPOSER[style];
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -43,10 +47,10 @@ function NewPostDialog({
   const close = () => dialogRef.current?.close();
 
   const create = useMutation({
-    mutationFn: () => postForm("/posts", { body, ...(image ? { image } : {}) }),
+    mutationFn: () => postForm("/posts", { body, image: images }),
     onSuccess: () => {
       setBody("");
-      setImage(null);
+      setImages([]);
       if (fileInput.current) {
         fileInput.current.value = "";
       }
@@ -90,13 +94,17 @@ function NewPostDialog({
             ) : (
               <PhotoIcon className="h-10 w-10" />
             )}
-            {imageUrl ? "Choose a different photo" : "Add a photo"}
+            {images.length > 1 && <span>{images.length} photos chosen</span>}
+            {imageUrl
+              ? `Choose ${several ? "different photos" : "a different photo"}`
+              : `Add ${several ? "photos" : "a photo"}`}
             <input
               ref={fileInput}
-              aria-label="Add a photo"
+              aria-label={several ? "Add photos" : "Add a photo"}
               type="file"
               accept="image/*"
-              onChange={(event) => setImage(event.target.files?.[0] ?? null)}
+              multiple={several}
+              onChange={(event) => setImages([...(event.target.files ?? [])])}
               className="sr-only"
             />
           </label>
@@ -108,7 +116,7 @@ function NewPostDialog({
         )}
         <button
           type="submit"
-          disabled={create.isPending || !ready(body.trim().length > 0, image !== null)}
+          disabled={create.isPending || !ready(body.trim().length > 0, images.length > 0)}
           className="rounded bg-stone-900 px-4 py-2 text-sm text-white disabled:opacity-40"
         >
           Post
@@ -165,7 +173,11 @@ export function FeedPage() {
               showPhoto={flow.data.platformStyle !== "text"}
               onOpen={() => newPost.current?.showModal()}
             />
-            <NewPostDialog style={flow.data.platformStyle} dialogRef={newPost} />
+            <NewPostDialog
+              style={flow.data.platformStyle}
+              several={flow.data.features.galleries}
+              dialogRef={newPost}
+            />
           </>
         )}
         {feed.data?.posts.length === 0 && (

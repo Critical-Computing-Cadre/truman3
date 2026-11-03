@@ -447,7 +447,7 @@ describe("saving a new version", () => {
     const participant = await enterAsParticipant(team.slug);
     const shown = findPost(await participantFeed(participant), "edited");
     expect(shown).toMatchObject({
-      imageUrl: "https://cdn.example.com/m/photo.jpg",
+      attachments: [{ type: "image", url: "https://cdn.example.com/m/photo.jpg" }],
       likes: 4,
       author: { username: "ann", name: "Ann" },
     });
@@ -713,14 +713,16 @@ describe("images", () => {
 
     const response = await uploadFile(team, draftId, photo());
     const { picture, url } = (await response.json()) as { picture: string; url: string };
-    await edit(team, draftId, post.id, { picture });
+    await edit(team, draftId, post.id, { pictures: [picture] });
 
     expect(picture).toMatch(/^media\/[0-9a-f]{64}\.png$/);
-    expect(findPost((await preview(team, draftId)).posts, "original text").imageUrl).toBe(url);
+    expect(
+      findPost((await preview(team, draftId)).posts, "original text").attachments[0]?.url,
+    ).toBe(url);
 
     await saveAndLaunch(team, draftId);
     const shown = await participantFeed(await enterAsParticipant(team.slug));
-    expect(findPost(shown, "original text").imageUrl).toBe(url);
+    expect(findPost(shown, "original text").attachments[0]?.url).toBe(url);
 
     const fetched = await fetch(`${process.env.MEDIA_PUBLIC_URL}/${picture}`);
     expect(fetched.status).toBe(200);
@@ -741,18 +743,18 @@ describe("images", () => {
     const team = await lab();
     const { draftId } = await open(team);
     const post = findPost((await preview(team, draftId)).posts, "original text");
-    expect(post.imageUrl).toContain("photo.jpg");
+    expect(post.attachments[0]?.url).toContain("photo.jpg");
 
     const { picture } = (await (await uploadFile(team, draftId, photo())).json()) as {
       picture: string;
     };
-    await edit(team, draftId, post.id, { picture });
-    expect(findPost((await preview(team, draftId)).posts, "original text").imageUrl).toContain(
-      picture,
-    );
+    await edit(team, draftId, post.id, { pictures: [picture] });
+    expect(
+      findPost((await preview(team, draftId)).posts, "original text").attachments[0]?.url,
+    ).toContain(picture);
 
-    await edit(team, draftId, post.id, { picture: null });
-    expect(findPost((await preview(team, draftId)).posts, "original text").imageUrl).toBeNull();
+    await edit(team, draftId, post.id, { pictures: [] });
+    expect(findPost((await preview(team, draftId)).posts, "original text").attachments).toEqual([]);
   });
 
   it("refuses what isn't an image, whatever it's called", async () => {
@@ -776,7 +778,7 @@ describe("images", () => {
       "https://example.com/x.jpg",
       "uploads/someone/private.jpg",
     ]) {
-      expect((await edit(team, draftId, post.id, { picture })).status).toBe(400);
+      expect((await edit(team, draftId, post.id, { pictures: [picture] })).status).toBe(400);
     }
   });
 

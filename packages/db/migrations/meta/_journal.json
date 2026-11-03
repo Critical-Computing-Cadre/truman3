@@ -127,6 +127,20 @@
       "when": 1793728617055,
       "tag": "0017_votes",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793730695383,
+      "tag": "0018_attachments",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793730695721,
+      "tag": "0019_no_media_key",
+      "breakpoints": true
     }
   ]
 }

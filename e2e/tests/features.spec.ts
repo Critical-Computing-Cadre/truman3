@@ -9,6 +9,8 @@ const { otherLabEmail, otherLabPassword } = JSON.parse(readFileSync(STATE_FILE, 
   otherLabPassword: string;
 };
 const ADMIN = `http://localhost:${ADMIN_PORT}`;
+const PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==";
 
 test("a researcher turns features off, and the feed they're editing changes to match", async ({
   page,
@@ -197,6 +199,83 @@ test("a researcher turns votes on and sets a score, and a participant votes", as
   await scored.getByRole("button", { name: "Vote down" }).first().click();
   await expect(scored.getByTestId("score").first()).toContainText("10");
   await scored.screenshot({ path: testInfo.outputPath("votes.png") });
+  await context.close();
+});
+
+test("a participant adds several photos, and sees them on their post", async ({
+  page,
+  browser,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+
+  await page.goto(ADMIN);
+  await page.getByLabel("Email").fill(otherLabEmail);
+  await page.getByLabel("Password").fill(otherLabPassword);
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await page.getByRole("link", { name: "New study" }).click();
+  const stamp = Date.now() % 1_000_000;
+  const title = `Galleries ${stamp}`;
+  await page.getByLabel("Title").fill(title);
+  await page.getByRole("radio", { name: /EatSnap pack/ }).check();
+  await page.getByRole("radio", { name: /Just the background/ }).check();
+  await page.getByRole("radio", { name: /^Blocked/ }).check();
+  await page.getByRole("button", { name: "Start the study" }).click();
+
+  const post = page.locator("article").first();
+  await expect(post).toBeVisible();
+  await page.getByRole("link", { name: "Settings" }).click();
+  const settings = page.getByRole("region", { name: "Study and platform" });
+  await settings.getByRole("checkbox", { name: /^Several photos/ }).check();
+  await settings.getByRole("button", { name: "Save changes" }).click();
+  await expect(settings.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  await page.goBack();
+
+  // A researcher adds a second photo to a post that has one.
+  await expect(post).toBeVisible();
+  await post.getByTestId("image-drop").hover();
+  await post.getByRole("button", { name: "Add another photo" }).click({ force: true });
+  await post.getByLabel("Choose a photo").setInputFiles({
+    name: "second.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(PNG_BASE64, "base64"),
+  });
+  await expect(post.getByRole("region", { name: "2 photos" })).toBeVisible();
+  await post.screenshot({ path: testInfo.outputPath("gallery-builder.png") });
+
+  await page.getByRole("button", { name: "Save as new version" }).click();
+  await page.getByRole("button", { name: "Save version" }).click();
+  const study = page.getByRole("listitem").filter({ hasText: title }).first();
+  await study.getByRole("button", { name: "Launch", exact: true }).click();
+  const launching = page.getByRole("dialog", { name: /Launch version/ });
+  await launching.getByLabel(/only a test/).check();
+  await launching.getByRole("button", { name: "Launch it" }).click();
+  await expect(study.getByText("Open to participants")).toBeVisible();
+
+  const context = await browser.newContext();
+  const participant = await context.newPage();
+  await participant.goto(
+    `http://localhost:${APP_PORT}/join/galleries-${stamp}?PROLIFIC_PID=GALLERY-${stamp}`,
+  );
+  await participant.getByRole("button", { name: "I agree" }).click();
+  await participant.getByLabel("Username").fill(`galleries_${stamp}`);
+  await participant.getByLabel("Name", { exact: true }).fill("Gallery Person");
+  await participant.getByRole("button", { name: "Save and continue" }).click();
+
+  await participant.getByRole("button", { name: /Create a post/ }).click();
+  const png = (name: string) => ({
+    name,
+    mimeType: "image/png",
+    buffer: Buffer.from(PNG_BASE64, "base64"),
+  });
+  const dialog = participant.getByRole("dialog");
+  await dialog.getByLabel("Write a post").fill("My photos");
+  await dialog.getByLabel("Add photos").setInputFiles([png("a.png"), png("b.png")]);
+  await expect(dialog.getByText("2 photos chosen")).toBeVisible();
+  await dialog.getByRole("button", { name: "Post", exact: true }).click();
+
+  const mine = participant.locator("article").filter({ hasText: "My photos" });
+  await expect(mine.getByRole("region", { name: "2 photos" })).toBeVisible();
   await context.close();
 });
 

@@ -8,6 +8,7 @@ import {
   FlaggedPostCover,
   PostFlagButton,
 } from "../features/flagging.tsx";
+import { PostPhotos } from "../features/galleries.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
 import { VoteButtons } from "../features/votes.tsx";
 import { useFeature } from "../platform.tsx";
@@ -85,9 +86,7 @@ export function ClassicPost({
   const flaggingOn = useFeature("flagging");
   const votesOn = useFeature("votes");
 
-  const image = post.imageUrl ? (
-    <img src={post.imageUrl} alt="" loading="lazy" className="w-full bg-stone-200" />
-  ) : null;
+  const image = post.attachments.length > 0 ? <PostPhotos post={post} /> : null;
 
   const headerAuthor = (
     <>

@@ -20,7 +20,7 @@ export type FeedContent = Pick<
   | "parentId"
   | "authorActorId"
   | "body"
-  | "mediaKey"
+  | "attachments"
   | "offsetMs"
   | "visibleAt"
   | "position"
@@ -191,7 +191,10 @@ export async function shapeFeedPosts({
     const item = byId.get(post.id) as FeedContent;
     return {
       ...common(item),
-      imageUrl: item.mediaKey ? mediaUrl(item.mediaKey, mediaPublicUrl) : null,
+      attachments: item.attachments.map(({ type, key }) => ({
+        type,
+        url: mediaUrl(key, mediaPublicUrl),
+      })),
       comments: post.commentIds.map((id) => ({
         ...common(byId.get(id) as FeedContent),
         depth: post.commentDepths[id] ?? 0,

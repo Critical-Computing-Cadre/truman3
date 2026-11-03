@@ -91,7 +91,8 @@ function Person({
               onClick={() => file.current?.click()}
               className="text-xs underline"
             >
-              {edits.setImage.isPending && edits.setImage.variables?.itemId === actor.id
+              {edits.setActorPicture.isPending &&
+              edits.setActorPicture.variables?.itemId === actor.id
                 ? "Saving..."
                 : "Change"}
             </button>
@@ -105,7 +106,7 @@ function Person({
                 const chosen = event.target.files?.[0];
                 if (chosen) {
                   setProblem(null);
-                  edits.setImage.mutate(
+                  edits.setActorPicture.mutate(
                     { itemId: actor.id, file: chosen },
                     { onError: (error) => setProblem(error.message) },
                   );

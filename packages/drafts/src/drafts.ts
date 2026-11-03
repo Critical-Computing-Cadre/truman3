@@ -171,7 +171,7 @@ export async function openDraft(
             : fromFile) as Provenance,
           data:
             item.kind === "post"
-              ? { ...shared, ...optional("picture", item.mediaKey) }
+              ? { ...shared, pictures: item.attachments.map(({ key }) => key) }
               : { ...shared, ...commentPlace(item) },
         };
       }),
@@ -270,6 +270,9 @@ const CLOSED: EditProblem = {
   message: "This draft has already been saved as a version.",
 };
 
+/** Only images uploaded through the app, so a post can't point at anything else. */
+export const STORED_IMAGE = /^media\/[0-9a-f]{64}\.(jpg|png|gif|webp)$/;
+
 /** Whether what an item points at is really in this draft. */
 async function checkReferences(tx: Transaction, draftId: string, data: Record<string, unknown>) {
   if (typeof data.actorId === "string" && !(await itemExists(tx, draftId, "actor", data.actorId))) {
@@ -358,6 +361,13 @@ export async function createItem(
       return CLOSED;
     }
 
+    if (
+      Array.isArray(fields.pictures) &&
+      fields.pictures.some((picture) => !STORED_IMAGE.test(picture))
+    ) {
+      return { problem: "invalid" as const, message: "That picture isn't stored here." };
+    }
+
     const id = crypto.randomUUID();
     const parsed = itemDataSchemas[kind].safeParse(
       kind === "actor" ? fields : { likes: 0, ...fields, ref: newRef(kind, id) },
@@ -432,6 +442,16 @@ export async function updateItem(
       .for("update");
     if (!item || item.kind === "setting") {
       return NOT_FOUND;
+    }
+
+    if (Array.isArray(changes.pictures)) {
+      const current = (item.data as { pictures?: string[] }).pictures ?? [];
+      const unknown = changes.pictures.some(
+        (picture) => !STORED_IMAGE.test(picture) && !current.includes(picture),
+      );
+      if (unknown) {
+        return { problem: "invalid" as const, message: "That picture isn't stored here." };
+      }
     }
 
     const merged = Object.fromEntries(

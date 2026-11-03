@@ -229,7 +229,9 @@ export async function listNotifications(
       actors: [toActor(row.actorId)],
       targetKind: target?.kind === "comment" ? "comment" : "post",
       targetBody: target?.body ?? "",
-      targetImageUrl: target?.mediaKey ? mediaUrl(target.mediaKey, mediaPublicUrl) : null,
+      targetImageUrl: target?.attachments[0]
+        ? mediaUrl(target.attachments[0].key, mediaPublicUrl)
+        : null,
       replyBody: row.replyContentId ? (contentById.get(row.replyContentId)?.body ?? null) : null,
       at,
       unread,

@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { formatStudyTime, parseStudyTime } from "@truman3/core";
+import { formatStudyTime, MAX_ATTACHMENTS, parseStudyTime } from "@truman3/core";
 import { FeedPostView, PlatformProvider, shortTime } from "@truman3/ui";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import {
@@ -43,7 +43,8 @@ export function useDraftEdits(draftId: string) {
       mutationFn: (itemId: string) => send("DELETE", `${base}/${itemId}`),
       onSettled: refresh,
     }),
-    setImage: useMutation({
+    /** A person's picture in the cast. */
+    setActorPicture: useMutation({
       mutationFn: async ({ itemId, file }: { itemId: string; file: File }) => {
         const form = new FormData();
         form.append("image", file);
@@ -52,6 +53,30 @@ export function useDraftEdits(draftId: string) {
           form,
         );
         return send("PATCH", `${base}/${itemId}`, { changes: { picture } });
+      },
+      onSettled: refresh,
+    }),
+    setImage: useMutation({
+      /** Replaces the first photo, or with `add`, goes after the ones there already. */
+      mutationFn: async ({
+        itemId,
+        file,
+        current,
+        add,
+      }: {
+        itemId: string;
+        file: File;
+        current: string[];
+        add: boolean;
+      }) => {
+        const form = new FormData();
+        form.append("image", file);
+        const { picture } = await upload<{ picture: string }>(
+          `/admin/drafts/${draftId}/images`,
+          form,
+        );
+        const pictures = add ? [...current, picture] : [picture, ...current.slice(1)];
+        return send("PATCH", `${base}/${itemId}`, { changes: { pictures } });
       },
       onSettled: refresh,
     }),
@@ -249,22 +274,35 @@ function EditableText({
 function ImageDrop({
   itemId,
   image,
+  pictures,
+  several,
   edits,
 }: {
   itemId: string;
   image: React.ReactNode;
+  pictures: string[];
+  /** Whether this platform lets a post have several photos. */
+  several: boolean;
   edits: DraftEdits;
 }) {
   const [over, setOver] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  const adding = useRef(false);
 
-  const addPhoto = (file: File | undefined) => {
+  const addPhoto = (file: File | undefined, add = adding.current) => {
     if (!file) {
       return;
     }
     setProblem(null);
-    edits.setImage.mutate({ itemId, file }, { onError: (error) => setProblem(error.message) });
+    edits.setImage.mutate(
+      { itemId, file, current: pictures, add },
+      { onError: (error) => setProblem(error.message) },
+    );
+  };
+  const choose = (add: boolean) => {
+    adding.current = add;
+    input.current?.click();
   };
 
   const saving = edits.setImage.isPending && edits.setImage.variables?.itemId === itemId;
@@ -281,30 +319,41 @@ function ImageDrop({
       onDrop={(event) => {
         event.preventDefault();
         setOver(false);
-        addPhoto(event.dataTransfer.files[0]);
+        addPhoto(event.dataTransfer.files[0], several && pictures.length > 0);
       }}
       className={`group relative ${over ? "outline-4 -outline-offset-4 outline-amber-400" : ""}`}
     >
       {image ?? (
         <div className="m-3 mb-0 flex flex-col items-center gap-1 rounded border-2 border-dashed border-stone-300 p-5 text-sm text-stone-500">
           <span>{saving ? "Adding the photo..." : "Drop a photo here"}</span>
-          <button type="button" onClick={() => input.current?.click()} className="underline">
+          <button type="button" onClick={() => choose(false)} className="underline">
             or choose one
           </button>
         </div>
       )}
       {image && (
         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100">
+          {several && pictures.length < MAX_ATTACHMENTS && (
+            <button
+              type="button"
+              onClick={() => choose(true)}
+              className="rounded bg-white/90 px-2 py-1 text-xs shadow"
+            >
+              Add another photo
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => input.current?.click()}
+            onClick={() => choose(false)}
             className="rounded bg-white/90 px-2 py-1 text-xs shadow"
           >
             {saving ? "Replacing..." : "Replace photo"}
           </button>
           <button
             type="button"
-            onClick={() => edits.update.mutate({ itemId, changes: { picture: null } })}
+            onClick={() =>
+              edits.update.mutate({ itemId, changes: { pictures: pictures.slice(1) } })
+            }
             className="rounded bg-white/90 px-2 py-1 text-xs shadow"
           >
             Remove photo
@@ -726,7 +775,16 @@ function EditableFeed({
                       />
                     ),
                     wrapImage: (image: React.ReactNode) => (
-                      <ImageDrop itemId={shown.id} image={image} edits={edits} />
+                      <ImageDrop
+                        itemId={shown.id}
+                        image={image}
+                        pictures={items[shown.id]?.pictures ?? []}
+                        several={
+                          info.conditions.find(({ key }) => key === condition)?.features
+                            .galleries ?? false
+                        }
+                        edits={edits}
+                      />
                     ),
                     belowComments: (
                       <AddComment

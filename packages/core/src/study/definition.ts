@@ -172,7 +172,8 @@ export const actorDefinitionSchema = z.object({
 export const postDefinitionSchema = z.object({
   ref: z.string().min(1),
   body: z.string(),
-  picture: z.string().optional(),
+  /** Its photos, in order. */
+  pictures: z.array(z.string().min(1)).default([]),
   actor: z.string().min(1),
   /** Milliseconds relative to when a participant starts. */
   timeMs: z.number().int(),

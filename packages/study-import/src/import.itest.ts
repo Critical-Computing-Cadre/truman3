@@ -230,8 +230,8 @@ describe("importStudyFolder", () => {
         ),
       );
 
-    expect(post?.mediaKey).toMatch(/^media\/[0-9a-f]{64}\.jpg$/);
-    const response = await fetch(`${process.env.MEDIA_PUBLIC_URL}/${post?.mediaKey}`);
+    expect(post?.attachments[0]?.key).toMatch(/^media\/[0-9a-f]{64}\.jpg$/);
+    const response = await fetch(`${process.env.MEDIA_PUBLIC_URL}/${post?.attachments[0]?.key}`);
     expect(response.status).toBe(200);
     expect(await response.text()).toBe("post picture");
   });
@@ -257,7 +257,7 @@ describe("importStudyFolder", () => {
       );
 
     expect(result.mediaUploaded).toBe(0);
-    expect(post?.mediaKey).toBe("https://cdn.example.com/my-study/one.jpg");
+    expect(post?.attachments[0]?.key).toBe("https://cdn.example.com/my-study/one.jpg");
   });
 
   it("refuses a study with errors and saves nothing", async () => {
@@ -299,7 +299,7 @@ describe("importStudyFolder", () => {
     expect(comments).toHaveLength(342);
     expect(actors).toHaveLength(76);
     expect(reactions).toHaveLength(174);
-    expect(posts.every((post) => post.mediaKey?.startsWith("media/"))).toBe(true);
+    expect(posts.every((post) => post.attachments[0]?.key?.startsWith("media/"))).toBe(true);
     expect(comments.filter((comment) => comment.conditions.length > 0)).toHaveLength(25);
 
     const firstLikes = new Map(

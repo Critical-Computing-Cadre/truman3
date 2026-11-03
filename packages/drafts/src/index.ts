@@ -11,6 +11,7 @@ export {
   moveItem,
   openDraft,
   type SaveSection,
+  STORED_IMAGE,
   saveSection,
   updateItem,
 } from "./drafts.ts";

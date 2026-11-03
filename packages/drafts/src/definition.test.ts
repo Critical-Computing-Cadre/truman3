@@ -32,7 +32,7 @@ const ITEMS = [
     timeMs: 0,
     likes: 2,
     conditions: [],
-    picture: "media/one.jpg",
+    pictures: ["media/one.jpg"],
   }),
   item(crypto.randomUUID(), "comment", {
     ref: "c1",

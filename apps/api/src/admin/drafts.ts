@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { roleOnStudy } from "@truman3/accounts";
-import { feedResponseSchema, platformFor } from "@truman3/core";
+import { feedResponseSchema, MAX_ATTACHMENTS, platformFor } from "@truman3/core";
 import { schema } from "@truman3/db";
 import {
   type ActorData,
@@ -20,6 +20,7 @@ import {
   recordPresence,
   SETTINGS_SECTIONS,
   type SectionName,
+  STORED_IMAGE,
   saveSection,
   sectionValue,
   undoChange,
@@ -209,6 +210,7 @@ const previewRoute = createRoute({
                 likes: z.number(),
                 ups: z.number(),
                 downs: z.number(),
+                pictures: z.array(z.string()),
                 origin: z.string(),
               }),
             ),
@@ -220,13 +222,12 @@ const previewRoute = createRoute({
   },
 });
 
-/** Only images uploaded through the route below, so a post can't point at anything else. */
-const STORED_IMAGE = /^media\/[0-9a-f]{64}\.(jpg|png|gif|webp)$/;
-
 const fieldsSchema = z.strictObject({
   body: z.string().max(5000).optional(),
   /** Null removes the image. */
   picture: z.string().regex(STORED_IMAGE).nullable().optional(),
+  /** A post's photos, in order. Anything new has to be stored here (see updateItem). */
+  pictures: z.array(z.string().max(2000)).max(MAX_ATTACHMENTS).optional(),
   actorId: z.uuid().optional(),
   postId: z.uuid().optional(),
   replyToId: z.uuid().optional(),
@@ -446,7 +447,7 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
         parentId: data.replyToId ?? data.postId ?? null,
         authorActorId: data.actorId,
         body: data.body,
-        mediaKey: data.picture ?? null,
+        attachments: (data.pictures ?? []).map((key) => ({ type: "image" as const, key })),
         offsetMs: data.timeMs,
         visibleAt: null,
         position: item.position,
@@ -570,7 +571,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               conditions: data.conditions,
               body: data.body,
               authorName: author?.name ?? "",
-              imageUrl: data.picture ? mediaUrl(data.picture, mediaPublicUrl) : null,
+              imageUrl: data.pictures?.[0] ? mediaUrl(data.pictures[0], mediaPublicUrl) : null,
             };
           }),
         issues: checkDraft(loaded).map(({ severity, message }) => ({ severity, message })),
@@ -681,6 +682,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
         likes: number;
         ups: number;
         downs: number;
+        pictures: string[];
         origin: string;
       }
     > = {};
@@ -694,6 +696,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           likes: data.likes,
           ups: data.ups ?? 0,
           downs: data.downs ?? 0,
+          pictures: data.pictures ?? [],
           origin: (item.provenance as Provenance).origin,
         };
       }
