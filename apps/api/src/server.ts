@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
-import { createDb } from "@truman3/db";
+import { connectedAsOwner, createDb } from "@truman3/db";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { createApp } from "./app.ts";
 import { parseServerEnv } from "./env.ts";
@@ -11,6 +11,13 @@ const env = parseServerEnv(process.env);
 const logFullErrors = env.NODE_ENV === "development";
 
 const database = createDb(env.DATABASE_URL);
+if (env.NODE_ENV === "production" && (await connectedAsOwner(database.db))) {
+  // The rules that protect a study's data don't hold against the owner. See ADR 21.
+  console.error(
+    "DATABASE_URL logs in as a database owner. Use the login from the database update instead. See docs/guides/deploying.md.",
+  );
+  process.exit(1);
+}
 const storage = createStorage(storageConfigFromEnv());
 await storage.ensureBucket();
 /** Generous, since many participants can share one address on a campus network. */

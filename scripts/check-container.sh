@@ -1,6 +1,6 @@
 #!/bin/sh
 # Builds the API's container and proves it works: it updates an empty database, can do that twice,
-# starts as a non-root user, answers under /api, and reaches its database. Needs Docker. Nothing it
+# limits the API's login, starts as a non-root user, answers under /api, and reaches its database. Needs Docker. Nothing it
 # creates is kept.
 set -eu
 
@@ -22,6 +22,35 @@ compose up --build --detach --wait api
 
 echo "Updating the database a second time, which should change nothing..."
 compose run --rm migrate
+
+echo "Checking the API's login can't change the rules..."
+as_app() {
+  compose exec -T -e PGPASSWORD=app_password postgres \
+    psql -h 127.0.0.1 -U truman_app -d truman_study -v ON_ERROR_STOP=1 -c "$1" 2>&1
+}
+as_app "select count(*) from events" >/dev/null || { echo "The API's login can't read events."; exit 1; }
+for statement in \
+  "create table sneaky (id int)" \
+  "drop table events" \
+  "alter table events disable trigger all" \
+  "truncate events" \
+  "update events set type = 'x'" \
+  "begin; select set_config('truman.allow_participant_deletion', 'on', true); delete from events; commit"
+do
+  # Refused for the right reason, not because the statement or the login was wrong.
+  if ! as_app "$statement" | grep -qE "permission denied|must be owner"; then
+    echo "The API's login wasn't refused: $statement"
+    exit 1
+  fi
+done
+
+echo "Checking the API won't start as the owner..."
+if ! compose run --rm --no-deps \
+  -e DATABASE_URL=postgres://truman_owner:owner_password@postgres:5432/truman_study \
+  api 2>&1 | grep -q "logs in as a database owner"; then
+  echo "The API didn't refuse to start as the owner of the database."
+  exit 1
+fi
 
 echo "Checking it doesn't run as root..."
 user="$(compose exec -T api id -u)"

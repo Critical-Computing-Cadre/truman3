@@ -26,7 +26,7 @@ corepack enable pnpm --install-directory ~/.local/bin
 ```
 
 - Try the example study: http://localhost:5180/join/eatsnap
-- Admin app: http://localhost:5181. Create your account first with `pnpm admin setup "Your Lab" your-lab you@example.edu "Your Name"`, which prints your password
+- Admin app: http://localhost:5181/admin. Create your account first with `pnpm admin setup "Your Lab" your-lab you@example.edu "Your Name"`, which prints your password
 - API: http://localhost:3000/health/ready
 
 To connect a study to Prolific and a survey, see [docs/guides/connecting-prolific-and-surveys.md](docs/guides/connecting-prolific-and-surveys.md).

@@ -32,7 +32,7 @@ function Shell() {
     mutationFn: () => post("/admin/logout"),
     onSuccess: () => {
       queryClient.clear();
-      window.location.assign("/");
+      window.location.assign(import.meta.env.BASE_URL);
     },
   });
 
@@ -113,6 +113,8 @@ const prolificRoute = createRoute({
 });
 
 const router = createRouter({
+  // "/admin/" from the build, without the last slash.
+  basepath: import.meta.env.BASE_URL.replace(/\/$/, ""),
   routeTree: rootRoute.addChildren([
     studiesRoute,
     newStudyRoute,

@@ -58,7 +58,11 @@ function startApp(app: "participant" | "admin", port: number) {
   const mode = TEST_BUILT_APPS ? ["preview", "--host", "127.0.0.1"] : [];
   return spawn("node", ["node_modules/vite/bin/vite.js", ...mode, "--port", String(port)], {
     cwd: path.join(ROOT, "apps", app),
-    env: { ...process.env, API_PROXY_TARGET: `http://localhost:${API_PORT}` },
+    env: {
+      ...process.env,
+      API_PROXY_TARGET: `http://localhost:${API_PORT}`,
+      ADMIN_PROXY_TARGET: `http://localhost:${ADMIN_PORT}`,
+    },
     stdio: "ignore",
   });
 }

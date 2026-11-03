@@ -9,8 +9,12 @@ services:
       POSTGRES_USER: truman
       POSTGRES_PASSWORD: truman
       POSTGRES_DB: truman
+    volumes:
+      # An owner who isn't a superuser, as on a hosted database like RDS.
+      - ./scripts/postgres-owner.sql:/docker-entrypoint-initdb.d/owner.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U truman -d truman"]
+      # Over the network, which only opens once the setup above has finished.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U truman -d truman"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -30,7 +34,8 @@ services:
     image: truman3-api
     command: ["node", "packages/db/src/migrate-cli.ts"]
     environment:
-      DATABASE_URL: postgres://truman:truman@postgres:5432/truman
+      DATABASE_URL: postgres://truman_owner:owner_password@postgres:5432/truman_study
+      DATABASE_APP_PASSWORD: app_password
     depends_on:
       postgres:
         condition: service_healthy
@@ -38,7 +43,7 @@ services:
   api:
     image: truman3-api
     environment:
-      DATABASE_URL: postgres://truman:truman@postgres:5432/truman
+      DATABASE_URL: postgres://truman_app:app_password@postgres:5432/truman_study
       S3_ENDPOINT: http://storage:8333
       S3_REGION: us-east-1
       S3_BUCKET: truman-media
