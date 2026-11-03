@@ -1,6 +1,15 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { type StudySettings, studySettingsSchema } from "@truman3/core";
+import {
+  DEFAULT_TEMPLATE,
+  FEATURE_KEYS,
+  FEATURES,
+  featuresFor,
+  layoutFor,
+  type StudySettings,
+  studySettingsSchema,
+  TEMPLATES,
+} from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { stringify } from "csv-stringify/sync";
 import { asc, eq, inArray } from "drizzle-orm";
@@ -53,6 +62,28 @@ function writeCsv(
  * Writes a study's data as tidy CSV files, plus a codebook. Everything comes from the event log,
  * what was shown, and the frozen versions. It never reads the tables that hold current state.
  */
+/** What the platform was in each condition, so a report can say what people could do. */
+function platformLines(settings: StudySettings) {
+  const template = TEMPLATES[settings.platform?.template ?? DEFAULT_TEMPLATE];
+  const arms = settings.conditions?.arms ?? [];
+  if (arms.length === 0) {
+    return [];
+  }
+  return [
+    `Platform: the ${template.name} template, with the \`${layoutFor(settings)}\` layout.`,
+    "",
+    `| Feature | Version | ${arms.map(({ key }) => key).join(" | ")} |`,
+    `|---|---|${arms.map(() => "---").join("|")}|`,
+    ...FEATURE_KEYS.map(
+      (key) =>
+        `| ${FEATURES[key].name} | ${FEATURES[key].version} | ${arms
+          .map((arm) => (featuresFor(settings, arm.key)[key] ? "on" : "off"))
+          .join(" | ")} |`,
+    ),
+    "",
+  ];
+}
+
 export async function exportStudy(
   db: Database,
   slug: string,
@@ -577,6 +608,7 @@ function buildCodebook(input: {
       "",
       `Frozen ${version.frozenAt?.toISOString() ?? "(not frozen)"}. Content hash \`${version.contentHash}\`.`,
       "",
+      ...platformLines(version.settings as StudySettings),
       "```json",
       JSON.stringify(version.settings, null, 2),
       "```",

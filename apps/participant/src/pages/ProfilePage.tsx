@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import type { FeedPost } from "@truman3/core";
-import { Avatar } from "@truman3/ui";
+import { Avatar, useFeature } from "@truman3/ui";
 import { useRef, useState } from "react";
 import { get, post as send } from "../api.ts";
 import { PostCard } from "../components/PostCard.tsx";
@@ -30,6 +30,9 @@ export function ProfilePage() {
   const { username } = useParams({ from: "/gate/u/$username" });
   const client = useQueryClient();
   const reportDialog = useRef<HTMLDialogElement>(null);
+  const following = useFeature("following");
+  const blocking = useFeature("blocking");
+  const reporting = useFeature("reporting");
   const [reason, setReason] = useState<string | null>(null);
 
   const page = useQuery({
@@ -64,28 +67,34 @@ export function ProfilePage() {
         )}
         {!actor.isViewer && (
           <div className="mt-2 flex flex-wrap justify-center gap-2">
-            <button
-              type="button"
-              className={button}
-              onClick={() => relate.mutate({ action: actor.following ? "unfollow" : "follow" })}
-            >
-              {actor.following ? "Following" : "Follow"}
-            </button>
-            <button
-              type="button"
-              className={button}
-              onClick={() => relate.mutate({ action: actor.blocked ? "unblock" : "block" })}
-            >
-              {actor.blocked ? "Unblock" : "Block"}
-            </button>
-            <button
-              type="button"
-              className={button}
-              disabled={actor.reported}
-              onClick={() => reportDialog.current?.showModal()}
-            >
-              {actor.reported ? "Reported" : "Report"}
-            </button>
+            {following && (
+              <button
+                type="button"
+                className={button}
+                onClick={() => relate.mutate({ action: actor.following ? "unfollow" : "follow" })}
+              >
+                {actor.following ? "Following" : "Follow"}
+              </button>
+            )}
+            {blocking && (
+              <button
+                type="button"
+                className={button}
+                onClick={() => relate.mutate({ action: actor.blocked ? "unblock" : "block" })}
+              >
+                {actor.blocked ? "Unblock" : "Block"}
+              </button>
+            )}
+            {reporting && (
+              <button
+                type="button"
+                className={button}
+                disabled={actor.reported}
+                onClick={() => reportDialog.current?.showModal()}
+              >
+                {actor.reported ? "Reported" : "Report"}
+              </button>
+            )}
           </div>
         )}
       </section>

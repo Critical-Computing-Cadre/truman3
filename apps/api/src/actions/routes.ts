@@ -1,5 +1,11 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
-import { checkNewPost, feedPostSchema, platformStyleFor } from "@truman3/core";
+import {
+  checkNewPost,
+  type FeatureKey,
+  featureOn,
+  feedPostSchema,
+  platformStyleFor,
+} from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, isNull, or } from "drizzle-orm";
 import { buildFeed, contentTimeMs, mediaUrl } from "../feed/build.ts";
@@ -36,6 +42,7 @@ const likeRoute = createRoute({
   responses: {
     200: okResponse("Recorded"),
     401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
     404: errorResponse("Not something this participant can see"),
   },
 });
@@ -48,6 +55,7 @@ const flagRoute = createRoute({
   responses: {
     200: okResponse("Recorded"),
     401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
     404: errorResponse("Not something this participant can see"),
   },
 });
@@ -66,6 +74,7 @@ const commentRoute = createRoute({
       content: { "application/json": { schema: z.object({ id: z.uuid() }) } },
     },
     401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
     404: errorResponse("Not a post this participant can see"),
   },
 });
@@ -94,6 +103,7 @@ const postRoute = createRoute({
     },
     400: errorResponse("It doesn't fit this platform's style, or the image can't be used"),
     401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
   },
 });
 
@@ -104,6 +114,14 @@ const relationActions = {
   unblock: { kind: "block", active: false, event: "actor.unblocked" },
   report: { kind: "report", active: true, event: "actor.reported" },
 } as const;
+
+const RELATION_FEATURES = { follow: "following", block: "blocking", report: "reporting" } as const;
+
+const featureOff = { error: "This isn't part of this platform." };
+
+/** Hiding a button isn't enough, so the server refuses whatever's off in this person's condition. */
+const isOff = (context: ParticipantContext, feature: FeatureKey) =>
+  !featureOn(context.settings, context.conditionKey, feature);
 
 const relationRoute = createRoute({
   method: "post",
@@ -122,6 +140,7 @@ const relationRoute = createRoute({
     200: okResponse("Recorded"),
     400: errorResponse("A report needs a reason"),
     401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
     404: errorResponse("No such actor"),
   },
 });
@@ -190,6 +209,7 @@ const notificationsRoute = createRoute({
       },
     },
     401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
   },
 });
 
@@ -198,7 +218,11 @@ const notificationsViewedRoute = createRoute({
   path: "/notifications/viewed",
   summary: "Mark notifications as seen",
   request: jsonBody(actionMetaSchema),
-  responses: { 200: okResponse("Recorded"), 401: notSignedIn },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+  },
 });
 
 const profileRoute = createRoute({
@@ -362,6 +386,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
+    if (isOff(context, "likes")) {
+      return c.json(featureOff, 403);
+    }
     const { id } = c.req.valid("param");
     if (!(await findVisibleContent(db, context, id, new Date()))) {
       return c.json(notAvailable, 404);
@@ -375,6 +402,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
+    if (isOff(context, "flagging")) {
+      return c.json(featureOff, 403);
+    }
     const { id } = c.req.valid("param");
     if (!(await findVisibleContent(db, context, id, new Date()))) {
       return c.json(notAvailable, 404);
@@ -387,6 +417,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     const context = await participantFromRequest(c, db);
     if (!context) {
       return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "comments")) {
+      return c.json(featureOff, 403);
     }
     const now = new Date();
     const { id: postId } = c.req.valid("param");
@@ -446,6 +479,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     const context = await participantFromRequest(c, db);
     if (!context) {
       return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "posting")) {
+      return c.json(featureOff, 403);
     }
     const now = new Date();
     const form = c.req.valid("form");
@@ -545,6 +581,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json(pleaseSignIn, 401);
     }
     const body = c.req.valid("json");
+    if (isOff(context, RELATION_FEATURES[relationActions[body.action].kind])) {
+      return c.json(featureOff, 403);
+    }
     const actor = await findActor(context, c.req.valid("param").username);
     if (!actor || actor.id === context.actorId) {
       return c.json(notAvailable, 404);
@@ -648,6 +687,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
+    if (isOff(context, "notifications")) {
+      return c.json(featureOff, 403);
+    }
     return c.json({ notifications: await listNotifications(db, context, mediaPublicUrl) }, 200);
   });
 
@@ -655,6 +697,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     const context = await participantFromRequest(c, db);
     if (!context) {
       return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "notifications")) {
+      return c.json(featureOff, 403);
     }
     const body = c.req.valid("json");
     await db.transaction(async (tx) => {

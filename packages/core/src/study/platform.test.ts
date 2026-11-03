@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { FEATURE_KEYS } from "../features/catalog.ts";
+import { TEMPLATES } from "../features/templates.ts";
+import type { StudySettings } from "./definition.ts";
 import { studySettingsSchema } from "./definition.ts";
 import { fillLinkTemplate } from "./links.ts";
-import { checkNewPost, commentBoxFor, platformStyleFor } from "./platform.ts";
+import {
+  checkNewPost,
+  commentBoxFor,
+  featuresFor,
+  freezePlatform,
+  layoutFor,
+  platformStyleFor,
+} from "./platform.ts";
 
 const settings = (extra: object = {}) =>
   studySettingsSchema.parse({
@@ -98,5 +108,48 @@ describe("fillLinkTemplate", () => {
         participantId: "x",
       }),
     ).toBe("https://x.example/s?id=a%20b%26c%3Dd");
+  });
+});
+
+describe("features", () => {
+  const settings = (platform: object, armPlatform?: object) =>
+    ({
+      platform: { style: "mixed", ...platform },
+      conditions: {
+        assignment: { method: "uniform" },
+        arms: [
+          { key: "a", factors: {}, weight: 1, ...(armPlatform ? { platform: armPlatform } : {}) },
+          { key: "b", factors: {}, weight: 1 },
+        ],
+      },
+    }) as unknown as StudySettings;
+
+  it("has the Classic template's features when nothing's chosen", () => {
+    expect(featuresFor(settings({}), "a")).toEqual(TEMPLATES.classic.features);
+    expect(layoutFor(settings({}))).toBe("classic");
+  });
+
+  it("lets a study change the template, and a condition change the study", () => {
+    const changed = settings(
+      { features: { likes: false, flagging: false } },
+      { features: { likes: true } },
+    );
+    expect(featuresFor(changed, "a")).toMatchObject({
+      likes: true,
+      flagging: false,
+      comments: true,
+    });
+    expect(featuresFor(changed, "b")).toMatchObject({ likes: false, flagging: false });
+  });
+
+  it("copies the template in when freezing, so changing a template can't change a version", () => {
+    const frozen = freezePlatform(settings({ features: { likes: false } }));
+    expect(frozen.platform).toMatchObject({ template: "classic", layout: "classic" });
+    expect(Object.keys(frozen.platform.features ?? {}).sort()).toEqual([...FEATURE_KEYS].sort());
+    expect(frozen.platform.features?.likes).toBe(false);
+    expect(frozen.platform.features?.comments).toBe(true);
+    expect(featuresFor(frozen, "a")).toEqual(
+      featuresFor(settings({ features: { likes: false } }), "a"),
+    );
   });
 });

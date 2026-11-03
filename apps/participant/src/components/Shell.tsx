@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, Outlet } from "@tanstack/react-router";
+import { PlatformProvider } from "@truman3/ui";
 import { type FlowState, meQuery, post } from "../api.ts";
 import { flushTracking } from "../tracking.ts";
 
@@ -33,18 +34,20 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
               <span className="truncate">{flow.site.name}</span>
             )}
           </Link>
-          <Link
-            to="/notifications"
-            className="relative text-sm"
-            aria-label={`Notifications, ${unread} new`}
-          >
-            Notifications
-            {unread > 0 && (
-              <span className="ml-1 rounded-full bg-rose-600 px-1.5 py-0.5 text-xs text-white">
-                {unread}
-              </span>
-            )}
-          </Link>
+          {flow.features.notifications && (
+            <Link
+              to="/notifications"
+              className="relative text-sm"
+              aria-label={`Notifications, ${unread} new`}
+            >
+              Notifications
+              {unread > 0 && (
+                <span className="ml-1 rounded-full bg-rose-600 px-1.5 py-0.5 text-xs text-white">
+                  {unread}
+                </span>
+              )}
+            </Link>
+          )}
           {me.data && (
             <Link to="/u/$username" params={{ username: me.data.username }} className="text-sm">
               Profile
@@ -63,7 +66,9 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
         </nav>
       </header>
       <main className="mx-auto max-w-6xl pb-16 sm:px-3 sm:pt-4">
-        <Outlet />
+        <PlatformProvider platform={flow}>
+          <Outlet />
+        </PlatformProvider>
       </main>
     </div>
   );

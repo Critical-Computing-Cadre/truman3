@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { formatStudyTime, parseStudyTime } from "@truman3/core";
-import { FeedPostView, shortTime } from "@truman3/ui";
+import { FeedPostView, PlatformProvider, shortTime } from "@truman3/ui";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import {
   type DraftChange,
@@ -665,37 +665,39 @@ function EditableFeed({
           data-post={shown.id}
           className={highlightId === shown.id ? "rounded-lg ring-2 ring-sky-500" : ""}
         >
-          <FeedPostView
-            post={shown}
-            renderNote={note}
-            {...(info.canEdit
-              ? {
-                  renderBody: (contentId: string, body: string) => (
-                    <EditableText
-                      value={body}
-                      required={kinds.get(contentId) === "comment"}
-                      label={`Text of this ${kinds.get(contentId) ?? "post"}`}
-                      onSave={(text) =>
-                        edits.update.mutate({ itemId: contentId, changes: { body: text } })
-                      }
-                      onEditing={(editing) => onEditingItem(editing ? contentId : null)}
-                    />
-                  ),
-                  wrapImage: (image: React.ReactNode) => (
-                    <ImageDrop itemId={shown.id} image={image} edits={edits} />
-                  ),
-                  belowComments: (
-                    <AddComment
-                      postId={shown.id}
-                      info={info}
-                      elapsedMs={elapsedMs}
-                      postTimeMs={items[shown.id]?.timeMs ?? 0}
-                      edits={edits}
-                    />
-                  ),
-                }
-              : {})}
-          />
+          <PlatformProvider platform={info.conditions.find(({ key }) => key === condition)}>
+            <FeedPostView
+              post={shown}
+              renderNote={note}
+              {...(info.canEdit
+                ? {
+                    renderBody: (contentId: string, body: string) => (
+                      <EditableText
+                        value={body}
+                        required={kinds.get(contentId) === "comment"}
+                        label={`Text of this ${kinds.get(contentId) ?? "post"}`}
+                        onSave={(text) =>
+                          edits.update.mutate({ itemId: contentId, changes: { body: text } })
+                        }
+                        onEditing={(editing) => onEditingItem(editing ? contentId : null)}
+                      />
+                    ),
+                    wrapImage: (image: React.ReactNode) => (
+                      <ImageDrop itemId={shown.id} image={image} edits={edits} />
+                    ),
+                    belowComments: (
+                      <AddComment
+                        postId={shown.id}
+                        info={info}
+                        elapsedMs={elapsedMs}
+                        postTimeMs={items[shown.id]?.timeMs ?? 0}
+                        edits={edits}
+                      />
+                    ),
+                  }
+                : {})}
+            />
+          </PlatformProvider>
         </div>
       ))}
     </section>

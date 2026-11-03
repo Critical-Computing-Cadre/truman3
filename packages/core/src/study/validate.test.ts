@@ -262,3 +262,52 @@ describe("validateStudy", () => {
     });
   });
 });
+
+describe("content for a feature that's off", () => {
+  const withFeaturesOff = (features: object) =>
+    settings({
+      conditions: {
+        assignment: { method: "uniform" },
+        arms: [{ key: "a" }, { key: "b", platform: { features } }],
+      },
+    });
+  const comment = { ref: "c1", body: "Hi", actor: "ann", post: "p1", timeMs: 0, conditions: [] };
+  const reaction = (type: string, on = "post") => ({
+    on,
+    nth: 0,
+    type,
+    actor: "ann",
+    afterMs: 0,
+    conditions: [],
+  });
+
+  it("warns that written comments won't show", () => {
+    const found = messages(
+      study({ settings: withFeaturesOff({ comments: false }), comments: [comment] }),
+    );
+    expect(found).toContain('Comments are off in "b", so 1 written comments won\'t show there.');
+  });
+
+  it("warns that scripted reactions won't happen", () => {
+    const found = messages(
+      study({
+        settings: withFeaturesOff({ likes: false, posting: false }),
+        reactions: [reaction("like")],
+      }),
+    );
+    expect(found).toContain('Likes are off in "b", so its scripted likes won\'t happen.');
+    expect(found).toContain(
+      'Writing posts is off in "b", so reactions to their posts can\'t happen.',
+    );
+  });
+
+  it("says nothing when the content only applies to a condition that has the feature", () => {
+    const found = messages(
+      study({
+        settings: withFeaturesOff({ comments: false }),
+        comments: [{ ...comment, conditions: ["a"] }],
+      }),
+    );
+    expect(found.join()).not.toContain("Comments are off");
+  });
+});

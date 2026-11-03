@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { CommentBox, CreatePostBar, FeedPostView } from "@truman3/ui";
+import { CommentBox, CreatePostBar, FeedPostView, PlatformProvider } from "@truman3/ui";
 import { get, type PreviewInfo, type PreviewResponse } from "../api.ts";
 import { TimelineControls, useTimeline } from "../components/TimelineControls.tsx";
 
@@ -16,7 +16,7 @@ function FeedColumn({
 }: {
   versionId: string;
   condition: string;
-  platform: { platformStyle: string; commentBox: string } | undefined;
+  platform: PreviewInfo["conditions"][number] | undefined;
   elapsedMs: number;
 }) {
   const feed = useQuery({
@@ -47,24 +47,28 @@ function FeedColumn({
         {condition}{" "}
         <span className="font-normal text-stone-500">({feed.data?.posts.length ?? 0} posts)</span>
       </h2>
-      <CreatePostBar
-        seed={VIEWER}
-        pictureUrl={null}
-        showPhoto={platform?.platformStyle !== "text"}
-      />
+      {platform?.features.posting !== false && (
+        <CreatePostBar
+          seed={VIEWER}
+          pictureUrl={null}
+          showPhoto={platform?.platformStyle !== "text"}
+        />
+      )}
       {feed.data?.posts.length === 0 && (
         <p className="rounded-lg bg-white p-6 text-center text-stone-500">No posts to show.</p>
       )}
-      {feed.data?.posts.map((post) => (
-        <FeedPostView
-          key={post.id}
-          post={post}
-          renderNote={note}
-          {...(platform?.commentBox === "onReply"
-            ? {}
-            : { belowComments: <CommentBox seed={VIEWER} pictureUrl={null} /> })}
-        />
-      ))}
+      <PlatformProvider platform={platform}>
+        {feed.data?.posts.map((post) => (
+          <FeedPostView
+            key={post.id}
+            post={post}
+            renderNote={note}
+            {...(platform?.commentBox === "onReply"
+              ? {}
+              : { belowComments: <CommentBox seed={VIEWER} pictureUrl={null} /> })}
+          />
+        ))}
+      </PlatformProvider>
     </section>
   );
 }

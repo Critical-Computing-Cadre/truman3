@@ -1,3 +1,4 @@
+import type { FeatureSet, LayoutKey } from "@truman3/core";
 export class ApiError extends Error {
   readonly status: number;
 
@@ -53,6 +54,8 @@ export interface FlowState {
   canFinish: boolean;
   platformStyle: "photo" | "text" | "mixed";
   commentBox: "open" | "onReply";
+  layout: LayoutKey;
+  features: FeatureSet;
   site: { name: string; logoUrl: string | null; faviconUrl: string | null };
 }
 

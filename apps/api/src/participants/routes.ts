@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { featureOn } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
 import { eq } from "drizzle-orm";
@@ -205,7 +206,9 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
         location: profile.location ?? "",
         pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
         siteName: context.settings.site.name,
-        unreadNotifications: await countUnreadNotifications(db, context),
+        unreadNotifications: featureOn(context.settings, context.conditionKey, "notifications")
+          ? await countUnreadNotifications(db, context)
+          : 0,
       },
       200,
     );

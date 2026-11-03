@@ -1,11 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { findResearcherByEmail, hashPassword, verifyPassword } from "@truman3/accounts";
-import {
-  commentBoxFor,
-  feedResponseSchema,
-  hasPlaceholderConsent,
-  platformStyleFor,
-} from "@truman3/core";
+import { feedResponseSchema, hasPlaceholderConsent, platformFor } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { feedSettingsFor } from "@truman3/feed";
 import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
@@ -144,6 +139,8 @@ const previewInfoRoute = createRoute({
                 windowHours: z.number().nullable(),
                 platformStyle: z.string(),
                 commentBox: z.string(),
+                layout: z.string(),
+                features: z.record(z.string(), z.boolean()),
               }),
             ),
             posts: z.array(z.object({ offsetMs: z.number(), conditions: z.array(z.string()) })),
@@ -392,8 +389,7 @@ export function createAdminRoutes({
             key,
             ranker: feed.ranker,
             windowHours: feed.windowHours ?? null,
-            platformStyle: platformStyleFor(settings, key),
-            commentBox: commentBoxFor(settings, key),
+            ...platformFor(settings, key),
           };
         }),
         posts: rows

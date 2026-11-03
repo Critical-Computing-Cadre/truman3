@@ -12,6 +12,7 @@ export {
   type EventType,
   eventPayloadSchemas,
 } from "./events.ts";
+export * from "./features/index.ts";
 export {
   type FeedAuthor,
   type FeedComment,
