@@ -391,6 +391,8 @@ test("a study can show the comment box only after pressing Reply", async ({ page
   await first.getByLabel("Write a comment").press("Enter");
   await expect(first.getByText("Only after Reply")).toBeVisible();
   await expect(first.getByLabel("Write a comment")).toHaveCount(0);
+  // A request still being changed when the test ends would otherwise count as a failure.
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
 test("a condition without some features doesn't show them to participants", async ({
@@ -429,6 +431,8 @@ test("a condition without some features doesn't show them to participants", asyn
   await first.getByRole("link").first().click();
   await expect(page.getByRole("button", { name: "Block" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Follow" })).toHaveCount(0);
+  // A request still being changed when the test ends would otherwise count as a failure.
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
 test("someone can edit their profile after the account step", async ({ page }, testInfo) => {
