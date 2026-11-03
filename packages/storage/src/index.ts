@@ -6,6 +6,7 @@ import {
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
+  type S3ClientConfig,
 } from "@aws-sdk/client-s3";
 
 export interface StorageConfig {
@@ -13,13 +14,14 @@ export interface StorageConfig {
   endpoint?: string | undefined;
   region: string;
   bucket: string;
-  accessKeyId: string;
-  secretAccessKey: string;
+  /** Leave both keys out on AWS, to use the container's role. See clientConfig. */
+  accessKeyId?: string | undefined;
+  secretAccessKey?: string | undefined;
 }
 
 export type Storage = ReturnType<typeof createStorage>;
 
-/** Reads the storage settings from environment variables. Throws if any are missing. */
+/** Reads the storage settings from environment variables. Throws if a required one is missing. */
 export function storageConfigFromEnv(env: NodeJS.ProcessEnv = process.env): StorageConfig {
   const required = (name: string) => {
     const value = env[name];
@@ -29,22 +31,44 @@ export function storageConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Stor
     return value;
   };
 
+  // One key without the other is a mistake, and would otherwise fall back to some other credentials.
+  const accessKeyId = env.S3_ACCESS_KEY_ID;
+  const secretAccessKey = env.S3_SECRET_ACCESS_KEY;
+  if (Boolean(accessKeyId) !== Boolean(secretAccessKey)) {
+    throw new Error("Set both S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY, or neither.");
+  }
+
   return {
     endpoint: env.S3_ENDPOINT,
     region: required("S3_REGION"),
     bucket: required("S3_BUCKET"),
-    accessKeyId: required("S3_ACCESS_KEY_ID"),
-    secretAccessKey: required("S3_SECRET_ACCESS_KEY"),
+    accessKeyId,
+    secretAccessKey,
+  };
+}
+
+/**
+ * How to reach storage. With keys, it uses them. Without, the AWS SDK finds credentials the usual
+ * way, which in a container on AWS means the role the container runs with, so no key is stored.
+ */
+export function clientConfig(config: StorageConfig): S3ClientConfig {
+  return {
+    region: config.region,
+    ...(config.accessKeyId && config.secretAccessKey
+      ? {
+          credentials: {
+            accessKeyId: config.accessKeyId,
+            secretAccessKey: config.secretAccessKey,
+          },
+        }
+      : {}),
+    ...(config.endpoint ? { endpoint: config.endpoint, forcePathStyle: true } : {}),
   };
 }
 
 /** File storage over the S3 protocol, so the same code works locally and on AWS. */
 export function createStorage(config: StorageConfig) {
-  const client = new S3Client({
-    region: config.region,
-    credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
-    ...(config.endpoint ? { endpoint: config.endpoint, forcePathStyle: true } : {}),
-  });
+  const client = new S3Client(clientConfig(config));
   const Bucket = config.bucket;
 
   return {

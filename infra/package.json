@@ -1,0 +1,22 @@
+{
+  "name": "@truman3/infra",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc",
+    "synth": "cdk synth --quiet --no-lookups",
+    "diff": "cdk diff --no-lookups",
+    "deploy": "cdk deploy --no-lookups",
+    "destroy": "cdk destroy"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.275.0",
+    "constructs": "10.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "aws-cdk": "2.1147.0",
+    "typescript": "7.0.2"
+  }
+}

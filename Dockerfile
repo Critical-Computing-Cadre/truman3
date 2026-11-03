@@ -6,7 +6,7 @@ WORKDIR /app
 COPY . .
 # Node runs the TypeScript directly, so there's no build step. It won't run TypeScript from inside
 # node_modules, which is why this keeps the workspace layout instead of using `pnpm deploy`.
-RUN pnpm install --frozen-lockfile --prod --filter "@truman3/api..."
+RUN pnpm install --frozen-lockfile --prod --filter "@truman3/api..." --filter "@truman3/cli..."
 
 FROM node:24.22.2-alpine
 ENV NODE_ENV=production
@@ -16,4 +16,5 @@ COPY --from=install /app .
 USER node
 EXPOSE 3000
 # To update the database instead, run this image with: node packages/db/src/migrate-cli.ts
+# To create a team or a researcher, with no way into the database from outside: node apps/cli/src/admin.ts
 CMD ["node", "apps/api/src/server.ts"]

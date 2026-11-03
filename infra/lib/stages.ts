@@ -1,0 +1,43 @@
+/** Each place Truman runs, and what differs between them. Nothing here is a secret. */
+export interface Stage {
+  /** Used in every resource's name. */
+  name: string;
+  account: string;
+  region: string;
+  /**
+   * Whether real participants' data can be here. It decides what happens to data if something is
+   * removed, so that can't be forgotten: with this on, the database and media are kept.
+   */
+  holdsRealData: boolean;
+  /**
+   * Named so nothing has to ask AWS at build time. CloudFront can't reach use1-az3, and these names
+   * map to different zones in each account, so check them. See docs/guides/deploying.md.
+   */
+  availabilityZones: [string, string];
+  /** Fractions of a CPU, in 1024ths, and memory in MB, in a combination Fargate offers. */
+  apiCpu: number;
+  apiMemoryMb: number;
+  /** How many API containers run. Zero stops them, to save money or before a database update. */
+  apiTasks: number;
+  databaseStorageGb: number;
+  /** Automatic database backups. These are for recovering from a failure. */
+  backupDays: number;
+  /** Addresses other than the one CloudFront gives out. The certificate has to be in us-east-1. */
+  domains?: { names: [string, ...string[]]; certificateArn: string };
+}
+
+export const STAGES: Record<string, Stage> = {
+  // No real participants. Everything here can be deleted.
+  staging: {
+    name: "staging",
+    account: "966038456825",
+    region: "us-east-1",
+    holdsRealData: false,
+    availabilityZones: ["us-east-1a", "us-east-1b"],
+    apiCpu: 256,
+    apiMemoryMb: 512,
+    apiTasks: 1,
+    databaseStorageGb: 20,
+    backupDays: 7,
+  },
+};

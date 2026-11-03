@@ -20,6 +20,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # Proves the infrastructure code builds with no AWS credentials. Nothing is sent to AWS.
+      - run: pnpm --filter @truman3/infra synth
 
   # The API's container, the way production runs it.
   container:
