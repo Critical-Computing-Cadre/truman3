@@ -18,6 +18,25 @@ function appWith(overrides: Partial<AppDependencies> = {}) {
 
 const healthyApp = () => appWith();
 
+describe("the /api address", () => {
+  it("answers under /api, as browsers call it, and without it, as health checks do", async () => {
+    expect((await healthyApp().request("/api/health")).status).toBe(200);
+    expect((await healthyApp().request("/health")).status).toBe(200);
+  });
+
+  it("doesn't treat a path that only starts the same way as /api", async () => {
+    expect((await healthyApp().request("/apiary/health")).status).toBe(404);
+  });
+
+  it("lists its routes once in the OpenAPI spec, without the prefix", async () => {
+    const response = await healthyApp().request("/api/openapi.json");
+    const spec = (await response.json()) as { paths: Record<string, unknown> };
+
+    expect(Object.keys(spec.paths)).toContain("/health");
+    expect(Object.keys(spec.paths)).not.toContain("/api/health");
+  });
+});
+
 describe("API health", () => {
   afterEach(() => {
     vi.restoreAllMocks();

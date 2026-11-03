@@ -2,26 +2,13 @@ import { serve } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { createDb } from "@truman3/db";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
-import { z } from "zod";
 import { createApp } from "./app.ts";
+import { parseServerEnv } from "./env.ts";
+import { describeError } from "./errors.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 
-const env = z
-  .object({
-    DATABASE_URL: z.string().min(1),
-    PORT: z.coerce.number().int().positive().default(3000),
-    MEDIA_PUBLIC_URL: z.url(),
-    NODE_ENV: z.string().optional(),
-    /** Only set this behind a load balancer, or anyone could fake their address. */
-    TRUST_PROXY: z.stringbool().default(false),
-    LOGIN_ATTEMPTS_PER_MINUTE: z.coerce.number().int().positive().default(10),
-    /** Encrypts researchers' Prolific tokens. Without it, connecting to Prolific is turned off. */
-    TRUMAN_SECRET_KEY: z.string().optional(),
-    PROLIFIC_API_URL: z.url().optional(),
-    /** The participant app's public address, used in the link Prolific sends people to. */
-    PARTICIPANT_APP_URL: z.url().default("http://localhost:5180"),
-  })
-  .parse(process.env);
+const env = parseServerEnv(process.env);
+const logFullErrors = env.NODE_ENV === "development";
 
 const database = createDb(env.DATABASE_URL);
 const storage = createStorage(storageConfigFromEnv());
@@ -33,10 +20,12 @@ const app = createApp({
   allowEntryAttempt: createRateLimiter({ max: ENTRY_ATTEMPTS_PER_MINUTE, windowMs: 60_000 }),
   allowLoginAttempt: createRateLimiter({ max: env.LOGIN_ATTEMPTS_PER_MINUTE, windowMs: 60_000 }),
   pingDatabase: database.ping,
+  logFullErrors,
   db: database.db,
   storage,
   mediaPublicUrl: env.MEDIA_PUBLIC_URL,
   secureCookies: env.NODE_ENV !== "development",
+  participantAppUrl: env.PARTICIPANT_APP_URL,
   prolific: {
     secretKey: env.TRUMAN_SECRET_KEY,
     apiUrl: env.PROLIFIC_API_URL,
@@ -60,6 +49,16 @@ function shutdown() {
     await database.close();
     process.exit(0);
   });
+}
+
+// Node would print these in full, which can include what a query was given. See errors.ts.
+if (!logFullErrors) {
+  for (const event of ["uncaughtException", "unhandledRejection"] as const) {
+    process.on(event, (error) => {
+      console.error(`${event}:`, describeError(error));
+      process.exit(1);
+    });
+  }
 }
 
 process.on("SIGINT", shutdown);

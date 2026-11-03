@@ -4,8 +4,6 @@ import { useRef, useState } from "react";
 import { get, type PreviewInfo, post, type StudySummary } from "../api.ts";
 import { postsThatNeverAppear } from "../timeline.ts";
 
-const PARTICIPANT_APP = import.meta.env.VITE_PARTICIPANT_URL ?? "http://localhost:5180";
-
 type StudyVersion = StudySummary["versions"][number];
 
 function EditButton({ study }: { study: StudySummary }) {
@@ -45,7 +43,7 @@ function EditButton({ study }: { study: StudySummary }) {
 }
 
 /** Starts a test participant, whose data stays out of exports. */
-function TryIt({ version }: { version: StudyVersion }) {
+function TryIt({ version, participantUrl }: { version: StudyVersion; participantUrl: string }) {
   const [condition, setCondition] = useState(version.conditions[0] ?? "");
   const start = useMutation({
     mutationFn: () => post<{ token: string }>(`/admin/versions/${version.id}/pilot`, { condition }),
@@ -54,7 +52,7 @@ function TryIt({ version }: { version: StudyVersion }) {
   if (start.data) {
     return (
       <a
-        href={`${PARTICIPANT_APP}/pilot/${start.data.token}`}
+        href={`${participantUrl}/pilot/${start.data.token}`}
         target="_blank"
         rel="noreferrer"
         onClick={() => start.reset()}
@@ -292,7 +290,7 @@ export function StudiesPage() {
                     <p className="text-sm text-stone-600">
                       Study link:{" "}
                       <code className="break-all">
-                        {PARTICIPANT_APP}/join/{study.slug}
+                        {study.participantUrl}/join/{study.slug}
                       </code>
                     </p>
                   )}
@@ -334,7 +332,7 @@ export function StudiesPage() {
                       >
                         See the feed
                       </Link>
-                      <TryIt version={version} />
+                      <TryIt version={version} participantUrl={study.participantUrl} />
                       {canChange && !isLive && <LaunchButton study={study} version={version} />}
                       {canChange && isLive && <StopButton study={study} />}
                     </li>

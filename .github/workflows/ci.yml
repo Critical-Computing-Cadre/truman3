@@ -21,6 +21,13 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  # The API's container, the way production runs it.
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: sh scripts/check-container.sh
+
   # Tests that need real services: migrations, database rules, and the API reaching Postgres.
   services:
     runs-on: ubuntu-latest
@@ -39,6 +46,7 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
         working-directory: e2e
       - run: pnpm test:e2e
+      - run: pnpm test:e2e:built
       - name: Keep what a failed browser test saw
         if: failure()
         uses: actions/upload-artifact@v7

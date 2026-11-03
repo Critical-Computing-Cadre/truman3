@@ -1,0 +1,15 @@
+# Starts from nothing and lets in only what the API needs, so a secret can't slip in by accident.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!apps/api
+!packages
+
+packages/ui
+**/node_modules
+**/*.test.ts
+**/*.test.tsx
+**/*.itest.ts
+**/testing.ts
+**/tsconfig.json

@@ -12,6 +12,8 @@ pnpm typecheck
 pnpm test
 pnpm test:integration   # tests named *.itest.ts; needs Docker services running
 pnpm test:e2e           # a real browser through the whole example study; needs Docker services
+pnpm test:e2e:built     # the same tests against production builds; needs Docker services
+pnpm check:container    # builds the API's container and proves it works; needs Docker
 pnpm db:migrate         # bring your database up to date
 pnpm db:generate        # create a migration after changing packages/db/src/schema.ts
 pnpm build

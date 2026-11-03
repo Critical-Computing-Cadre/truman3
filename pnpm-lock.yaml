@@ -254,6 +254,15 @@ importers:
       '@truman3/recruit':
         specifier: workspace:*
         version: link:../../packages/recruit
+      '@truman3/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
+      '@truman3/study-export':
+        specifier: workspace:*
+        version: link:../../packages/study-export
+      '@truman3/study-import':
+        specifier: workspace:*
+        version: link:../../packages/study-import
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(postgres@4.0.0)
@@ -267,15 +276,6 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
     devDependencies:
-      '@truman3/storage':
-        specifier: workspace:*
-        version: link:../../packages/storage
-      '@truman3/study-export':
-        specifier: workspace:*
-        version: link:../../packages/study-export
-      '@truman3/study-import':
-        specifier: workspace:*
-        version: link:../../packages/study-import
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
