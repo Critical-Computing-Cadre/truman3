@@ -227,7 +227,8 @@ function Section<K extends keyof DraftSections>({
         )}
       </header>
       <form className="space-y-4" onSubmit={(event) => event.preventDefault()}>
-        <fieldset disabled={!settings.canEdit} className="space-y-4">
+        {/* Saving ends by following what's saved, so a change made meanwhile would be lost. */}
+        <fieldset disabled={!settings.canEdit || save.isPending} className="space-y-4">
           {children(edit.value, edit.set)}
         </fieldset>
         {settings.canEdit && (
@@ -853,7 +854,7 @@ function PageEditor({
           <textarea
             aria-label="Page text"
             rows={8}
-            disabled={!canEdit}
+            disabled={!canEdit || save.isPending}
             value={edit.value}
             onChange={(event) => edit.set(event.target.value)}
             className={`${input} w-full font-mono`}
