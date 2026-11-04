@@ -27,6 +27,16 @@ export const eventPayloadSchemas = {
   "content.unflagged": empty,
   /** Someone opened a post's own page. `from` is the list they came from, or "direct" if none. */
   "content.opened": z.strictObject({ from: z.string() }),
+  /** They opened the website a post links to. */
+  "content.link_opened": empty,
+  /** They uncovered a post tagged this way. */
+  "content.revealed": z.strictObject({ tags: z.array(z.enum(["spoiler", "adult"])) }),
+  "content.saved": empty,
+  "content.unsaved": empty,
+  "content.hidden": empty,
+  "content.unhidden": empty,
+  /** They copied a link to a post. */
+  "content.shared": z.strictObject({ method: z.enum(["copy"]) }),
   /** The raw time on screen. Any minimum or maximum gets applied at analysis, not here. */
   "content.viewed": z.strictObject({ dwellMs: z.number().nonnegative(), surface: z.string() }),
   "actor.followed": empty,

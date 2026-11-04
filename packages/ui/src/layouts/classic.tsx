@@ -11,6 +11,14 @@ import {
 import { PostPhotos } from "../features/galleries.tsx";
 import { KarmaBadge } from "../features/karma.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
+import {
+  HideButton,
+  PostBadges,
+  PostLink,
+  SaveButton,
+  ShareButton,
+  TagCover,
+} from "../features/post-extras.tsx";
 import { CommentsLink } from "../features/post-pages.tsx";
 import { ModeratorTag, SpaceLine } from "../features/spaces.tsx";
 import { PostTitle } from "../features/titles.tsx";
@@ -96,6 +104,9 @@ export function ClassicPost({
   const likesOn = useFeature("likes");
   const flaggingOn = useFeature("flagging");
   const votesOn = useFeature("votes");
+  const savingOn = useFeature("saving");
+  const hidingOn = useFeature("hiding");
+  const sharingOn = useFeature("sharing");
 
   const image = post.attachments.length > 0 ? <PostPhotos post={post} /> : null;
 
@@ -122,6 +133,7 @@ export function ClassicPost({
         ) : (
           <span className={headerClass}>{headerAuthor}</span>
         )}
+        <PostBadges post={post} />
         <time className="text-sm text-stone-500" dateTime={post.at}>
           {shortTime(post.at)}
         </time>
@@ -135,21 +147,27 @@ export function ClassicPost({
           {...(renderTitle ? { renderTitle } : {})}
           {...(renderPostLink && !detail ? { renderPostLink } : {})}
         />
-        {wrapImage ? wrapImage(image) : image}
-        {renderBody ? (
-          <div className="p-3">{renderBody(post.id, post.body)}</div>
-        ) : (
-          post.body && <p className="p-3 break-words whitespace-pre-wrap">{post.body}</p>
-        )}
+        <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
+          {wrapImage ? wrapImage(image) : image}
+          {renderBody ? (
+            <div className="p-3">{renderBody(post.id, post.body)}</div>
+          ) : (
+            post.body && <p className="p-3 break-words whitespace-pre-wrap">{post.body}</p>
+          )}
+          <PostLink post={post} actions={actions} />
+        </TagCover>
         {renderNote && <div className="px-3 pb-2 empty:hidden">{renderNote(post.id)}</div>}
       </div>
 
-      {(commentsOn || likesOn || flaggingOn || votesOn) && (
+      {(commentsOn || likesOn || flaggingOn || votesOn || savingOn || hidingOn || sharingOn) && (
         <div className="grid auto-cols-fr grid-flow-col border-t border-stone-200 text-sm text-stone-700">
           <VoteButtons item={post} actions={actions} className="py-3" />
-          <ReplyButton actions={actions} />
+          <ReplyButton actions={actions} locked={post.locked} />
           <PostFlagButton post={post} {...(actions ? { actions } : {})} />
           <PostLikeButton post={post} {...(actions ? { actions } : {})} />
+          <SaveButton post={post} actions={actions} className="py-3" />
+          <HideButton post={post} actions={actions} className="py-3" />
+          <ShareButton post={post} actions={actions} className="py-3" />
           {!detail && (
             <CommentsLink
               post={post}

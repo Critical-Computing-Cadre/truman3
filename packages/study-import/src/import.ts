@@ -351,6 +351,10 @@ export async function freezeStudy(
             spaceId: post.space ? spaceIds.get(post.space) : undefined,
             kind: "post",
             title: post.title,
+            linkUrl: post.link,
+            pinnedOn: post.pinnedOn ?? [],
+            locked: post.locked ?? false,
+            tags: post.tags ?? [],
             body: post.body,
             attachments: post.pictures.map((picture) => ({
               type: "image" as const,

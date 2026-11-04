@@ -9,6 +9,12 @@ export interface PostActions {
   onReply: () => void;
   /** Reply to one comment, on a platform with threads. */
   onReplyTo?: (comment: FeedComment) => void;
+  onSave?: (contentId: string, active: boolean) => void;
+  onHide?: (contentId: string, active: boolean) => void;
+  /** Copies a link to a post. Says whether that worked. */
+  onShare?: (contentId: string) => Promise<boolean>;
+  onOpenLink?: (contentId: string) => void;
+  onReveal?: (contentId: string) => void;
 }
 
 export interface FeedPostViewProps {

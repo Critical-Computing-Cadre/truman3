@@ -1,4 +1,11 @@
-import { ACCENT_PATTERN, MAX_ATTACHMENTS, MAX_TITLE_LENGTH } from "@truman3/core";
+import {
+  ACCENT_PATTERN,
+  linkSchema,
+  MAX_ATTACHMENTS,
+  MAX_TITLE_LENGTH,
+  PIN_PLACES,
+  POST_TAGS,
+} from "@truman3/core";
 import { z } from "zod";
 
 const targeting = {
@@ -40,6 +47,10 @@ export const itemDataSchemas = {
     actorId: z.uuid(),
     /** The one space it belongs to. */
     spaceId: z.uuid().optional(),
+    link: linkSchema.optional(),
+    pinnedOn: z.array(z.enum(PIN_PLACES)).optional(),
+    locked: z.boolean().optional(),
+    tags: z.array(z.enum(POST_TAGS)).optional(),
     timeMs: z.number().int(),
     likes: z.number().int().nonnegative(),
     ups: z.number().int().nonnegative().optional(),

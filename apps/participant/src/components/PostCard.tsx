@@ -126,6 +126,25 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
         onLike: (id, active) => action.mutate({ url: `/content/${id}/like`, active }),
         onVote: (id, value) => vote.mutate({ id, value }),
         onFlag: (id, active) => action.mutate({ url: `/content/${id}/flag`, active }),
+        onSave: (id, active) => action.mutate({ url: `/content/${id}/save`, active }),
+        onHide: (id, active) => action.mutate({ url: `/content/${id}/hide`, active }),
+        // Copied first, since a browser only allows it straight after a click.
+        onShare: async (id) => {
+          const copied = await navigator.clipboard
+            .writeText(`${window.location.origin}/p/${id}`)
+            .then(() => true)
+            .catch(() => false);
+          if (copied) {
+            await send(`/content/${id}/share`, { method: "copy" }).catch(() => {});
+          }
+          return copied;
+        },
+        onOpenLink: (id) => {
+          send(`/content/${id}/link-opened`).catch(() => {});
+        },
+        onReveal: (id) => {
+          send(`/content/${id}/reveal`).catch(() => {});
+        },
         onReply: () => {
           if (pages && !detail) {
             openPost();
@@ -134,7 +153,7 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
           setReplying(true);
           inputRef.current?.focus();
         },
-        onReplyTo: setReplyTo,
+        ...(post.locked ? {} : { onReplyTo: setReplyTo }),
       }}
       renderSpace={(key, className, name) => (
         <Link to="/spaces/$key" params={{ key }} className={className}>
@@ -147,6 +166,7 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
         </Link>
       )}
       belowComments={
+        !post.locked &&
         me.data &&
         (detail || !pages) &&
         (flow.data?.commentBox === "open" || replying || replyTo) && (

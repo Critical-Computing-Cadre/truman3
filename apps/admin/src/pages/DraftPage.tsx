@@ -7,7 +7,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { formatStudyTime, MAX_ATTACHMENTS, parseStudyTime } from "@truman3/core";
+import { formatStudyTime, MAX_ATTACHMENTS, parseStudyTime, safeLink } from "@truman3/core";
 import { FeedPostView, PlatformProvider, shortTime } from "@truman3/ui";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import {
@@ -22,6 +22,7 @@ import {
   upload,
 } from "../api.ts";
 import { PostTimeline } from "../components/PostTimeline.tsx";
+import { SavedCheckbox } from "../components/SavedCheckbox.tsx";
 import { TimelineControls, useTimeline } from "../components/TimelineControls.tsx";
 
 /** Marks an edit to a draft, so the page can tell when one is still on its way. */
@@ -563,6 +564,9 @@ function ItemDetails({
             </select>
           </label>
         )}
+        {kind === "post" && (
+          <PostExtras details={details} info={info} change={change} field={field} />
+        )}
         {info.conditions.some(({ features }) => features.votes) &&
           (["ups", "downs"] as const).map((key) => (
             <label key={key} className="flex items-center gap-2">
@@ -604,6 +608,118 @@ function ItemDetails({
         </button>
       </div>
     </details>
+  );
+}
+
+/** What features add to a post, for the ones on in at least one condition. */
+function PostExtras({
+  details,
+  info,
+  change,
+  field,
+}: {
+  details: DraftItemDetails;
+  info: DraftInfo;
+  change: (changes: object) => void;
+  field: string;
+}) {
+  const on = (feature: keyof DraftInfo["conditions"][number]["features"]) =>
+    info.conditions.some(({ features }) => features[feature]);
+  const [link, setLink] = useState(details.link ?? "");
+  const [linkProblem, setLinkProblem] = useState(false);
+  useEffect(() => {
+    setLink(details.link ?? "");
+    setLinkProblem(false);
+  }, [details.link]);
+
+  const saveLink = () => {
+    const text = link.trim();
+    const good = text ? safeLink(text) : null;
+    setLinkProblem(text.length > 0 && good === null);
+    if (good !== details.link && (good !== null || text.length === 0)) {
+      change({ link: good });
+    }
+  };
+  const toggled = (list: string[], item: string, active: boolean) =>
+    active ? [...list.filter((other) => other !== item), item] : list.filter((o) => o !== item);
+  const row = "flex items-center gap-1";
+
+  return (
+    <>
+      {on("links") && (
+        <div>
+          <label className="flex items-center gap-2">
+            Link
+            <input
+              type="url"
+              value={link}
+              placeholder="https://"
+              onChange={(event) => {
+                setLink(event.target.value);
+                setLinkProblem(false);
+              }}
+              onBlur={saveLink}
+              className={`${field} min-w-0 flex-1`}
+            />
+          </label>
+          {linkProblem && <p className="text-rose-700">Use a full http or https address</p>}
+        </div>
+      )}
+      {on("pinning") && (
+        <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <legend className="float-left mr-2">Keep on top of</legend>
+          <SavedCheckbox
+            checked={details.pinnedOn.includes("home")}
+            disabled={false}
+            className={row}
+            onChange={(active) => change({ pinnedOn: toggled(details.pinnedOn, "home", active) })}
+          >
+            The home feed
+          </SavedCheckbox>
+          <SavedCheckbox
+            checked={details.pinnedOn.includes("space")}
+            disabled={false}
+            className={row}
+            onChange={(active) => change({ pinnedOn: toggled(details.pinnedOn, "space", active) })}
+          >
+            Its community's page
+          </SavedCheckbox>
+        </fieldset>
+      )}
+      {on("locking") && (
+        <SavedCheckbox
+          checked={details.locked}
+          disabled={false}
+          className={row}
+          onChange={(locked) => change({ locked })}
+        >
+          Locked, so nobody can comment
+        </SavedCheckbox>
+      )}
+      {on("spoilers") && (
+        <SavedCheckbox
+          checked={details.tags.includes("spoiler")}
+          disabled={false}
+          className={row}
+          onChange={(active) => change({ tags: toggled(details.tags, "spoiler", active) })}
+        >
+          Spoiler, covered until clicked
+        </SavedCheckbox>
+      )}
+      {on("adultTags") && (
+        <div>
+          <SavedCheckbox
+            checked={details.tags.includes("adult")}
+            disabled={false}
+            className={row}
+            onChange={(active) => change({ tags: toggled(details.tags, "adult", active) })}
+          >
+            Adult content, covered until clicked
+          </SavedCheckbox>
+          <p className="text-stone-500">There's no age check, so talk to your IRB first.</p>
+        </div>
+      )}
+    </>
   );
 }
 

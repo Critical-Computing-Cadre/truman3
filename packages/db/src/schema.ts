@@ -323,6 +323,14 @@ export const content = pgTable(
     /** A post's title, on a platform with titles. */
     title: text(),
     body: text().notNull().default(""),
+    /** Where a post links to. The server never fetches it. */
+    linkUrl: text("link_url"),
+    /** The lists a study keeps this post on top of. */
+    pinnedOn: text("pinned_on").array().notNull().default(sql`'{}'`),
+    /** Whether a study has stopped comments on this post. */
+    locked: boolean().notNull().default(false),
+    /** Why it's covered until someone clicks it. */
+    tags: text().array().notNull().default(sql`'{}'`),
     /** Its files, in order. Each has a type and a stored key or hosted URL. */
     attachments: jsonb().$type<Attachment[]>().notNull().default([]),
     offsetMs: bigint("offset_ms", { mode: "number" }),
@@ -445,7 +453,10 @@ export const contentInteractions = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.worldId, table.actorId, table.contentId, table.kind] }),
-    check("content_interactions_kind", inList(table.kind, ["like", "up", "down", "flag", "view"])),
+    check(
+      "content_interactions_kind",
+      inList(table.kind, ["like", "up", "down", "flag", "view", "save", "hide"]),
+    ),
   ],
 );
 

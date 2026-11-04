@@ -4,6 +4,8 @@ import {
   type ActorDefinition,
   type CommentDefinition,
   hasErrors,
+  PIN_PLACES,
+  POST_TAGS,
   type PostDefinition,
   parseStudyTime,
   type ReactionDefinition,
@@ -33,7 +35,21 @@ const ACTORS: CsvSpec = {
 };
 const POSTS: CsvSpec = {
   required: ["id", "actor", "time"],
-  optional: ["title", "body", "picture", "space", "likes", "ups", "downs", "condition", "class"],
+  optional: [
+    "title",
+    "body",
+    "picture",
+    "space",
+    "link",
+    "pinned",
+    "locked",
+    "tags",
+    "likes",
+    "ups",
+    "downs",
+    "condition",
+    "class",
+  ],
 };
 const SPACES: CsvSpec = {
   required: ["key", "name"],
@@ -219,22 +235,50 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     };
   });
 
-  const posts: PostDefinition[] = readTable("posts.csv", POSTS, true).map(({ row, cells }) => ({
-    ref: cells.id || `(row ${row})`,
-    ...optional("title", cells.title),
-    body: cells.body ?? "",
-    actor: cells.actor || `(row ${row})`,
-    timeMs: time(cells.time, "time", "posts.csv", row),
-    pictures: (cells.picture ?? "")
+  /** A column that lists choices, separated by |. Anything else is a mistake to point out. */
+  const choices = <T extends string>(
+    value: string | undefined,
+    allowed: readonly T[],
+    column: string,
+    row: number,
+  ): T[] => {
+    const chosen = (value ?? "")
       .split("|")
-      .map((name) => name.trim())
-      .filter(Boolean),
-    ...optional("space", cells.space),
-    ...optional("likes", wholeNumber(cells.likes, "likes", "posts.csv", row)),
-    ...optional("ups", wholeNumber(cells.ups, "ups", "posts.csv", row)),
-    ...optional("downs", wholeNumber(cells.downs, "downs", "posts.csv", row)),
-    ...targeting(cells, "posts.csv", row),
-  }));
+      .map((item) => item.trim())
+      .filter(Boolean);
+    for (const item of chosen) {
+      if (!allowed.includes(item as T)) {
+        rowError("posts.csv", row, `"${item}" in ${column} has to be ${allowed.join(" or ")}.`);
+      }
+    }
+    return chosen.filter((item): item is T => allowed.includes(item as T));
+  };
+
+  const posts: PostDefinition[] = readTable("posts.csv", POSTS, true).map(({ row, cells }) => {
+    const pinnedOn = choices(cells.pinned, PIN_PLACES, "pinned", row);
+    const tags = choices(cells.tags, POST_TAGS, "tags", row);
+    const locked = yesOrNo(cells.locked, "locked", "posts.csv", row);
+    return {
+      ref: cells.id || `(row ${row})`,
+      ...optional("title", cells.title),
+      body: cells.body ?? "",
+      actor: cells.actor || `(row ${row})`,
+      timeMs: time(cells.time, "time", "posts.csv", row),
+      pictures: (cells.picture ?? "")
+        .split("|")
+        .map((name) => name.trim())
+        .filter(Boolean),
+      ...optional("space", cells.space),
+      ...optional("link", cells.link),
+      ...(pinnedOn.length > 0 ? { pinnedOn } : {}),
+      ...(locked ? { locked } : {}),
+      ...(tags.length > 0 ? { tags } : {}),
+      ...optional("likes", wholeNumber(cells.likes, "likes", "posts.csv", row)),
+      ...optional("ups", wholeNumber(cells.ups, "ups", "posts.csv", row)),
+      ...optional("downs", wholeNumber(cells.downs, "downs", "posts.csv", row)),
+      ...targeting(cells, "posts.csv", row),
+    };
+  });
 
   const comments: CommentDefinition[] = readTable("comments.csv", COMMENTS, false).map(
     ({ row, cells }) => {

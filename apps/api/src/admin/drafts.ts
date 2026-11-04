@@ -3,8 +3,11 @@ import { roleOnStudy } from "@truman3/accounts";
 import {
   ACCENT_PATTERN,
   feedResponseSchema,
+  linkSchema,
   MAX_ATTACHMENTS,
   MAX_TITLE_LENGTH,
+  PIN_PLACES,
+  POST_TAGS,
   platformFor,
 } from "@truman3/core";
 import { schema } from "@truman3/db";
@@ -235,6 +238,11 @@ const fieldsSchema = z.strictObject({
   body: z.string().max(5000).optional(),
   /** A post's title. Null removes it. */
   title: z.string().trim().min(1).max(MAX_TITLE_LENGTH).nullable().optional(),
+  /** Where a post links to. Null removes it. */
+  link: linkSchema.nullable().optional(),
+  pinnedOn: z.array(z.enum(PIN_PLACES)).optional(),
+  locked: z.boolean().optional(),
+  tags: z.array(z.enum(POST_TAGS)).optional(),
   /** Null removes the image. */
   picture: z.string().regex(STORED_IMAGE).nullable().optional(),
   /** A post's photos, in order. Anything new has to be stored here (see updateItem). */
@@ -473,6 +481,10 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
         spaceId: data.spaceId ?? null,
         authorActorId: data.actorId,
         title: data.title ?? null,
+        linkUrl: data.link ?? null,
+        pinnedOn: data.pinnedOn ?? [],
+        locked: data.locked ?? false,
+        tags: data.tags ?? [],
         body: data.body,
         attachments: (data.pictures ?? []).map((key) => ({ type: "image" as const, key })),
         offsetMs: data.timeMs,
@@ -742,6 +754,10 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
         downs: number;
         pictures: string[];
         spaceId: string | null;
+        link: string | null;
+        pinnedOn: string[];
+        locked: boolean;
+        tags: string[];
         origin: string;
       }
     > = {};
@@ -757,6 +773,10 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           downs: data.downs ?? 0,
           pictures: data.pictures ?? [],
           spaceId: data.spaceId ?? null,
+          link: data.link ?? null,
+          pinnedOn: data.pinnedOn ?? [],
+          locked: data.locked ?? false,
+          tags: data.tags ?? [],
           origin: (item.provenance as Provenance).origin,
         };
       }

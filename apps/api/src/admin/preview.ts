@@ -1,5 +1,6 @@
 import {
   featureOn,
+  featuresFor,
   type StudySettings,
   scriptedKarmaChange,
   startingKarmaFor,
@@ -63,6 +64,7 @@ export async function previewContent(
   now = new Date(),
 ) {
   const worldStartMs = now.getTime() - elapsedMs;
+  const features = featuresFor(version.settings, conditionKey);
 
   // Everyone in a condition sees the same as each other here, since nobody has joined or left yet.
   const spacesOn = featureOn(version.settings, conditionKey, "spaces");
@@ -76,9 +78,10 @@ export async function previewContent(
     : rows;
 
   const feed = assembleFeed(
-    shownOnThisPlatform(shownRows, version.settings, conditionKey).map((row) =>
-      toCandidate(row, worldStartMs),
-    ),
+    shownOnThisPlatform(shownRows, version.settings, conditionKey).map((row) => ({
+      ...toCandidate(row, worldStartMs),
+      studyPinned: features.pinning && row.pinnedOn.includes("home"),
+    })),
     {
       actorId: "",
       conditionKey,
@@ -105,6 +108,7 @@ export async function previewContent(
     flaggedContentIds: new Set(),
     scriptedCounts: new Map(),
     viewerVotes: new Map(),
+    features,
     spaces: visible,
     karma: featureOn(version.settings, conditionKey, "karma")
       ? {

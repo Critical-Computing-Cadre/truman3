@@ -491,6 +491,10 @@ export async function exportStudy(
         "title",
         "body",
         "space",
+        "link",
+        "pinned_on",
+        "locked",
+        "tags",
         "media",
         "provenance",
         "offset_ms",
@@ -513,6 +517,10 @@ export async function exportStudy(
         title: safeText(item.title),
         body: safeText(item.body),
         space: item.spaceId ? (spaceById.get(item.spaceId)?.key ?? "") : "",
+        link: safeText(item.linkUrl),
+        pinned_on: item.pinnedOn.join("|"),
+        locked: item.locked ? "true" : "",
+        tags: item.tags.join("|"),
         media: item.attachments.map(({ key }) => key).join("|"),
         provenance: provenanceLabel(item.provenance),
         offset_ms: item.offsetMs ?? "",
@@ -649,6 +657,10 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ["conditions", "Conditions that see it, separated by |. Empty means all"],
   ],
   "content.csv": [
+    ["link", "Where a post links to. Truman never opens this address"],
+    ["pinned_on", "Which lists the study keeps it on top of, home or space, separated by |"],
+    ["locked", "true if the study stopped comments on it"],
+    ["tags", "Why it's covered until clicked: spoiler or adult, separated by |"],
     ["origin", "scripted, from the study definition, or world, created during the study"],
     [
       "provenance",
@@ -695,6 +707,15 @@ const ORDER_NOTES: [string, string][] = [
 const EVENT_NOTES: Record<string, string> = {
   "space.joined": "They joined a space, so its posts show in their home feed. Names it by key.",
   "space.left": "They left a space, so its posts no longer show in their home feed.",
+  "content.link_opened":
+    "They clicked the link on a post. Whether the other site opened isn't something Truman can see.",
+  "content.revealed":
+    "They uncovered a post tagged as a spoiler or adult content. `tags` says which. It stays covered again on a different page, so this can repeat.",
+  "content.saved": "They saved a post to their list. content.unsaved takes it back.",
+  "content.hidden":
+    "They hid a post. It stops appearing in their feeds and on profiles, so it won't be in impressions.csv for those until content.unhidden. Its absence there isn't the study's doing.",
+  "content.shared":
+    "They copied a link to a post. Nothing records whether anyone opened it, or who. It only opens for someone in this study who can already see that post.",
   "content.opened":
     "They opened a post's own page. `from` is the list they came from, or direct if they arrived another way, such as a reload.",
   "comments.sort_changed":

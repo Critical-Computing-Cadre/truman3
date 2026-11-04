@@ -40,6 +40,16 @@ export {
   type FeedSort,
   SORT_LABELS,
 } from "./orders.ts";
+export {
+  linkDomain,
+  linkSchema,
+  MAX_LINK_LENGTH,
+  PIN_PLACES,
+  type PinPlace,
+  POST_TAGS,
+  type PostTag,
+  safeLink,
+} from "./post-extras.ts";
 export { createRandom, pickFrom, shuffled } from "./random.ts";
 export { type CurrentFlowStep, canLeaveFeed, currentFlowStep } from "./study/flow.ts";
 export * from "./study/index.ts";

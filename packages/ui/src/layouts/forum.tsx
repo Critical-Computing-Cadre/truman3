@@ -11,6 +11,14 @@ import {
 import { PostPhotos } from "../features/galleries.tsx";
 import { KarmaBadge } from "../features/karma.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
+import {
+  HideButton,
+  PostBadges,
+  PostLink,
+  SaveButton,
+  ShareButton,
+  TagCover,
+} from "../features/post-extras.tsx";
 import { CommentsLink } from "../features/post-pages.tsx";
 import { ModeratorTag, SpaceChip } from "../features/spaces.tsx";
 import { PostTitle } from "../features/titles.tsx";
@@ -119,6 +127,7 @@ export function ForumPost({
             <KarmaBadge author={post.author} />
           </span>
           <time dateTime={post.at}>· {shortTime(post.at)}</time>
+          <PostBadges post={post} className="ml-auto" />
         </header>
         <PostTitle
           post={post}
@@ -126,20 +135,23 @@ export function ForumPost({
           {...(renderTitle ? { renderTitle } : {})}
           {...(renderPostLink && !detail ? { renderPostLink } : {})}
         />
-        {renderBody ? (
-          <div className="px-4 pt-1.5 text-sm">{renderBody(post.id, post.body)}</div>
-        ) : (
-          post.body && (
-            <p
-              className={`px-4 pt-1.5 text-sm break-words whitespace-pre-wrap text-stone-700 ${detail ? "" : "line-clamp-4"}`}
-            >
-              {post.body}
-            </p>
-          )
-        )}
-        <div className="mx-4 mt-2.5 overflow-hidden rounded-xl empty:hidden">
-          {wrapImage ? wrapImage(image) : image}
-        </div>
+        <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
+          {renderBody ? (
+            <div className="px-4 pt-1.5 text-sm">{renderBody(post.id, post.body)}</div>
+          ) : (
+            post.body && (
+              <p
+                className={`px-4 pt-1.5 text-sm break-words whitespace-pre-wrap text-stone-700 ${detail ? "" : "line-clamp-4"}`}
+              >
+                {post.body}
+              </p>
+            )
+          )}
+          <PostLink post={post} actions={actions} />
+          <div className="mx-4 mt-2.5 overflow-hidden rounded-xl empty:hidden">
+            {wrapImage ? wrapImage(image) : image}
+          </div>
+        </TagCover>
         {renderNote && <div className="px-4 pt-1 empty:hidden">{renderNote(post.id)}</div>}
         <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
           <div className={PILL}>
@@ -150,7 +162,7 @@ export function ForumPost({
           </div>
           {detail ? (
             <div className={PILL}>
-              <ReplyButton actions={actions} />
+              <ReplyButton actions={actions} locked={post.locked} />
             </div>
           ) : (
             <CommentsLink
@@ -161,6 +173,15 @@ export function ForumPost({
           )}
           <div className={PILL}>
             <PostFlagButton post={post} {...(actions ? { actions } : {})} />
+          </div>
+          <div className={PILL}>
+            <SaveButton post={post} actions={actions} />
+          </div>
+          <div className={PILL}>
+            <HideButton post={post} actions={actions} />
+          </div>
+          <div className={PILL}>
+            <ShareButton post={post} actions={actions} />
           </div>
         </div>
       </div>

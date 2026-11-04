@@ -398,3 +398,102 @@ describe("spaces and moderators", () => {
     expect(screen.getAllByText("Moderator")).toHaveLength(1);
   });
 });
+
+describe("what forum features add to a post", () => {
+  afterEach(cleanup);
+
+  const FORUM = TEMPLATES.forum;
+  const all = { ...FORUM.features, adultTags: true };
+  const inPlatform = (
+    layout: "classic" | "forum",
+    features: typeof all,
+    props: FeedPostViewProps,
+  ) =>
+    render(
+      <PlatformProvider platform={{ layout, features }}>
+        <FeedPostView {...props} />
+      </PlatformProvider>,
+    );
+  const none = Object.fromEntries(Object.keys(all).map((key) => [key, false])) as typeof all;
+
+  it.each(["classic", "forum"] as const)("shows none of it when it's off, in %s", (layout) => {
+    inPlatform(layout, none, { post: POST });
+    for (const name of ["Save", "Saved", "Hide", "Unhide", "Share"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+    expect(screen.queryByText("Pinned")).toBeNull();
+    expect(screen.queryByText("Locked")).toBeNull();
+  });
+
+  it.each(["classic", "forum"] as const)("draws all of it from the features, in %s", (layout) => {
+    const onSave = vi.fn();
+    const onHide = vi.fn();
+    const onOpenLink = vi.fn();
+    const onReveal = vi.fn();
+    const post: FeedPost = {
+      ...POST,
+      pinned: true,
+      locked: true,
+      link: { url: "https://example.org/a", domain: "example.org" },
+    };
+    const actions = {
+      onLike: vi.fn(),
+      onVote: vi.fn(),
+      onFlag: vi.fn(),
+      onReply: vi.fn(),
+      onSave,
+      onHide,
+      onOpenLink,
+      onReveal,
+    };
+    inPlatform(layout, all, { post, actions });
+    expect(screen.getByText("Pinned")).toBeDefined();
+    expect(screen.getByText("Locked")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Reply" })).toBeNull();
+
+    const link = screen.getByRole("link", { name: /example\.org/ });
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer nofollow");
+    fireEvent.click(link);
+    expect(onOpenLink).toHaveBeenCalledWith("p1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledWith("p1", true);
+    fireEvent.click(screen.getByRole("button", { name: "Hide" }));
+    expect(onHide).toHaveBeenCalledWith("p1", true);
+  });
+
+  it.each(["classic", "forum"] as const)(
+    "covers a tagged post until it's clicked, in %s",
+    (layout) => {
+      const onReveal = vi.fn();
+      const post: FeedPost = { ...POST, tags: ["spoiler", "adult"] };
+      inPlatform(layout, all, {
+        post,
+        actions: { onLike: vi.fn(), onVote: vi.fn(), onFlag: vi.fn(), onReply: vi.fn(), onReveal },
+      });
+      expect(screen.queryByText("A post")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: /Spoiler, Adult content/ }));
+      expect(screen.getByText("A post")).toBeDefined();
+      expect(onReveal).toHaveBeenCalledWith("p1");
+    },
+  );
+
+  it("doesn't cover a tagged post for someone editing it", () => {
+    inPlatform("forum", all, {
+      post: { ...POST, tags: ["spoiler"] },
+      renderBody: (_id, body) => <span>{body}</span>,
+    });
+    expect(screen.getByText("A post")).toBeDefined();
+  });
+
+  it("says a shared link was copied, or that it wasn't", async () => {
+    const onShare = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    inPlatform("forum", all, {
+      post: POST,
+      actions: { onLike: vi.fn(), onVote: vi.fn(), onFlag: vi.fn(), onReply: vi.fn(), onShare },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Link copied" }));
+    expect(await screen.findByRole("button", { name: "Couldn't copy" })).toBeDefined();
+  });
+});

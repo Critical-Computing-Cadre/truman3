@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import type { FeedPost } from "@truman3/core";
+import type { FeedPost, FeedResponse } from "@truman3/core";
 import { Avatar, KarmaBadge, useFeature } from "@truman3/ui";
 import { useRef, useState } from "react";
 import { get, post as send } from "../api.ts";
@@ -26,6 +26,44 @@ const REPORT_REASONS = [
   ["bully", "They're being abusive or harmful."],
   ["hacked", "Their account may be hacked."],
 ] as const;
+
+/** What this person saved or hid, which only they can see, on their own profile. */
+function OwnLists() {
+  const saving = useFeature("saving");
+  const hiding = useFeature("hiding");
+  const [open, setOpen] = useState<"saved" | "hidden" | null>(null);
+  const list = useQuery({
+    queryKey: ["feed", open],
+    queryFn: () => get<FeedResponse>(`/feed?surface=${open}`),
+    enabled: open !== null,
+  });
+  if (!saving && !hiding) {
+    return null;
+  }
+  const tab = (key: "saved" | "hidden", label: string) => (
+    <button
+      type="button"
+      aria-pressed={open === key}
+      onClick={() => setOpen(open === key ? null : key)}
+      className={`rounded-full px-3 py-1 text-sm font-medium ${open === key ? "bg-stone-900 text-white" : "bg-stone-200 text-stone-700"}`}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <section aria-label="Your saved and hidden posts" className="space-y-3 sm:space-y-4">
+      <div className="flex justify-center gap-2 px-3 sm:px-0">
+        {saving && tab("saved", "Saved")}
+        {hiding && tab("hidden", "Hidden")}
+      </div>
+      {open && list.data?.posts.length === 0 && (
+        <p className="p-6 text-center text-stone-500">Nothing here yet.</p>
+      )}
+      {open &&
+        list.data?.posts.map((post) => <PostCard key={post.id} post={post} surface={open} />)}
+    </section>
+  );
+}
 
 export function ProfilePage() {
   const { username } = useParams({ from: "/gate/u/$username" });
@@ -136,6 +174,8 @@ export function ProfilePage() {
           </div>
         </form>
       </dialog>
+
+      {actor.isViewer && <OwnLists />}
 
       {actor.posts.length === 0 && (
         <p className="p-6 text-center text-stone-500">No posts to show.</p>

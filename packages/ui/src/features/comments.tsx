@@ -31,8 +31,14 @@ export function CommentReplyButton({
 }
 
 /** The button that starts a comment. */
-export function ReplyButton({ actions }: { actions?: PostActions | undefined }) {
-  if (!useFeature("comments")) {
+export function ReplyButton({
+  actions,
+  locked = false,
+}: {
+  actions?: PostActions | undefined;
+  locked?: boolean | undefined;
+}) {
+  if (!useFeature("comments") || locked) {
     return null;
   }
   return (

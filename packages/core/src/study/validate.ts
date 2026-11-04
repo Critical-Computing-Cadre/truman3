@@ -112,6 +112,34 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     if (!on.titles && titled > 0) {
       warning(`Titles are off in "${arm.key}", so ${titled} written titles won't show there.`);
     }
+    const unused: [boolean, number, string][] = [
+      [on.links, study.posts.filter((post) => applies(post) && post.link).length, "Link posts"],
+      [
+        on.pinning,
+        study.posts.filter((post) => applies(post) && post.pinnedOn?.length).length,
+        "Pinned posts",
+      ],
+      [
+        on.locking,
+        study.posts.filter((post) => applies(post) && post.locked).length,
+        "Locked posts",
+      ],
+      [
+        on.spoilers,
+        study.posts.filter((post) => applies(post) && post.tags?.includes("spoiler")).length,
+        "Spoiler tags",
+      ],
+      [
+        on.adultTags,
+        study.posts.filter((post) => applies(post) && post.tags?.includes("adult")).length,
+        "Adult content tags",
+      ],
+    ];
+    for (const [featureIsOn, total, name] of unused) {
+      if (!featureIsOn && total > 0) {
+        warning(`${name} are off in "${arm.key}", so that won't apply to ${total} posts there.`);
+      }
+    }
     const scored = study.actors.filter((actor) => applies(actor) && actor.karma !== undefined);
     if (!on.karma && scored.length > 0) {
       warning(`Karma is off in "${arm.key}", so ${scored.length} written totals won't show there.`);
@@ -257,7 +285,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
         }
       }
     }
-    if (!post.body && post.pictures.length === 0) {
+    if (!post.body && post.pictures.length === 0 && !post.title && !post.link) {
       error(`${label} has no text and no picture.`, post.source);
     }
     if (post.pictures.length > MAX_ATTACHMENTS) {
