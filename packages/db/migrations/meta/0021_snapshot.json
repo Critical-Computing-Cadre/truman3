@@ -39,12 +39,8 @@
           "name": "actor_relations_world_id_worlds_id_fk",
           "tableFrom": "actor_relations",
           "tableTo": "worlds",
-          "columnsFrom": [
-            "world_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["world_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -52,12 +48,8 @@
           "name": "actor_relations_actor_id_actors_id_fk",
           "tableFrom": "actor_relations",
           "tableTo": "actors",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -65,12 +57,8 @@
           "name": "actor_relations_target_actor_id_actors_id_fk",
           "tableFrom": "actor_relations",
           "tableTo": "actors",
-          "columnsFrom": [
-            "target_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["target_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -78,12 +66,7 @@
       "compositePrimaryKeys": {
         "actor_relations_world_id_actor_id_target_actor_id_kind_pk": {
           "name": "actor_relations_world_id_actor_id_target_actor_id_kind_pk",
-          "columns": [
-            "world_id",
-            "actor_id",
-            "target_actor_id",
-            "kind"
-          ]
+          "columns": ["world_id", "actor_id", "target_actor_id", "kind"]
         }
       },
       "uniqueConstraints": {},
@@ -216,12 +199,8 @@
           "name": "actors_study_version_id_study_versions_id_fk",
           "tableFrom": "actors",
           "tableTo": "study_versions",
-          "columnsFrom": [
-            "study_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -229,12 +208,8 @@
           "name": "actors_world_id_worlds_id_fk",
           "tableFrom": "actors",
           "tableTo": "worlds",
-          "columnsFrom": [
-            "world_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["world_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -242,12 +217,8 @@
           "name": "actors_participant_id_participants_id_fk",
           "tableFrom": "actors",
           "tableTo": "participants",
-          "columnsFrom": [
-            "participant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["participant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -295,12 +266,8 @@
           "name": "assignment_counters_study_version_id_study_versions_id_fk",
           "tableFrom": "assignment_counters",
           "tableTo": "study_versions",
-          "columnsFrom": [
-            "study_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -389,12 +356,8 @@
           "name": "assignments_participant_id_participants_id_fk",
           "tableFrom": "assignments",
           "tableTo": "participants",
-          "columnsFrom": [
-            "participant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["participant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -402,14 +365,8 @@
           "name": "assignments_condition_id_study_version_id_conditions_id_study_version_id_fk",
           "tableFrom": "assignments",
           "tableTo": "conditions",
-          "columnsFrom": [
-            "condition_id",
-            "study_version_id"
-          ],
-          "columnsTo": [
-            "id",
-            "study_version_id"
-          ],
+          "columnsFrom": ["condition_id", "study_version_id"],
+          "columnsTo": ["id", "study_version_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -469,12 +426,8 @@
           "name": "conditions_study_version_id_study_versions_id_fk",
           "tableFrom": "conditions",
           "tableTo": "study_versions",
-          "columnsFrom": [
-            "study_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -484,18 +437,12 @@
         "conditions_study_version_id_key_unique": {
           "name": "conditions_study_version_id_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "study_version_id",
-            "key"
-          ]
+          "columns": ["study_version_id", "key"]
         },
         "conditions_id_study_version_id_unique": {
           "name": "conditions_id_study_version_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "study_version_id"
-          ]
+          "columns": ["id", "study_version_id"]
         }
       },
       "policies": {},
@@ -707,12 +654,8 @@
           "name": "content_study_version_id_study_versions_id_fk",
           "tableFrom": "content",
           "tableTo": "study_versions",
-          "columnsFrom": [
-            "study_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -720,12 +663,8 @@
           "name": "content_world_id_worlds_id_fk",
           "tableFrom": "content",
           "tableTo": "worlds",
-          "columnsFrom": [
-            "world_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["world_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -733,12 +672,8 @@
           "name": "content_parent_id_content_id_fk",
           "tableFrom": "content",
           "tableTo": "content",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -746,12 +681,8 @@
           "name": "content_space_id_spaces_id_fk",
           "tableFrom": "content",
           "tableTo": "spaces",
-          "columnsFrom": [
-            "space_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["space_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -759,12 +690,8 @@
           "name": "content_author_actor_id_actors_id_fk",
           "tableFrom": "content",
           "tableTo": "actors",
-          "columnsFrom": [
-            "author_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["author_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -823,12 +750,8 @@
           "name": "content_interactions_world_id_worlds_id_fk",
           "tableFrom": "content_interactions",
           "tableTo": "worlds",
-          "columnsFrom": [
-            "world_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["world_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -836,12 +759,8 @@
           "name": "content_interactions_actor_id_actors_id_fk",
           "tableFrom": "content_interactions",
           "tableTo": "actors",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -849,12 +768,8 @@
           "name": "content_interactions_content_id_content_id_fk",
           "tableFrom": "content_interactions",
           "tableTo": "content",
-          "columnsFrom": [
-            "content_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["content_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -862,12 +777,7 @@
       "compositePrimaryKeys": {
         "content_interactions_world_id_actor_id_content_id_kind_pk": {
           "name": "content_interactions_world_id_actor_id_content_id_kind_pk",
-          "columns": [
-            "world_id",
-            "actor_id",
-            "content_id",
-            "kind"
-          ]
+          "columns": ["world_id", "actor_id", "content_id", "kind"]
         }
       },
       "uniqueConstraints": {},
@@ -964,12 +874,8 @@
           "name": "content_packs_team_id_teams_id_fk",
           "tableFrom": "content_packs",
           "tableTo": "teams",
-          "columnsFrom": [
-            "team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["team_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -977,12 +883,8 @@
           "name": "content_packs_created_by_researchers_id_fk",
           "tableFrom": "content_packs",
           "tableTo": "researchers",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1058,12 +960,8 @@
           "name": "data_deletions_study_id_studies_id_fk",
           "tableFrom": "data_deletions",
           "tableTo": "studies",
-          "columnsFrom": [
-            "study_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1186,12 +1084,8 @@
           "name": "draft_item_history_draft_id_study_drafts_id_fk",
           "tableFrom": "draft_item_history",
           "tableTo": "study_drafts",
-          "columnsFrom": [
-            "draft_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["draft_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1199,12 +1093,8 @@
           "name": "draft_item_history_researcher_id_researchers_id_fk",
           "tableFrom": "draft_item_history",
           "tableTo": "researchers",
-          "columnsFrom": [
-            "researcher_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["researcher_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1312,12 +1202,8 @@
           "name": "draft_items_draft_id_study_drafts_id_fk",
           "tableFrom": "draft_items",
           "tableTo": "study_drafts",
-          "columnsFrom": [
-            "draft_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["draft_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1325,12 +1211,8 @@
           "name": "draft_items_updated_by_researchers_id_fk",
           "tableFrom": "draft_items",
           "tableTo": "researchers",
-          "columnsFrom": [
-            "updated_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["updated_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1388,12 +1270,8 @@
           "name": "draft_presence_draft_id_study_drafts_id_fk",
           "tableFrom": "draft_presence",
           "tableTo": "study_drafts",
-          "columnsFrom": [
-            "draft_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["draft_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1401,12 +1279,8 @@
           "name": "draft_presence_researcher_id_researchers_id_fk",
           "tableFrom": "draft_presence",
           "tableTo": "researchers",
-          "columnsFrom": [
-            "researcher_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["researcher_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1414,10 +1288,7 @@
       "compositePrimaryKeys": {
         "draft_presence_draft_id_researcher_id_pk": {
           "name": "draft_presence_draft_id_researcher_id_pk",
-          "columns": [
-            "draft_id",
-            "researcher_id"
-          ]
+          "columns": ["draft_id", "researcher_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1610,12 +1481,8 @@
           "name": "events_world_id_worlds_id_fk",
           "tableFrom": "events",
           "tableTo": "worlds",
-          "columnsFrom": [
-            "world_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["world_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1623,12 +1490,8 @@
           "name": "events_study_version_id_study_versions_id_fk",
           "tableFrom": "events",
           "tableTo": "study_versions",
-          "columnsFrom": [
-            "study_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1636,12 +1499,8 @@
           "name": "events_participant_id_participants_id_fk",
           "tableFrom": "events",
           "tableTo": "participants",
-          "columnsFrom": [
-            "participant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["participant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1649,12 +1508,8 @@
           "name": "events_condition_id_conditions_id_fk",
           "tableFrom": "events",
           "tableTo": "conditions",
-          "columnsFrom": [
-            "condition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["condition_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1662,12 +1517,8 @@
           "name": "events_actor_id_actors_id_fk",
           "tableFrom": "events",
           "tableTo": "actors",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1675,12 +1526,8 @@
           "name": "events_target_content_id_content_id_fk",
           "tableFrom": "events",
           "tableTo": "content",
-          "columnsFrom": [
-            "target_content_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["target_content_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1688,12 +1535,8 @@
           "name": "events_target_actor_id_actors_id_fk",
           "tableFrom": "events",
           "tableTo": "actors",
-          "columnsFrom": [
-            "target_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["target_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1703,10 +1546,7 @@
         "events_world_id_client_event_id_unique": {
           "name": "events_world_id_client_event_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "world_id",
-            "client_event_id"
-          ]
+          "columns": ["world_id", "client_event_id"]
         }
       },
       "policies": {},
@@ -1741,12 +1581,8 @@
           "name": "excluded_entries_study_id_studies_id_fk",
           "tableFrom": "excluded_entries",
           "tableTo": "studies",
-          "columnsFrom": [
-            "study_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1754,10 +1590,7 @@
       "compositePrimaryKeys": {
         "excluded_entries_study_id_id_hash_pk": {
           "name": "excluded_entries_study_id_id_hash_pk",
-          "columns": [
-            "study_id",
-            "id_hash"
-          ]
+          "columns": ["study_id", "id_hash"]
         }
       },
       "uniqueConstraints": {},
@@ -1890,12 +1723,8 @@
           "name": "feed_impressions_world_id_worlds_id_fk",
           "tableFrom": "feed_impressions",
           "tableTo": "worlds",
-          "columnsFrom": [
-            "world_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["world_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1903,12 +1732,8 @@
           "name": "feed_impressions_viewer_actor_id_actors_id_fk",
           "tableFrom": "feed_impressions",
           "tableTo": "actors",
-          "columnsFrom": [
-            "viewer_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["viewer_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1916,12 +1741,8 @@
           "name": "feed_impressions_condition_id_conditions_id_fk",
           "tableFrom": "feed_impressions",
           "tableTo": "conditions",
-          "columnsFrom": [
-            "condition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["condition_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1929,12 +1750,8 @@
           "name": "feed_impressions_space_id_spaces_id_fk",
           "tableFrom": "feed_impressions",
           "tableTo": "spaces",
-          "columnsFrom": [
-            "space_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["space_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2033,12 +1850,8 @@
           "name": "notifications_world_id_worlds_id_fk",
           "tableFrom": "notifications",
           "tableTo": "worlds",
-          "columnsFrom": [
-            "world_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["world_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2046,12 +1859,8 @@
           "name": "notifications_recipient_actor_id_actors_id_fk",
           "tableFrom": "notifications",
           "tableTo": "actors",
-          "columnsFrom": [
-            "recipient_actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["recipient_actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2059,12 +1868,8 @@
           "name": "notifications_actor_id_actors_id_fk",
           "tableFrom": "notifications",
           "tableTo": "actors",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2072,12 +1877,8 @@
           "name": "notifications_target_content_id_content_id_fk",
           "tableFrom": "notifications",
           "tableTo": "content",
-          "columnsFrom": [
-            "target_content_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["target_content_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2085,12 +1886,8 @@
           "name": "notifications_reply_content_id_content_id_fk",
           "tableFrom": "notifications",
           "tableTo": "content",
-          "columnsFrom": [
-            "reply_content_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["reply_content_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2170,12 +1967,8 @@
           "name": "participants_study_id_studies_id_fk",
           "tableFrom": "participants",
           "tableTo": "studies",
-          "columnsFrom": [
-            "study_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2185,10 +1978,7 @@
         "participants_study_id_external_id_unique": {
           "name": "participants_study_id_external_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "study_id",
-            "external_id"
-          ]
+          "columns": ["study_id", "external_id"]
         }
       },
       "policies": {},
@@ -2287,12 +2077,8 @@
           "name": "prolific_actions_study_id_studies_id_fk",
           "tableFrom": "prolific_actions",
           "tableTo": "studies",
-          "columnsFrom": [
-            "study_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2377,12 +2163,8 @@
           "name": "prolific_bonuses_study_id_studies_id_fk",
           "tableFrom": "prolific_bonuses",
           "tableTo": "studies",
-          "columnsFrom": [
-            "study_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2423,12 +2205,8 @@
           "name": "prolific_connections_researcher_id_researchers_id_fk",
           "tableFrom": "prolific_connections",
           "tableTo": "researchers",
-          "columnsFrom": [
-            "researcher_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["researcher_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2494,12 +2272,8 @@
           "name": "prolific_links_study_id_studies_id_fk",
           "tableFrom": "prolific_links",
           "tableTo": "studies",
-          "columnsFrom": [
-            "study_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2567,12 +2341,8 @@
           "name": "researcher_sessions_researcher_id_researchers_id_fk",
           "tableFrom": "researcher_sessions",
           "tableTo": "researchers",
-          "columnsFrom": [
-            "researcher_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["researcher_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2627,9 +2397,7 @@
         "researchers_email_unique": {
           "name": "researchers_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -2737,12 +2505,8 @@
           "name": "scripted_reactions_study_version_id_study_versions_id_fk",
           "tableFrom": "scripted_reactions",
           "tableTo": "study_versions",
-          "columnsFrom": [
-            "study_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2750,12 +2514,8 @@
           "name": "scripted_reactions_actor_id_actors_id_fk",
           "tableFrom": "scripted_reactions",
           "tableTo": "actors",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2827,12 +2587,8 @@
           "name": "sessions_participant_id_participants_id_fk",
           "tableFrom": "sessions",
           "tableTo": "participants",
-          "columnsFrom": [
-            "participant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["participant_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2878,12 +2634,8 @@
           "name": "space_memberships_world_id_worlds_id_fk",
           "tableFrom": "space_memberships",
           "tableTo": "worlds",
-          "columnsFrom": [
-            "world_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["world_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2891,12 +2643,8 @@
           "name": "space_memberships_actor_id_actors_id_fk",
           "tableFrom": "space_memberships",
           "tableTo": "actors",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2904,12 +2652,8 @@
           "name": "space_memberships_space_id_spaces_id_fk",
           "tableFrom": "space_memberships",
           "tableTo": "spaces",
-          "columnsFrom": [
-            "space_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["space_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2917,11 +2661,7 @@
       "compositePrimaryKeys": {
         "space_memberships_world_id_actor_id_space_id_pk": {
           "name": "space_memberships_world_id_actor_id_space_id_pk",
-          "columns": [
-            "world_id",
-            "actor_id",
-            "space_id"
-          ]
+          "columns": ["world_id", "actor_id", "space_id"]
         }
       },
       "uniqueConstraints": {},
@@ -3026,12 +2766,8 @@
           "name": "spaces_study_version_id_study_versions_id_fk",
           "tableFrom": "spaces",
           "tableTo": "study_versions",
-          "columnsFrom": [
-            "study_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3085,12 +2821,8 @@
           "name": "studies_team_id_teams_id_fk",
           "tableFrom": "studies",
           "tableTo": "teams",
-          "columnsFrom": [
-            "team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["team_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3098,12 +2830,8 @@
           "name": "studies_live_version_id_study_versions_id_fk",
           "tableFrom": "studies",
           "tableTo": "study_versions",
-          "columnsFrom": [
-            "live_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["live_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3113,9 +2841,7 @@
         "studies_slug_unique": {
           "name": "studies_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
@@ -3214,12 +2940,8 @@
           "name": "study_drafts_study_id_studies_id_fk",
           "tableFrom": "study_drafts",
           "tableTo": "studies",
-          "columnsFrom": [
-            "study_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3227,12 +2949,8 @@
           "name": "study_drafts_based_on_version_id_study_versions_id_fk",
           "tableFrom": "study_drafts",
           "tableTo": "study_versions",
-          "columnsFrom": [
-            "based_on_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["based_on_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3240,12 +2958,8 @@
           "name": "study_drafts_created_by_researchers_id_fk",
           "tableFrom": "study_drafts",
           "tableTo": "researchers",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3253,12 +2967,8 @@
           "name": "study_drafts_frozen_version_id_study_versions_id_fk",
           "tableFrom": "study_drafts",
           "tableTo": "study_versions",
-          "columnsFrom": [
-            "frozen_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["frozen_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3352,12 +3062,8 @@
           "name": "study_exports_study_id_studies_id_fk",
           "tableFrom": "study_exports",
           "tableTo": "studies",
-          "columnsFrom": [
-            "study_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3449,12 +3155,8 @@
           "name": "study_launches_study_id_studies_id_fk",
           "tableFrom": "study_launches",
           "tableTo": "studies",
-          "columnsFrom": [
-            "study_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3462,12 +3164,8 @@
           "name": "study_launches_version_id_study_versions_id_fk",
           "tableFrom": "study_launches",
           "tableTo": "study_versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3551,12 +3249,8 @@
           "name": "study_versions_study_id_studies_id_fk",
           "tableFrom": "study_versions",
           "tableTo": "studies",
-          "columnsFrom": [
-            "study_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3566,10 +3260,7 @@
         "study_versions_study_id_version_unique": {
           "name": "study_versions_study_id_version_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "study_id",
-            "version"
-          ]
+          "columns": ["study_id", "version"]
         }
       },
       "policies": {},
@@ -3605,12 +3296,8 @@
           "name": "team_memberships_team_id_teams_id_fk",
           "tableFrom": "team_memberships",
           "tableTo": "teams",
-          "columnsFrom": [
-            "team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["team_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3618,12 +3305,8 @@
           "name": "team_memberships_researcher_id_researchers_id_fk",
           "tableFrom": "team_memberships",
           "tableTo": "researchers",
-          "columnsFrom": [
-            "researcher_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["researcher_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3631,10 +3314,7 @@
       "compositePrimaryKeys": {
         "team_memberships_team_id_researcher_id_pk": {
           "name": "team_memberships_team_id_researcher_id_pk",
-          "columns": [
-            "team_id",
-            "researcher_id"
-          ]
+          "columns": ["team_id", "researcher_id"]
         }
       },
       "uniqueConstraints": {},
@@ -3685,9 +3365,7 @@
         "teams_slug_unique": {
           "name": "teams_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
@@ -3742,12 +3420,8 @@
           "name": "world_memberships_world_id_worlds_id_fk",
           "tableFrom": "world_memberships",
           "tableTo": "worlds",
-          "columnsFrom": [
-            "world_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["world_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3755,12 +3429,8 @@
           "name": "world_memberships_participant_id_participants_id_fk",
           "tableFrom": "world_memberships",
           "tableTo": "participants",
-          "columnsFrom": [
-            "participant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["participant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3768,12 +3438,8 @@
           "name": "world_memberships_actor_id_actors_id_fk",
           "tableFrom": "world_memberships",
           "tableTo": "actors",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3781,10 +3447,7 @@
       "compositePrimaryKeys": {
         "world_memberships_world_id_participant_id_pk": {
           "name": "world_memberships_world_id_participant_id_pk",
-          "columns": [
-            "world_id",
-            "participant_id"
-          ]
+          "columns": ["world_id", "participant_id"]
         }
       },
       "uniqueConstraints": {},
@@ -3842,12 +3505,8 @@
           "name": "worlds_study_version_id_study_versions_id_fk",
           "tableFrom": "worlds",
           "tableTo": "study_versions",
-          "columnsFrom": [
-            "study_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["study_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
