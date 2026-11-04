@@ -175,6 +175,7 @@ export const spaces = pgTable(
     name: text().notNull(),
     description: text(),
     rules: text(),
+    picture: text(),
     startsJoined: boolean("starts_joined").notNull().default(true),
     conditions: text().array().notNull().default(sql`'{}'`),
     class: text(),

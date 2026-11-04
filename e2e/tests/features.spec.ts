@@ -388,6 +388,13 @@ test("a researcher makes a space, and a participant joins it and chooses an orde
   await expect(space.getByLabel("Rules")).toHaveValue("Be kind to each other.");
   await space.getByLabel(/start out in it/).uncheck();
   await expect(space.getByLabel(/start out in it/)).not.toBeChecked();
+  await expect(space.getByLabel("Address")).toHaveValue("cooking");
+  await space.getByLabel("Picture of Cooking").setInputFiles({
+    name: "cooking.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(PNG_BASE64, "base64"),
+  });
+  await expect(space.getByRole("button", { name: "Remove picture" })).toBeVisible();
   await page.getByRole("link", { name: "Back to the feed" }).click();
 
   await post.getByText("Details").first().click();
@@ -431,8 +438,56 @@ test("a researcher makes a space, and a participant joins it and chooses an orde
     .click();
   await expect(participant.getByTestId("post-space")).toHaveCount(1);
 
-  const asked = participant.waitForResponse((response) => response.url().includes("sort=top"));
+  // Choosing an order is recorded first, and lasts after a reload.
+  const asked = participant.waitForResponse((response) => response.url().includes("/feed/sort"));
   await participant.getByLabel("Sort").selectOption("top");
   expect((await asked).status()).toBe(200);
+  await expect(participant.getByLabel("Sort")).toHaveValue("top");
+  await participant.reload();
+  await expect(participant.getByLabel("Sort")).toHaveValue("top");
+
+  // A choice that can't be recorded isn't used, and says so.
+  await participant.route("**/api/feed/sort", (route) => route.abort());
+  await participant.getByLabel("Sort").selectOption("new");
+  await expect(participant.getByRole("alert")).toContainText("didn't work");
+  await expect(participant.getByLabel("Sort")).toHaveValue("top");
+  await participant.unrouteAll({ behavior: "ignoreErrors" });
+
+  // The header fits on a phone, with this link and Finish.
+  await participant.route("**/api/me/flow", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...(await response.json()), canFinish: true } });
+  });
+  await participant.route("**/api/me", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: { ...(await response.json()), unreadNotifications: 12 },
+    });
+  });
+  await participant.setViewportSize({ width: 390, height: 844 });
+  await participant.reload();
+  const header = participant.getByRole("banner");
+  await expect(header.getByRole("button", { name: "Finish" })).toBeVisible();
+  await expect(header.getByRole("link", { name: /Notifications, 12 new/ })).toBeVisible();
+  await participant.screenshot({ path: testInfo.outputPath("phone-header.png") });
+  const fits = await header.evaluate((element) => {
+    const nav = element.querySelector("nav") as HTMLElement;
+    const sides = [...nav.children].map((child) => child.getBoundingClientRect());
+    return {
+      page: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      nav: nav.scrollWidth <= nav.clientWidth,
+      inside: sides.every(({ right }) => right <= window.innerWidth),
+      logo: sides[0]?.width ?? 0,
+    };
+  });
+  expect(fits).toMatchObject({ page: true, nav: true, inside: true });
+  expect(fits.logo).toBeGreaterThan(60);
+  await participant.unrouteAll({ behavior: "ignoreErrors" });
+
+  // A readable address.
+  await participant.goto(`http://localhost:${APP_PORT}/spaces/cooking`);
+  await expect(participant.getByText("Be kind to each other.")).toBeVisible();
+  await expect(participant.locator("section img")).toHaveCount(1);
   await context.close();
 });

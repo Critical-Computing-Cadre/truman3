@@ -21,33 +21,42 @@ export type FeedSort = "new" | "top" | null;
 export function SortPicker({
   surface,
   sort,
-  onChange,
 }: {
   surface: "home" | "space";
+  /** The order the server is using, which is the last one recorded. */
   sort: FeedSort;
-  onChange: (sort: FeedSort) => void;
 }) {
+  const client = useQueryClient();
   const flow = useQuery(flowQuery);
+  // The server takes the order from what's recorded, so this waits for that, and then for the feed.
+  const change = useMutation({
+    mutationFn: (next: FeedSort) => post("/feed/sort", { surface, sort: next }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["feed"] }),
+  });
   if (!flow.data?.canSort) {
     return null;
   }
   return (
-    <label className="flex items-center justify-end gap-2 px-3 text-sm sm:px-0">
-      Sort
-      <select
-        value={sort ?? ""}
-        onChange={(event) => {
-          const next = (event.target.value || null) as FeedSort;
-          post("/feed/sort", { surface, sort: next }).catch(() => {});
-          onChange(next);
-        }}
-        className="rounded border border-stone-300 bg-white px-2 py-1"
-      >
-        <option value="">Default</option>
-        <option value="new">New</option>
-        <option value="top">Top</option>
-      </select>
-    </label>
+    <div className="px-3 text-sm sm:px-0">
+      <label className="flex items-center justify-end gap-2">
+        Sort
+        <select
+          value={(change.isPending ? change.variables : sort) ?? ""}
+          disabled={change.isPending}
+          onChange={(event) => change.mutate((event.target.value || null) as FeedSort)}
+          className="rounded border border-stone-300 bg-white px-2 py-1"
+        >
+          <option value="">Default</option>
+          <option value="new">New</option>
+          <option value="top">Top</option>
+        </select>
+      </label>
+      {change.error && (
+        <p role="alert" className="mt-1 text-right text-rose-700">
+          That didn't work. Please try again.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -166,10 +175,9 @@ export function NewPostDialog({
 }
 
 export function FeedPage() {
-  const [sort, setSort] = useState<FeedSort>(null);
   const feed = useQuery({
-    queryKey: ["feed", "home", sort],
-    queryFn: () => get<FeedResponse>(`/feed?visit=${VISIT}${sort ? `&sort=${sort}` : ""}`),
+    queryKey: ["feed", "home"],
+    queryFn: () => get<FeedResponse>(`/feed?visit=${VISIT}`),
   });
   const flow = useQuery(flowQuery);
   const me = useQuery(meQuery);
@@ -220,7 +228,7 @@ export function FeedPage() {
             />
           </>
         )}
-        <SortPicker surface="home" sort={sort} onChange={setSort} />
+        <SortPicker surface="home" sort={feed.data?.sort ?? null} />
         {feed.data?.posts.length === 0 && (
           <p className="p-6 text-center text-stone-500">No posts to show.</p>
         )}

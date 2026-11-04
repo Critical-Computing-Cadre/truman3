@@ -165,6 +165,7 @@ export async function openDraft(
           name: space.name,
           ...optional("description", space.description),
           ...optional("rules", space.rules),
+          ...optional("picture", space.picture),
           startsJoined: space.startsJoined,
           conditions: space.conditions,
           ...optional("class", space.class),
@@ -298,6 +299,114 @@ const CLOSED: EditProblem = {
 /** Only images uploaded through the app, so a post can't point at anything else. */
 export const STORED_IMAGE = /^media\/[0-9a-f]{64}\.(jpg|png|gif|webp)$/;
 
+const MAX_SPACE_KEY_LENGTH = 50;
+/** The same as a study file allows, since a draft becomes one. */
+const SPACE_KEY = /^[a-z0-9][a-z0-9_-]*$/;
+
+/** A readable, address-safe name for a space, such as "home-cooking" for "Home Cooking!". */
+export function spaceKeyFromName(name: string) {
+  const key = name
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .slice(0, MAX_SPACE_KEY_LENGTH)
+    .replace(/^-+|-+$/g, "");
+  return key || "space";
+}
+
+/** Whether a key is still the one made from this name, so it can follow a new name. */
+function keyCameFromName(key: string, name: string) {
+  const base = spaceKeyFromName(name);
+  return key === base || (key.startsWith(`${base}-`) && /^\d+$/.test(key.slice(base.length + 1)));
+}
+
+function firstFreeKey(base: string, taken: ReadonlySet<string>) {
+  if (!taken.has(base)) {
+    return base;
+  }
+  let number = 2;
+  while (taken.has(`${base}-${number}`)) {
+    number += 1;
+  }
+  return `${base}-${number}`;
+}
+
+/** The keys other spaces in this draft use. */
+async function otherSpaceKeys(tx: Transaction, draftId: string, itemId?: string) {
+  const rows = await tx
+    .select({ id: schema.draftItems.id, data: schema.draftItems.data })
+    .from(schema.draftItems)
+    .where(
+      and(
+        eq(schema.draftItems.draftId, draftId),
+        eq(schema.draftItems.kind, "space"),
+        isNull(schema.draftItems.deletedAt),
+      ),
+    );
+  return new Set(
+    rows.filter(({ id }) => id !== itemId).map(({ data }) => (data as { key: string }).key),
+  );
+}
+
+/**
+ * The keys a study's saved versions have used. Events and exports refer to a space by its key, so
+ * one that's in a saved version keeps it, and a study's data reads the same across versions.
+ */
+export async function frozenSpaceKeys(db: Database | Transaction, studyId: string) {
+  const rows = await db
+    .selectDistinct({ key: schema.spaces.key })
+    .from(schema.spaces)
+    .innerJoin(schema.studyVersions, eq(schema.studyVersions.id, schema.spaces.studyVersionId))
+    .where(eq(schema.studyVersions.studyId, studyId));
+  return new Set(rows.map(({ key }) => key));
+}
+
+/** What a change to a space does to its key, or why it can't. */
+async function nextSpaceKey(
+  tx: Transaction,
+  draftId: string,
+  itemId: string,
+  current: { key: string; name: string },
+  changes: Record<string, unknown>,
+): Promise<{ key: string } | EditProblem> {
+  const chosen = typeof changes.key === "string" ? changes.key : null;
+  if (chosen === current.key || (chosen === null && typeof changes.name !== "string")) {
+    return { key: current.key };
+  }
+  if (chosen !== null && (!SPACE_KEY.test(chosen) || chosen.length > MAX_SPACE_KEY_LENGTH)) {
+    return {
+      problem: "invalid",
+      message: "An address can use lowercase letters, numbers, dashes, and underscores.",
+    };
+  }
+
+  const [draft] = await tx
+    .select({ studyId: schema.studyDrafts.studyId })
+    .from(schema.studyDrafts)
+    .where(eq(schema.studyDrafts.id, draftId));
+  const frozen = await frozenSpaceKeys(tx, draft?.studyId as string);
+  if (frozen.has(current.key)) {
+    return chosen === null
+      ? { key: current.key }
+      : {
+          problem: "in-use",
+          message: "This space is in a saved version, so its address can't change.",
+        };
+  }
+
+  const taken = await otherSpaceKeys(tx, draftId, itemId);
+  if (chosen !== null) {
+    return taken.has(chosen)
+      ? { problem: "in-use", message: "Another space already has that address." }
+      : { key: chosen };
+  }
+  // Renamed, so its key follows, unless someone chose one themselves.
+  return keyCameFromName(current.key, current.name)
+    ? { key: firstFreeKey(spaceKeyFromName(changes.name as string), taken) }
+    : { key: current.key };
+}
+
 /** Whether what an item points at is really in this draft. */
 async function checkReferences(tx: Transaction, draftId: string, data: Record<string, unknown>) {
   if (typeof data.actorId === "string" && !(await itemExists(tx, draftId, "actor", data.actorId))) {
@@ -397,16 +506,22 @@ export async function createItem(
     }
 
     const id = crypto.randomUUID();
-    const newItem = () => {
+    const newItem = async () => {
       if (kind === "actor") {
         return fields;
       }
-      // A space's key becomes part of its address, and nobody chooses one for a new space.
+      // A space's key is part of its address, so it's made from the name, and can be changed later.
       return kind === "space"
-        ? { ...fields, key: newRef(kind, id) }
+        ? {
+            ...fields,
+            key: firstFreeKey(
+              spaceKeyFromName(String(fields.name ?? "")),
+              await otherSpaceKeys(tx, draftId),
+            ),
+          }
         : { likes: 0, ...fields, ref: newRef(kind, id) };
     };
-    const parsed = itemDataSchemas[kind].safeParse(newItem());
+    const parsed = itemDataSchemas[kind].safeParse(await newItem());
     if (!parsed.success) {
       return {
         problem: "invalid" as const,
@@ -489,8 +604,25 @@ export async function updateItem(
       }
     }
 
+    let spaceKey: { key: string } | undefined;
+    if (item.kind === "space") {
+      const next = await nextSpaceKey(
+        tx,
+        draftId,
+        itemId,
+        item.data as { key: string; name: string },
+        changes,
+      );
+      if ("problem" in next) {
+        return next;
+      }
+      spaceKey = next;
+    } else if ("key" in changes) {
+      return { problem: "invalid" as const, message: "That change isn't valid." };
+    }
+
     const merged = Object.fromEntries(
-      Object.entries({ ...(item.data as object), ...changes }).filter(
+      Object.entries({ ...(item.data as object), ...changes, ...spaceKey }).filter(
         ([, value]) => value !== null,
       ),
     );

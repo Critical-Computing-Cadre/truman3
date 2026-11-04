@@ -24,6 +24,7 @@ export const itemDataSchemas = {
     name: z.string().min(1),
     description: z.string().optional(),
     rules: z.string().optional(),
+    picture: z.string().optional(),
     startsJoined: z.boolean().default(true),
     ...targeting,
   }),

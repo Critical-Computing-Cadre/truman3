@@ -2,15 +2,26 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import type { FeedResponse, SpaceView } from "@truman3/core";
 import { CreatePostBar } from "@truman3/ui";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { flowQuery, get, meQuery, post } from "../api.ts";
 import { PostCard } from "../components/PostCard.tsx";
-import { type FeedSort, NewPostDialog, SortPicker } from "./FeedPage.tsx";
+import { NewPostDialog, SortPicker } from "./FeedPage.tsx";
 
 const spacesQuery = {
   queryKey: ["spaces"],
   queryFn: () => get<{ spaces: SpaceView[] }>("/spaces"),
 };
+
+/** A community's picture, or its first letter if it doesn't have one. */
+function SpacePicture({ space }: { space: SpaceView }) {
+  return space.pictureUrl ? (
+    <img src={space.pictureUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+  ) : (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-stone-200 font-semibold text-stone-600">
+      {space.name.charAt(0).toUpperCase()}
+    </div>
+  );
+}
 
 /** Joining or leaving, on a study that lets people choose. Each one is recorded. */
 function JoinButton({ space }: { space: SpaceView }) {
@@ -55,6 +66,7 @@ export function SpacesPage() {
             aria-label={space.name}
             className="flex items-start gap-3 rounded-lg bg-white p-3 shadow-sm"
           >
+            <SpacePicture space={space} />
             <div className="min-w-0 flex-1">
               <Link
                 to="/spaces/$key"
@@ -78,18 +90,14 @@ export function SpacesPage() {
 /** One community's page: what it is, its rules, and its posts. */
 export function SpacePage() {
   const { key } = useParams({ from: "/gate/spaces/$key" });
-  const [sort, setSort] = useState<FeedSort>(null);
   const spaces = useQuery(spacesQuery);
   const flow = useQuery(flowQuery);
   const me = useQuery(meQuery);
   const newPost = useRef<HTMLDialogElement>(null);
   const space = spaces.data?.spaces.find((item) => item.key === key);
   const feed = useQuery({
-    queryKey: ["feed", "space", key, sort],
-    queryFn: () =>
-      get<FeedResponse>(
-        `/feed?surface=space&space=${encodeURIComponent(key)}${sort ? `&sort=${sort}` : ""}`,
-      ),
+    queryKey: ["feed", "space", key],
+    queryFn: () => get<FeedResponse>(`/feed?surface=space&space=${encodeURIComponent(key)}`),
   });
 
   if (spaces.data && !space) {
@@ -101,6 +109,7 @@ export function SpacePage() {
       {space && (
         <section aria-label={space.name} className="bg-white p-3 shadow-sm sm:rounded-lg">
           <div className="flex items-start gap-3">
+            <SpacePicture space={space} />
             <div className="min-w-0 flex-1">
               <h1 className="text-lg font-semibold">{space.name}</h1>
               {space.description && (
@@ -133,7 +142,7 @@ export function SpacePage() {
           />
         </>
       )}
-      <SortPicker surface="space" sort={sort} onChange={setSort} />
+      <SortPicker surface="space" sort={feed.data?.sort ?? null} />
       {feed.data?.posts.length === 0 && (
         <p className="p-6 text-center text-stone-500">No posts to show.</p>
       )}

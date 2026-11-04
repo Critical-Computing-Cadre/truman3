@@ -6,6 +6,7 @@ export {
   type EditProblem,
   type FreezeResult,
   freezeDraft,
+  frozenSpaceKeys,
   type LoadedDraft,
   loadDraft,
   moveItem,
@@ -13,6 +14,7 @@ export {
   type SaveSection,
   STORED_IMAGE,
   saveSection,
+  spaceKeyFromName,
   updateItem,
 } from "./drafts.ts";
 export {

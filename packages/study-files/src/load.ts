@@ -27,7 +27,7 @@ const POSTS: CsvSpec = {
 };
 const SPACES: CsvSpec = {
   required: ["key", "name"],
-  optional: ["description", "rules", "startsJoined", "condition", "class"],
+  optional: ["description", "rules", "picture", "startsJoined", "condition", "class"],
 };
 const COMMENTS: CsvSpec = {
   required: ["id", "body", "actor", "postID", "time"],
@@ -38,7 +38,11 @@ const REACTIONS: CsvSpec = {
   optional: ["body", "condition", "class"],
 };
 
-export const MEDIA_FOLDERS = { actors: "media/actors", posts: "media/posts" } as const;
+export const MEDIA_FOLDERS = {
+  actors: "media/actors",
+  posts: "media/posts",
+  spaces: "media/spaces",
+} as const;
 
 export interface LoadedStudy {
   /** Present when the files could be read, even if the study has validation errors. */
@@ -174,6 +178,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       startsJoined: startsJoined ?? true,
       ...optional("description", cells.description),
       ...optional("rules", cells.rules),
+      ...optional("picture", cells.picture),
       ...targeting(cells, "spaces.csv", row),
     };
   });
@@ -267,6 +272,9 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     };
     for (const actor of actors) {
       checkMedia(MEDIA_FOLDERS.actors, actor.picture, actor.source);
+    }
+    for (const space of spaces) {
+      checkMedia(MEDIA_FOLDERS.spaces, space.picture, space.source);
     }
     for (const post of posts) {
       for (const picture of post.pictures) {
