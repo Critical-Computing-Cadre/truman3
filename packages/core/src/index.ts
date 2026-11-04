@@ -20,6 +20,8 @@ export {
   type FeedAttachment,
   type FeedAuthor,
   type FeedComment,
+  type FeedOriginal,
+  type FeedPoll,
   type FeedPost,
   type FeedResponse,
   feedAttachmentSchema,
@@ -40,6 +42,17 @@ export {
   type FeedSort,
   SORT_LABELS,
 } from "./orders.ts";
+export {
+  type Flair,
+  flairSchema,
+  MAX_FLAIR_LENGTH,
+  MAX_POLL_OPTION_LENGTH,
+  MAX_POLL_OPTIONS,
+  MIN_POLL_OPTIONS,
+  type Poll,
+  pollOptionsProblem,
+  pollSchema,
+} from "./polls-flair.ts";
 export {
   linkDomain,
   linkSchema,

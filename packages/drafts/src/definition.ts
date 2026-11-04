@@ -85,11 +85,19 @@ export function draftToDefinition(
         settings.flow.some((step) => "page" in step && step.page === key),
       ),
     ),
-    actors: actors.map(({ data }) => data),
+    actors: actors.map(({ data: { spaceFlair, ...actor } }) => {
+      // A space that's been removed takes what people showed in it with it.
+      const flair = Object.entries(spaceFlair ?? {}).flatMap(([spaceId, text]) => {
+        const key = spaceKeys.get(spaceId);
+        return key ? [[key, text]] : [];
+      });
+      return { ...actor, ...(flair.length > 0 ? { spaceFlair: Object.fromEntries(flair) } : {}) };
+    }),
     spaces: spaces.map(({ data }) => data),
-    posts: posts.map(({ data: { actorId, spaceId, ...post } }) => ({
+    posts: posts.map(({ data: { actorId, spaceId, crosspostOfId, ...post } }) => ({
       ...post,
       actor: usernameOf(actorId),
+      ...(crosspostOfId ? { crosspostOf: postRefs.get(crosspostOfId) ?? "(missing post)" } : {}),
       ...(spaceId ? { space: spaceKeys.get(spaceId) ?? "(missing space)" } : {}),
     })),
     comments: comments.map(({ data: { actorId, postId, replyToId, ...comment } }) => ({

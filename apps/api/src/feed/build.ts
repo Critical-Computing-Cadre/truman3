@@ -2,8 +2,11 @@ import {
   type CommentSort,
   type FeatureSet,
   type FeedAuthor,
+  type FeedOriginal,
+  type FeedPoll,
   type FeedPost,
   type FeedSort,
+  type Flair,
   featureOn,
   featuresFor,
   linkDomain,
@@ -38,6 +41,9 @@ export type FeedContent = Pick<
   | "pinnedOn"
   | "locked"
   | "tags"
+  | "poll"
+  | "flair"
+  | "crosspostOf"
   | "body"
   | "attachments"
   | "offsetMs"
@@ -68,12 +74,19 @@ interface ActorProfile {
   picture?: string;
   moderator?: boolean;
   karma?: number;
+  spaceFlair?: Record<string, string>;
 }
 
 /** What the feed needs to name a space on a post. */
 export type SpaceLabels = ReadonlyMap<
   string,
-  { key: string; name: string; picture?: string | null | undefined }
+  {
+    key: string;
+    name: string;
+    picture?: string | null | undefined;
+    postFlair?: readonly Flair[] | undefined;
+    userFlair?: readonly Flair[] | undefined;
+  }
 >;
 
 /**
@@ -139,12 +152,16 @@ export async function loadSpacesFor(db: Database, context: ParticipantContext) {
           ),
         )
     : [];
-  const chose = new Map(choices.map(({ spaceId, joined }) => [spaceId, joined]));
+  const chose = new Map(choices.map((choice) => [choice.spaceId, choice]));
   return rows
     .filter(
       ({ conditions }) => conditions.length === 0 || conditions.includes(context.conditionKey),
     )
-    .map((space) => ({ ...space, joined: chose.get(space.id) ?? space.startsJoined }));
+    .map((space) => ({
+      ...space,
+      joined: chose.get(space.id)?.joined ?? space.startsJoined,
+      flair: chose.get(space.id)?.flair ?? null,
+    }));
 }
 
 /**
@@ -237,6 +254,11 @@ async function loadViewerState(db: Database, context: ParticipantContext) {
 
   return {
     likedContentIds: idsOfKind("like"),
+    pollChoices: new Map(
+      interactions.flatMap(({ kind, contentId, pollOption }) =>
+        kind === "poll" && pollOption !== null ? [[contentId, pollOption] as const] : [],
+      ),
+    ),
     viewerVotes: new Map(
       interactions.flatMap(({ kind, contentId }) =>
         kind === "up" || kind === "down" ? [[contentId, kind] as const] : [],
@@ -268,6 +290,9 @@ export async function shapeFeedPosts({
   features,
   savedContentIds = new Set(),
   hiddenContentIds = new Set(),
+  viewerFlair = new Map(),
+  pollChoices = new Map(),
+  canSeeOriginal = () => true,
 }: {
   loadAuthors: (ids: string[]) => Promise<ReadonlyMap<string, FeedActor>>;
   mediaPublicUrl: string;
@@ -290,21 +315,80 @@ export async function shapeFeedPosts({
   features: FeatureSet;
   savedContentIds?: ReadonlySet<string>;
   hiddenContentIds?: ReadonlySet<string>;
+  /** The flair this viewer chose, by space. */
+  viewerFlair?: ReadonlyMap<string, string>;
+  /** Which option this viewer chose in each poll. */
+  pollChoices?: ReadonlyMap<string, number>;
+  /** Whether this viewer can see a post a crosspost came from, which may not be shown to them. */
+  canSeeOriginal?: (row: FeedContent) => boolean;
 }): Promise<FeedPost[]> {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const shownIds = feed.posts.flatMap((post) => [post.id, ...post.commentIds]);
-  const authorIds = [...new Set(shownIds.map((id) => (byId.get(id) as FeedContent).authorActorId))];
+  const shownOriginals = features.crossposting
+    ? feed.posts.flatMap((post) => {
+        const original = byId.get(byId.get(post.id)?.crosspostOf ?? "");
+        return original && canSeeOriginal(original) ? [original] : [];
+      })
+    : [];
+  const authorIds = [
+    ...new Set([
+      ...shownIds.map((id) => (byId.get(id) as FeedContent).authorActorId),
+      ...shownOriginals.map(({ authorActorId }) => authorActorId),
+    ]),
+  ];
   const authorById = await loadAuthors(authorIds);
 
-  const toAuthor = (actorId: string): FeedAuthor => {
+  const pollFor = (item: FeedContent): FeedPoll | undefined => {
+    if (!item.poll || !features.polls) {
+      return undefined;
+    }
+    const voted = pollChoices.get(item.id) ?? null;
+    const showCounts = voted !== null || item.poll.resultsFirst;
+    return {
+      voted,
+      options: item.poll.options.map(({ text, votes }, index) => ({
+        text,
+        ...(showCounts ? { votes: votes + (voted === index ? 1 : 0) } : {}),
+      })),
+    };
+  };
+
+  const originalOf = (item: FeedContent): FeedOriginal | null => {
+    const original = byId.get(item.crosspostOf ?? "");
+    if (!original || !canSeeOriginal(original)) {
+      return null;
+    }
+    const profile = (authorById.get(original.authorActorId) as FeedActor).profile as ActorProfile;
+    const space = original.spaceId ? spaces.get(original.spaceId) : undefined;
+    const picture = original.attachments[0];
+    return {
+      id: original.id,
+      authorName: profile.name ?? (authorById.get(original.authorActorId) as FeedActor).username,
+      body: original.body,
+      ...(original.title && features.titles ? { title: original.title } : {}),
+      ...(picture ? { imageUrl: mediaUrl(picture.key, mediaPublicUrl) } : {}),
+      ...(original.linkUrl && features.links ? { linkDomain: linkDomain(original.linkUrl) } : {}),
+      ...(space ? { space: { key: space.key, name: space.name } } : {}),
+    };
+  };
+
+  const toAuthor = (actorId: string, spaceId?: string | null): FeedAuthor => {
     const actor = authorById.get(actorId) as FeedActor;
     const profile = actor.profile as ActorProfile;
+    const space = spaceId && features.flair ? spaces.get(spaceId) : undefined;
+    const flairText = space
+      ? actor.id === viewerActorId
+        ? (viewerFlair.get(spaceId as string) ?? profile.spaceFlair?.[space.key])
+        : profile.spaceFlair?.[space.key]
+      : undefined;
+    const flair = flairText ? space?.userFlair?.find(({ text }) => text === flairText) : undefined;
     return {
       username: actor.username,
       name: profile.name ?? actor.username,
       pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
       isViewer: actor.id === viewerActorId,
       ...(profile.moderator ? { moderator: true as const } : {}),
+      ...(flair ? { flair } : {}),
       ...(karma
         ? {
             karma:
@@ -314,13 +398,13 @@ export async function shapeFeedPosts({
     };
   };
 
-  const common = (item: FeedContent) => {
+  const common = (item: FeedContent, spaceId: string | null) => {
     const liked = likedContentIds.has(item.id);
     const vote = viewerVotes.get(item.id) ?? null;
     const scripted = (type: string) => scriptedCounts.get(`${type}:${item.id}`) ?? 0;
     return {
       id: item.id,
-      author: toAuthor(item.authorActorId),
+      author: toAuthor(item.authorActorId, spaceId),
       body: item.body,
       at: new Date(contentTimeMs(item, worldStartMs)).toISOString(),
       likes: item.baseLikes + scripted("like") + (liked ? 1 : 0),
@@ -335,11 +419,23 @@ export async function shapeFeedPosts({
   return feed.posts.map((post) => {
     const item = byId.get(post.id) as FeedContent;
     const space = item.spaceId ? spaces.get(item.spaceId) : undefined;
-    const tags = item.tags.filter(
+    const original = features.crossposting ? originalOf(item) : null;
+    // A crosspost shows its original, so whatever covers that has to cover this too.
+    const tags = [
+      ...new Set([...item.tags, ...(original ? (byId.get(original.id)?.tags ?? []) : [])]),
+    ].filter(
       (tag) => (tag === "spoiler" && features.spoilers) || (tag === "adult" && features.adultTags),
     ) as PostTag[];
+    const poll = pollFor(item);
+    const flair =
+      item.flair && features.flair
+        ? space?.postFlair?.find(({ text }) => text === item.flair)
+        : undefined;
     return {
-      ...common(item),
+      ...common(item, item.spaceId),
+      ...(poll ? { poll } : {}),
+      ...(flair ? { flair } : {}),
+      ...(item.crosspostOf && features.crossposting ? { crosspost: { original } } : {}),
       ...(item.title ? { title: item.title } : {}),
       ...(item.linkUrl && features.links
         ? { link: { url: item.linkUrl, domain: linkDomain(item.linkUrl) } }
@@ -364,7 +460,7 @@ export async function shapeFeedPosts({
         url: mediaUrl(key, mediaPublicUrl),
       })),
       comments: (commentsHere ? post.commentIds : []).map((id) => ({
-        ...common(byId.get(id) as FeedContent),
+        ...common(byId.get(id) as FeedContent, item.spaceId),
         depth: post.commentDepths[id] ?? 0,
       })),
       commentCount: post.commentIds.length,
@@ -558,6 +654,18 @@ export async function buildFeed(
     features,
     savedContentIds: features.saving ? state.savedContentIds : new Set(),
     hiddenContentIds: features.hiding ? state.hiddenContentIds : new Set(),
+    pollChoices: state.pollChoices,
+    viewerFlair: new Map(spaces.flatMap(({ id, flair }) => (flair ? [[id, flair]] : []))),
+    canSeeOriginal: (row) => {
+      const inCondition =
+        row.conditions.length === 0 || row.conditions.includes(context.conditionKey);
+      const appeared = contentTimeMs(row, worldStartMs) <= now.getTime();
+      const inVisibleSpace = !spacesOn || !row.spaceId || visibleSpaces.has(row.spaceId);
+      const removed =
+        (feedSettings.removeBlocked && state.blockedActorIds.has(row.authorActorId)) ||
+        (feedSettings.removeFlagged && state.flaggedContentIds.has(row.id));
+      return inCondition && appeared && inVisibleSpace && !removed;
+    },
     spaces: visibleSpaces,
     commentsHere,
     karma: karmaOn

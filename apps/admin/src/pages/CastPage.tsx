@@ -63,10 +63,13 @@ function Person({
   actor,
   canEdit,
   karmaOn,
+  flairSpaces,
   edits,
 }: {
   actor: DraftInfo["actors"][number];
   canEdit: boolean;
+  /** The spaces offering flair for people, where anyone in this study sees flair. */
+  flairSpaces: DraftInfo["spaces"];
   /** Whether anyone in this study sees karma. */
   karmaOn: boolean;
   edits: DraftEdits;
@@ -163,6 +166,31 @@ function Person({
             }}
           />
         )}
+        {flairSpaces.map((space) => (
+          <label key={space.id} className={labelClass}>
+            Flair in {space.name}
+            <select
+              className={input}
+              disabled={!canEdit}
+              value={actor.spaceFlair[space.id] ?? ""}
+              onChange={(event) => {
+                const { [space.id]: _, ...others } = actor.spaceFlair;
+                save({
+                  spaceFlair: event.target.value
+                    ? { ...others, [space.id]: event.target.value }
+                    : others,
+                });
+              }}
+            >
+              <option value="">None</option>
+              {space.userFlair.map(({ text }) => (
+                <option key={text} value={text}>
+                  {text}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
         <SavedCheckbox
           className="flex items-center gap-2 text-xs font-medium text-stone-600"
           disabled={!canEdit}
@@ -266,6 +294,11 @@ export function CastPage() {
         {actors.map((actor) => (
           <Person
             karmaOn={info.data.conditions.some(({ features }) => features.karma)}
+            flairSpaces={
+              info.data.conditions.some(({ features }) => features.flair)
+                ? info.data.spaces.filter(({ userFlair }) => userFlair.length > 0)
+                : []
+            }
             key={actor.id}
             actor={actor}
             canEdit={canEdit}

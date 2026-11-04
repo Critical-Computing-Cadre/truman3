@@ -12,6 +12,7 @@ import {
   POST_TAGS,
   type PostTag,
   platformStyleFor,
+  pollOptionsProblem,
   safeLink,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
@@ -177,6 +178,52 @@ const revealRoute = createRoute({
   },
 });
 
+const pollVoteRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/poll",
+  summary: "Choose an option in a post's poll, once",
+  request: {
+    params: contentParams,
+    ...jsonBody(actionMetaSchema.extend({ option: z.number().int().nonnegative() })),
+  },
+  responses: {
+    200: okResponse("Recorded"),
+    400: errorResponse("That isn't one of its options"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Not a post with a poll this participant can see"),
+    409: errorResponse("They've already chosen, and can't change it"),
+  },
+});
+
+const crosspostRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/crosspost",
+  summary: "Share a post into another space, as a new post that shows where it came from",
+  request: {
+    params: contentParams,
+    ...jsonBody(
+      actionMetaSchema.extend({
+        /** The key of the space it goes in. They have to have joined it. */
+        space: z.string(),
+        /** Leave this out to use the original's title. */
+        title: z.string().max(MAX_TITLE_LENGTH).optional(),
+        flair: z.string().optional(),
+      }),
+    ),
+  },
+  responses: {
+    200: {
+      description: "Recorded. On a repeat of the same action, it returns the earlier post",
+      content: { "application/json": { schema: z.object({ id: z.uuid() }) } },
+    },
+    400: errorResponse("It's already in that space, or it's missing a title or flair"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off, or they aren't in that space"),
+    404: errorResponse("No such post or space for this participant"),
+  },
+});
+
 const postRoute = createRoute({
   method: "post",
   path: "/posts",
@@ -197,6 +244,10 @@ const postRoute = createRoute({
             /** Whether to cover it, on a platform with these tags. */
             spoiler: z.stringbool().optional(),
             adult: z.stringbool().optional(),
+            /** Repeat this field for each option, on a platform with polls. */
+            pollOption: z.union([z.string(), z.array(z.string())]).optional(),
+            /** A label from its space's list, on a platform with flair. */
+            flair: z.string().optional(),
             /** Repeat this field for several photos, on a platform with galleries. */
             image: z
               .union([z.instanceof(File), z.array(z.instanceof(File))])
@@ -463,6 +514,27 @@ export function participantEvent(
 /** Thrown inside a transaction to undo it when the action turns out to be a repeat. */
 class RepeatedAction extends Error {}
 
+/** Thrown inside a transaction to undo it when someone has already chosen in a poll. */
+class AlreadyVoted extends Error {}
+
+/**
+ * Whether a post can go in this space with this flair, as a message if not. A space's list and its
+ * requirement only apply where flair is on, and a post outside a space can't have any.
+ */
+function flairProblem(
+  context: ParticipantContext,
+  space: { postFlair: readonly { text: string }[]; requirePostFlair: boolean } | undefined,
+  flair: string,
+): string | null {
+  if (isOff(context, "flair")) {
+    return null;
+  }
+  if (flair && !space?.postFlair.some(({ text }) => text === flair)) {
+    return "That flair isn't one this community offers.";
+  }
+  return !flair && space?.requirePostFlair ? "This community requires flair on posts." : null;
+}
+
 /** If this action was already recorded, returns the content it created. */
 async function findRepeat(db: Database | Transaction, worldId: string, clientEventId: string) {
   const [event] = await db
@@ -637,7 +709,12 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     const { id } = c.req.valid("param");
     const item = await visiblePost(context, id);
     // Only what actually covered it here, so the record can't say more than they saw.
-    const tags = (item?.tags ?? []).filter(
+    // A crosspost shows its original, so it's covered by whatever covers that too.
+    const original =
+      item?.crosspostOf && !isOff(context, "crossposting")
+        ? await findVisibleContent(db, context, item.crosspostOf, new Date())
+        : null;
+    const tags = [...new Set([...(item?.tags ?? []), ...(original?.tags ?? [])])].filter(
       (tag) =>
         (tag === "spoiler" && !isOff(context, "spoilers")) ||
         (tag === "adult" && !isOff(context, "adultTags")),
@@ -653,6 +730,152 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       targetContentId: id,
     });
     return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(pollVoteRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "polls")) {
+      return c.json(featureOff, 403);
+    }
+    const { id: contentId } = c.req.valid("param");
+    const item = await visiblePost(context, contentId);
+    if (!item?.poll) {
+      return c.json(notAvailable, 404);
+    }
+    const body = c.req.valid("json");
+    if (body.option >= item.poll.options.length) {
+      return c.json({ error: "That isn't one of its options." }, 400);
+    }
+    try {
+      await db.transaction(async (tx) => {
+        const recorded = await recordEvent(tx, {
+          ...participantEvent(context, body.occurredAt, body.clientEventId),
+          type: "content.poll_voted",
+          payload: { option: body.option },
+          targetContentId: contentId,
+        });
+        if (!recorded) {
+          return;
+        }
+        const inserted = await tx
+          .insert(schema.contentInteractions)
+          .values({
+            worldId: context.worldId,
+            actorId: context.actorId,
+            contentId,
+            kind: "poll",
+            pollOption: body.option,
+          })
+          .onConflictDoNothing()
+          .returning({ contentId: schema.contentInteractions.contentId });
+        if (inserted.length === 0) {
+          throw new AlreadyVoted();
+        }
+      });
+    } catch (error) {
+      if (error instanceof AlreadyVoted) {
+        return c.json({ error: "You've already voted in this poll." }, 409);
+      }
+      throw error;
+    }
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(crosspostRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "crossposting") || isOff(context, "posting") || isOff(context, "spaces")) {
+      return c.json(featureOff, 403);
+    }
+    const now = new Date();
+    const body = c.req.valid("json");
+
+    const repeat = await findRepeat(db, context.worldId, body.clientEventId);
+    if (repeat?.contentId) {
+      return c.json({ id: repeat.contentId }, 200);
+    }
+
+    const { id: targetId } = c.req.valid("param");
+    const target = await visiblePost(context, targetId);
+    // A crosspost of a crosspost points at the first post, so nobody has to follow a chain.
+    const original = target?.crosspostOf
+      ? await findVisibleContent(db, context, target.crosspostOf, now)
+      : target;
+    if (!target || !original) {
+      return c.json(notAvailable, 404);
+    }
+
+    const space = (await loadSpacesFor(db, context)).find(({ key }) => key === body.space);
+    if (!space) {
+      return c.json(notAvailable, 404);
+    }
+    if (!space.joined) {
+      return c.json({ error: "Join this community first." }, 403);
+    }
+    if (space.id === original.spaceId || space.id === target.spaceId) {
+      return c.json({ error: "This post is already in that community." }, 400);
+    }
+    const flair = body.flair?.trim() ?? "";
+    const problem = flairProblem(context, space, flair);
+    if (problem) {
+      return c.json({ error: problem }, 400);
+    }
+    const title = isOff(context, "titles") ? "" : body.title?.trim() || original.title || "";
+    if (!title && !isOff(context, "titles")) {
+      return c.json({ error: "Give your post a title." }, 400);
+    }
+
+    try {
+      const id = await db.transaction(async (tx) => {
+        const nth = await countOwnContent(tx, context, "post");
+        const [created] = await tx
+          .insert(schema.content)
+          .values({
+            studyVersionId: context.studyVersionId,
+            worldId: context.worldId,
+            authorActorId: context.actorId,
+            kind: "post",
+            ...(title ? { title } : {}),
+            ...(flair ? { flair } : {}),
+            crosspostOf: original.id,
+            spaceId: space.id,
+            visibleAt: now,
+          })
+          .returning({ id: schema.content.id });
+        const contentId = created?.id as string;
+
+        const recorded = await recordEvent(tx, {
+          ...participantEvent(context, body.occurredAt, body.clientEventId),
+          type: "content.created",
+          payload: { kind: "post", crosspostOf: original.id },
+          targetContentId: contentId,
+        });
+        if (!recorded) {
+          throw new RepeatedAction();
+        }
+
+        await scheduleReactions(tx, context, {
+          on: "post",
+          nth,
+          contentId,
+          replyUnderId: contentId,
+          now,
+        });
+        return contentId;
+      });
+      return c.json({ id }, 200);
+    } catch (error) {
+      if (error instanceof RepeatedAction) {
+        const earlier = await findRepeat(db, context.worldId, body.clientEventId);
+        return c.json({ id: earlier?.contentId as string }, 200);
+      }
+      throw error;
+    }
   });
 
   app.openapi(likeRoute, async (c) => {
@@ -875,6 +1098,22 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     }
     const tags = POST_TAGS.filter((tag) => form[tag]);
 
+    const pollOptions = [form.pollOption ?? []]
+      .flat()
+      .map((option) => option.trim())
+      .filter(Boolean);
+    if (pollOptions.length > 0 && isOff(context, "polls")) {
+      return c.json(featureOff, 403);
+    }
+    const pollProblem = pollOptions.length > 0 ? pollOptionsProblem(pollOptions) : null;
+    if (pollProblem) {
+      return c.json({ error: pollProblem }, 400);
+    }
+    const flair = form.flair?.trim() ?? "";
+    if (flair && isOff(context, "flair")) {
+      return c.json(featureOff, 403);
+    }
+
     const images = [form.image ?? []].flat();
     const problem = checkNewPost(
       platformStyleFor(context.settings, context.conditionKey),
@@ -883,6 +1122,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       {
         titled: !isOff(context, "titles") && (form.title?.trim() ?? "").length > 0,
         linked: link !== null,
+        polled: pollOptions.length > 0,
       },
     );
     if (problem) {
@@ -903,15 +1143,19 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json({ error: `A post can have up to ${MAX_ATTACHMENTS} photos.` }, 400);
     }
 
-    let spaceId: string | undefined;
+    let space: Awaited<ReturnType<typeof loadSpacesFor>>[number] | undefined;
     if (form.space) {
       if (isOff(context, "spaces")) {
         return c.json(featureOff, 403);
       }
-      spaceId = (await loadSpacesFor(db, context)).find(({ key }) => key === form.space)?.id;
-      if (!spaceId) {
+      space = (await loadSpacesFor(db, context)).find(({ key }) => key === form.space);
+      if (!space) {
         return c.json(notAvailable, 404);
       }
+    }
+    const flairTrouble = flairProblem(context, space, flair);
+    if (flairTrouble) {
+      return c.json({ error: flairTrouble }, 400);
     }
 
     const attachments: Attachment[] = [];
@@ -941,9 +1185,18 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
             ...(title ? { title } : {}),
             ...(link ? { linkUrl: link } : {}),
             tags,
+            ...(pollOptions.length > 0
+              ? {
+                  poll: {
+                    options: pollOptions.map((option) => ({ text: option, votes: 0 })),
+                    resultsFirst: false,
+                  },
+                }
+              : {}),
+            ...(flair ? { flair } : {}),
             body: text,
             attachments,
-            spaceId,
+            spaceId: space?.id,
             visibleAt: now,
           })
           .returning({ id: schema.content.id });

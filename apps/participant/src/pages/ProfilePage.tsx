@@ -28,10 +28,15 @@ const REPORT_REASONS = [
 ] as const;
 
 /** What this person saved or hid, which only they can see, on their own profile. */
-function OwnLists() {
+function OwnLists({
+  open,
+  setOpen,
+}: {
+  open: "saved" | "hidden" | null;
+  setOpen: (list: "saved" | "hidden" | null) => void;
+}) {
   const saving = useFeature("saving");
   const hiding = useFeature("hiding");
-  const [open, setOpen] = useState<"saved" | "hidden" | null>(null);
   const list = useQuery({
     queryKey: ["feed", open],
     queryFn: () => get<FeedResponse>(`/feed?surface=${open}`),
@@ -73,6 +78,7 @@ export function ProfilePage() {
   const blocking = useFeature("blocking");
   const reporting = useFeature("reporting");
   const [reason, setReason] = useState<string | null>(null);
+  const [openList, setOpenList] = useState<"saved" | "hidden" | null>(null);
 
   const page = useQuery({
     queryKey: ["actor", username],
@@ -175,14 +181,14 @@ export function ProfilePage() {
         </form>
       </dialog>
 
-      {actor.isViewer && <OwnLists />}
+      {actor.isViewer && <OwnLists open={openList} setOpen={setOpenList} />}
 
-      {actor.posts.length === 0 && (
+      {/* An open list takes the place of their posts, so what's on screen is one list at a time. */}
+      {!openList && actor.posts.length === 0 && (
         <p className="p-6 text-center text-stone-500">No posts to show.</p>
       )}
-      {actor.posts.map((post) => (
-        <PostCard key={post.id} post={post} surface="profile" />
-      ))}
+      {!openList &&
+        actor.posts.map((post) => <PostCard key={post.id} post={post} surface="profile" />)}
     </div>
   );
 }

@@ -1,10 +1,12 @@
 import {
   ACCENT_PATTERN,
+  flairSchema,
   linkSchema,
   MAX_ATTACHMENTS,
   MAX_TITLE_LENGTH,
   PIN_PLACES,
   POST_TAGS,
+  pollSchema,
 } from "@truman3/core";
 import { z } from "zod";
 
@@ -25,6 +27,8 @@ export const itemDataSchemas = {
     picture: z.string().optional(),
     moderator: z.boolean().optional(),
     karma: z.number().int().optional(),
+    /** The flair they show in each space, by the space's item ID. */
+    spaceFlair: z.record(z.uuid(), z.string()).optional(),
     ...targeting,
   }),
   space: z.strictObject({
@@ -37,6 +41,9 @@ export const itemDataSchemas = {
     accent: z.string().regex(ACCENT_PATTERN).optional(),
     startsJoined: z.boolean().default(true),
     members: z.number().int().nonnegative().optional(),
+    postFlair: z.array(flairSchema).optional(),
+    userFlair: z.array(flairSchema).optional(),
+    requirePostFlair: z.boolean().optional(),
     ...targeting,
   }),
   post: z.strictObject({
@@ -51,6 +58,10 @@ export const itemDataSchemas = {
     pinnedOn: z.array(z.enum(PIN_PLACES)).optional(),
     locked: z.boolean().optional(),
     tags: z.array(z.enum(POST_TAGS)).optional(),
+    poll: pollSchema.optional(),
+    flair: z.string().min(1).optional(),
+    /** The post this was crossposted from. */
+    crosspostOfId: z.uuid().optional(),
     timeMs: z.number().int(),
     likes: z.number().int().nonnegative(),
     ups: z.number().int().nonnegative().optional(),

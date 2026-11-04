@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { flowQuery, meQuery, post as send } from "../api.ts";
 import { createDwellTimer } from "../dwell.ts";
 import { rememberOpenedFrom, track } from "../tracking.ts";
+import { CrosspostDialog } from "./CrosspostDialog.tsx";
 
 /** Counts as being looked at once half of it is on screen. */
 const IN_VIEW_THRESHOLD = 0.5;
@@ -67,6 +68,8 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
   const [replyTo, setReplyTo] = useState<FeedComment | null>(null);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const crosspostDialog = useRef<HTMLDialogElement>(null);
+  const [crossposting, setCrossposting] = useState(false);
   /** Whether comments are here, or wait on the post's own page. */
   const detail = surface === "post";
   const pages = flow.data?.features.postPages ?? false;
@@ -83,6 +86,12 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
   const vote = useMutation({
     mutationFn: ({ id, value }: { id: string; value: "up" | "down" | null }) =>
       send(`/content/${id}/vote`, { value }),
+    onSettled: () => client.invalidateQueries(),
+  });
+
+  const pollVote = useMutation({
+    mutationFn: ({ id, option }: { id: string; option: number }) =>
+      send(`/content/${id}/poll`, { option }),
     onSettled: () => client.invalidateQueries(),
   });
 
@@ -103,94 +112,118 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
     }
   }, [replying, replyTo]);
 
+  // The window only needs its lists once someone asks for it.
+  useEffect(() => {
+    if (crossposting) {
+      crosspostDialog.current?.showModal();
+    }
+  }, [crossposting]);
+
   return (
-    <FeedPostView
-      post={post}
-      rootRef={ref}
-      detail={detail}
-      {...(pages
-        ? {
-            renderPostLink: (postId: string, className: string, children: ReactNode) => (
-              <Link
-                to="/p/$postId"
-                params={{ postId }}
-                className={className}
-                onClick={() => rememberOpenedFrom(surface)}
-              >
-                {children}
-              </Link>
-            ),
-          }
-        : {})}
-      actions={{
-        onLike: (id, active) => action.mutate({ url: `/content/${id}/like`, active }),
-        onVote: (id, value) => vote.mutate({ id, value }),
-        onFlag: (id, active) => action.mutate({ url: `/content/${id}/flag`, active }),
-        onSave: (id, active) => action.mutate({ url: `/content/${id}/save`, active }),
-        onHide: (id, active) => action.mutate({ url: `/content/${id}/hide`, active }),
-        // Copied first, since a browser only allows it straight after a click.
-        onShare: async (id) => {
-          const copied = await navigator.clipboard
-            .writeText(`${window.location.origin}/p/${id}`)
-            .then(() => true)
-            .catch(() => false);
-          if (copied) {
-            await send(`/content/${id}/share`, { method: "copy" }).catch(() => {});
-          }
-          return copied;
-        },
-        onOpenLink: (id) => {
-          send(`/content/${id}/link-opened`).catch(() => {});
-        },
-        onReveal: (id) => {
-          send(`/content/${id}/reveal`).catch(() => {});
-        },
-        onReply: () => {
-          if (pages && !detail) {
-            openPost();
-            return;
-          }
-          setReplying(true);
-          inputRef.current?.focus();
-        },
-        ...(post.locked ? {} : { onReplyTo: setReplyTo }),
-      }}
-      renderSpace={(key, className, name) => (
-        <Link to="/spaces/$key" params={{ key }} className={className}>
-          {name}
-        </Link>
+    <>
+      {crossposting && (
+        <CrosspostDialog
+          post={post}
+          dialogRef={crosspostDialog}
+          onClose={() => setCrossposting(false)}
+        />
       )}
-      renderAuthor={(author, className, children) => (
-        <Link to="/u/$username" params={{ username: author.username }} className={className}>
-          {children}
-        </Link>
-      )}
-      belowComments={
-        !post.locked &&
-        me.data &&
-        (detail || !pages) &&
-        (flow.data?.commentBox === "open" || replying || replyTo) && (
-          <>
-            {replyTo && (
-              <p className="flex justify-between text-xs text-stone-500">
-                <span>Replying to {replyTo.author.name}</span>
-                <button type="button" className="underline" onClick={() => setReplyTo(null)}>
-                  Cancel
-                </button>
-              </p>
-            )}
-            <CommentBox
-              seed={me.data.username}
-              pictureUrl={me.data.pictureUrl}
-              value={draft}
-              onChange={setDraft}
-              onSubmit={() => comment.mutate(draft)}
-              sending={comment.isPending}
-              inputRef={inputRef}
-            />
-          </>
-        )
-      }
-    />
+      <FeedPostView
+        post={post}
+        rootRef={ref}
+        detail={detail}
+        {...(pages
+          ? {
+              renderPostLink: (postId: string, className: string, children: ReactNode) => (
+                <Link
+                  to="/p/$postId"
+                  params={{ postId }}
+                  className={className}
+                  onClick={() => rememberOpenedFrom(surface)}
+                >
+                  {children}
+                </Link>
+              ),
+            }
+          : {})}
+        actions={{
+          onLike: (id, active) => action.mutate({ url: `/content/${id}/like`, active }),
+          onVote: (id, value) => vote.mutate({ id, value }),
+          onFlag: (id, active) => action.mutate({ url: `/content/${id}/flag`, active }),
+          onSave: (id, active) => action.mutate({ url: `/content/${id}/save`, active }),
+          onHide: (id, active) => action.mutate({ url: `/content/${id}/hide`, active }),
+          // Copied first, since a browser only allows it straight after a click.
+          onShare: async (id) => {
+            const copied = await navigator.clipboard
+              .writeText(`${window.location.origin}/p/${id}`)
+              .then(() => true)
+              .catch(() => false);
+            if (copied) {
+              await send(`/content/${id}/share`, { method: "copy" }).catch(() => {});
+            }
+            return copied;
+          },
+          onOpenLink: (id) => {
+            send(`/content/${id}/link-opened`).catch(() => {});
+          },
+          onReveal: (id) => {
+            send(`/content/${id}/reveal`).catch(() => {});
+          },
+          onPollVote: (id, option) => pollVote.mutate({ id, option }),
+          onCrosspost: () => setCrossposting(true),
+          onReply: () => {
+            if (pages && !detail) {
+              openPost();
+              return;
+            }
+            setReplying(true);
+            inputRef.current?.focus();
+          },
+          ...(post.locked ? {} : { onReplyTo: setReplyTo }),
+        }}
+        renderSpace={(key, className, name) => (
+          <Link to="/spaces/$key" params={{ key }} className={className}>
+            {name}
+          </Link>
+        )}
+        renderAuthor={(author, className, children) => (
+          <Link to="/u/$username" params={{ username: author.username }} className={className}>
+            {children}
+          </Link>
+        )}
+        belowComments={
+          post.locked && detail && flow.data?.features.comments ? (
+            <p className="text-sm text-stone-500">
+              This post is locked, so nobody can add new comments.
+            </p>
+          ) : (
+            !post.locked &&
+            me.data &&
+            (detail || !pages) &&
+            (flow.data?.commentBox === "open" || replying || replyTo) && (
+              <>
+                {replyTo && (
+                  <p className="flex justify-between text-xs text-stone-500">
+                    <span>Replying to {replyTo.author.name}</span>
+                    <button type="button" className="underline" onClick={() => setReplyTo(null)}>
+                      Cancel
+                    </button>
+                  </p>
+                )}
+                <CommentBox
+                  seed={me.data.username}
+                  pictureUrl={me.data.pictureUrl}
+                  value={draft}
+                  onChange={setDraft}
+                  onSubmit={() => comment.mutate(draft)}
+                  sending={comment.isPending}
+                  inputRef={inputRef}
+                />
+              </>
+            )
+          )
+        }
+      />
+    </>
   );
 }

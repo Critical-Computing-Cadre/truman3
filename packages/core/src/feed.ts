@@ -2,6 +2,9 @@ import { z } from "zod";
 import { COMMENT_SORTS, FEED_SORTS } from "./orders.ts";
 import { POST_TAGS } from "./post-extras.ts";
 
+/** A flair label, as drawn. */
+const feedFlairSchema = z.object({ text: z.string(), color: z.string().optional() });
+
 export const feedAuthorSchema = z.object({
   username: z.string(),
   name: z.string(),
@@ -12,6 +15,8 @@ export const feedAuthorSchema = z.object({
   moderator: z.literal(true).optional(),
   /** Their points, on a platform with karma. */
   karma: z.number().optional(),
+  /** Their flair in the community this post is in. */
+  flair: feedFlairSchema.optional(),
 });
 
 /** How deep a thread can go. It keeps deep threads readable on a phone, and the work bounded. */
@@ -43,6 +48,29 @@ export type Attachment = z.infer<typeof attachmentSchema>;
 export const feedAttachmentSchema = z.object({ type: z.enum(["image"]), url: z.string() });
 export type FeedAttachment = z.infer<typeof feedAttachmentSchema>;
 
+/**
+ * A poll, as this viewer may see it. The counts only reach a browser if they're allowed to see them
+ * now, so hiding results before someone votes can't be got around by reading the response.
+ */
+export const feedPollSchema = z.object({
+  options: z.array(z.object({ text: z.string(), votes: z.number().optional() })),
+  /** The option this viewer chose, by its place in the list. */
+  voted: z.number().nullable(),
+});
+export type FeedPoll = z.infer<typeof feedPollSchema>;
+
+/** What a crosspost shows of the post it came from. */
+export const feedOriginalSchema = z.object({
+  id: z.string(),
+  authorName: z.string(),
+  title: z.string().optional(),
+  body: z.string(),
+  imageUrl: z.string().optional(),
+  linkDomain: z.string().optional(),
+  space: z.object({ key: z.string(), name: z.string() }).optional(),
+});
+export type FeedOriginal = z.infer<typeof feedOriginalSchema>;
+
 export const feedPostSchema = z.object({
   id: z.string(),
   author: feedAuthorSchema,
@@ -52,6 +80,12 @@ export const feedPostSchema = z.object({
   attachments: z.array(feedAttachmentSchema),
   /** Where it links to, on a platform with link posts. */
   link: z.object({ url: z.string(), domain: z.string() }).optional(),
+  /** Its poll, on a platform with polls. */
+  poll: feedPollSchema.optional(),
+  /** Its label in its community, on a platform with flair. */
+  flair: feedFlairSchema.optional(),
+  /** On a crosspost, the post it came from. Null if this viewer can't see that post. */
+  crosspost: z.object({ original: feedOriginalSchema.nullable() }).optional(),
   /** Kept on top of this list by the study. Only ever true. */
   pinned: z.literal(true).optional(),
   /** Nobody can comment on it. Only ever true. */
@@ -100,6 +134,14 @@ export const spaceViewSchema = z.object({
   /** How many members it says it has. Null if the study didn't write a number, so none is shown. */
   memberCount: z.number().nullable(),
   joined: z.boolean(),
+  /** What posts in it can be labeled with. Empty on a platform without flair. */
+  postFlair: z.array(feedFlairSchema),
+  /** What people in it can show beside their name. Empty on a platform without flair. */
+  userFlair: z.array(feedFlairSchema),
+  /** Whether a post someone writes here has to have flair. */
+  requirePostFlair: z.boolean(),
+  /** The flair this person chose here. */
+  myFlair: z.string().nullable(),
 });
 export type SpaceView = z.infer<typeof spaceViewSchema>;
 

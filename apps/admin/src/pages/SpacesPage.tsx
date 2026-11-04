@@ -1,19 +1,106 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
+import { type Flair, textOnAccent } from "@truman3/core";
 import { useRef, useState } from "react";
 import { type DraftInfo, get } from "../api.ts";
 import { CastField, SavedCheckbox } from "./CastPage.tsx";
 import { type DraftEdits, SaveStatus, useDraftEdits, useDraftPresence } from "./DraftPage.tsx";
 
+/** A space's list of flair. Its text is what things refer to, so it's added and removed, not edited. */
+function FlairList({
+  label,
+  flair,
+  canEdit,
+  onChange,
+}: {
+  label: string;
+  flair: Flair[];
+  canEdit: boolean;
+  onChange: (flair: Flair[]) => void;
+}) {
+  const [text, setText] = useState("");
+  const [color, setColor] = useState<string | null>(null);
+  const add = () => {
+    const trimmed = text.trim();
+    if (trimmed && !flair.some((item) => item.text === trimmed)) {
+      onChange([...flair, { text: trimmed, ...(color ? { color } : {}) }]);
+      setText("");
+      setColor(null);
+    }
+  };
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-medium text-stone-600">{label}</p>
+      <ul className="flex flex-wrap gap-1.5">
+        {flair.map((item) => (
+          <li
+            key={item.text}
+            style={
+              item.color
+                ? { backgroundColor: item.color, color: textOnAccent(item.color) }
+                : undefined
+            }
+            className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${item.color ? "" : "bg-stone-200"}`}
+          >
+            {item.text}
+            {canEdit && (
+              <button
+                type="button"
+                aria-label={`Remove ${item.text} from ${label}`}
+                onClick={() => onChange(flair.filter((other) => other !== item))}
+              >
+                ×
+              </button>
+            )}
+          </li>
+        ))}
+        {flair.length === 0 && <li className="text-xs text-stone-500">None yet.</li>}
+      </ul>
+      {canEdit && (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <input
+            aria-label={`New flair for ${label}`}
+            value={text}
+            maxLength={40}
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                add();
+              }
+            }}
+            className="rounded border border-stone-300 px-2 py-1"
+          />
+          <label className="flex items-center gap-1">
+            Color
+            <input
+              type="color"
+              aria-label={`Color of new flair for ${label}`}
+              value={color ?? "#e7e5e4"}
+              onChange={(event) => setColor(event.target.value)}
+            />
+          </label>
+          <button type="button" onClick={add} className="underline">
+            Add
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Space({
   space,
   conditions,
   canEdit,
+  flairOn,
   edits,
 }: {
   space: DraftInfo["spaces"][number];
   conditions: string[];
   canEdit: boolean;
+  /** Whether anyone in this study sees flair. */
+  flairOn: boolean;
   edits: DraftEdits;
 }) {
   const [problem, setProblem] = useState<string | null>(null);
@@ -202,6 +289,38 @@ function Space({
           Blank shows no number. A participant adds one while they're in it.
         </span>
       </label>
+      {flairOn && (
+        <div className="space-y-2 border-t border-stone-200 pt-2 text-sm">
+          <p className="font-medium">Flair</p>
+          <FlairList
+            label="On posts"
+            flair={space.postFlair}
+            canEdit={canEdit}
+            onChange={(postFlair) =>
+              save({
+                postFlair,
+                ...(postFlair.length === 0 && space.requirePostFlair
+                  ? { requirePostFlair: false }
+                  : {}),
+              })
+            }
+          />
+          <SavedCheckbox
+            className="flex items-center gap-2"
+            disabled={!canEdit || space.postFlair.length === 0}
+            checked={space.requirePostFlair}
+            onChange={(requirePostFlair) => save({ requirePostFlair })}
+          >
+            Posts participants write here have to have flair
+          </SavedCheckbox>
+          <FlairList
+            label="On people"
+            flair={space.userFlair}
+            canEdit={canEdit}
+            onChange={(userFlair) => save({ userFlair })}
+          />
+        </div>
+      )}
       {conditions.length > 1 && (
         <fieldset className="flex flex-wrap items-center gap-3 text-sm">
           <legend className="sr-only">Who sees it</legend>
@@ -307,6 +426,7 @@ export function SpacesPage() {
             space={space}
             conditions={conditions.map(({ key }) => key)}
             canEdit={canEdit}
+            flairOn={info.data.conditions.some(({ features }) => features.flair)}
             edits={edits}
           />
         ))}

@@ -245,3 +245,51 @@ describe("forum columns", () => {
     expect(issues.map(({ message }) => message).join()).toContain('"lots" in karma');
   });
 });
+
+describe("polls, flair, and crossposts", () => {
+  const files = {
+    "study.yaml": YAML,
+    "actors.csv": "username,name,flair\nann,Ann,x=Chef|y=Novice\n",
+    "spaces.csv":
+      "key,name,postFlair,userFlair,requirePostFlair\nx,X,News=#1d4ed8|Question,Chef,yes\ny,Y,,Novice,\n",
+    "posts.csv":
+      "id,body,actor,space,poll,pollResultsFirst,flair,crosspostOf,time\n1,Text,ann,x,Yes=12|No,yes,News,,-1:00\n2,,ann,y,,,,1,-1:00\n",
+  };
+
+  it("reads them", () => {
+    const { definition, issues } = loadStudyFolder(folder(files));
+    expect(hasErrors(issues)).toBe(false);
+    expect(definition?.posts[0]?.poll).toEqual({
+      options: [
+        { text: "Yes", votes: 12 },
+        { text: "No", votes: 0 },
+      ],
+      resultsFirst: true,
+    });
+    expect(definition?.posts[0]?.flair).toBe("News");
+    expect(definition?.posts[1]?.crosspostOf).toBe("1");
+    expect(definition?.spaces[0]?.postFlair).toEqual([
+      { text: "News", color: "#1d4ed8" },
+      { text: "Question" },
+    ]);
+    expect(definition?.spaces[0]?.requirePostFlair).toBe(true);
+    expect(definition?.actors[0]?.spaceFlair).toEqual({ x: "Chef", y: "Novice" });
+  });
+
+  it("says so when flair on a person isn't written properly", () => {
+    const { issues } = loadStudyFolder(
+      folder({ ...files, "actors.csv": "username,name,flair\nann,Ann,Chef\n" }),
+    );
+    expect(issues.map(({ message }) => message).join()).toContain("space=Label");
+  });
+
+  it("refuses a poll with one option", () => {
+    const { issues } = loadStudyFolder(
+      folder({
+        ...files,
+        "posts.csv": "id,body,actor,poll,time\n1,Text,ann,Yes,-1:00\n",
+      }),
+    );
+    expect(hasErrors(issues)).toBe(true);
+  });
+});

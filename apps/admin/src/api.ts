@@ -1,4 +1,11 @@
-import type { FeatureSet, FeedResponse, LayoutKey, StudySettings } from "@truman3/core";
+import type {
+  FeatureSet,
+  FeedResponse,
+  Flair,
+  LayoutKey,
+  Poll,
+  StudySettings,
+} from "@truman3/core";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -135,6 +142,8 @@ export interface DraftInfo {
     pictureUrl: string | null;
     moderator: boolean;
     karma: number;
+    /** The flair they show in each space, by the space's ID. */
+    spaceFlair: Record<string, string>;
     /** How many posts, comments, and reactions are theirs. */
     usedBy: number;
   }[];
@@ -146,6 +155,9 @@ export interface DraftInfo {
     rules: string;
     startsJoined: boolean;
     members: number | null;
+    postFlair: Flair[];
+    userFlair: Flair[];
+    requirePostFlair: boolean;
     pictureUrl: string | null;
     bannerUrl: string | null;
     accent: string | null;
@@ -160,6 +172,9 @@ export interface DraftInfo {
     offsetMs: number;
     conditions: string[];
     body: string;
+    title: string | null;
+    /** Set if it's a crosspost, which can't be crossposted in the builder. */
+    crosspostOfId: string | null;
     authorName: string;
     imageUrl: string | null;
   }[];
@@ -179,6 +194,9 @@ export interface DraftItemDetails {
   pinnedOn: string[];
   locked: boolean;
   tags: string[];
+  poll: Poll | null;
+  flair: string | null;
+  crosspostOfId: string | null;
   origin: string;
 }
 

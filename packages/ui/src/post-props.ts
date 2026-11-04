@@ -15,6 +15,10 @@ export interface PostActions {
   onShare?: (contentId: string) => Promise<boolean>;
   onOpenLink?: (contentId: string) => void;
   onReveal?: (contentId: string) => void;
+  /** Chooses an option in a poll, by its place in the list. */
+  onPollVote?: (contentId: string, option: number) => void;
+  /** Starts sharing this post into another community. */
+  onCrosspost?: (post: FeedPost) => void;
 }
 
 export interface FeedPostViewProps {

@@ -239,6 +239,9 @@ export async function exportStudy(
           "banner",
           "accent",
           "members",
+          "post_flair",
+          "user_flair",
+          "require_post_flair",
         ],
         spaces.map((space) => ({
           study_version: versionNumber.get(space.studyVersionId),
@@ -250,6 +253,9 @@ export async function exportStudy(
           banner: safeText(space.banner),
           accent: safeText(space.accent),
           members: space.baseMembers ?? "",
+          post_flair: space.postFlair.map(({ text }) => safeText(text)).join("|"),
+          user_flair: space.userFlair.map(({ text }) => safeText(text)).join("|"),
+          require_post_flair: space.requirePostFlair ? "true" : "",
           starts_joined: String(space.startsJoined),
           conditions: space.conditions.join("|"),
           class: safeText(space.class),
@@ -495,6 +501,9 @@ export async function exportStudy(
         "pinned_on",
         "locked",
         "tags",
+        "poll",
+        "flair",
+        "crosspost_of",
         "media",
         "provenance",
         "offset_ms",
@@ -521,6 +530,9 @@ export async function exportStudy(
         pinned_on: item.pinnedOn.join("|"),
         locked: item.locked ? "true" : "",
         tags: item.tags.join("|"),
+        poll: item.poll ? safeText(JSON.stringify(item.poll)) : "",
+        flair: safeText(item.flair),
+        crosspost_of: item.crosspostOf ?? "",
         media: item.attachments.map(({ key }) => key).join("|"),
         provenance: provenanceLabel(item.provenance),
         offset_ms: item.offsetMs ?? "",
@@ -655,8 +667,20 @@ const FILE_DOCS: Record<string, [string, string][]> = {
       "The member count the study wrote. A participant saw this, plus one while they were in it. Empty means no count was shown",
     ],
     ["conditions", "Conditions that see it, separated by |. Empty means all"],
+    ["post_flair", "What posts in it could be labeled with, separated by |"],
+    ["user_flair", "What people in it could show beside their name, separated by |"],
+    ["require_post_flair", "true if a post a participant wrote there had to have flair"],
   ],
   "content.csv": [
+    [
+      "poll",
+      "A post's poll, as JSON: each option's text and the votes it started with, and whether results showed before voting. Each person's choice is a content.poll_voted event",
+    ],
+    ["flair", "A post's label, from its space's list"],
+    [
+      "crosspost_of",
+      "The content_id of the post this was crossposted from. Votes and comments belong to each separately. impressions.csv lists the crosspost, not the original shown inside it",
+    ],
     ["link", "Where a post links to. Truman never opens this address"],
     ["pinned_on", "Which lists the study keeps it on top of, home or space, separated by |"],
     ["locked", "true if the study stopped comments on it"],
@@ -711,6 +735,10 @@ const EVENT_NOTES: Record<string, string> = {
     "They clicked the link on a post. Whether the other site opened isn't something Truman can see.",
   "content.revealed":
     "They uncovered a post tagged as a spoiler or adult content. `tags` says which. It stays covered again on a different page, so this can repeat.",
+  "content.poll_voted":
+    "They chose an option in a poll. `option` is its place in the list in content.csv, from 0. They can't change it, so there's at most one per person and post.",
+  "space.flair_chosen":
+    "They chose the flair they show in a space, or took it off if `flair` is empty. It shows on what they've written there.",
   "content.saved": "They saved a post to their list. content.unsaved takes it back.",
   "content.hidden":
     "They hid a post. It stops appearing in their feeds and on profiles, so it won't be in impressions.csv for those until content.unhidden. Its absence there isn't the study's doing.",

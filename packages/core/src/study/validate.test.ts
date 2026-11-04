@@ -497,3 +497,142 @@ describe("forum features", () => {
     expect(() => colored("red;background:url(x)")).toThrow();
   });
 });
+
+describe("polls, flair, and crossposts", () => {
+  const spaces = [
+    { key: "x", name: "X", postFlair: [{ text: "News" }], userFlair: [{ text: "Chef" }] },
+    { key: "y", name: "Y" },
+  ];
+  const poll = (...texts: string[]) => ({
+    options: texts.map((text) => ({ text })),
+  });
+  const post = (fields: object) => ({ ref: "1", body: "b", actor: "ann", timeMs: 0, ...fields });
+  const original = post({ ref: "o", space: "x" });
+
+  it("needs a poll to have 2 to 6 options", () => {
+    const parsed = (...texts: string[]) =>
+      studyDefinitionSchema.safeParse({
+        settings: settings(),
+        actors: [],
+        posts: [post({ poll: poll(...texts) })],
+      }).success;
+    expect(parsed("a")).toBe(false);
+    expect(parsed("a", "b")).toBe(true);
+    expect(parsed("a", "b", "c", "d", "e", "f", "g")).toBe(false);
+  });
+
+  it("refuses the same option twice", () => {
+    expect(messages(study({ posts: [post({ poll: poll("Yes", "yes") })] })).join()).toContain(
+      "same option twice",
+    );
+  });
+
+  it("lets a post with only a poll or a crosspost have no text", () => {
+    const definition = study({
+      spaces,
+      posts: [
+        post({ body: "", poll: poll("a", "b") }),
+        original,
+        post({ ref: "2", body: "", space: "y", crosspostOf: "o" }),
+      ],
+    });
+    expect(hasErrors(validateStudy(definition))).toBe(false);
+  });
+
+  it("checks flair against the space's list", () => {
+    const issues = (fields: object) => messages(study({ spaces, posts: [post(fields)] })).join();
+    expect(issues({ space: "x", flair: "Made up" })).toContain("doesn't offer");
+    expect(issues({ flair: "News" })).toContain("isn't in one");
+    expect(
+      hasErrors(validateStudy(study({ spaces, posts: [post({ space: "x", flair: "News" })] }))),
+    ).toBe(false);
+  });
+
+  it("checks people's flair against the space's list", () => {
+    const issues = (spaceFlair: object) =>
+      messages(study({ spaces, actors: [{ username: "ann", name: "Ann", spaceFlair }] })).join();
+    expect(issues({ nowhere: "Chef" })).toContain("doesn't exist");
+    expect(issues({ x: "Made up" })).toContain("doesn't offer");
+  });
+
+  it("won't require flair a space doesn't offer, and warns about scripted posts without it", () => {
+    expect(
+      messages(study({ spaces: [{ key: "x", name: "X", requirePostFlair: true }] })).join(),
+    ).toContain("nobody could post there");
+    const required = [{ ...spaces[0], requirePostFlair: true }];
+    const definition = study({ spaces: required, posts: [post({ space: "x" })] });
+    expect(hasErrors(validateStudy(definition))).toBe(false);
+    expect(messages(definition).join()).toContain("has no flair");
+  });
+
+  it("refuses the same flair twice", () => {
+    const twice = [{ key: "x", name: "X", postFlair: [{ text: "A" }, { text: "A" }] }];
+    expect(messages(study({ spaces: twice })).join()).toContain("same post flair twice");
+  });
+
+  it("checks what a crosspost points at", () => {
+    const issues = (posts: object[]) => messages(study({ spaces, posts })).join();
+    expect(issues([post({ space: "y", crosspostOf: "gone" })])).toContain("doesn't exist");
+    expect(issues([post({ space: "y", crosspostOf: "1" })])).toContain("of itself");
+    expect(issues([original, post({ crosspostOf: "o" })])).toContain("has to be in a space");
+    expect(issues([original, post({ space: "x", crosspostOf: "o" })])).toContain("already in");
+    expect(
+      issues([
+        original,
+        post({ ref: "2", space: "y", crosspostOf: "o" }),
+        post({ ref: "3", space: "x", crosspostOf: "2" }),
+      ]),
+    ).toContain("is a crosspost too");
+  });
+
+  it("warns about a crosspost that shows before, or where, its original doesn't", () => {
+    const issues = (fields: object, of: object = {}) =>
+      messages(
+        study({
+          settings: settings({
+            conditions: {
+              assignment: { method: "uniform" },
+              arms: [{ key: "a" }, { key: "b", feed: { ranker: "shuffle" } }],
+            },
+          }),
+          spaces,
+          posts: [
+            { ...original, ...of },
+            post({ ref: "2", space: "y", crosspostOf: "o", ...fields }),
+          ],
+        }),
+      ).join();
+    expect(issues({ timeMs: -5 })).toContain("appears before");
+    expect(issues({}, { conditions: ["a"] })).toContain("isn't available in b");
+  });
+
+  it("warns when a feature's content won't show", () => {
+    const off = settings({
+      platform: { style: "mixed", features: { polls: false, flair: false, crossposting: false } },
+    });
+    const text = messages(
+      study({
+        settings: off,
+        spaces,
+        posts: [
+          original,
+          post({ ref: "2", space: "x", flair: "News", poll: poll("a", "b") }),
+          post({ ref: "3", space: "y", crosspostOf: "o" }),
+        ],
+      }),
+    ).join();
+    expect(text).toContain("Polls are off");
+    expect(text).toContain("Flair labels are off");
+    expect(text).toContain("Crossposts are off");
+  });
+
+  it("warns when crossposting is on without what it needs", () => {
+    const on = settings({
+      platform: {
+        style: "mixed",
+        features: { crossposting: true, posting: false },
+      },
+    });
+    expect(messages(study({ settings: on })).join()).toContain("it needs writing posts and spaces");
+  });
+});

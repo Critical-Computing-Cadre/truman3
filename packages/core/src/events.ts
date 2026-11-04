@@ -18,7 +18,11 @@ export const eventPayloadSchemas = {
   "page.viewed": z.strictObject({ page: z.string() }),
   "flow.step_completed": z.strictObject({ step: z.string() }),
   "flow.exited": z.strictObject({ outcome: z.string() }),
-  "content.created": z.strictObject({ kind: z.enum(["post", "comment"]) }),
+  /** `crosspostOf` is the post a crosspost came from. */
+  "content.created": z.strictObject({
+    kind: z.enum(["post", "comment"]),
+    crosspostOf: z.string().optional(),
+  }),
   "content.liked": empty,
   "content.unliked": empty,
   /** A vote replaces the one before it. Null means they took their vote back. */
@@ -35,6 +39,8 @@ export const eventPayloadSchemas = {
   "content.unsaved": empty,
   "content.hidden": empty,
   "content.unhidden": empty,
+  /** They chose an option in a poll, by its place in the list, from 0. They can't change it. */
+  "content.poll_voted": z.strictObject({ option: z.number().int().nonnegative() }),
   /** They copied a link to a post. */
   "content.shared": z.strictObject({ method: z.enum(["copy"]) }),
   /** The raw time on screen. Any minimum or maximum gets applied at analysis, not here. */
@@ -49,6 +55,8 @@ export const eventPayloadSchemas = {
   /** Which space, by its key in the study. */
   "space.joined": z.strictObject({ space: z.string() }),
   "space.left": z.strictObject({ space: z.string() }),
+  /** They chose the flair they show in a space. Null means they took it off. */
+  "space.flair_chosen": z.strictObject({ space: z.string(), flair: z.string().nullable() }),
   /** Someone chose an order for a feed, where a study allows that. Null is the study's own order. */
   "feed.sort_changed": z.strictObject({
     surface: z.enum(["home", "space"]),

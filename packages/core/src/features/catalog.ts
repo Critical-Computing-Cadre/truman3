@@ -115,6 +115,27 @@ export const FEATURES = {
     version: 1,
     events: ["content.revealed"],
   },
+  polls: {
+    name: "Polls",
+    description:
+      "A post can ask a question with options. Each person chooses once and can't change it, and the study sets the starting counts.",
+    version: 1,
+    events: ["content.poll_voted"],
+  },
+  flair: {
+    name: "Flair",
+    description:
+      "A community can offer labels for posts and for people. Participants choose from its lists, and it can require one on posts.",
+    version: 1,
+    events: ["space.flair_chosen"],
+  },
+  crossposting: {
+    name: "Crossposting",
+    description:
+      "A post can be shared into another community, as a new post that shows where it came from, with its own votes and comments.",
+    version: 1,
+    events: ["content.created"],
+  },
   saving: {
     name: "Saving posts",
     description: "Participants can save posts to a list on their profile.",

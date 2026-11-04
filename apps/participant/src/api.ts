@@ -41,7 +41,7 @@ export async function post<T>(path: string, body: object = {}): Promise<T> {
 /** For anything that includes a file. */
 export async function postForm<T>(
   path: string,
-  fields: Record<string, string | File | File[]>,
+  fields: Record<string, string | string[] | File | File[]>,
 ): Promise<T> {
   const form = new FormData();
   for (const [key, value] of Object.entries({ ...actionMeta(), ...fields })) {
