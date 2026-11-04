@@ -1,4 +1,11 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useIsMutating,
+  useMutation,
+  useMutationState,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { formatStudyTime, MAX_ATTACHMENTS, parseStudyTime } from "@truman3/core";
 import { FeedPostView, PlatformProvider, shortTime } from "@truman3/ui";
@@ -17,34 +24,43 @@ import {
 import { PostTimeline } from "../components/PostTimeline.tsx";
 import { TimelineControls, useTimeline } from "../components/TimelineControls.tsx";
 
+/** Marks an edit to a draft, so the page can tell when one is still on its way. */
+const draftEditKey = (draftId: string) => ["draft-edit", draftId];
+
 /** Everything that changes a draft goes through here, and then redraws what depends on it. */
 export function useDraftEdits(draftId: string) {
   const client = useQueryClient();
   const refresh = () => client.invalidateQueries({ queryKey: ["draft", draftId] });
   const base = `/admin/drafts/${draftId}/items`;
+  const mutationKey = draftEditKey(draftId);
 
   return {
     update: useMutation({
+      mutationKey,
       mutationFn: ({ itemId, changes }: { itemId: string; changes: object }) =>
         send("PATCH", `${base}/${itemId}`, { changes }),
       onSettled: refresh,
     }),
     create: useMutation({
+      mutationKey,
       mutationFn: (body: { kind: "post" | "comment" | "actor"; fields: object }) =>
         send("POST", base, body),
       onSettled: refresh,
     }),
     move: useMutation({
+      mutationKey,
       mutationFn: ({ itemId, timeMs }: { itemId: string; timeMs: number }) =>
         send("POST", `${base}/${itemId}/move`, { timeMs }),
       onSettled: refresh,
     }),
     remove: useMutation({
+      mutationKey,
       mutationFn: (itemId: string) => send("DELETE", `${base}/${itemId}`),
       onSettled: refresh,
     }),
     /** A person's picture in the cast. */
     setActorPicture: useMutation({
+      mutationKey,
       mutationFn: async ({ itemId, file }: { itemId: string; file: File }) => {
         const form = new FormData();
         form.append("image", file);
@@ -57,6 +73,7 @@ export function useDraftEdits(draftId: string) {
       onSettled: refresh,
     }),
     setImage: useMutation({
+      mutationKey,
       /** Replaces the first photo, or with `add`, goes after the ones there already. */
       mutationFn: async ({
         itemId,
@@ -84,6 +101,40 @@ export function useDraftEdits(draftId: string) {
 }
 
 export type DraftEdits = ReturnType<typeof useDraftEdits>;
+
+/**
+ * Says whether edits have reached the server. Each one saves by itself, with no button, so nothing
+ * else on the screen shows that. Text saves when someone clicks away from it, which is `editing`.
+ */
+export function SaveStatus({ draftId, editing = false }: { draftId: string; editing?: boolean }) {
+  const mutationKey = draftEditKey(draftId);
+  const saving = useIsMutating({ mutationKey }) > 0;
+  const last = useMutationState({
+    filters: { mutationKey },
+    select: ({ state }) => state.status,
+  }).at(-1);
+
+  let text = "Changes save as you go";
+  if (saving) {
+    text = "Saving...";
+  } else if (editing) {
+    text = "Saves when you click away";
+  } else if (last === "error") {
+    text = "Your last change didn't save";
+  } else if (last === "success") {
+    text = "All changes saved";
+  }
+
+  return (
+    <span
+      role="status"
+      data-testid="save-status"
+      className={`text-xs ${last === "error" && !saving && !editing ? "text-rose-700" : "text-stone-500"}`}
+    >
+      {text}
+    </span>
+  );
+}
 
 const PRESENCE_EVERY_MS = 2_000;
 
@@ -935,6 +986,8 @@ function SaveVersion({ draftId, info }: { draftId: string; info: DraftInfo }) {
   });
 
   const errors = info.issues.filter(({ severity }) => severity === "error");
+  // A version copies what's saved, so an edit still on its way wouldn't be in it.
+  const stillSaving = useIsMutating({ mutationKey: draftEditKey(draftId) }) > 0;
 
   return (
     <>
@@ -966,6 +1019,7 @@ function SaveVersion({ draftId, info }: { draftId: string; info: DraftInfo }) {
           </>
         ) : (
           <ul className="mb-4 list-disc space-y-1 pl-5 text-sm">
+            <li>Your edits are already saved in this draft. This makes a copy you can launch.</li>
             <li>
               <strong>Participants won't see it yet.</strong> You can try it out first, then launch
               it from the studies page.
@@ -991,10 +1045,10 @@ function SaveVersion({ draftId, info }: { draftId: string; info: DraftInfo }) {
             <button
               type="button"
               onClick={() => freeze.mutate()}
-              disabled={freeze.isPending}
+              disabled={freeze.isPending || stillSaving}
               className="rounded bg-emerald-700 px-3 py-1.5 text-sm text-white disabled:opacity-40"
             >
-              Save version
+              {stillSaving ? "Waiting for your last change..." : "Save version"}
             </button>
           )}
         </div>
@@ -1045,6 +1099,7 @@ export function DraftPage() {
         current={current}
         extra={
           <>
+            {info.data.canEdit && <SaveStatus draftId={draftId} editing={editingItemId !== null} />}
             <Link
               to="/drafts/$draftId/settings"
               params={{ draftId }}
