@@ -353,7 +353,8 @@ export class TrumanStack extends Stack {
         S3_BUCKET: mediaBucket.bucketName,
         MEDIA_PUBLIC_URL: address,
         PARTICIPANT_APP_URL: address,
-        TRUST_PROXY: "true",
+        // CloudFront, then the load balancer.
+        TRUSTED_PROXIES: "2",
       },
       secrets: {
         DATABASE_APP_PASSWORD: ecs.Secret.fromSecretsManager(appPassword),
