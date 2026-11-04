@@ -110,6 +110,67 @@ function Space({
           />
         </div>
       </div>
+      <div className="space-y-2 border-t border-stone-200 pt-2 text-sm">
+        <p className="font-medium">Its look</p>
+        {space.bannerUrl && (
+          <img src={space.bannerUrl} alt="" className="h-20 w-full rounded object-cover" />
+        )}
+        {canEdit && (
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <label className="cursor-pointer underline">
+              {space.bannerUrl ? "Change banner" : "Add a banner"}
+              <input
+                aria-label={`Banner of ${space.name}`}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(event) => {
+                  const chosen = event.target.files?.[0];
+                  if (chosen) {
+                    setProblem(null);
+                    edits.setActorPicture.mutate(
+                      { itemId: space.id, file: chosen, field: "banner" },
+                      { onError: (error) => setProblem(error.message) },
+                    );
+                  }
+                }}
+              />
+            </label>
+            {space.bannerUrl && (
+              <button type="button" onClick={() => save({ banner: null })} className="underline">
+                Remove banner
+              </button>
+            )}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <label className="flex items-center gap-2">
+            Color
+            <input
+              key={space.accent}
+              aria-label={`Color of ${space.name}`}
+              type="color"
+              disabled={!canEdit}
+              defaultValue={space.accent ?? "#57534e"}
+              onBlur={(event) => {
+                if (event.target.value !== space.accent) {
+                  save({ accent: event.target.value });
+                }
+              }}
+            />
+          </label>
+          {canEdit && space.accent && (
+            <button type="button" onClick={() => save({ accent: null })} className="underline">
+              Remove color
+            </button>
+          )}
+          <span className="text-stone-500">
+            {space.accent
+              ? "Used for its Join button, and across its page if it has no banner."
+              : "None yet. Any color works, since what goes on it is chosen to be readable."}
+          </span>
+        </div>
+      </div>
       <SavedCheckbox
         className="flex items-center gap-2 text-sm"
         disabled={!canEdit}

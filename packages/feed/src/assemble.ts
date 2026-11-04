@@ -1,4 +1,10 @@
-import type { StudySettings } from "@truman3/core";
+import {
+  DEFAULT_TEMPLATE,
+  type StudySettings,
+  TEMPLATES,
+  type TemplateDefinition,
+} from "@truman3/core";
+import { COMMENT_ORDERS } from "./comment-orders.ts";
 import { RANKERS, type RankablePost, type RankedPost } from "./rankers.ts";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -19,6 +25,13 @@ export function feedSettingsFor(settings: StudySettings, conditionKey: string): 
     removeBlocked: changes?.removeBlocked ?? base.removeBlocked,
     spaceRanker: changes?.spaceRanker ?? base.spaceRanker,
     participantsCanSort: changes?.participantsCanSort ?? base.participantsCanSort,
+    commentOrder:
+      changes?.commentOrder ??
+      base.commentOrder ??
+      (TEMPLATES[settings.platform.template ?? DEFAULT_TEMPLATE] as TemplateDefinition).feed
+        ?.commentOrder,
+    participantsCanSortComments:
+      changes?.participantsCanSortComments ?? base.participantsCanSortComments,
   };
 }
 
@@ -40,7 +53,7 @@ export interface FeedViewer {
 }
 
 export interface AssembledPost extends RankedPost {
-  /** Oldest first. With threads, each reply comes right after what it replies to. */
+  /** In the study's order. With threads, each reply comes right after what it replies to. */
   commentIds: string[];
   /** How many replies down each comment is. 0 is directly on the post. */
   commentDepths: Record<string, number>;
@@ -51,6 +64,9 @@ export interface AssembledFeed {
   posts: AssembledPost[];
   ranker: string;
   rankerVersion: string;
+  /** What ordered the comments, and which version. */
+  commentOrder: string;
+  commentOrderVersion: string;
   /** The seed used, so this exact order can be reproduced. */
   seed: number;
 }
@@ -139,10 +155,10 @@ export function assembleFeed(
     { seed, viewedPostIds: viewer.viewedContentIds },
   );
 
+  const commentOrder = COMMENT_ORDERS[settings.commentOrder ?? "scripted"];
+
   const withComments = (post: RankedPost, isPin: boolean): AssembledPost => {
-    const comments = (commentsByPost.get(post.id) ?? []).sort(
-      (a, b) => a.timeMs - b.timeMs || a.id.localeCompare(b.id),
-    );
+    const comments = (commentsByPost.get(post.id) ?? []).sort(commentOrder.compare);
     const commentIds: string[] = [];
     const commentDepths: Record<string, number> = {};
     const addUnder = (parentId: string, depth: number) => {
@@ -173,5 +189,7 @@ export function assembleFeed(
     seed,
     ranker: ranker.name,
     rankerVersion: ranker.version,
+    commentOrder: commentOrder.name,
+    commentOrderVersion: commentOrder.version,
   };
 }

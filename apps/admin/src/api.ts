@@ -134,6 +134,7 @@ export interface DraftInfo {
     location: string;
     pictureUrl: string | null;
     moderator: boolean;
+    karma: number;
     /** How many posts, comments, and reactions are theirs. */
     usedBy: number;
   }[];
@@ -145,6 +146,8 @@ export interface DraftInfo {
     rules: string;
     startsJoined: boolean;
     pictureUrl: string | null;
+    bannerUrl: string | null;
+    accent: string | null;
     /** Whether a saved version has it, which means its address can't change. */
     keyLocked: boolean;
     conditions: string[];

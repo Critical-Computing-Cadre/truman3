@@ -4,7 +4,7 @@ import { FEATURE_KEYS, type FeatureSet } from "./catalog.ts";
  * How posts and the page around them are arranged. A layout's look can't change once a study has
  * launched with it, so changing one means adding a new name, such as `classic-2` (ADR 18).
  */
-export const LAYOUT_KEYS = ["classic"] as const;
+export const LAYOUT_KEYS = ["classic", "forum"] as const;
 
 export type LayoutKey = (typeof LAYOUT_KEYS)[number];
 
@@ -13,6 +13,8 @@ export interface TemplateDefinition {
   description: string;
   layout: LayoutKey;
   features: FeatureSet;
+  /** What a study starting from this template begins with, which it can then change. */
+  feed?: { ranker: "top" | "new"; commentOrder: "top" | "new" };
 }
 
 const allFeatures = Object.fromEntries(FEATURE_KEYS.map((key) => [key, true])) as FeatureSet;
@@ -23,7 +25,24 @@ export const TEMPLATES = {
     name: "Classic",
     description: "Truman's original platform: a feed of posts with comments open below each.",
     layout: "classic",
-    features: { ...allFeatures, threads: false, votes: false, galleries: false, spaces: false },
+    features: {
+      ...allFeatures,
+      threads: false,
+      votes: false,
+      galleries: false,
+      spaces: false,
+      postPages: false,
+      titles: false,
+      karma: false,
+    },
+  },
+  forum: {
+    name: "Forum",
+    description:
+      "Communities with votes and points, where comments are threads on each post's own page.",
+    layout: "forum",
+    features: { ...allFeatures, likes: false, following: false },
+    feed: { ranker: "top", commentOrder: "top" },
   },
 } as const satisfies Record<string, TemplateDefinition>;
 

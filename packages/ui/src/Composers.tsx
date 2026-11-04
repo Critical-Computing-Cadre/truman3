@@ -1,5 +1,6 @@
 import type { FormEvent, KeyboardEvent, ReactNode, Ref } from "react";
 import { Avatar } from "./Avatar.tsx";
+import { KarmaBadge } from "./features/karma.tsx";
 
 export function PhotoIcon({ className = "h-6 w-6" }: { className?: string }) {
   return (
@@ -122,6 +123,7 @@ export function ProfileCard({
   bio,
   location,
   pictureUrl,
+  karma,
   renderName,
   footer,
 }: {
@@ -130,6 +132,8 @@ export function ProfileCard({
   bio: string;
   location: string;
   pictureUrl: string | null;
+  /** Their points, on a platform with karma. */
+  karma?: number | undefined;
   /** How to link to their page. Without it, their name is plain text. */
   renderName?: (className: string, name: string) => ReactNode;
   /** Shown along the bottom of the card, such as a way to edit it. */
@@ -142,6 +146,7 @@ export function ProfileCard({
       <div className="space-y-1 p-3">
         {renderName ? renderName(nameClass, name) : <p className={nameClass}>{name}</p>}
         <p className="truncate text-sm text-stone-500">@{username}</p>
+        <KarmaBadge author={{ karma }} />
         {bio && <p className="pt-1 text-sm break-words whitespace-pre-wrap">{bio}</p>}
         {location && <p className="pt-1 text-sm text-stone-500">{location}</p>}
       </div>

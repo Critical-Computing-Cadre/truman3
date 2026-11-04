@@ -1,0 +1,78 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useParams } from "@tanstack/react-router";
+import type { FeedResponse } from "@truman3/core";
+import { useEffect, useRef } from "react";
+import { flowQuery, get, post } from "../api.ts";
+import { PostCard } from "../components/PostCard.tsx";
+import { takeOpenedFrom } from "../tracking.ts";
+
+type CommentSort = "top" | "new" | null;
+
+/** Lets someone choose the order of comments, on a study that allows it. Each choice is recorded. */
+function CommentSortPicker({ sort }: { sort: CommentSort }) {
+  const client = useQueryClient();
+  const flow = useQuery(flowQuery);
+  const change = useMutation({
+    mutationFn: (next: CommentSort) => post("/comments/sort", { sort: next }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["feed"] }),
+  });
+  if (!flow.data?.canSortComments) {
+    return null;
+  }
+  return (
+    <div className="px-3 text-sm sm:px-0">
+      <label className="flex items-center justify-end gap-2">
+        Sort comments
+        <select
+          value={(change.isPending ? change.variables : sort) ?? ""}
+          disabled={change.isPending}
+          onChange={(event) => change.mutate((event.target.value || null) as CommentSort)}
+          className="rounded border border-stone-300 bg-white px-2 py-1"
+        >
+          <option value="">Default</option>
+          <option value="top">Top</option>
+          <option value="new">New</option>
+        </select>
+      </label>
+      {change.error && (
+        <p role="alert" className="mt-1 text-right text-rose-700">
+          That didn't work. Please try again.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** One post, with its comments. Arriving here is recorded once, however often the post reloads. */
+export function PostPage() {
+  const { postId } = useParams({ from: "/gate/p/$postId" });
+  const feed = useQuery({
+    queryKey: ["feed", "post", postId],
+    queryFn: () => get<FeedResponse>(`/feed?surface=post&post=${postId}`),
+    retry: false,
+  });
+
+  const recorded = useRef<string | null>(null);
+  useEffect(() => {
+    if (recorded.current !== postId) {
+      recorded.current = postId;
+      post(`/content/${postId}/open`, { from: takeOpenedFrom() }).catch(() => {
+        // It's only the record of opening it. The page itself says if the post isn't available.
+      });
+    }
+  }, [postId]);
+
+  const shown = feed.data?.posts[0];
+  if (feed.error) {
+    return <p className="p-6 text-center text-stone-500">This post isn't available.</p>;
+  }
+  return (
+    <div className="mx-auto max-w-2xl space-y-3 sm:space-y-4">
+      <Link to="/" className="block px-3 pt-3 text-sm text-stone-600 underline sm:px-0 sm:pt-0">
+        Back to the feed
+      </Link>
+      <CommentSortPicker sort={feed.data?.commentSort ?? null} />
+      {shown && <PostCard post={shown} surface="post" />}
+    </div>
+  );
+}

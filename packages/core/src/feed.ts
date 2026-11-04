@@ -8,6 +8,8 @@ export const feedAuthorSchema = z.object({
   isViewer: z.boolean(),
   /** Marked as a moderator in the study. Only ever true, so it's absent for everyone else. */
   moderator: z.literal(true).optional(),
+  /** Their points, on a platform with karma. */
+  karma: z.number().optional(),
 });
 
 /** How deep a thread can go. It keeps deep threads readable on a phone, and the work bounded. */
@@ -42,10 +44,14 @@ export type FeedAttachment = z.infer<typeof feedAttachmentSchema>;
 export const feedPostSchema = z.object({
   id: z.string(),
   author: feedAuthorSchema,
+  /** Its title, on a platform with titles. */
+  title: z.string().optional(),
   body: z.string(),
   attachments: z.array(feedAttachmentSchema),
   /** The space it belongs to, on a platform with spaces. */
-  space: z.object({ key: z.string(), name: z.string() }).optional(),
+  space: z
+    .object({ key: z.string(), name: z.string(), pictureUrl: z.string().optional() })
+    .optional(),
   at: z.iso.datetime(),
   likes: z.number(),
   liked: z.boolean(),
@@ -55,12 +61,16 @@ export const feedPostSchema = z.object({
   vote: z.enum(["up", "down"]).nullable(),
   flagged: z.boolean(),
   comments: z.array(feedCommentSchema),
+  /** How many comments it has, even in a list that leaves them for the post's own page. */
+  commentCount: z.number(),
 });
 
 export const feedResponseSchema = z.object({
   posts: z.array(feedPostSchema),
   /** The order this person chose for this list, where a study lets them. Null is the study's. */
   sort: z.enum(["new", "top"]).nullable().optional(),
+  /** The order this person chose for comments, where a study lets them. Null is the study's. */
+  commentSort: z.enum(["top", "new"]).nullable().optional(),
 });
 
 /** A space, as a participant sees it. */
@@ -70,6 +80,9 @@ export const spaceViewSchema = z.object({
   description: z.string().nullable(),
   rules: z.string().nullable(),
   pictureUrl: z.string().nullable(),
+  bannerUrl: z.string().nullable(),
+  /** A color from the study, as #rrggbb. Draw it with `textOnAccent` for what goes on top. */
+  accent: z.string().nullable(),
   joined: z.boolean(),
 });
 export type SpaceView = z.infer<typeof spaceViewSchema>;

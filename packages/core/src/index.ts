@@ -5,6 +5,7 @@ export {
   pickUniformArm,
   type WeightedArm,
 } from "./assignment.ts";
+export { ACCENT_PATTERN, contrast, textOnAccent } from "./color.ts";
 export {
   EVENT_SOURCES,
   type EventPayload,

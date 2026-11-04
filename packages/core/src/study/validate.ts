@@ -104,6 +104,21 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
         `Several photos on a post are off in "${arm.key}", so ${galleries.length} posts show only their first.`,
       );
     }
+    const untitled = study.posts.filter((post) => applies(post) && !post.title).length;
+    if (on.titles && untitled > 0) {
+      warning(`Titles are on in "${arm.key}", but ${untitled} posts don't have one.`);
+    }
+    const titled = study.posts.filter((post) => applies(post) && post.title).length;
+    if (!on.titles && titled > 0) {
+      warning(`Titles are off in "${arm.key}", so ${titled} written titles won't show there.`);
+    }
+    const scored = study.actors.filter((actor) => applies(actor) && actor.karma !== undefined);
+    if (!on.karma && scored.length > 0) {
+      warning(`Karma is off in "${arm.key}", so ${scored.length} written totals won't show there.`);
+    }
+    if (on.postPages && !on.comments) {
+      warning(`A page for each post is on in "${arm.key}", but it's for comments, which are off.`);
+    }
     const reactions = study.reactions.filter(applies);
     if (!on.comments && reactions.some(({ type }) => type === "reply")) {
       warning(`Comments are off in "${arm.key}", so its scripted replies won't happen.`);

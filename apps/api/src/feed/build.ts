@@ -1,4 +1,10 @@
-import { type FeedAuthor, type FeedPost, featureOn, type StudySettings } from "@truman3/core";
+import {
+  type FeedAuthor,
+  type FeedPost,
+  featureOn,
+  type StudySettings,
+  startingKarmaFor,
+} from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import {
   type AssembledFeed,
@@ -7,7 +13,7 @@ import {
   type FeedSettings,
   feedSettingsFor,
 } from "@truman3/feed";
-import { and, asc, eq, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { ParticipantContext } from "../participants/session.ts";
 
 type ContentRow = typeof schema.content.$inferSelect;
@@ -20,6 +26,7 @@ export type FeedContent = Pick<
   | "parentId"
   | "spaceId"
   | "authorActorId"
+  | "title"
   | "body"
   | "attachments"
   | "offsetMs"
@@ -49,10 +56,14 @@ interface ActorProfile {
   name?: string;
   picture?: string;
   moderator?: boolean;
+  karma?: number;
 }
 
 /** What the feed needs to name a space on a post. */
-export type SpaceLabels = ReadonlyMap<string, { key: string; name: string }>;
+export type SpaceLabels = ReadonlyMap<
+  string,
+  { key: string; name: string; picture?: string | null | undefined }
+>;
 
 /**
  * A stored media key becomes a URL. Hosted media is already a full URL, and what participants upload
@@ -123,6 +134,32 @@ export async function loadSpacesFor(db: Database, context: ParticipantContext) {
     .map((space) => ({ ...space, joined: chose.get(space.id) ?? space.startsJoined }));
 }
 
+/**
+ * A participant's karma: where the study starts them, plus scripted votes that have happened on what
+ * they've written. Their own votes don't count, and with a world per person nobody else can vote.
+ */
+export async function participantKarma(
+  db: Database,
+  context: ParticipantContext,
+  now = new Date(),
+): Promise<number> {
+  const [row] = await db
+    .select({
+      total: sql<number>`coalesce(sum(case ${schema.notifications.type} when 'up' then 1 else -1 end), 0)::int`,
+    })
+    .from(schema.notifications)
+    .innerJoin(schema.content, eq(schema.content.id, schema.notifications.targetContentId))
+    .where(
+      and(
+        eq(schema.notifications.worldId, context.worldId),
+        eq(schema.content.authorActorId, context.actorId),
+        inArray(schema.notifications.type, ["up", "down"]),
+        lte(schema.notifications.dueAt, now),
+      ),
+    );
+  return startingKarmaFor(context.settings, context.conditionKey) + (row?.total ?? 0);
+}
+
 export interface FeedDependencies {
   db: Database;
   mediaPublicUrl: string;
@@ -179,6 +216,8 @@ export async function shapeFeedPosts({
   scriptedCounts,
   viewerVotes,
   spaces = new Map(),
+  commentsHere = true,
+  karma,
 }: {
   loadAuthors: (ids: string[]) => Promise<ReadonlyMap<string, FeedActor>>;
   mediaPublicUrl: string;
@@ -193,6 +232,10 @@ export async function shapeFeedPosts({
   viewerVotes: ReadonlyMap<string, "up" | "down">;
   /** The spaces this viewer can see, by ID. Empty where the feature's off. */
   spaces?: SpaceLabels;
+  /** False in a list that leaves comments for each post's own page. */
+  commentsHere?: boolean;
+  /** On a platform with karma, the viewer's own. Each person in the cast has theirs in their profile. */
+  karma?: { viewer: number } | undefined;
 }): Promise<FeedPost[]> {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const shownIds = feed.posts.flatMap((post) => [post.id, ...post.commentIds]);
@@ -208,6 +251,7 @@ export async function shapeFeedPosts({
       pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
       isViewer: actor.id === viewerActorId,
       ...(profile.moderator ? { moderator: true as const } : {}),
+      ...(karma ? { karma: actor.id === viewerActorId ? karma.viewer : (profile.karma ?? 0) } : {}),
     };
   };
 
@@ -234,16 +278,26 @@ export async function shapeFeedPosts({
     const space = item.spaceId ? spaces.get(item.spaceId) : undefined;
     return {
       ...common(item),
-      // Only these two, since whatever else a space holds has no reason to reach a browser.
-      ...(space ? { space: { key: space.key, name: space.name } } : {}),
+      ...(item.title ? { title: item.title } : {}),
+      // Only these, since whatever else a space holds has no reason to reach a browser.
+      ...(space
+        ? {
+            space: {
+              key: space.key,
+              name: space.name,
+              ...(space.picture ? { pictureUrl: mediaUrl(space.picture, mediaPublicUrl) } : {}),
+            },
+          }
+        : {}),
       attachments: item.attachments.map(({ type, key }) => ({
         type,
         url: mediaUrl(key, mediaPublicUrl),
       })),
-      comments: post.commentIds.map((id) => ({
+      comments: (commentsHere ? post.commentIds : []).map((id) => ({
         ...common(byId.get(id) as FeedContent),
         depth: post.commentDepths[id] ?? 0,
       })),
+      commentCount: post.commentIds.length,
     };
   });
 }
@@ -262,6 +316,10 @@ export interface BuildFeedOptions {
   space?: { id: string } | undefined;
   /** An order this person chose and it was recorded, where the study allows it. */
   sort?: "new" | "top" | undefined;
+  /** Only this post, on its own page. */
+  post?: string | undefined;
+  /** An order for comments this person chose and it was recorded, where the study allows it. */
+  commentSort?: "top" | "new" | undefined;
 }
 
 /** Works out what a participant sees now, and records that it was shown. */
@@ -276,6 +334,8 @@ export async function buildFeed(
     visit,
     space,
     sort,
+    post,
+    commentSort,
   }: BuildFeedOptions = {},
 ): Promise<FeedPost[]> {
   const worldStartMs = context.worldStartedAt.getTime();
@@ -318,21 +378,31 @@ export async function buildFeed(
       return true;
     }
     const found = visibleSpaces.get(spaceId);
-    // A profile shows what they've written, wherever it is. A home feed shows what someone joined,
-    // and always their own posts, so writing one in a space they aren't in doesn't seem to lose it.
+    // A profile shows what they've written, wherever it is, and a post's own page shows that post.
+    // A home feed shows what someone joined, and always their own posts, so writing one in a space
+    // they aren't in doesn't seem to lose it.
     return (
       found !== undefined &&
-      (authorActorId !== undefined || found.joined || postOf(row).authorActorId === context.actorId)
+      (authorActorId !== undefined ||
+        post !== undefined ||
+        found.joined ||
+        postOf(row).authorActorId === context.actorId)
     );
   };
   const inScope = (row: ContentRow) =>
-    (!authorActorId || postOf(row).authorActorId === authorActorId) && inSpaces(row);
+    (!authorActorId || postOf(row).authorActorId === authorActorId) &&
+    (!post || postOf(row).id === post) &&
+    inSpaces(row);
 
   const conditionSettings = settings ?? feedSettingsFor(context.settings, context.conditionKey);
   const feedSettings: FeedSettings = {
     ...conditionSettings,
     ranker: sort ?? (space ? conditionSettings.spaceRanker : undefined) ?? conditionSettings.ranker,
+    commentOrder: commentSort ?? conditionSettings.commentOrder,
   };
+  // Comments that wait for a post's own page aren't shown here, so they aren't recorded as shown.
+  const commentsHere =
+    post !== undefined || !featureOn(context.settings, context.conditionKey, "postPages");
   const seed =
     feedSettings.reshuffleEachVisit && visit !== undefined
       ? (context.seed ^ visit) >>> 0
@@ -398,16 +468,21 @@ export async function buildFeed(
     sort,
     ranker: feed.ranker,
     rankerVersion: feed.rankerVersion,
+    commentOrder: feed.commentOrder,
+    commentOrderVersion: feed.commentOrderVersion,
+    commentSort,
     seed: feed.seed,
     shownAt: now,
     items: feed.posts.map((post, index) => ({
       contentId: post.id,
       position: index,
       pinned: post.pinned,
-      commentIds: post.commentIds,
+      commentIds: commentsHere ? post.commentIds : [],
       ...(post.score === undefined ? {} : { score: post.score }),
     })),
   });
+
+  const karmaOn = featureOn(context.settings, context.conditionKey, "karma");
 
   return shapeFeedPosts({
     loadAuthors: (ids) => loadAuthors(db, ids),
@@ -421,5 +496,7 @@ export async function buildFeed(
     scriptedCounts,
     viewerVotes: state.viewerVotes,
     spaces: visibleSpaces,
+    commentsHere,
+    karma: karmaOn ? { viewer: await participantKarma(db, context, now) } : undefined,
   });
 }

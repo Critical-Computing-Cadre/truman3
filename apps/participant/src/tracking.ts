@@ -13,6 +13,20 @@ type ReportedEvent =
       payload: { dwellMs: number; surface: string };
     };
 
+let openedFrom = "direct";
+
+/** Notes which list someone is leaving for a post's page. A reload has no list, so it's direct. */
+export function rememberOpenedFrom(surface: string) {
+  openedFrom = surface;
+}
+
+/** Which list they came from, once. */
+export function takeOpenedFrom() {
+  const from = openedFrom;
+  openedFrom = "direct";
+  return from;
+}
+
 let queue: (ReportedEvent & ReturnType<typeof actionMeta>)[] = [];
 let running = false;
 

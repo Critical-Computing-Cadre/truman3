@@ -1,6 +1,7 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import {
   canJoinSpacesFor,
+  canSortCommentsFor,
   canSortFor,
   featureOn,
   feedResponseSchema,
@@ -29,10 +30,12 @@ const feedRoute = createRoute({
     query: z.object({
       /** A number the app picks on each page load, for studies that reshuffle on each visit. */
       visit: z.coerce.number().int().nonnegative().optional(),
-      /** Which list of posts: the home feed, or one space's page. */
-      surface: z.enum(["home", "space"]).default("home"),
+      /** Which list of posts: the home feed, one space's page, or one post's own page. */
+      surface: z.enum(["home", "space", "post"]).default("home"),
       /** On a space's page, which space, by its key. */
       space: z.string().optional(),
+      /** On a post's own page, which post. */
+      post: z.uuid().optional(),
     }),
   },
   responses: {
@@ -42,7 +45,7 @@ const feedRoute = createRoute({
     },
     401: errorResponse("Not signed in"),
     403: errorResponse("That isn't part of this platform in this condition"),
-    404: errorResponse("No such space for this participant"),
+    404: errorResponse("No such space or post for this participant"),
   },
 });
 
@@ -113,6 +116,53 @@ const sortRoute = createRoute({
   },
 });
 
+const commentSortRoute = createRoute({
+  method: "post",
+  path: "/comments/sort",
+  summary: "Record that someone chose an order for comments",
+  request: {
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: actionMetaSchema.extend({
+            /** Null goes back to the study's own order. */
+            sort: z.enum(["top", "new"]).nullable(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: okResponse,
+    401: errorResponse("Not signed in"),
+    403: errorResponse("This study sets the order itself"),
+  },
+});
+
+/**
+ * The order of comments this person last chose, from what's recorded, the same way as for feeds. It's
+ * ignored wherever the study doesn't let them choose.
+ */
+async function chosenCommentSort(db: Database, context: ParticipantContext) {
+  if (!canSortCommentsFor(context.settings, context.conditionKey)) {
+    return null;
+  }
+  const [latest] = await db
+    .select({ payload: schema.events.payload })
+    .from(schema.events)
+    .where(
+      and(
+        eq(schema.events.worldId, context.worldId),
+        eq(schema.events.participantId, context.participantId),
+        eq(schema.events.type, "comments.sort_changed"),
+      ),
+    )
+    .orderBy(desc(schema.events.id))
+    .limit(1);
+  return (latest?.payload as { sort: "top" | "new" | null } | undefined)?.sort ?? null;
+}
+
 /**
  * The order this person last chose for this kind of list, from what's recorded, so what they saw and
  * what the data says can't disagree. It's ignored wherever the study doesn't let them choose, such
@@ -151,7 +201,26 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
       return c.json(pleaseSignIn, 401);
     }
 
-    const { visit, surface, space: spaceKey } = c.req.valid("query");
+    const { visit, surface, space: spaceKey, post } = c.req.valid("query");
+
+    const commentSort = await chosenCommentSort(db, context);
+    if (surface === "post") {
+      if (!featureOn(context.settings, context.conditionKey, "postPages")) {
+        return c.json(featureOff, 403);
+      }
+      if (!post) {
+        return c.json(notAvailable, 404);
+      }
+      const posts = await buildFeed({ db, mediaPublicUrl }, context, {
+        surface: "post",
+        post,
+        commentSort: commentSort ?? undefined,
+      });
+      if (posts.length === 0) {
+        return c.json(notAvailable, 404);
+      }
+      return c.json({ posts, commentSort }, 200);
+    }
 
     let space: { id: string } | undefined;
     if (surface === "space") {
@@ -169,11 +238,12 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
     const posts = await buildFeed({ db, mediaPublicUrl }, context, {
       visit,
       sort: sort ?? undefined,
+      commentSort: commentSort ?? undefined,
       space,
       // Home is recorded as "feed", as it always has been, so its data reads the same either way.
       surface: surface === "space" ? "space" : "feed",
     });
-    return c.json({ posts, sort }, 200);
+    return c.json({ posts, sort, commentSort }, 200);
   });
 
   app.openapi(spacesRoute, async (c) => {
@@ -187,14 +257,18 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
     const spaces = await loadSpacesFor(db, context);
     return c.json(
       {
-        spaces: spaces.map(({ key, name, description, rules, picture, joined }) => ({
-          key,
-          name,
-          description,
-          rules,
-          pictureUrl: picture ? mediaUrl(picture, mediaPublicUrl) : null,
-          joined,
-        })),
+        spaces: spaces.map(
+          ({ key, name, description, rules, picture, banner, accent, joined }) => ({
+            key,
+            name,
+            description,
+            rules,
+            pictureUrl: picture ? mediaUrl(picture, mediaPublicUrl) : null,
+            bannerUrl: banner ? mediaUrl(banner, mediaPublicUrl) : null,
+            accent,
+            joined,
+          }),
+        ),
       },
       200,
     );
@@ -260,6 +334,23 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
       ...participantEvent(context, body.occurredAt, body.clientEventId),
       type: "feed.sort_changed",
       payload: { surface: body.surface, sort: body.sort },
+    });
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(commentSortRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (!canSortCommentsFor(context.settings, context.conditionKey)) {
+      return c.json({ error: "This study sets the order itself." }, 403);
+    }
+    const body = c.req.valid("json");
+    await recordEvent(db, {
+      ...participantEvent(context, body.occurredAt, body.clientEventId),
+      type: "comments.sort_changed",
+      payload: { sort: body.sort },
     });
     return c.json({ ok: true as const }, 200);
   });

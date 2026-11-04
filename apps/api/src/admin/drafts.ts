@@ -1,6 +1,12 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { roleOnStudy } from "@truman3/accounts";
-import { feedResponseSchema, MAX_ATTACHMENTS, platformFor } from "@truman3/core";
+import {
+  ACCENT_PATTERN,
+  feedResponseSchema,
+  MAX_ATTACHMENTS,
+  MAX_TITLE_LENGTH,
+  platformFor,
+} from "@truman3/core";
 import { schema } from "@truman3/db";
 import {
   type ActorData,
@@ -227,6 +233,8 @@ const previewRoute = createRoute({
 
 const fieldsSchema = z.strictObject({
   body: z.string().max(5000).optional(),
+  /** A post's title. Null removes it. */
+  title: z.string().trim().min(1).max(MAX_TITLE_LENGTH).nullable().optional(),
   /** Null removes the image. */
   picture: z.string().regex(STORED_IMAGE).nullable().optional(),
   /** A post's photos, in order. Anything new has to be stored here (see updateItem). */
@@ -245,11 +253,14 @@ const fieldsSchema = z.strictObject({
   bio: z.string().max(500).optional(),
   location: z.string().max(100).optional(),
   moderator: z.boolean().optional(),
+  karma: z.number().int().optional(),
   // For spaces, as well as name and conditions above. Null removes a post from its space.
   spaceId: z.uuid().nullable().optional(),
   description: z.string().max(2000).nullable().optional(),
   rules: z.string().max(5000).nullable().optional(),
   startsJoined: z.boolean().optional(),
+  banner: z.string().regex(STORED_IMAGE).nullable().optional(),
+  accent: z.string().regex(ACCENT_PATTERN).nullable().optional(),
   /** Part of a space's address. */
   key: z.string().trim().min(1).max(100).optional(),
 });
@@ -460,6 +471,7 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
         parentId: data.replyToId ?? data.postId ?? null,
         spaceId: data.spaceId ?? null,
         authorActorId: data.actorId,
+        title: data.title ?? null,
         body: data.body,
         attachments: (data.pictures ?? []).map((key) => ({ type: "image" as const, key })),
         offsetMs: data.timeMs,
@@ -571,6 +583,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               location: data.location ?? "",
               pictureUrl: data.picture ? mediaUrl(data.picture, mediaPublicUrl) : null,
               moderator: data.moderator ?? false,
+              karma: data.karma ?? 0,
               usedBy,
             };
           }),
@@ -586,6 +599,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               rules: data.rules ?? "",
               startsJoined: data.startsJoined,
               pictureUrl: data.picture ? mediaUrl(data.picture, mediaPublicUrl) : null,
+              bannerUrl: data.banner ? mediaUrl(data.banner, mediaPublicUrl) : null,
+              accent: data.accent ?? null,
               keyLocked: frozenKeys.has(data.key),
               conditions: data.conditions,
               usedBy: items.filter(
@@ -693,8 +708,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
       items
         .filter((item) => item.kind === "actor")
         .map((item) => {
-          const { username, name, picture, moderator } = item.data as ActorData;
-          return [item.id, { id: item.id, username, profile: { name, picture, moderator } }];
+          const { username, name, picture, moderator, karma } = item.data as ActorData;
+          return [item.id, { id: item.id, username, profile: { name, picture, moderator, karma } }];
         }),
     );
 
@@ -709,8 +724,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
       items
         .filter((item) => item.kind === "space")
         .map((item) => {
-          const { key, name, conditions } = item.data as SpaceData;
-          return { id: item.id, key, name, conditions };
+          const { key, name, conditions, picture } = item.data as SpaceData;
+          return { id: item.id, key, name, conditions, picture };
         }),
     );
 

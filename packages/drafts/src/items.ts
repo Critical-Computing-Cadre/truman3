@@ -1,4 +1,4 @@
-import { MAX_ATTACHMENTS } from "@truman3/core";
+import { ACCENT_PATTERN, MAX_ATTACHMENTS, MAX_TITLE_LENGTH } from "@truman3/core";
 import { z } from "zod";
 
 const targeting = {
@@ -17,6 +17,7 @@ export const itemDataSchemas = {
     bio: z.string().optional(),
     picture: z.string().optional(),
     moderator: z.boolean().optional(),
+    karma: z.number().int().optional(),
     ...targeting,
   }),
   space: z.strictObject({
@@ -25,11 +26,14 @@ export const itemDataSchemas = {
     description: z.string().optional(),
     rules: z.string().optional(),
     picture: z.string().optional(),
+    banner: z.string().optional(),
+    accent: z.string().regex(ACCENT_PATTERN).optional(),
     startsJoined: z.boolean().default(true),
     ...targeting,
   }),
   post: z.strictObject({
     ref: z.string().min(1),
+    title: z.string().min(1).max(MAX_TITLE_LENGTH).optional(),
     body: z.string(),
     pictures: z.array(z.string()).max(MAX_ATTACHMENTS).optional(),
     actorId: z.uuid(),

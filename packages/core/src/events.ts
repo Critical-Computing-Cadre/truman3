@@ -24,6 +24,8 @@ export const eventPayloadSchemas = {
   "content.voted": z.strictObject({ value: z.enum(["up", "down"]).nullable() }),
   "content.flagged": empty,
   "content.unflagged": empty,
+  /** Someone opened a post's own page. `from` is the list they came from, or "direct" if none. */
+  "content.opened": z.strictObject({ from: z.string() }),
   /** The raw time on screen. Any minimum or maximum gets applied at analysis, not here. */
   "content.viewed": z.strictObject({ dwellMs: z.number().nonnegative(), surface: z.string() }),
   "actor.followed": empty,
@@ -41,6 +43,8 @@ export const eventPayloadSchemas = {
     surface: z.enum(["home", "space"]),
     sort: z.enum(["new", "top"]).nullable(),
   }),
+  /** Someone chose an order for comments, where a study allows that. Null is the study's own. */
+  "comments.sort_changed": z.strictObject({ sort: z.enum(["top", "new"]).nullable() }),
   /** A scripted reaction was triggered by something a participant did. */
   "reaction.scheduled": z.strictObject({
     reaction: z.enum(["read", "like", "reply", "up", "down"]),

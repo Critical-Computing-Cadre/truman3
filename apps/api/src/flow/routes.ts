@@ -44,6 +44,8 @@ const flowStateSchema = z.object({
   canJoinSpaces: z.boolean(),
   /** Whether they can choose a feed's order, or the study has decided for them. */
   canSort: z.boolean(),
+  /** Whether they can choose an order for comments, or the study has decided for them. */
+  canSortComments: z.boolean(),
   site: z.object({
     name: z.string(),
     logoUrl: z.string().nullable(),

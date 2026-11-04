@@ -7,7 +7,7 @@ A feature is one building block of a platform, like likes or comments (ADR 18). 
 | **The definition**  | `packages/core/src/features/catalog.ts`   | Add its name, description, version, and events                   |
 | **Events**          | `packages/core/src/events.ts`             | Add any new event type and its details                           |
 | **What people see** | `packages/ui/src/features/`               | A component that returns nothing when `useFeature` says it's off |
-| **Where it goes**   | `packages/ui/src/layouts/`                | Put the component in each layout that should have it             |
+| **Where it goes**   | `packages/ui/src/layouts/`                | Put the component in every layout, so any mix of features works  |
 | **The server**      | `apps/api/src/actions/routes.ts`          | Add a route that starts by refusing when `isOff` says it's off   |
 | **Templates**       | `packages/core/src/features/templates.ts` | Say which templates include it                                   |
 

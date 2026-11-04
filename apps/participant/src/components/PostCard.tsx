@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import type { FeedComment, FeedPost } from "@truman3/core";
 import { CommentBox, FeedPostView } from "@truman3/ui";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { flowQuery, meQuery, post as send } from "../api.ts";
 import { createDwellTimer } from "../dwell.ts";
-import { track } from "../tracking.ts";
+import { rememberOpenedFrom, track } from "../tracking.ts";
 
 /** Counts as being looked at once half of it is on screen. */
 const IN_VIEW_THRESHOLD = 0.5;
@@ -59,6 +59,7 @@ function useContentDwell(contentId: string, surface: string) {
 /** A post a participant can act on. How it looks comes from FeedPostView, shared with researchers. */
 export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?: string }) {
   const ref = useContentDwell(post.id, surface);
+  const navigate = useNavigate();
   const client = useQueryClient();
   const me = useQuery(meQuery);
   const flow = useQuery(flowQuery);
@@ -66,6 +67,13 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
   const [replyTo, setReplyTo] = useState<FeedComment | null>(null);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  /** Whether comments are here, or wait on the post's own page. */
+  const detail = surface === "post";
+  const pages = flow.data?.features.postPages ?? false;
+  const openPost = () => {
+    rememberOpenedFrom(surface);
+    void navigate({ to: "/p/$postId", params: { postId: post.id } });
+  };
 
   const action = useMutation({
     mutationFn: ({ url, active }: { url: string; active: boolean }) => send(url, { active }),
@@ -99,11 +107,30 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
     <FeedPostView
       post={post}
       rootRef={ref}
+      detail={detail}
+      {...(pages
+        ? {
+            renderPostLink: (postId: string, className: string, children: ReactNode) => (
+              <Link
+                to="/p/$postId"
+                params={{ postId }}
+                className={className}
+                onClick={() => rememberOpenedFrom(surface)}
+              >
+                {children}
+              </Link>
+            ),
+          }
+        : {})}
       actions={{
         onLike: (id, active) => action.mutate({ url: `/content/${id}/like`, active }),
         onVote: (id, value) => vote.mutate({ id, value }),
         onFlag: (id, active) => action.mutate({ url: `/content/${id}/flag`, active }),
         onReply: () => {
+          if (pages && !detail) {
+            openPost();
+            return;
+          }
           setReplying(true);
           inputRef.current?.focus();
         },
@@ -121,6 +148,7 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
       )}
       belowComments={
         me.data &&
+        (detail || !pages) &&
         (flow.data?.commentBox === "open" || replying || replyTo) && (
           <>
             {replyTo && (

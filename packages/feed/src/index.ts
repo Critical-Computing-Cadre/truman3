@@ -7,6 +7,7 @@ export {
   type FeedViewer,
   feedSettingsFor,
 } from "./assemble.ts";
+export { COMMENT_ORDERS, type CommentOrder, type CommentOrderName } from "./comment-orders.ts";
 export {
   RANKERS,
   type RankablePost,

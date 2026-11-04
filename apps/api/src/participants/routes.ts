@@ -7,7 +7,7 @@ import type { Context } from "hono";
 import { setCookie } from "hono/cookie";
 import { countUnreadNotifications } from "../actions/notifications.ts";
 import type { ProlificConfig } from "../admin/prolific.ts";
-import { mediaUrl } from "../feed/build.ts";
+import { mediaUrl, participantKarma } from "../feed/build.ts";
 import { summarizeDevice } from "./device.ts";
 import { enterStudy, entrySettings } from "./enter.ts";
 import { participantFromRequest, SESSION_COOKIE } from "./session.ts";
@@ -90,6 +90,8 @@ const meRoute = createRoute({
             pictureUrl: z.string().nullable(),
             siteName: z.string(),
             unreadNotifications: z.number(),
+            /** Their points, on a platform with karma. */
+            karma: z.number().optional(),
           }),
         },
       },
@@ -208,6 +210,9 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
         location: profile.location ?? "",
         pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
         siteName: context.settings.site.name,
+        ...(featureOn(context.settings, context.conditionKey, "karma")
+          ? { karma: await participantKarma(db, context) }
+          : {}),
         unreadNotifications: featureOn(context.settings, context.conditionKey, "notifications")
           ? await countUnreadNotifications(db, context)
           : 0,
