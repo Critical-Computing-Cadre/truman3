@@ -175,6 +175,10 @@ export interface DraftItemDetails {
   downs: number;
   pictures: string[];
   spaceId: string | null;
+  link: string | null;
+  pinnedOn: string[];
+  locked: boolean;
+  tags: string[];
   origin: string;
 }
 

@@ -206,6 +206,10 @@ export async function openDraft(
               ? {
                   ...shared,
                   ...optional("title", item.title),
+                  ...optional("link", item.linkUrl),
+                  ...(item.pinnedOn.length > 0 ? { pinnedOn: item.pinnedOn } : {}),
+                  ...(item.locked ? { locked: true } : {}),
+                  ...(item.tags.length > 0 ? { tags: item.tags } : {}),
                   pictures: item.attachments.map(({ key }) => key),
                   ...(item.spaceId ? { spaceId: asId(item.spaceId) } : {}),
                 }

@@ -1,9 +1,13 @@
 import {
   type CommentSort,
+  type FeatureSet,
   type FeedAuthor,
   type FeedPost,
   type FeedSort,
   featureOn,
+  featuresFor,
+  linkDomain,
+  type PostTag,
   type StudySettings,
   scriptedKarmaChange,
   startingKarmaFor,
@@ -30,6 +34,10 @@ export type FeedContent = Pick<
   | "spaceId"
   | "authorActorId"
   | "title"
+  | "linkUrl"
+  | "pinnedOn"
+  | "locked"
+  | "tags"
   | "body"
   | "attachments"
   | "offsetMs"
@@ -235,6 +243,8 @@ async function loadViewerState(db: Database, context: ParticipantContext) {
       ),
     ),
     flaggedContentIds: idsOfKind("flag"),
+    savedContentIds: idsOfKind("save"),
+    hiddenContentIds: idsOfKind("hide"),
     viewedContentIds: idsOfKind("view"),
     blockedActorIds: new Set(blocks.map((row) => row.targetActorId)),
   };
@@ -255,6 +265,9 @@ export async function shapeFeedPosts({
   spaces = new Map(),
   commentsHere = true,
   karma,
+  features,
+  savedContentIds = new Set(),
+  hiddenContentIds = new Set(),
 }: {
   loadAuthors: (ids: string[]) => Promise<ReadonlyMap<string, FeedActor>>;
   mediaPublicUrl: string;
@@ -273,6 +286,10 @@ export async function shapeFeedPosts({
   commentsHere?: boolean;
   /** On a platform with karma, the viewer's own, and how to work out anyone else's. */
   karma?: { viewer: number; cast: (username: string, written?: number) => number } | undefined;
+  /** Which features are on, since what they add to a post shouldn't reach a browser otherwise. */
+  features: FeatureSet;
+  savedContentIds?: ReadonlySet<string>;
+  hiddenContentIds?: ReadonlySet<string>;
 }): Promise<FeedPost[]> {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const shownIds = feed.posts.flatMap((post) => [post.id, ...post.commentIds]);
@@ -318,9 +335,20 @@ export async function shapeFeedPosts({
   return feed.posts.map((post) => {
     const item = byId.get(post.id) as FeedContent;
     const space = item.spaceId ? spaces.get(item.spaceId) : undefined;
+    const tags = item.tags.filter(
+      (tag) => (tag === "spoiler" && features.spoilers) || (tag === "adult" && features.adultTags),
+    ) as PostTag[];
     return {
       ...common(item),
       ...(item.title ? { title: item.title } : {}),
+      ...(item.linkUrl && features.links
+        ? { link: { url: item.linkUrl, domain: linkDomain(item.linkUrl) } }
+        : {}),
+      ...(post.studyPinned ? { pinned: true as const } : {}),
+      ...(item.locked && features.locking ? { locked: true as const } : {}),
+      ...(tags.length > 0 ? { tags } : {}),
+      ...(savedContentIds.has(item.id) ? { saved: true as const } : {}),
+      ...(hiddenContentIds.has(item.id) ? { hidden: true as const } : {}),
       // Only these, since whatever else a space holds has no reason to reach a browser.
       ...(space
         ? {
@@ -362,6 +390,8 @@ export interface BuildFeedOptions {
   post?: string | undefined;
   /** An order for comments this person chose and it was recorded, where the study allows it. */
   commentSort?: CommentSort | undefined;
+  /** Only what this person has saved or hidden, as on their profile. */
+  list?: "saved" | "hidden" | undefined;
 }
 
 /** Works out what a participant sees now, and records that it was shown. */
@@ -378,6 +408,7 @@ export async function buildFeed(
     sort,
     post,
     commentSort,
+    list,
   }: BuildFeedOptions = {},
 ): Promise<FeedPost[]> {
   const worldStartMs = context.worldStartedAt.getTime();
@@ -427,19 +458,31 @@ export async function buildFeed(
       found !== undefined &&
       (authorActorId !== undefined ||
         post !== undefined ||
+        list !== undefined ||
         found.joined ||
         postOf(row).authorActorId === context.actorId)
     );
   };
+  const features = featuresFor(context.settings, context.conditionKey);
+  const hiddenHere = features.hiding ? state.hiddenContentIds : new Set<string>();
+  const listed = list === "saved" ? state.savedContentIds : state.hiddenContentIds;
   const inScope = (row: ContentRow) =>
     (!authorActorId || postOf(row).authorActorId === authorActorId) &&
     (!post || postOf(row).id === post) &&
+    (list ? listed.has(postOf(row).id) : post !== undefined || !hiddenHere.has(postOf(row).id)) &&
     inSpaces(row);
+  // A pin belongs to a list, so a post pinned in its community isn't also on top at home.
+  const pinPlace =
+    features.pinning && !post && !authorActorId && !list ? (space ? "space" : "home") : null;
 
   const conditionSettings = settings ?? feedSettingsFor(context.settings, context.conditionKey);
   const feedSettings: FeedSettings = {
     ...conditionSettings,
-    ranker: sort ?? (space ? conditionSettings.spaceRanker : undefined) ?? conditionSettings.ranker,
+    ranker:
+      sort ??
+      (list ? "new" : undefined) ??
+      (space ? conditionSettings.spaceRanker : undefined) ??
+      conditionSettings.ranker,
     commentOrder: commentSort ?? conditionSettings.commentOrder,
   };
   // Comments that wait for a post's own page aren't shown here, so they aren't recorded as shown.
@@ -480,6 +523,7 @@ export async function buildFeed(
       (row) => ({
         ...toCandidate(row, worldStartMs),
         ...votesOf(row),
+        studyPinned: pinPlace !== null && row.pinnedOn.includes(pinPlace),
       }),
     ),
     {
@@ -511,6 +555,9 @@ export async function buildFeed(
     flaggedContentIds: state.flaggedContentIds,
     scriptedCounts,
     viewerVotes: state.viewerVotes,
+    features,
+    savedContentIds: features.saving ? state.savedContentIds : new Set(),
+    hiddenContentIds: features.hiding ? state.hiddenContentIds : new Set(),
     spaces: visibleSpaces,
     commentsHere,
     karma: karmaOn

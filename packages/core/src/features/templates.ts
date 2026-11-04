@@ -34,6 +34,14 @@ export const TEMPLATES = {
       postPages: false,
       titles: false,
       karma: false,
+      links: false,
+      pinning: false,
+      locking: false,
+      spoilers: false,
+      adultTags: false,
+      saving: false,
+      hiding: false,
+      sharing: false,
     },
   },
   forum: {
@@ -41,7 +49,7 @@ export const TEMPLATES = {
     description:
       "Communities with votes and points, where comments are threads on each post's own page.",
     layout: "forum",
-    features: { ...allFeatures, likes: false, following: false },
+    features: { ...allFeatures, likes: false, following: false, adultTags: false },
     feed: { ranker: "top", commentOrder: "top" },
   },
 } as const satisfies Record<string, TemplateDefinition>;

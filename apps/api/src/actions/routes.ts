@@ -6,9 +6,13 @@ import {
   featureOn,
   feedPostSchema,
   MAX_ATTACHMENTS,
+  MAX_LINK_LENGTH,
   MAX_REPLY_DEPTH,
   MAX_TITLE_LENGTH,
+  POST_TAGS,
+  type PostTag,
   platformStyleFor,
+  safeLink,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, inArray, isNull, or } from "drizzle-orm";
@@ -106,6 +110,73 @@ const commentRoute = createRoute({
   },
 });
 
+const saveRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/save",
+  summary: "Save a post to this person's list, or take it off",
+  request: { params: contentParams, ...jsonBody(toggleBodySchema) },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Not a post this participant can see"),
+  },
+});
+
+const hideRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/hide",
+  summary: "Hide a post from this person's feeds, or bring it back",
+  request: { params: contentParams, ...jsonBody(toggleBodySchema) },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Not a post this participant can see"),
+  },
+});
+
+const shareRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/share",
+  summary: "Record that someone copied a link to a post",
+  request: {
+    params: contentParams,
+    ...jsonBody(actionMetaSchema.extend({ method: z.enum(["copy"]) })),
+  },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Not a post this participant can see"),
+  },
+});
+
+const linkOpenedRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/link-opened",
+  summary: "Record that someone clicked the link on a post",
+  request: { params: contentParams, ...jsonBody(actionMetaSchema) },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Not a linked post this participant can see"),
+  },
+});
+
+const revealRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/reveal",
+  summary: "Record that someone uncovered a tagged post",
+  request: { params: contentParams, ...jsonBody(actionMetaSchema) },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    404: errorResponse("Not a covered post this participant can see"),
+  },
+});
+
 const postRoute = createRoute({
   method: "post",
   path: "/posts",
@@ -121,6 +192,11 @@ const postRoute = createRoute({
             body: z.string().max(5000).default(""),
             /** The key of the space it goes in, on a platform with spaces. */
             space: z.string().optional(),
+            /** Where it links to, on a platform with link posts. */
+            link: z.string().max(MAX_LINK_LENGTH).optional(),
+            /** Whether to cover it, on a platform with these tags. */
+            spoiler: z.stringbool().optional(),
+            adult: z.stringbool().optional(),
             /** Repeat this field for several photos, on a platform with galleries. */
             image: z
               .union([z.instanceof(File), z.array(z.instanceof(File))])
@@ -427,9 +503,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
 
   /** Likes and flags work the same way: an event, plus the current state, together. */
   const toggle = (
-    kind: "like" | "flag",
-    onEvent: "content.liked" | "content.flagged",
-    offEvent: "content.unliked" | "content.unflagged",
+    kind: "like" | "flag" | "save" | "hide",
+    onEvent: "content.liked" | "content.flagged" | "content.saved" | "content.hidden",
+    offEvent: "content.unliked" | "content.unflagged" | "content.unsaved" | "content.unhidden",
   ) => {
     return async (
       context: ParticipantContext,
@@ -467,6 +543,117 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
   };
   const applyLike = toggle("like", "content.liked", "content.unliked");
   const applyFlag = toggle("flag", "content.flagged", "content.unflagged");
+  const applySave = toggle("save", "content.saved", "content.unsaved");
+  const applyHide = toggle("hide", "content.hidden", "content.unhidden");
+
+  /** The post this acts on, if it's a post this person can see. */
+  const visiblePost = async (context: ParticipantContext, id: string) => {
+    const item = await findVisibleContent(db, context, id, new Date());
+    return item?.kind === "post" ? item : null;
+  };
+
+  app.openapi(saveRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "saving")) {
+      return c.json(featureOff, 403);
+    }
+    const { id } = c.req.valid("param");
+    if (!(await visiblePost(context, id))) {
+      return c.json(notAvailable, 404);
+    }
+    await applySave(context, id, c.req.valid("json"));
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(hideRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "hiding")) {
+      return c.json(featureOff, 403);
+    }
+    const { id } = c.req.valid("param");
+    if (!(await visiblePost(context, id))) {
+      return c.json(notAvailable, 404);
+    }
+    await applyHide(context, id, c.req.valid("json"));
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(shareRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "sharing")) {
+      return c.json(featureOff, 403);
+    }
+    const { id } = c.req.valid("param");
+    if (!(await visiblePost(context, id))) {
+      return c.json(notAvailable, 404);
+    }
+    const body = c.req.valid("json");
+    await recordEvent(db, {
+      ...participantEvent(context, body.occurredAt, body.clientEventId),
+      type: "content.shared",
+      payload: { method: body.method },
+      targetContentId: id,
+    });
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(linkOpenedRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "links")) {
+      return c.json(featureOff, 403);
+    }
+    const { id } = c.req.valid("param");
+    const item = await visiblePost(context, id);
+    if (!item?.linkUrl) {
+      return c.json(notAvailable, 404);
+    }
+    const body = c.req.valid("json");
+    await recordEvent(db, {
+      ...participantEvent(context, body.occurredAt, body.clientEventId),
+      type: "content.link_opened",
+      payload: {},
+      targetContentId: id,
+    });
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(revealRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const { id } = c.req.valid("param");
+    const item = await visiblePost(context, id);
+    // Only what actually covered it here, so the record can't say more than they saw.
+    const tags = (item?.tags ?? []).filter(
+      (tag) =>
+        (tag === "spoiler" && !isOff(context, "spoilers")) ||
+        (tag === "adult" && !isOff(context, "adultTags")),
+    ) as PostTag[];
+    if (tags.length === 0) {
+      return c.json(notAvailable, 404);
+    }
+    const body = c.req.valid("json");
+    await recordEvent(db, {
+      ...participantEvent(context, body.occurredAt, body.clientEventId),
+      type: "content.revealed",
+      payload: { tags },
+      targetContentId: id,
+    });
+    return c.json({ ok: true as const }, 200);
+  });
 
   app.openapi(likeRoute, async (c) => {
     const context = await participantFromRequest(c, db);
@@ -595,6 +782,15 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (!(await canReplyUnder(db, context, target, now))) {
       return c.json(notAvailable, 404);
     }
+    if (!isOff(context, "locking")) {
+      let top: typeof target | null = target;
+      while (top?.parentId) {
+        top = await findVisibleContent(db, context, top.parentId, now);
+      }
+      if (top?.locked) {
+        return c.json({ error: "This post is locked." }, 403);
+      }
+    }
 
     try {
       const id = await db.transaction(async (tx) => {
@@ -660,11 +856,34 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json({ id: repeat.contentId }, 200);
     }
 
+    const rawLink = form.link?.trim() ?? "";
+    if (rawLink && isOff(context, "links")) {
+      return c.json(featureOff, 403);
+    }
+    const link = rawLink ? safeLink(rawLink) : null;
+    if (rawLink && !link) {
+      return c.json(
+        { error: "A link has to be a full address, starting with http or https." },
+        400,
+      );
+    }
+    if (
+      (form.spoiler && isOff(context, "spoilers")) ||
+      (form.adult && isOff(context, "adultTags"))
+    ) {
+      return c.json(featureOff, 403);
+    }
+    const tags = POST_TAGS.filter((tag) => form[tag]);
+
     const images = [form.image ?? []].flat();
     const problem = checkNewPost(
       platformStyleFor(context.settings, context.conditionKey),
       text.length > 0,
       images.length > 0,
+      {
+        titled: !isOff(context, "titles") && (form.title?.trim() ?? "").length > 0,
+        linked: link !== null,
+      },
     );
     if (problem) {
       return c.json({ error: problem }, 400);
@@ -720,6 +939,8 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
             authorActorId: context.actorId,
             kind: "post",
             ...(title ? { title } : {}),
+            ...(link ? { linkUrl: link } : {}),
+            tags,
             body: text,
             attachments,
             spaceId,

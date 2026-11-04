@@ -135,7 +135,10 @@ export function checkNewPost(
   style: PlatformStyle,
   hasText: boolean,
   hasImage: boolean,
+  /** A title or a link can be enough by itself, except on a platform that's about photos. */
+  also: { titled?: boolean; linked?: boolean } = {},
 ): string | null {
+  const enough = hasText || Boolean(also.titled) || Boolean(also.linked);
   switch (style) {
     case "photo":
       return hasImage ? null : "Add a photo to your post.";
@@ -143,8 +146,8 @@ export function checkNewPost(
       if (hasImage) {
         return "Photos can't be added to posts here.";
       }
-      return hasText ? null : "Write something to post.";
+      return enough ? null : "Write something to post.";
     case "mixed":
-      return hasText || hasImage ? null : "Add some text or a photo.";
+      return enough || hasImage ? null : "Add some text or a photo.";
   }
 }

@@ -42,6 +42,8 @@ export interface FeedCandidate extends RankablePost {
   authorActorId: string;
   /** The condition keys it applies to. Empty means all. */
   conditions: readonly string[];
+  /** The study keeps it on top of this list. */
+  studyPinned?: boolean;
 }
 
 export interface FeedViewer {
@@ -58,6 +60,8 @@ export interface AssembledPost extends RankedPost {
   /** How many replies down each comment is. 0 is directly on the post. */
   commentDepths: Record<string, number>;
   pinned: boolean;
+  /** On top because the study says so, not because it's the viewer's own new post. */
+  studyPinned: boolean;
 }
 
 export interface AssembledFeed {
@@ -110,7 +114,9 @@ export function assembleFeed(
 
   const shown = candidates.filter(isShown);
   const posts = shown.filter(
-    (item) => item.kind === "post" && (earliestMs === null || item.timeMs >= earliestMs),
+    (item) =>
+      item.kind === "post" &&
+      (earliestMs === null || item.timeMs >= earliestMs || item.studyPinned === true),
   );
 
   const shownById = new Map(shown.map((item) => [item.id, item]));
@@ -147,7 +153,13 @@ export function assembleFeed(
   const isPinned = (post: FeedCandidate) =>
     pinCutoffMs !== null && post.authorActorId === viewer.actorId && post.timeMs >= pinCutoffMs;
 
-  const pinned = posts.filter(isPinned).sort((a, b) => b.timeMs - a.timeMs);
+  const studyPinned = posts.filter((post) => post.studyPinned);
+  const studyPinnedIds = new Set(studyPinned.map(({ id }) => id));
+  const newestFirst = (a: FeedCandidate, b: FeedCandidate) => b.timeMs - a.timeMs;
+  const pinned = [
+    ...studyPinned.sort(newestFirst),
+    ...posts.filter((post) => isPinned(post) && !post.studyPinned).sort(newestFirst),
+  ];
   const pinnedIds = new Set(pinned.map(({ id }) => id));
   const ranker = RANKERS[settings.ranker];
   const ranked = ranker.rank(
@@ -178,7 +190,13 @@ export function assembleFeed(
         commentDepths[id] = 0;
       }
     }
-    return { ...post, pinned: isPin, commentIds, commentDepths };
+    return {
+      ...post,
+      pinned: isPin,
+      studyPinned: studyPinnedIds.has(post.id),
+      commentIds,
+      commentDepths,
+    };
   };
 
   return {

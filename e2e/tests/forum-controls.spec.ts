@@ -50,7 +50,6 @@ test("a participant changes the order, karma moves, a notification goes to its c
   page: participant,
   browser,
 }, testInfo) => {
-  test.skip(testInfo.project.name === "phone" && !SHOTS, "The controls are the same on a phone.");
   test.setTimeout(150_000);
   const project = testInfo.project.name;
   const stamp = Date.now() % 1_000_000;

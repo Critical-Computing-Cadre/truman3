@@ -2,11 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   type FeedSort as ChosenSort,
+  checkNewPost,
   FEED_SORTS,
   type FeedResponse,
+  MAX_LINK_LENGTH,
   MAX_TITLE_LENGTH,
   SORT_LABELS,
   type SpaceView,
+  safeLink,
 } from "@truman3/core";
 import { CreatePostBar, FeedFrame, PhotoIcon, ProfileCard } from "@truman3/ui";
 import { type FormEvent, type RefObject, useEffect, useRef, useState } from "react";
@@ -18,9 +21,9 @@ import { PostCard } from "../components/PostCard.tsx";
 const VISIT = Math.floor(Math.random() * 2 ** 31);
 
 const COMPOSER = {
-  photo: { placeholder: "Add a caption...", ready: (_text: boolean, image: boolean) => image },
-  text: { placeholder: "What's new?", ready: (text: boolean) => text },
-  mixed: { placeholder: "What's new?", ready: (text: boolean, image: boolean) => text || image },
+  photo: { placeholder: "Add a caption..." },
+  text: { placeholder: "What's new?" },
+  mixed: { placeholder: "What's new?" },
 };
 
 export type FeedSort = ChosenSort | null;
@@ -88,6 +91,9 @@ export function NewPostDialog({
   const client = useQueryClient();
   const flow = useQuery(flowQuery);
   const titles = flow.data?.features.titles ?? false;
+  const links = flow.data?.features.links ?? false;
+  const spoilers = flow.data?.features.spoilers ?? false;
+  const adultTags = flow.data?.features.adultTags ?? false;
   const chooseSpace = !space && (flow.data?.features.spaces ?? false);
   const spaces = useQuery({
     queryKey: ["spaces"],
@@ -95,12 +101,17 @@ export function NewPostDialog({
     enabled: chooseSpace,
   });
   const [title, setTitle] = useState("");
+  const [link, setLink] = useState("");
+  const [spoiler, setSpoiler] = useState(false);
+  const [adult, setAdult] = useState(false);
   const [chosenSpace, setChosenSpace] = useState("");
   const [body, setBody] = useState("");
   const [images, setImages] = useState<File[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const image = images[0];
-  const { placeholder, ready } = COMPOSER[style];
+  const { placeholder } = COMPOSER[style];
+  const goodLink = link.trim() ? safeLink(link) : null;
+  const badLink = link.trim().length > 0 && goodLink === null;
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -120,6 +131,9 @@ export function NewPostDialog({
       const where = space ?? chosenSpace;
       return postForm("/posts", {
         ...(titles ? { title } : {}),
+        ...(links && goodLink ? { link: goodLink } : {}),
+        ...(spoilers && spoiler ? { spoiler: "true" } : {}),
+        ...(adultTags && adult ? { adult: "true" } : {}),
         body,
         image: images,
         ...(where ? { space: where } : {}),
@@ -127,6 +141,9 @@ export function NewPostDialog({
     },
     onSuccess: () => {
       setTitle("");
+      setLink("");
+      setSpoiler(false);
+      setAdult(false);
       setChosenSpace("");
       setBody("");
       setImages([]);
@@ -194,6 +211,48 @@ export function NewPostDialog({
           placeholder={placeholder}
           className="w-full rounded border border-stone-300 px-3 py-2 text-base"
         />
+        {links && (
+          <div className="flex flex-col gap-1 text-sm">
+            <label className="flex flex-col gap-1 font-medium">
+              Link
+              <input
+                type="url"
+                maxLength={MAX_LINK_LENGTH}
+                value={link}
+                onChange={(event) => setLink(event.target.value)}
+                placeholder="https://"
+                className="w-full rounded border border-stone-300 px-3 py-2 text-base font-normal"
+              />
+            </label>
+            {badLink && (
+              <p className="text-rose-700">Use a full address, starting with http or https.</p>
+            )}
+          </div>
+        )}
+        {(spoilers || adultTags) && (
+          <div className="flex flex-wrap gap-4 text-sm">
+            {spoilers && (
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={spoiler}
+                  onChange={(event) => setSpoiler(event.target.checked)}
+                />
+                Spoiler
+              </label>
+            )}
+            {adultTags && (
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={adult}
+                  onChange={(event) => setAdult(event.target.checked)}
+                />
+                Adult content
+              </label>
+            )}
+          </div>
+        )}
         {style !== "text" && (
           <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded border border-dashed border-stone-300 p-4 text-sm text-stone-500 focus-within:outline-2">
             {imageUrl ? (
@@ -225,7 +284,11 @@ export function NewPostDialog({
           type="submit"
           disabled={
             create.isPending ||
-            !ready(body.trim().length > 0, images.length > 0) ||
+            badLink ||
+            checkNewPost(style, body.trim().length > 0, images.length > 0, {
+              titled: titles && title.trim().length > 0,
+              linked: goodLink !== null,
+            }) !== null ||
             (titles && !title.trim())
           }
           className="rounded bg-stone-900 px-4 py-2 text-sm text-white disabled:opacity-40"

@@ -34,7 +34,7 @@ const feedRoute = createRoute({
       /** A number the app picks on each page load, for studies that reshuffle on each visit. */
       visit: z.coerce.number().int().nonnegative().optional(),
       /** Which list of posts: the home feed, one space's page, or one post's own page. */
-      surface: z.enum(["home", "space", "post"]).default("home"),
+      surface: z.enum(["home", "space", "post", "saved", "hidden"]).default("home"),
       /** On a space's page, which space, by its key. */
       space: z.string().optional(),
       /** On a post's own page, which post. */
@@ -208,7 +208,11 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
 
     const commentSort = await chosenCommentSort(db, context);
     if (surface === "post") {
-      if (!featureOn(context.settings, context.conditionKey, "postPages")) {
+      // A shared link goes to a post's own page, so sharing needs that page to exist.
+      if (
+        !featureOn(context.settings, context.conditionKey, "postPages") &&
+        !featureOn(context.settings, context.conditionKey, "sharing")
+      ) {
         return c.json(featureOff, 403);
       }
       if (!post) {
@@ -222,6 +226,19 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
       if (posts.length === 0) {
         return c.json(notAvailable, 404);
       }
+      return c.json({ posts, commentSort }, 200);
+    }
+
+    if (surface === "saved" || surface === "hidden") {
+      const feature = surface === "saved" ? "saving" : "hiding";
+      if (!featureOn(context.settings, context.conditionKey, feature)) {
+        return c.json(featureOff, 403);
+      }
+      const posts = await buildFeed({ db, mediaPublicUrl }, context, {
+        surface,
+        list: surface,
+        commentSort: commentSort ?? undefined,
+      });
       return c.json({ posts, commentSort }, 200);
     }
 

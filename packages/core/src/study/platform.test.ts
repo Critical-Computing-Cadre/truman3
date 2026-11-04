@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FEATURE_KEYS } from "../features/catalog.ts";
 import { TEMPLATES } from "../features/templates.ts";
+import { linkDomain, MAX_LINK_LENGTH, safeLink } from "../post-extras.ts";
 import type { StudySettings } from "./definition.ts";
 import { studySettingsSchema } from "./definition.ts";
 import { fillLinkTemplate } from "./links.ts";
@@ -88,6 +89,43 @@ describe("checkNewPost", () => {
     ["mixed", false, false, false],
   ] as const)("on a %s platform, text %s and image %s: allowed %s", (style, text, image, ok) => {
     expect(checkNewPost(style, text, image) === null).toBe(ok);
+  });
+});
+
+describe("checkNewPost with a title or a link", () => {
+  it("lets either stand alone, except on a photo platform", () => {
+    expect(checkNewPost("mixed", false, false, { titled: true })).toBeNull();
+    expect(checkNewPost("text", false, false, { linked: true })).toBeNull();
+    expect(checkNewPost("photo", false, false, { titled: true, linked: true })).not.toBeNull();
+    expect(checkNewPost("text", false, true, { titled: true })).not.toBeNull();
+  });
+});
+
+describe("safeLink", () => {
+  it("takes full web addresses", () => {
+    expect(safeLink(" https://example.com/a?b=1 ")).toBe("https://example.com/a?b=1");
+    expect(safeLink("http://example.com")).toBe("http://example.com/");
+  });
+
+  it.each([
+    "javascript:alert(1)",
+    "JAVASCRIPT:alert(1)",
+    " data:text/html,x",
+    "vbscript:x",
+    "file:///etc/passwd",
+    "example.com",
+    "https://user:secret@example.com/",
+    "",
+  ])("refuses %s", (link) => {
+    expect(safeLink(link)).toBeNull();
+  });
+
+  it("refuses a very long address", () => {
+    expect(safeLink(`https://example.com/${"a".repeat(MAX_LINK_LENGTH)}`)).toBeNull();
+  });
+
+  it("names the domain people recognize", () => {
+    expect(linkDomain("https://www.example.org/story")).toBe("example.org");
   });
 });
 

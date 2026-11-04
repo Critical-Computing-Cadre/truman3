@@ -200,7 +200,9 @@ describe("a list that leaves comments for each post's page", () => {
   });
 
   it("keeps comments under posts when the feature's off, as Classic does", async () => {
-    const { slug } = await study({ platform: ", features: { postPages: false }" });
+    const { slug } = await study({
+      platform: ", features: { postPages: false, sharing: false }",
+    });
     const cookie = await join(slug);
     const post = titled((await home(cookie)).posts, "Best way to sear a steak?");
     expect(post.comments).toHaveLength(4);

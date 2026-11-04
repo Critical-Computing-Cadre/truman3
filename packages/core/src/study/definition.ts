@@ -3,6 +3,7 @@ import { ACCENT_PATTERN } from "../color.ts";
 import { FEATURE_KEYS } from "../features/catalog.ts";
 import { LAYOUT_KEYS, TEMPLATE_KEYS } from "../features/templates.ts";
 import { COMMENT_SORTS, FEED_SORTS } from "../orders.ts";
+import { linkSchema, PIN_PLACES, POST_TAGS } from "../post-extras.ts";
 
 const keySchema = z
   .string()
@@ -243,6 +244,14 @@ export const postDefinitionSchema = z.object({
   pictures: z.array(z.string().min(1)).default([]),
   /** The key of the one space it belongs to, if any. */
   space: z.string().min(1).optional(),
+  /** Where it links to, on a platform with link posts. */
+  link: linkSchema.optional(),
+  /** Which lists it stays on top of, on a platform with pinned posts. */
+  pinnedOn: z.array(z.enum(PIN_PLACES)).optional(),
+  /** Whether nobody can comment on it, on a platform with locked posts. */
+  locked: z.boolean().optional(),
+  /** Why it's covered until clicked, on a platform with those tags. */
+  tags: z.array(z.enum(POST_TAGS)).optional(),
   actor: z.string().min(1),
   /** Milliseconds relative to when a participant starts. */
   timeMs: z.number().int(),

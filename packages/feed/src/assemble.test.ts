@@ -436,3 +436,46 @@ describe("the order of comments", () => {
     expect(order("new").posts[0]?.commentIds).toEqual(["late", "mid", "old", "reply"]);
   });
 });
+
+describe("posts a study keeps on top", () => {
+  const settings = {
+    ranker: "new",
+    reshuffleEachVisit: false,
+    removeFlagged: false,
+    removeBlocked: false,
+  } as FeedSettings;
+
+  it("come first, even outside the time window, and say why", () => {
+    const feed = assembleFeed(
+      [post("recent", 1), post("old", 100, { studyPinned: true })],
+      viewer(),
+      { ...settings, windowHours: 24 },
+      { nowMs: NOW, seed: 1 },
+    );
+    expect(feed.posts.map(({ id, pinned, studyPinned }) => [id, pinned, studyPinned])).toEqual([
+      ["old", true, true],
+      ["recent", false, false],
+    ]);
+  });
+
+  it("go ahead of someone's own new post, which isn't marked as the study's", () => {
+    const feed = assembleFeed(
+      [post("mine", 0, { authorActorId: "me" }), post("theirs", 5, { studyPinned: true })],
+      viewer({ actorId: "me" }),
+      { ...settings, pinOwnPostsMinutes: 10 },
+      { nowMs: NOW, seed: 1 },
+    );
+    expect(feed.posts.map(({ id, studyPinned }) => [id, studyPinned])).toEqual([
+      ["theirs", true],
+      ["mine", false],
+    ]);
+  });
+
+  it("don't appear before their time", () => {
+    const feed = assembleFeed([post("later", -1, { studyPinned: true })], viewer(), settings, {
+      nowMs: NOW,
+      seed: 1,
+    });
+    expect(feed.posts).toEqual([]);
+  });
+});

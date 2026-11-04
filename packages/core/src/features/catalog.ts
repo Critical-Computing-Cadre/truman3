@@ -44,8 +44,9 @@ export const FEATURES = {
   },
   titles: {
     name: "Titles on posts",
-    description: "Every post has a title, which participants have to write for theirs.",
-    version: 1,
+    description:
+      "Every post has a title, which participants have to write for theirs. A title can be a whole post.",
+    version: 2,
     events: [],
   },
   galleries: {
@@ -79,6 +80,60 @@ export const FEATURES = {
       "People show a points total. The study sets everyone's, and a participant's grows with votes on what they post.",
     version: 1,
     events: [],
+  },
+  links: {
+    name: "Link posts",
+    description:
+      "A post can link to another website, showing its domain. Opening a link is recorded.",
+    version: 1,
+    events: ["content.link_opened"],
+  },
+  pinning: {
+    name: "Pinned posts",
+    description:
+      "Researchers can keep a post on top of the home feed, a community's page, or both.",
+    version: 1,
+    events: [],
+  },
+  locking: {
+    name: "Locked posts",
+    description: "Researchers can lock a post, so nobody can comment on it.",
+    version: 1,
+    events: [],
+  },
+  spoilers: {
+    name: "Spoiler tags",
+    description:
+      "A post tagged as a spoiler stays covered until someone clicks it, which is recorded.",
+    version: 1,
+    events: ["content.revealed"],
+  },
+  adultTags: {
+    name: "Adult content tags",
+    description:
+      "A post tagged as adult content stays covered until someone clicks it, which is recorded. There's no age check, so talk to your IRB before using this.",
+    version: 1,
+    events: ["content.revealed"],
+  },
+  saving: {
+    name: "Saving posts",
+    description: "Participants can save posts to a list on their profile.",
+    version: 1,
+    events: ["content.saved", "content.unsaved"],
+  },
+  hiding: {
+    name: "Hiding posts",
+    description:
+      "Participants can hide posts from their feeds, and bring them back from their profile.",
+    version: 1,
+    events: ["content.hidden", "content.unhidden"],
+  },
+  sharing: {
+    name: "Sharing posts",
+    description:
+      "Participants can copy a link to a post. It only opens for someone in the same study who can already see that post.",
+    version: 1,
+    events: ["content.shared"],
   },
   flagging: {
     name: "Flagging",

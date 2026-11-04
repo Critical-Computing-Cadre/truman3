@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { COMMENT_SORTS, FEED_SORTS } from "./orders.ts";
+import { POST_TAGS } from "./post-extras.ts";
 
 export const feedAuthorSchema = z.object({
   username: z.string(),
@@ -49,6 +50,18 @@ export const feedPostSchema = z.object({
   title: z.string().optional(),
   body: z.string(),
   attachments: z.array(feedAttachmentSchema),
+  /** Where it links to, on a platform with link posts. */
+  link: z.object({ url: z.string(), domain: z.string() }).optional(),
+  /** Kept on top of this list by the study. Only ever true. */
+  pinned: z.literal(true).optional(),
+  /** Nobody can comment on it. Only ever true. */
+  locked: z.literal(true).optional(),
+  /** Why it's covered until someone clicks it. Left out if it isn't. */
+  tags: z.array(z.enum(POST_TAGS)).optional(),
+  /** This viewer saved it. Only ever true. */
+  saved: z.literal(true).optional(),
+  /** This viewer hid it. It only reaches them on their list of hidden posts, or its own page. */
+  hidden: z.literal(true).optional(),
   /** The space it belongs to, on a platform with spaces. */
   space: z
     .object({ key: z.string(), name: z.string(), pictureUrl: z.string().optional() })
