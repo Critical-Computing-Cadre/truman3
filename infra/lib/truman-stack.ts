@@ -16,6 +16,7 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import { Platform } from "aws-cdk-lib/aws-ecr-assets";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as elb from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as s3 from "aws-cdk-lib/aws-s3";
@@ -178,6 +179,10 @@ export class TrumanStack extends Stack {
     const mediaBucket = new s3.Bucket(this, "Media", {
       ...bucketDefaults,
       versioned: stage.holdsRealData,
+      // A deleted file stays as an old version, which would outlast a withdrawal.
+      ...(stage.holdsRealData
+        ? { lifecycleRules: [{ noncurrentVersionExpiration: Duration.days(7) }] }
+        : {}),
       removalPolicy,
       autoDeleteObjects: !stage.holdsRealData,
     });
@@ -208,7 +213,11 @@ export class TrumanStack extends Stack {
     // CloudFront is the one way in, and it holds the apps, the API, and media at one address.
     const allOrigins = {
       apps: origins.S3BucketOrigin.withOriginAccessControl(appsBucket),
-      media: origins.S3BucketOrigin.withOriginAccessControl(mediaBucket),
+      // Imported, so CloudFront's automatic grant doesn't cover the whole bucket. It gets media/* below,
+      // and never uploads/, which only the API reads. See ADR 25.
+      media: origins.S3BucketOrigin.withOriginAccessControl(
+        s3.Bucket.fromBucketName(this, "MediaForEdge", mediaBucket.bucketName),
+      ),
       api: origins.VpcOrigin.withApplicationLoadBalancer(balancer, {
         protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
         httpPort: 80,
@@ -261,10 +270,19 @@ export class TrumanStack extends Stack {
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
         },
         "/media/*": mediaBehavior,
-        "/uploads/*": mediaBehavior,
       },
     });
     const address = `https://${stage.domains?.names[0] ?? distribution.distributionDomainName}`;
+
+    // What CloudFront can read of the media bucket: study images, and not what participants upload.
+    mediaBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:GetObject"],
+        principals: [new iam.ServicePrincipal("cloudfront.amazonaws.com")],
+        resources: [mediaBucket.arnForObjects("media/*")],
+        conditions: { StringEquals: { "AWS:SourceArn": distribution.distributionArn } },
+      }),
+    );
 
     // What CloudFront records, in CloudWatch. See EDGE_LOG_FIELDS. The name can only have letters,
     // numbers, dashes, and underscores.

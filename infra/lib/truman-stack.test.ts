@@ -184,9 +184,24 @@ describe("what the edge does", () => {
   });
 
   it("serves media from where the app says it is", () => {
-    // These are the prefixes in apps/api/src/actions/images.ts and packages/study-import.
+    // This is the prefix in apps/api/src/actions/images.ts and packages/study-import.
     expect(behavior("/media/*")).toBeDefined();
-    expect(behavior("/uploads/*")).toBeDefined();
+  });
+
+  it("has no way to reach what participants upload, except through the API", () => {
+    expect(behavior("/uploads/*")).toBeUndefined();
+    const statements = resources(template, "AWS::S3::BucketPolicy")
+      .flatMap((policy) => policy.Properties.PolicyDocument.Statement)
+      .filter((statement) => statement.Principal?.Service === "cloudfront.amazonaws.com");
+    const media = statements.filter((statement) =>
+      JSON.stringify(statement.Resource).includes("media/*"),
+    );
+    expect(media).toHaveLength(1);
+    // The apps' bucket is the only other one CloudFront reads, all of it.
+    const others = statements.filter((statement) => !media.includes(statement));
+    for (const statement of others) {
+      expect(JSON.stringify(statement.Resource)).toContain("Apps");
+    }
   });
 
   it("leaves what could identify someone out of its logs", () => {
@@ -380,6 +395,17 @@ describe("when it's removed", () => {
   it("lets staging be deleted", () => {
     expect(removal(template, "AWS::RDS::DBInstance")).toEqual(["Delete"]);
     template.hasResourceProperties("AWS::RDS::DBInstance", { DeletionProtection: false });
+  });
+
+  it("doesn't keep deleted files for long when it holds real participants", () => {
+    realTemplate.hasResourceProperties("AWS::S3::Bucket", {
+      VersioningConfiguration: { Status: "Enabled" },
+      LifecycleConfiguration: {
+        Rules: Match.arrayWith([
+          Match.objectLike({ NoncurrentVersionExpiration: { NoncurrentDays: 7 } }),
+        ]),
+      },
+    });
   });
 
   it("keeps a stage's data when it holds real participants", () => {

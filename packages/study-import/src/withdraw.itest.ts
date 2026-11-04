@@ -51,10 +51,32 @@ afterAll(async () => {
 });
 
 describe("withdrawParticipant", () => {
+  it("deletes their uploaded files, leaving those of others in the same world", async () => {
+    const slug = `w-${randomUUID().slice(0, 8)}`;
+    const { participant, world } = await setUp(slug, "leaving");
+    const mine = `uploads/${world.id}/${participant.id}/photo.jpg`;
+    const sameWorld = `uploads/${world.id}/${randomUUID()}/photo.jpg`;
+    await storage.put(mine, new Uint8Array([1]), "image/jpeg");
+    await storage.put(sameWorld, new Uint8Array([2]), "image/jpeg");
+
+    const result = await withdrawParticipant(database.db, storage, {
+      slug,
+      externalId: "leaving",
+      reason: "withdrew",
+      requestedBy: "tester",
+    });
+
+    expect(result).toMatchObject({ status: "withdrawn", filesDeleted: 1 });
+    expect(await storage.exists(mine)).toBe(false);
+    expect(await storage.exists(sameWorld)).toBe(true);
+
+    await storage.delete(sameWorld);
+  });
+
   it("deletes their data and uploaded files, leaving other people's files alone", async () => {
     const slug = `w-${randomUUID().slice(0, 8)}`;
     const { participant, world } = await setUp(slug, "leaving");
-    const mine = `uploads/${world.id}/photo.jpg`;
+    const mine = `uploads/${world.id}/${participant.id}/photo.jpg`;
     const someoneElse = `uploads/${randomUUID()}/photo.jpg`;
     await storage.put(mine, new Uint8Array([1]), "image/jpeg");
     await storage.put(someoneElse, new Uint8Array([2]), "image/jpeg");

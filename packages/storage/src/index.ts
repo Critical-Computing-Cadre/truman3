@@ -1,6 +1,7 @@
 import {
   CreateBucketCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
@@ -88,6 +89,20 @@ export function createStorage(config: StorageConfig) {
       } catch (error) {
         if ((error as { name?: string }).name === "NotFound") {
           return false;
+        }
+        throw error;
+      }
+    },
+
+    /** A file's contents as a stream, or null if there's no such file. */
+    get: async (key: string) => {
+      try {
+        const object = await client.send(new GetObjectCommand({ Bucket, Key: key }));
+        return object.Body ? object.Body.transformToWebStream() : null;
+      } catch (error) {
+        const name = (error as { name?: string }).name;
+        if (name === "NoSuchKey" || name === "NotFound") {
+          return null;
         }
         throw error;
       }
