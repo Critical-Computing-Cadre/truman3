@@ -1,0 +1,1 @@
+ALTER TABLE "study_exports" ADD COLUMN "contents" text DEFAULT 'data' NOT NULL;

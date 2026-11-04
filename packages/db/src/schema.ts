@@ -565,6 +565,8 @@ export const studyExports = pgTable(
       .references(() => studies.id),
     by: text().notNull(),
     includedRecruitmentIds: boolean("included_recruitment_ids").notNull().default(false),
+    /** What was taken: the data, or the photos participants uploaded. */
+    contents: text().notNull().default("data"),
     at: time("at").notNull().defaultNow(),
   },
   (table) => [index("study_exports_study").on(table.studyId, table.id)],

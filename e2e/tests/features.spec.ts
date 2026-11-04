@@ -288,6 +288,15 @@ test("a participant adds several photos, and sees them on their post", async ({
   expect((await stranger.request.get(address)).status()).toBe(404);
   await stranger.close();
   await context.close();
+
+  // The team can take them away, as a separate download.
+  await page.getByRole("link", { name: "Monitor and download" }).first().waitFor();
+  await study.getByRole("link", { name: "Monitor and download" }).click();
+  const taking = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download photos" }).click();
+  expect((await taking).suggestedFilename()).toContain("-photos-");
+  await page.getByText("Who has downloaded it").click();
+  await expect(page.getByText(/, the photos/)).toBeVisible();
 });
 
 test("settings can't be changed while they're saving, so nothing is lost", async ({
