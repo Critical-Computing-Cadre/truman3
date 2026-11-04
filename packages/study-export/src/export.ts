@@ -192,6 +192,15 @@ export async function exportStudy(
     : [];
   const actorById = new Map(actors.map((actor) => [actor.id, actor]));
 
+  const spaces = versionIds.length
+    ? await db
+        .select()
+        .from(schema.spaces)
+        .where(inArray(schema.spaces.studyVersionId, versionIds))
+        .orderBy(asc(schema.spaces.position))
+    : [];
+  const spaceById = new Map(spaces.map((space) => [space.id, space]));
+
   /** Participants' usernames can identify them, so exports refer to them by study ID. */
   const actorLabel = (actorId: string | null) => {
     if (!actorId) {
@@ -211,6 +220,35 @@ export async function exportStudy(
 
   mkdirSync(folder, { recursive: true });
   const files: string[] = [];
+
+  if (spaces.length > 0) {
+    files.push(
+      writeCsv(
+        folder,
+        "spaces.csv",
+        [
+          "study_version",
+          "key",
+          "name",
+          "description",
+          "rules",
+          "starts_joined",
+          "conditions",
+          "class",
+        ],
+        spaces.map((space) => ({
+          study_version: versionNumber.get(space.studyVersionId),
+          key: safeText(space.key),
+          name: safeText(space.name),
+          description: safeText(space.description),
+          rules: safeText(space.rules),
+          starts_joined: String(space.startsJoined),
+          conditions: space.conditions.join("|"),
+          class: safeText(space.class),
+        })),
+      ),
+    );
+  }
 
   const conditionColumns = [...new Set(conditions.flatMap((c) => Object.keys(c.factors as object)))]
     .sort()
@@ -279,6 +317,9 @@ export async function exportStudy(
         "content_upvoted",
         "content_downvoted",
         "vote_actions",
+        "spaces_joined",
+        "spaces_left",
+        "sort_changes",
         "actors_followed",
         "actors_blocked",
         "actors_reported",
@@ -304,6 +345,9 @@ export async function exportStudy(
           content_upvoted: summary.contentUpvoted,
           content_downvoted: summary.contentDownvoted,
           vote_actions: summary.voteActions,
+          spaces_joined: summary.spacesJoined,
+          spaces_left: summary.spacesLeft,
+          sort_changes: summary.sortChanges,
           flag_actions: summary.flagActions,
           actors_followed: summary.actorsFollowed,
           actors_blocked: summary.actorsBlocked,
@@ -372,6 +416,8 @@ export async function exportStudy(
         "participant_id",
         "condition",
         "surface",
+        "space",
+        "sort",
         "ranker",
         "ranker_version",
         "seed",
@@ -396,6 +442,8 @@ export async function exportStudy(
           participant_id: participantByWorld.get(impression.worldId) ?? "",
           condition: impression.conditionId ? conditionById.get(impression.conditionId)?.key : "",
           surface: impression.surface,
+          space: impression.spaceId ? (spaceById.get(impression.spaceId)?.key ?? "") : "",
+          sort: impression.sort ?? "",
           ranker: impression.ranker,
           ranker_version: impression.rankerVersion,
           seed: impression.seed ?? "",
@@ -425,6 +473,7 @@ export async function exportStudy(
         "parent_id",
         "author",
         "body",
+        "space",
         "media",
         "provenance",
         "offset_ms",
@@ -445,6 +494,7 @@ export async function exportStudy(
         parent_id: item.parentId ?? "",
         author: actorLabel(item.authorActorId),
         body: safeText(item.body),
+        space: item.spaceId ? (spaceById.get(item.spaceId)?.key ?? "") : "",
         media: item.attachments.map(({ key }) => key).join("|"),
         provenance: provenanceLabel(item.provenance),
         offset_ms: item.offsetMs ?? "",
@@ -548,11 +598,21 @@ const FILE_DOCS: Record<string, [string, string][]> = {
   ],
   "impressions.csv": [
     ["impression_id", "One showing of a feed or profile. It has one row per post"],
-    ["surface", "Where it was shown: feed or profile"],
+    ["surface", "Where it was shown: feed (the home feed), space, or profile"],
+    ["space", "On a space's page, which space"],
+    ["sort", "An order the participant chose, new or top. Empty means the study's own order"],
     ["ranker, ranker_version", "What ordered it"],
     ["seed", "The random seed used, so a shuffled order can be reproduced"],
     ["position", "Its place in the list, from 0. Being listed doesn't mean it was looked at"],
     ["comment_ids", "Comments shown with it, separated by |"],
+  ],
+  "spaces.csv": [
+    [
+      "key",
+      "How content.csv and impressions.csv refer to it. Only present if a version has spaces",
+    ],
+    ["starts_joined", "Whether a participant starts out in it"],
+    ["conditions", "Conditions that see it, separated by |. Empty means all"],
   ],
   "content.csv": [
     ["origin", "scripted, from the study definition, or world, created during the study"],
@@ -565,10 +625,19 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ["offset_ms", "For scripted content, when it appears relative to the start"],
     ["visible_at", "For world content, when it appears"],
     ["base_likes", "The like count it starts with, before any likes during the study"],
+    ["space", "The space it belongs to, by key. Comments are in their post's space"],
     ["media", "Its files in order, separated by |"],
     ["base_ups, base_downs", "The votes it starts with, before any during the study"],
     ["conditions", "Conditions it applies to, separated by |. Empty means all"],
   ],
+};
+
+/** What an event means, where its name doesn't say enough. */
+const EVENT_NOTES: Record<string, string> = {
+  "space.joined": "They joined a space, so its posts show in their home feed. Names it by key.",
+  "space.left": "They left a space, so its posts no longer show in their home feed.",
+  "feed.sort_changed":
+    "They chose an order for a feed. An empty sort means they went back to the study's own order.",
 };
 
 function buildCodebook(input: {
@@ -655,7 +724,9 @@ function buildCodebook(input: {
   lines.push(
     "## Event types in this export",
     "",
-    ...input.eventTypes.map((type) => `- \`${type}\``),
+    ...input.eventTypes.map((type) =>
+      EVENT_NOTES[type] ? `- \`${type}\`: ${EVENT_NOTES[type]}` : `- \`${type}\``,
+    ),
     "",
   );
   return lines.join("\n");

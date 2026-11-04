@@ -24,6 +24,7 @@ export {
   type PostData,
   type Provenance,
   type ReactionData,
+  type SpaceData,
 } from "./items.ts";
 export {
   type PackContents,

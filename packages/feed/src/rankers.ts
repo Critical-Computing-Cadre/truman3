@@ -5,6 +5,8 @@ export interface RankablePost {
   timeMs: number;
   /** Its order in the study definition. Empty for content created during the study. */
   position: number | null;
+  /** Up votes minus down votes, including this viewer's own. Only the top order uses it. */
+  score?: number;
 }
 
 export interface RankingContext {
@@ -82,6 +84,26 @@ const scripted: Ranker = {
   },
 };
 
-export const RANKERS = { chronological, shuffle, scripted } as const;
+/** The same order as chronological, under the name forums use, so a study can say which it meant. */
+const newest: Ranker = {
+  name: "new",
+  version: "1",
+  rank: (posts) => [...posts].sort(newestFirst).map(({ id }) => ({ id })),
+};
+
+/**
+ * Highest score first. A score is what the study scripted plus what's happened since, so someone's
+ * own vote moves a post by one, and rarely far. Ties go to the newer post.
+ */
+const top: Ranker = {
+  name: "top",
+  version: "1",
+  rank: (posts) =>
+    [...posts]
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || newestFirst(a, b))
+      .map(({ id, score }) => ({ id, score: score ?? 0 })),
+};
+
+export const RANKERS = { chronological, shuffle, scripted, new: newest, top } as const;
 
 export type RankerName = keyof typeof RANKERS;

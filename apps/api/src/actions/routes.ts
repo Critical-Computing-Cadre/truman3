@@ -11,7 +11,7 @@ import {
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, inArray, isNull, or } from "drizzle-orm";
-import { buildFeed, contentTimeMs, mediaUrl } from "../feed/build.ts";
+import { buildFeed, contentTimeMs, loadSpacesFor, mediaUrl } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { type ParticipantContext, participantFromRequest } from "../participants/session.ts";
 import { MAX_IMAGE_BYTES, storeUploadedImage } from "./images.ts";
@@ -109,6 +109,8 @@ const postRoute = createRoute({
         "multipart/form-data": {
           schema: actionMetaSchema.extend({
             body: z.string().max(5000).default(""),
+            /** The key of the space it goes in, on a platform with spaces. */
+            space: z.string().optional(),
             /** Repeat this field for several photos, on a platform with galleries. */
             image: z
               .union([z.instanceof(File), z.array(z.instanceof(File))])
@@ -125,6 +127,7 @@ const postRoute = createRoute({
       content: { "application/json": { schema: z.object({ id: z.uuid() }) } },
     },
     400: errorResponse("It doesn't fit this platform's style, or the image can't be used"),
+    404: errorResponse("No such space for this participant"),
     401: notSignedIn,
     403: errorResponse("That feature is off in this condition"),
   },
@@ -302,6 +305,14 @@ export async function findVisibleContent(
   }
 
   const appeared = contentTimeMs(item, context.worldStartedAt.getTime()) <= now.getTime();
+  // A space a condition can't see hides its posts too, as it does in the feed.
+  if (item.spaceId && featureOn(context.settings, context.conditionKey, "spaces")) {
+    const spaces = await loadSpacesFor(db, context);
+    if (!spaces.some(({ id: spaceId }) => spaceId === item.spaceId)) {
+      return null;
+    }
+  }
+
   const inCondition =
     item.conditions.length === 0 || item.conditions.includes(context.conditionKey);
   return appeared && inCondition ? item : null;
@@ -326,7 +337,11 @@ async function canReplyUnder(
 }
 
 /** An event for something the participant did, with the fields every such event shares. */
-function participantEvent(context: ParticipantContext, occurredAt: string, clientEventId: string) {
+export function participantEvent(
+  context: ParticipantContext,
+  occurredAt: string,
+  clientEventId: string,
+) {
   return {
     worldId: context.worldId,
     studyVersionId: context.studyVersionId,
@@ -609,6 +624,17 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json({ error: `A post can have up to ${MAX_ATTACHMENTS} photos.` }, 400);
     }
 
+    let spaceId: string | undefined;
+    if (form.space) {
+      if (isOff(context, "spaces")) {
+        return c.json(featureOff, 403);
+      }
+      spaceId = (await loadSpacesFor(db, context)).find(({ key }) => key === form.space)?.id;
+      if (!spaceId) {
+        return c.json(notAvailable, 404);
+      }
+    }
+
     const attachments: Attachment[] = [];
     for (const image of images) {
       const key = await storeUploadedImage(storage, context.worldId, context.participantId, image);
@@ -635,6 +661,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
             kind: "post",
             body: text,
             attachments,
+            spaceId,
             visibleAt: now,
           })
           .returning({ id: schema.content.id });

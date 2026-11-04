@@ -23,6 +23,8 @@ export interface FeedPostViewProps {
   renderNote?: (contentId: string) => ReactNode;
   /** Replaces how the text is drawn. The admin app uses it to edit text where it appears. */
   renderBody?: (contentId: string, body: string) => ReactNode;
+  /** How to link to a space's page. Without it, its name is plain text. */
+  renderSpace?: (key: string, className: string, name: string) => ReactNode;
   /** Wraps where the image goes, even if there isn't one. The admin app uses it to drop images on. */
   wrapImage?: (image: ReactNode) => ReactNode;
 }

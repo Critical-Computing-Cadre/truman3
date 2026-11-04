@@ -40,6 +40,10 @@ const flowStateSchema = z.object({
   layout: z.enum(LAYOUT_KEYS),
   /** Which building blocks this platform has in their condition. */
   features: z.record(z.string(), z.boolean()),
+  /** Whether they can join and leave spaces, or the study has decided for them. */
+  canJoinSpaces: z.boolean(),
+  /** Whether they can choose a feed's order, or the study has decided for them. */
+  canSort: z.boolean(),
   site: z.object({
     name: z.string(),
     logoUrl: z.string().nullable(),

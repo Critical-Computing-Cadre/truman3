@@ -401,3 +401,67 @@ describe("votes", () => {
     expect(messages(definition).join("\n")).not.toMatch(/Votes are off/);
   });
 });
+
+describe("spaces", () => {
+  const twoArms = {
+    conditions: { assignment: { method: "uniform" }, arms: [{ key: "a" }, { key: "b" }] },
+  };
+  const on = { platform: { style: "mixed", features: { spaces: true } } };
+
+  it("refuses a post in a space that doesn't exist, and a repeated key", () => {
+    const definition = study({
+      settings: settings(on),
+      spaces: [
+        { key: "x", name: "X" },
+        { key: "x", name: "X again" },
+      ],
+      posts: [{ ref: "1", body: "hi", actor: "ann", timeMs: 0, space: "nope" }],
+    });
+    const all = messages(definition).join(" ");
+    expect(all).toMatch(/"x" is listed more than once/);
+    expect(all).toMatch(/space "nope", which doesn't exist/);
+    expect(hasErrors(validateStudy(definition))).toBe(true);
+  });
+
+  it("warns when conditions see different spaces, without stopping anything", () => {
+    const definition = study({
+      settings: settings({ ...on, ...twoArms }),
+      spaces: [{ key: "x", name: "X", conditions: ["a"] }],
+    });
+    expect(messages(definition).join(" ")).toMatch(/conditions see different spaces/);
+    expect(hasErrors(validateStudy(definition))).toBe(false);
+  });
+
+  it("says nothing when every condition sees the same spaces", () => {
+    const definition = study({
+      settings: settings({ ...on, ...twoArms }),
+      spaces: [{ key: "x", name: "X" }],
+    });
+    expect(messages(definition).join(" ")).not.toMatch(/different spaces/);
+  });
+
+  it("warns that spaces written for a condition with them off show in one feed", () => {
+    const definition = study({ settings: settings(), spaces: [{ key: "x", name: "X" }] });
+    expect(messages(definition).join(" ")).toMatch(/Spaces are off in "a"/);
+  });
+
+  it("warns when a post can't show because its space doesn't", () => {
+    const definition = study({
+      settings: settings({ ...on, ...twoArms }),
+      spaces: [{ key: "x", name: "X", conditions: ["a"] }],
+      posts: [{ ref: "1", body: "hi", actor: "ann", timeMs: 0, space: "x" }],
+    });
+    expect(messages(definition).join(" ")).toMatch(/won't show in b, because its space/);
+  });
+
+  it("warns that top only follows written scores where votes are off", () => {
+    const definition = study({
+      settings: settings({ feed: { ranker: "top" } }),
+    });
+    expect(messages(definition).join(" ")).toMatch(/top order is used in "a", but votes are off/);
+  });
+
+  it("says nothing about spaces for a study without them", () => {
+    expect(messages(study({ settings: settings() })).join(" ")).not.toMatch(/[Ss]paces/);
+  });
+});

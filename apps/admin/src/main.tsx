@@ -19,6 +19,7 @@ import { NewStudyPage } from "./pages/NewStudyPage.tsx";
 import { PreviewPage } from "./pages/PreviewPage.tsx";
 import { ProlificPage } from "./pages/ProlificPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
+import { SpacesPage } from "./pages/SpacesPage.tsx";
 import { StudiesPage } from "./pages/StudiesPage.tsx";
 
 /** Everything here needs signing in, so this shows the login page until then. */
@@ -100,6 +101,12 @@ const castRoute = createRoute({
   component: CastPage,
 });
 
+const spacesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/drafts/$draftId/spaces",
+  component: SpacesPage,
+});
+
 const monitorRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/studies/$studyId/monitor",
@@ -122,6 +129,7 @@ const router = createRouter({
     draftRoute,
     settingsRoute,
     castRoute,
+    spacesRoute,
     monitorRoute,
     prolificRoute,
   ]),

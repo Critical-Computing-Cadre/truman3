@@ -63,6 +63,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     const looks = JSON.stringify([
       arm.feed ?? {},
       arm.platform ?? {},
+      shownIn(arm.key, study.spaces),
       shownIn(arm.key, study.actors),
       shownIn(arm.key, study.posts),
       shownIn(arm.key, study.comments),
@@ -130,6 +131,46 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
   }
 
+  // Where posts go is the research team's choice, so these only point out what's easy to miss.
+  const spacesIn = settings.conditions.arms.map((arm) => ({
+    key: arm.key,
+    on: featuresFor(settings, arm.key).spaces,
+    seen: study.spaces
+      .filter(({ conditions }) => conditions.length === 0 || conditions.includes(arm.key))
+      .map(({ key }) => key)
+      .join(","),
+  }));
+  if (study.spaces.length > 0) {
+    for (const { key, on } of spacesIn) {
+      if (!on) {
+        warning(
+          `Spaces are off in "${key}", so there are no community pages there, and posts in spaces show in the one feed.`,
+        );
+      }
+    }
+    const withSpaces = spacesIn.filter(({ on }) => on);
+    if (new Set(withSpaces.map(({ seen }) => seen)).size > 1) {
+      warning(
+        `The conditions see different spaces: ${withSpaces.map(({ key, seen }) => `"${key}" sees ${seen || "none"}`).join("; ")}. Check that's what you mean to compare.`,
+      );
+    }
+  }
+  for (const arm of settings.conditions.arms) {
+    const on = featuresFor(settings, arm.key);
+    const orders = [
+      arm.feed?.ranker ?? settings.feed.ranker,
+      arm.feed?.spaceRanker ?? settings.feed.spaceRanker,
+    ];
+    if (!on.votes && orders.includes("top")) {
+      warning(
+        `The top order is used in "${arm.key}", but votes are off there, so it only follows the scores written in the study.`,
+      );
+    }
+    if (!on.spaces && (arm.feed?.spaceRanker ?? settings.feed.spaceRanker)) {
+      warning(`An order for space pages is set, but spaces are off in "${arm.key}".`);
+    }
+  }
+
   const checkConditions = (conditions: string[], label: string, source: Source) => {
     for (const condition of conditions) {
       if (!armKeys.has(condition)) {
@@ -153,6 +194,15 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
   };
 
+  const spacesByKey = new Map<string, StudyDefinition["spaces"][number]>();
+  for (const space of study.spaces) {
+    if (spacesByKey.has(space.key)) {
+      error(`The space "${space.key}" is listed more than once.`, space.source);
+    }
+    spacesByKey.set(space.key, space);
+    checkConditions(space.conditions, `Space "${space.key}"`, space.source);
+  }
+
   const posts = new Map<string, StudyDefinition["posts"][number]>();
   for (const post of study.posts) {
     const label = `Post "${post.ref}"`;
@@ -162,6 +212,22 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     posts.set(post.ref, post);
     checkActor(post.actor, label, post.source);
     checkConditions(post.conditions, label, post.source);
+    if (post.space) {
+      const space = spacesByKey.get(post.space);
+      if (!space) {
+        error(`${label} is in the space "${post.space}", which doesn't exist.`, post.source);
+      } else if (space.conditions.length > 0) {
+        const missing = (post.conditions.length > 0 ? post.conditions : [...armKeys]).filter(
+          (key) => !space.conditions.includes(key),
+        );
+        if (missing.length > 0) {
+          warning(
+            `${label} won't show in ${missing.join(", ")}, because its space, "${space.key}", doesn't.`,
+            post.source,
+          );
+        }
+      }
+    }
     if (!post.body && post.pictures.length === 0) {
       error(`${label} has no text and no picture.`, post.source);
     }
@@ -280,7 +346,8 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
 
   const usesShuffle = [
     settings.feed.ranker,
-    ...settings.conditions.arms.map((arm) => arm.feed?.ranker),
+    settings.feed.spaceRanker,
+    ...settings.conditions.arms.flatMap((arm) => [arm.feed?.ranker, arm.feed?.spaceRanker]),
   ].includes("shuffle");
   const asksReshuffle =
     settings.feed.reshuffleEachVisit ||
@@ -315,9 +382,13 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
   }
 
   const targeted = new Set(
-    [...study.actors, ...study.posts, ...study.comments, ...study.reactions].flatMap(
-      (item) => item.conditions,
-    ),
+    [
+      ...study.actors,
+      ...study.spaces,
+      ...study.posts,
+      ...study.comments,
+      ...study.reactions,
+    ].flatMap((item) => item.conditions),
   );
   const hasOverrides = settings.conditions.arms.some((arm) => arm.feed);
   if (settings.conditions.arms.length > 1 && !hasOverrides) {

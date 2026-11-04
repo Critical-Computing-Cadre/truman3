@@ -34,6 +34,11 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
               <span className="truncate">{flow.site.name}</span>
             )}
           </Link>
+          {flow.features.spaces && (
+            <Link to="/spaces" className="text-sm">
+              Communities
+            </Link>
+          )}
           {flow.features.notifications && (
             <Link
               to="/notifications"
