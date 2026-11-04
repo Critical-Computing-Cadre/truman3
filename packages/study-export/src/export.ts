@@ -200,6 +200,13 @@ export async function exportStudy(
         .orderBy(asc(schema.spaces.position))
     : [];
   const spaceById = new Map(spaces.map((space) => [space.id, space]));
+  const removals = versionIds.length
+    ? await db
+        .select()
+        .from(schema.scriptedRemovals)
+        .where(inArray(schema.scriptedRemovals.studyVersionId, versionIds))
+        .orderBy(asc(schema.scriptedRemovals.offsetMs))
+    : [];
 
   /** Participants' usernames can identify them, so exports refer to them by study ID. */
   const actorLabel = (actorId: string | null) => {
@@ -220,6 +227,25 @@ export async function exportStudy(
 
   mkdirSync(folder, { recursive: true });
   const files: string[] = [];
+
+  if (removals.length > 0) {
+    files.push(
+      writeCsv(
+        folder,
+        "removals.csv",
+        ["study_version", "content_id", "moderator", "offset_ms", "reason", "conditions", "class"],
+        removals.map((removal) => ({
+          study_version: versionNumber.get(removal.studyVersionId),
+          content_id: removal.contentId,
+          moderator: safeText(actorById.get(removal.actorId)?.username),
+          offset_ms: removal.offsetMs,
+          reason: safeText(removal.reason),
+          conditions: removal.conditions.join("|"),
+          class: safeText(removal.class),
+        })),
+      ),
+    );
+  }
 
   if (spaces.length > 0) {
     files.push(
@@ -446,6 +472,8 @@ export async function exportStudy(
         "content_ref",
         "pinned",
         "comment_ids",
+        "removed",
+        "removed_comment_ids",
       ],
       impressions.flatMap((impression) =>
         (
@@ -454,6 +482,8 @@ export async function exportStudy(
             position: number;
             pinned?: boolean;
             commentIds?: string[];
+            removed?: boolean;
+            removedCommentIds?: string[];
           }[]
         ).map((item) => ({
           impression_id: impression.id,
@@ -476,6 +506,8 @@ export async function exportStudy(
           content_ref: contentById.get(item.contentId)?.sourceRef ?? "",
           pinned: item.pinned ?? false,
           comment_ids: (item.commentIds ?? []).join("|"),
+          removed: item.removed ?? false,
+          removed_comment_ids: (item.removedCommentIds ?? []).join("|"),
         })),
       ),
     ),
@@ -655,6 +687,20 @@ const FILE_DOCS: Record<string, [string, string][]> = {
       "comment_ids",
       "Comments shown with it, separated by |. Empty in a list that leaves comments for each post's own page",
     ],
+    [
+      "removed",
+      "1 if a moderator had removed this post by then, so a note was shown in its place. Its author still saw what they wrote",
+    ],
+    ["removed_comment_ids", "Which of comment_ids a moderator had removed by then"],
+  ],
+  "removals.csv": [
+    [
+      "content_id",
+      "What a moderator removes at a set time, on what the study wrote. Removals of what a participant wrote are reaction.scheduled in events.csv. Whether each was on screen is in impressions.csv. Only present if a version has some",
+    ],
+    ["moderator", "Who removed it, by username"],
+    ["offset_ms", "When, relative to the start"],
+    ["reason", "What the moderator says about why"],
   ],
   "spaces.csv": [
     [
@@ -729,6 +775,8 @@ const ORDER_NOTES: [string, string][] = [
 
 /** What an event means, where its name doesn't say enough. */
 const EVENT_NOTES: Record<string, string> = {
+  "reaction.scheduled":
+    "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator.",
   "space.joined": "They joined a space, so its posts show in their home feed. Names it by key.",
   "space.left": "They left a space, so its posts no longer show in their home feed.",
   "content.link_opened":

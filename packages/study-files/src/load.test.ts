@@ -293,3 +293,30 @@ describe("polls, flair, and crossposts", () => {
     expect(hasErrors(issues)).toBe(true);
   });
 });
+
+describe("removals.csv", () => {
+  it("reads who removes what, when, and why", () => {
+    const dir = folder({
+      ...base,
+      "removals.csv": "on,target,actor,time,reason,condition\npost,1,ann,1:00,Rule 2,\n",
+    });
+    const { definition } = loadStudyFolder(dir);
+    expect(definition?.removals).toEqual([
+      expect.objectContaining({
+        on: "post",
+        target: "1",
+        actor: "ann",
+        timeMs: 3_600_000,
+        reason: "Rule 2",
+      }),
+    ]);
+  });
+
+  it("is optional, and refuses a kind it doesn't know", () => {
+    expect(loadStudyFolder(folder(base)).definition?.removals).toEqual([]);
+    const { issues } = loadStudyFolder(
+      folder({ ...base, "removals.csv": "on,target,actor,time\nspace,1,ann,1:00\n" }),
+    );
+    expect(issues.map(({ message }) => message).join()).toContain("has to be post or comment");
+  });
+});

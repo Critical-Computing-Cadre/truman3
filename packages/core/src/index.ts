@@ -23,6 +23,7 @@ export {
   type FeedOriginal,
   type FeedPoll,
   type FeedPost,
+  type FeedRemoved,
   type FeedResponse,
   feedAttachmentSchema,
   feedAuthorSchema,

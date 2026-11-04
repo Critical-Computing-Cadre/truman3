@@ -24,6 +24,7 @@ import {
   TagCover,
 } from "../features/post-extras.tsx";
 import { CommentsLink } from "../features/post-pages.tsx";
+import { RemovedNote } from "../features/removal.tsx";
 import { ModeratorTag, SpaceLine } from "../features/spaces.tsx";
 import { PostTitle } from "../features/titles.tsx";
 import { VoteButtons } from "../features/votes.tsx";
@@ -75,6 +76,7 @@ function Comment({
             <KarmaBadge author={comment.author} /> {comment.body}
           </p>
         )}
+        <RemovedNote item={comment} className="mt-1" />
         <p className="mt-0.5 flex gap-3 text-xs text-stone-500">
           <span>{shortTime(comment.at)}</span>
           <CommentLikeButton comment={comment} actions={actions} />
@@ -165,6 +167,7 @@ export function ClassicPost({
           {...(renderPostLink && !detail ? { renderPostLink } : {})}
         />
         <PostFlair post={post} className="px-3 pb-2" />
+        <RemovedNote item={post} className="mx-3 mb-2" />
         <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
           {wrapImage ? wrapImage(image) : image}
           {renderBody ? (
@@ -193,7 +196,7 @@ export function ClassicPost({
         crosspostingOn) && (
         <div className="grid auto-cols-fr grid-flow-col border-t border-stone-200 text-sm text-stone-700">
           <VoteButtons item={post} actions={actions} className="py-3" />
-          <ReplyButton actions={actions} locked={post.locked} />
+          <ReplyButton actions={actions} post={post} />
           <PostFlagButton post={post} {...(actions ? { actions } : {})} />
           <PostLikeButton post={post} {...(actions ? { actions } : {})} />
           {more.collapsed ? more.toggle : lessUsed("py-3")}

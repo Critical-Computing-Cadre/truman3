@@ -68,6 +68,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       shownIn(arm.key, study.posts),
       shownIn(arm.key, study.comments),
       shownIn(arm.key, study.reactions),
+      shownIn(arm.key, study.removals),
     ]);
     const same = conditionLooks.get(looks);
     if (same) {
@@ -185,6 +186,12 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
     if (!on.comments && reactions.some((reaction) => reaction.on === "comment")) {
       warning(`Comments are off in "${arm.key}", so reactions to their comments can't happen.`);
+    }
+    if (
+      !on.removal &&
+      (study.removals.some(applies) || reactions.some(({ type }) => type === "remove"))
+    ) {
+      warning(`Moderators removing things is off in "${arm.key}", so its removals won't happen.`);
     }
   }
 
@@ -471,8 +478,21 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     if (reaction.type === "reply" && !reaction.body) {
       error(`${label} is a reply, but has no text.`, reaction.source);
     }
-    if (reaction.type !== "reply" && reaction.body) {
+    if (reaction.type !== "reply" && reaction.type !== "remove" && reaction.body) {
       error(`${label} is a ${reaction.type}, so it can't have text.`, reaction.source);
+    }
+  }
+
+  for (const removal of study.removals) {
+    const label = `The removal of ${removal.on} "${removal.target}"`;
+    checkActor(removal.actor, label, removal.source);
+    checkConditions(removal.conditions, label, removal.source);
+    const target =
+      removal.on === "post" ? posts.get(removal.target) : commentsByRef.get(removal.target);
+    if (!target) {
+      error(`${label} points at a ${removal.on} that isn't in this study.`, removal.source);
+    } else if (removal.timeMs < target.timeMs) {
+      warning(`${label} is set for before it appears, so it will already be removed when it does.`);
     }
   }
 
@@ -557,6 +577,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       ...study.posts,
       ...study.comments,
       ...study.reactions,
+      ...study.removals,
     ].flatMap((item) => item.conditions),
   );
   const hasOverrides = settings.conditions.arms.some((arm) => arm.feed);

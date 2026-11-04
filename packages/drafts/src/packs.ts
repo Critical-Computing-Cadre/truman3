@@ -29,6 +29,7 @@ type Space = StudyDefinition["spaces"][number];
 type Post = StudyDefinition["posts"][number];
 type Comment = StudyDefinition["comments"][number];
 type Reaction = StudyDefinition["reactions"][number];
+type Removal = StudyDefinition["removals"][number];
 
 /**
  * What a pack holds. Consent text and the study's flow aren't in it: those belong to one study and
@@ -43,6 +44,8 @@ export interface PackContents {
   posts: Post[];
   comments: Comment[];
   reactions: Reaction[];
+  /** Packs saved before removals don't have this. */
+  removals?: Removal[];
   /** Each post and comment's history before the pack, by kind and reference. */
   provenance: Record<string, Provenance>;
 }
@@ -67,7 +70,7 @@ function withoutSource<T extends { source?: unknown }>(item: T) {
 
 /** Turns a study into what a pack stores, with images pointing at where they're stored. */
 export function packContents(
-  { settings, actors, spaces, posts, comments, reactions }: StudyDefinition,
+  { settings, actors, spaces, posts, comments, reactions, removals }: StudyDefinition,
   mediaKeys: Map<string, string>,
   provenance: Map<string, Provenance> = new Map(),
 ): PackContents {
@@ -117,6 +120,7 @@ export function packContents(
     })),
     comments: comments.map(withoutSource),
     reactions: reactions.map(withoutSource),
+    ...(removals.length > 0 ? { removals: removals.map(withoutSource) } : {}),
     provenance: Object.fromEntries(provenance),
   };
 }
@@ -127,6 +131,7 @@ function summarize(contents: PackContents): PackSummary {
     ...contents.posts,
     ...contents.comments,
     ...contents.reactions,
+    ...(contents.removals ?? []),
   ];
   return {
     actors: contents.actors.length,
@@ -300,6 +305,11 @@ export async function startStudy(
   const keptPosts = new Set(posts.map(({ ref }) => ref));
   const comments = everywhere(contents?.comments ?? []).filter(({ post }) => keptPosts.has(post));
   const reactions = everywhere(contents?.reactions ?? []);
+  const keptComments = new Set(comments.map(({ ref }) => ref));
+  // A removal goes with what it removes, if that was left out of this study.
+  const removals = everywhere(contents?.removals ?? []).filter(({ on, target }) =>
+    (on === "post" ? keptPosts : keptComments).has(target),
+  );
   // Everyone stays, even if limited to a condition, since someone's untargeted post may need them.
   const actors = (contents?.actors ?? []).map((actor) =>
     background ? { ...actor, conditions: [] } : actor,
@@ -419,6 +429,17 @@ export async function startStudy(
         position,
         provenance: fromPack(null),
         data: { ...reaction, actorId: actorId(actor) },
+      })),
+      ...removals.map(({ actor, target, ...removal }, position) => ({
+        draftId: draft.id,
+        kind: "removal",
+        position,
+        provenance: fromPack(null),
+        data: {
+          ...removal,
+          actorId: actorId(actor),
+          targetId: (removal.on === "post" ? postIds : commentIds).get(target) as string,
+        },
       })),
     ];
     for (let i = 0; i < rows.length; i += INSERT_BATCH_SIZE) {

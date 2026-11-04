@@ -8,6 +8,7 @@ import type {
   PostData,
   Provenance,
   ReactionData,
+  RemovalData,
   SpaceData,
 } from "./items.ts";
 
@@ -39,6 +40,7 @@ export function draftToDefinition(
   const posts = ofKind<PostData>("post");
   const comments = ofKind<CommentData>("comment");
   const reactions = ofKind<ReactionData>("reaction");
+  const removals = ofKind<RemovalData>("removal");
 
   const usernames = new Map(actors.map(({ item, data }) => [item.id, data.username]));
   const postRefs = new Map(posts.map(({ item, data }) => [item.id, data.ref]));
@@ -109,6 +111,13 @@ export function draftToDefinition(
     reactions: reactions.map(({ data: { actorId, ...reaction } }) => ({
       ...reaction,
       actor: usernameOf(actorId),
+    })),
+    removals: removals.map(({ data: { actorId, targetId, ...removal } }) => ({
+      ...removal,
+      actor: usernameOf(actorId),
+      target:
+        (removal.on === "post" ? postRefs.get(targetId) : commentRefs.get(targetId)) ??
+        `(missing ${removal.on})`,
     })),
   });
 

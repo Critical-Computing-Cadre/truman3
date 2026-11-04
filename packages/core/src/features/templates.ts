@@ -42,6 +42,7 @@ export const TEMPLATES = {
       polls: false,
       flair: false,
       crossposting: false,
+      removal: false,
       saving: false,
       hiding: false,
       sharing: false,

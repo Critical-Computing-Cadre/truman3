@@ -297,11 +297,26 @@ export const reactionDefinitionSchema = z.object({
   on: z.enum(["post", "comment"]),
   /** Which one, counting from 0. */
   nth: z.number().int().nonnegative(),
-  type: z.enum(["read", "like", "reply", "up", "down"]),
+  type: z.enum(["read", "like", "reply", "up", "down", "remove"]),
   actor: z.string().min(1),
   /** Milliseconds after the participant's post or comment. */
   afterMs: z.number().int().nonnegative(),
+  /** A reply's text, or the reason given for a removal. */
   body: z.string().optional(),
+  ...targetingFields,
+});
+
+/** A moderator taking down something the study wrote, at a set time. */
+export const removalDefinitionSchema = z.object({
+  on: z.enum(["post", "comment"]),
+  /** The post or comment, by its ID in this study. */
+  target: z.string().min(1),
+  /** The moderator, who can be anyone in the cast, including an account named as automatic. */
+  actor: z.string().min(1),
+  /** Milliseconds relative to when a participant starts. */
+  timeMs: z.number().int(),
+  /** What they say about why. Leave out to give none. */
+  reason: z.string().min(1).optional(),
   ...targetingFields,
 });
 
@@ -318,6 +333,7 @@ export const studyDefinitionSchema = z.object({
   posts: z.array(postDefinitionSchema),
   comments: z.array(commentDefinitionSchema).default([]),
   reactions: z.array(reactionDefinitionSchema).default([]),
+  removals: z.array(removalDefinitionSchema).default([]),
 });
 
 export type StudySettings = z.infer<typeof studySettingsSchema>;
@@ -327,3 +343,4 @@ export type SpaceDefinition = z.infer<typeof spaceDefinitionSchema>;
 export type PostDefinition = z.infer<typeof postDefinitionSchema>;
 export type CommentDefinition = z.infer<typeof commentDefinitionSchema>;
 export type ReactionDefinition = z.infer<typeof reactionDefinitionSchema>;
+export type RemovalDefinition = z.infer<typeof removalDefinitionSchema>;

@@ -5,7 +5,8 @@ import { replyIndent } from "./comments.tsx";
 
 /** The flag button under a post. */
 export function PostFlagButton({ post, actions }: { post: FeedPost; actions?: PostActions }) {
-  if (!useFeature("flagging")) {
+  const on = useFeature("flagging");
+  if (!on || post.removed) {
     return null;
   }
   return (
@@ -49,7 +50,7 @@ export function CommentFlagButton({
   comment: FeedComment;
   actions?: PostActions | undefined;
 }) {
-  if (!useFeature("flagging") || comment.author.isViewer) {
+  if (!useFeature("flagging") || comment.author.isViewer || comment.removed) {
     return null;
   }
   return (

@@ -405,8 +405,33 @@ export const scriptedReactions = pgTable(
   (table) => [
     index("scripted_reactions_trigger").on(table.studyVersionId, table.on, table.nth),
     check("scripted_reactions_on", inList(table.on, ["post", "comment"])),
-    check("scripted_reactions_type", inList(table.type, ["read", "like", "reply", "up", "down"])),
+    check(
+      "scripted_reactions_type",
+      inList(table.type, ["read", "like", "reply", "up", "down", "remove"]),
+    ),
   ],
+);
+
+/** A moderator taking down something the study wrote, at a set time after someone starts. */
+export const scriptedRemovals = pgTable(
+  "scripted_removals",
+  {
+    id: id(),
+    studyVersionId: uuid("study_version_id")
+      .notNull()
+      .references(() => studyVersions.id),
+    contentId: uuid("content_id")
+      .notNull()
+      .references(() => content.id),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => actors.id),
+    offsetMs: bigint("offset_ms", { mode: "number" }).notNull(),
+    reason: text(),
+    conditions: text().array().notNull().default(sql`'{}'`),
+    class: text(),
+  },
+  (table) => [index("scripted_removals_version").on(table.studyVersionId)],
 );
 
 /** Append-only. See docs/adr/0006-append-only-event-log.md. */
@@ -521,11 +546,16 @@ export const notifications = pgTable(
       .references(() => content.id, { onDelete: "cascade" }),
     /** For a reply, the comment that holds its text. */
     replyContentId: uuid("reply_content_id").references(() => content.id, { onDelete: "cascade" }),
+    /** For a removal, the reason the moderator gave, if any. */
+    reason: text(),
     dueAt: time("due_at").notNull(),
   },
   (table) => [
     index("notifications_recipient").on(table.worldId, table.recipientActorId, table.dueAt),
-    check("notifications_type", inList(table.type, ["read", "like", "reply", "up", "down"])),
+    check(
+      "notifications_type",
+      inList(table.type, ["read", "like", "reply", "up", "down", "remove"]),
+    ),
   ],
 );
 
@@ -708,7 +738,7 @@ export const draftItems = pgTable(
     index("draft_items_draft").on(table.draftId, table.kind),
     check(
       "draft_items_kind",
-      inList(table.kind, ["actor", "post", "comment", "reaction", "setting", "space"]),
+      inList(table.kind, ["actor", "post", "comment", "reaction", "removal", "setting", "space"]),
     ),
   ],
 );

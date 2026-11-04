@@ -111,6 +111,11 @@ export async function openDraft(
       .select()
       .from(schema.scriptedReactions)
       .where(eq(schema.scriptedReactions.studyVersionId, versionId));
+    const removals = await tx
+      .select()
+      .from(schema.scriptedRemovals)
+      .where(eq(schema.scriptedRemovals.studyVersionId, versionId));
+    const contentKinds = new Map(content.map(({ id, kind }) => [id, kind]));
 
     // New IDs up front, since items point at each other.
     const newId = new Map<string, string>();
@@ -245,6 +250,21 @@ export async function openDraft(
           ...optional("body", reaction.body),
           conditions: reaction.conditions,
           ...optional("class", reaction.class),
+        },
+      })),
+      ...removals.map((removal, position) => ({
+        draftId: created.id,
+        kind: "removal",
+        position,
+        provenance: fromFile,
+        data: {
+          on: contentKinds.get(removal.contentId),
+          targetId: asId(removal.contentId),
+          actorId: asId(removal.actorId),
+          timeMs: removal.offsetMs,
+          ...optional("reason", removal.reason),
+          conditions: removal.conditions,
+          ...optional("class", removal.class),
         },
       })),
     ];
@@ -1011,6 +1031,14 @@ export async function deleteItem(
           removingIds.add(row.id);
           removing.push(row);
         }
+      }
+    }
+    // So does a moderator's removal of anything going.
+    for (const row of rows) {
+      const { targetId } = row.data as { targetId?: string };
+      if (row.kind === "removal" && targetId && removingIds.has(targetId)) {
+        removingIds.add(row.id);
+        removing.push(row);
       }
     }
     await tx

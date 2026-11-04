@@ -656,3 +656,63 @@ describe("the More button on a phone", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
   });
 });
+
+describe("a removed post", () => {
+  afterEach(cleanup);
+  const features = TEMPLATES.forum.features;
+  const removed = { by: "Sam", reason: "Rule 2" };
+  const actions = { onLike: vi.fn(), onVote: vi.fn(), onFlag: vi.fn(), onReply: vi.fn() };
+  const draw = (layout: "classic" | "forum", post: FeedPost, on = features) =>
+    render(
+      <PlatformProvider platform={{ layout, features: { ...on, likes: true } }}>
+        <FeedPostView post={post} actions={actions} />
+      </PlatformProvider>,
+    );
+
+  it.each(["classic", "forum"] as const)("says who removed it and why, in %s", (layout) => {
+    draw(layout, { ...POST, body: "", removed, comments: [] });
+    const note = screen.getByTestId("removed-note");
+    expect(note.textContent).toContain("Removed by Sam.");
+    expect(note.textContent).toContain("Reason: Rule 2");
+    expect(note.textContent).not.toContain("Nobody else");
+  });
+
+  it.each(["classic", "forum"] as const)("tells its author only they see it, in %s", (layout) => {
+    draw(layout, {
+      ...POST,
+      author: { ...author, isViewer: true },
+      removed,
+      comments: [],
+    });
+    expect(screen.getAllByText("A post").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("removed-note").textContent).toContain("Nobody else can see this");
+  });
+
+  it.each(["classic", "forum"] as const)("can't be acted on, in %s", (layout) => {
+    draw(layout, { ...POST, body: "", removed, comments: [] });
+    expect(screen.queryByRole("button", { name: "Reply" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Flag" })).toBeNull();
+    expect((screen.getByRole("button", { name: /Like/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Vote up" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+  });
+
+  it.each(["classic", "forum"] as const)("marks one comment and not the rest, in %s", (layout) => {
+    const [comment] = POST.comments as [FeedPost["comments"][number]];
+    draw(layout, {
+      ...POST,
+      comments: [
+        { ...comment, id: "c1", body: "", removed: { by: "Sam" } },
+        { ...comment, id: "c2", body: "Another comment" },
+      ],
+    });
+    expect(screen.getByTestId("removed-note").textContent).toContain("Removed by Sam.");
+    expect(screen.getByText("Another comment")).toBeDefined();
+  });
+
+  it.each(["classic", "forum"] as const)("shows no note with the feature off, in %s", (layout) => {
+    draw(layout, { ...POST, removed, comments: [] }, { ...features, removal: false });
+    expect(screen.queryByTestId("removed-note")).toBeNull();
+  });
+});

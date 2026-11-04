@@ -47,7 +47,7 @@ export function PostPoll({ post, actions }: { post: FeedPost; actions?: PostActi
           <button
             key={text}
             type="button"
-            disabled={!actions?.onPollVote}
+            disabled={!actions?.onPollVote || Boolean(post.removed)}
             onClick={() => actions?.onPollVote?.(post.id, index)}
             className={`${box} hover:border-stone-500`}
           >
