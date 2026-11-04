@@ -17,9 +17,17 @@ import { NewPostDialog, SortPicker } from "./FeedPage.tsx";
 /** The communities on this platform. */
 export function SpacesPage() {
   const spaces = useQuery(spacesQuery);
+  const flow = useQuery(flowQuery);
   return (
     <div className="mx-auto max-w-xl space-y-3 p-3 sm:p-0">
-      <h1 className="text-lg font-semibold">Communities</h1>
+      <div className="flex items-baseline justify-between">
+        <h1 className="text-lg font-semibold">Communities</h1>
+        {flow.data?.features.modLog && (
+          <Link to="/mod-log" className="text-sm underline underline-offset-2">
+            Mod log
+          </Link>
+        )}
+      </div>
       {spaces.data?.spaces.length === 0 && (
         <p className="p-6 text-center text-stone-500">No communities to show.</p>
       )}
@@ -113,7 +121,20 @@ export function SpacePage() {
       picture={<SpacePicture space={space} />}
       name={space.name}
       description={space.description}
-      members={<MemberCount space={space} />}
+      members={
+        <>
+          <MemberCount space={space} />
+          {flow.data?.features.modLog && (
+            <Link
+              to="/spaces/$key/mod-log"
+              params={{ key: space.key }}
+              className="text-sm underline underline-offset-2"
+            >
+              Mod log
+            </Link>
+          )}
+        </>
+      }
       join={<JoinButton space={space} />}
       rules={space.rules}
     >

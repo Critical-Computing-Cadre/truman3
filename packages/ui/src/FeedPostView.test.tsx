@@ -3,6 +3,7 @@ import { type FeatureKey, type FeedPost, TEMPLATES } from "@truman3/core";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FeedPostView } from "./FeedPostView.tsx";
+import { WarningNotice } from "./features/warnings.tsx";
 import { PlatformProvider } from "./platform.tsx";
 import type { FeedPostViewProps } from "./post-props.ts";
 
@@ -714,5 +715,39 @@ describe("a removed post", () => {
   it.each(["classic", "forum"] as const)("shows no note with the feature off, in %s", (layout) => {
     draw(layout, { ...POST, removed, comments: [] }, { ...features, removal: false });
     expect(screen.queryByTestId("removed-note")).toBeNull();
+  });
+});
+
+describe("a moderator's warning", () => {
+  afterEach(cleanup);
+  const warning = {
+    id: "w1",
+    by: "Sam",
+    message: "Keep it civil",
+    kind: "post" as const,
+    at: new Date().toISOString(),
+  };
+  const draw = (warnings: boolean, onAcknowledge = vi.fn()) => {
+    render(
+      <PlatformProvider
+        platform={{ layout: "forum", features: { ...TEMPLATES.forum.features, warnings } }}
+      >
+        <WarningNotice warning={warning} onAcknowledge={onAcknowledge} />
+      </PlatformProvider>,
+    );
+    return onAcknowledge;
+  };
+
+  it("says who and what, and can be acknowledged", () => {
+    const onAcknowledge = draw(true);
+    expect(screen.getByRole("alert").textContent).toContain("A warning from Sam about your post");
+    expect(screen.getByRole("alert").textContent).toContain("Keep it civil");
+    fireEvent.click(screen.getByRole("button", { name: "I understand" }));
+    expect(onAcknowledge).toHaveBeenCalledWith("w1");
+  });
+
+  it("shows nothing when the feature's off", () => {
+    draw(false);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

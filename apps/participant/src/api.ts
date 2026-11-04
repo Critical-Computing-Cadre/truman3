@@ -92,7 +92,7 @@ export interface EntryInfo {
 
 export interface NotificationItem {
   key: string;
-  type: "read" | "like" | "reply" | "remove";
+  type: "read" | "like" | "reply" | "remove" | "warn";
   actors: { username: string; name: string; pictureUrl: string | null }[];
   targetKind: "post" | "comment";
   postId: string;

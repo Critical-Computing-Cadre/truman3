@@ -1,7 +1,8 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet } from "@tanstack/react-router";
-import { PageHeader, type PageLink, PlatformProvider } from "@truman3/ui";
-import { type FlowState, meQuery, post } from "../api.ts";
+import type { FeedWarning } from "@truman3/core";
+import { PageHeader, type PageLink, PlatformProvider, WarningNotice } from "@truman3/ui";
+import { type FlowState, get, meQuery, post } from "../api.ts";
 import { flushTracking } from "../tracking.ts";
 
 const POLL_EVERY_MS = 30_000;
@@ -10,6 +11,17 @@ const POLL_EVERY_MS = 30_000;
 export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () => void }) {
   const me = useQuery({ ...meQuery, refetchInterval: POLL_EVERY_MS });
   const unread = me.data?.unreadNotifications ?? 0;
+  const client = useQueryClient();
+  const warnings = useQuery({
+    queryKey: ["warnings"],
+    queryFn: () => get<{ warnings: FeedWarning[] }>("/warnings"),
+    enabled: flow.features.warnings,
+    refetchInterval: POLL_EVERY_MS,
+  });
+  const acknowledge = useMutation({
+    mutationFn: (id: string) => post(`/warnings/${id}/acknowledge`),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["warnings"] }),
+  });
 
   const finish = useMutation({
     mutationFn: () => {
@@ -28,6 +40,20 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
             render: (className: string) => (
               <Link to="/spaces" className={className}>
                 Communities
+              </Link>
+            ),
+          },
+        ]
+      : []),
+    // With spaces, each community's page and the list of them link here instead.
+    ...(flow.features.modLog && !flow.features.spaces
+      ? [
+          {
+            key: "mod-log",
+            label: "Mod log",
+            render: (className: string) => (
+              <Link to="/mod-log" className={className}>
+                Mod log
               </Link>
             ),
           },
@@ -111,6 +137,11 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
           }
         />
         <main className="mx-auto max-w-6xl pb-16 sm:px-3 sm:pt-4">
+          {(warnings.data?.warnings ?? []).map((warning) => (
+            <div key={warning.id} className="mb-3">
+              <WarningNotice warning={warning} onAcknowledge={(id) => acknowledge.mutate(id)} />
+            </div>
+          ))}
           <Outlet />
         </main>
       </div>

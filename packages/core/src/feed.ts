@@ -30,6 +30,35 @@ export const feedRemovedSchema = z.object({
 });
 export type FeedRemoved = z.infer<typeof feedRemovedSchema>;
 
+/** A moderator's warning to this participant, waiting for them to acknowledge it. */
+export const feedWarningSchema = z.object({
+  id: z.string(),
+  /** The moderator's name. */
+  by: z.string(),
+  message: z.string(),
+  /** Whether it's about their post or their comment. */
+  kind: z.enum(["post", "comment"]),
+  at: z.iso.datetime(),
+});
+export type FeedWarning = z.infer<typeof feedWarningSchema>;
+
+/** One line of a mod log. It never has what the removed post or comment said. */
+export const modLogEntrySchema = z.object({
+  id: z.string(),
+  at: z.iso.datetime(),
+  /** The moderator's name. */
+  by: z.string(),
+  kind: z.enum(["post", "comment"]),
+  /** Whose it was. Null if it's the viewer's own. */
+  authorName: z.string().nullable(),
+  space: z.object({ key: z.string(), name: z.string() }).optional(),
+  reason: z.string().optional(),
+  /** The post it's on, for a link to its page. */
+  postId: z.string(),
+  commentId: z.string().optional(),
+});
+export type ModLogEntry = z.infer<typeof modLogEntrySchema>;
+
 /** How deep a thread can go. It keeps deep threads readable on a phone, and the work bounded. */
 export const MAX_REPLY_DEPTH = 16;
 

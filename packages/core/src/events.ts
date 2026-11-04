@@ -52,6 +52,8 @@ export const eventPayloadSchemas = {
   "actor.reported": z.strictObject({ reason: z.string() }),
   "profile.updated": z.strictObject({ fields: z.array(z.string()) }),
   "notifications.viewed": empty,
+  /** They pressed the button on a moderator's warning. `targetContentId` is what it was about. */
+  "moderation.warning_acknowledged": empty,
   /** Which space, by its key in the study. */
   "space.joined": z.strictObject({ space: z.string() }),
   "space.left": z.strictObject({ space: z.string() }),
@@ -66,8 +68,8 @@ export const eventPayloadSchemas = {
   "comments.sort_changed": z.strictObject({ sort: z.enum(COMMENT_SORTS).nullable() }),
   /** A scripted reaction was triggered by something a participant did. */
   "reaction.scheduled": z.strictObject({
-    reaction: z.enum(["read", "like", "reply", "up", "down", "remove"]),
-    /** On a removal, the reason the study wrote, if any. */
+    reaction: z.enum(["read", "like", "reply", "up", "down", "remove", "warn"]),
+    /** On a removal, the reason the study wrote, if any. On a warning, what it says. */
     reason: z.string().optional(),
     dueAt: z.iso.datetime(),
   }),

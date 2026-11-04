@@ -5,10 +5,12 @@ import {
   type FeatureKey,
   featureOn,
   feedPostSchema,
+  feedWarningSchema,
   MAX_ATTACHMENTS,
   MAX_LINK_LENGTH,
   MAX_REPLY_DEPTH,
   MAX_TITLE_LENGTH,
+  modLogEntrySchema,
   POST_TAGS,
   type PostTag,
   platformStyleFor,
@@ -16,7 +18,7 @@ import {
   safeLink,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
-import { and, count, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import {
   buildFeed,
   castKarma,
@@ -29,6 +31,7 @@ import {
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { type ParticipantContext, participantFromRequest } from "../participants/session.ts";
 import { MAX_IMAGE_BYTES, storeUploadedImage } from "./images.ts";
+import { listModLog, listWarnings } from "./moderation.ts";
 import { listNotifications, scheduleReactions } from "./notifications.ts";
 import { actionMetaSchema } from "./request.ts";
 
@@ -352,7 +355,7 @@ const notificationsRoute = createRoute({
             notifications: z.array(
               z.object({
                 key: z.string(),
-                type: z.enum(["read", "like", "reply", "remove"]),
+                type: z.enum(["read", "like", "reply", "remove", "warn"]),
                 actors: z.array(
                   z.object({
                     username: z.string(),
@@ -395,6 +398,52 @@ const openRoute = createRoute({
     401: notSignedIn,
     403: errorResponse("That feature is off in this condition"),
     404: errorResponse("Not something this participant can see"),
+  },
+});
+
+const warningsRoute = createRoute({
+  method: "get",
+  path: "/warnings",
+  summary: "A moderator's warnings this person hasn't acknowledged yet",
+  responses: {
+    200: {
+      description: "Oldest first",
+      content: {
+        "application/json": { schema: z.object({ warnings: z.array(feedWarningSchema) }) },
+      },
+    },
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+  },
+});
+
+const acknowledgeWarningRoute = createRoute({
+  method: "post",
+  path: "/warnings/{id}/acknowledge",
+  summary: "Acknowledge a moderator's warning",
+  request: { params: contentParams, ...jsonBody(actionMetaSchema) },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Not one of this person's warnings"),
+  },
+});
+
+const modLogRoute = createRoute({
+  method: "get",
+  path: "/mod-log",
+  summary: "What moderators have removed so far, newest first",
+  request: { query: z.object({ space: z.string().optional() }) },
+  responses: {
+    200: {
+      description: "Newest first",
+      content: {
+        "application/json": { schema: z.object({ entries: z.array(modLogEntrySchema) }) },
+      },
+    },
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
   },
 });
 
@@ -1411,6 +1460,75 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json(featureOff, 403);
     }
     return c.json({ notifications: await listNotifications(db, context, mediaPublicUrl) }, 200);
+  });
+
+  app.openapi(warningsRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "warnings")) {
+      return c.json(featureOff, 403);
+    }
+    return c.json({ warnings: await listWarnings(db, context) }, 200);
+  });
+
+  app.openapi(acknowledgeWarningRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "warnings")) {
+      return c.json(featureOff, 403);
+    }
+    const { id } = c.req.valid("param");
+    const [warning] = await db
+      .select()
+      .from(schema.notifications)
+      .where(
+        and(
+          eq(schema.notifications.id, id),
+          eq(schema.notifications.worldId, context.worldId),
+          eq(schema.notifications.recipientActorId, context.actorId),
+          eq(schema.notifications.type, "warn"),
+          lte(schema.notifications.dueAt, new Date()),
+        ),
+      );
+    if (!warning) {
+      return c.json(notAvailable, 404);
+    }
+    // Pressing it twice, as on a slow connection, still counts as the first time.
+    if (warning.acknowledgedAt) {
+      return c.json({ ok: true as const }, 200);
+    }
+    const body = c.req.valid("json");
+    await db.transaction(async (tx) => {
+      const recorded = await recordEvent(tx, {
+        ...participantEvent(context, body.occurredAt, body.clientEventId),
+        type: "moderation.warning_acknowledged",
+        payload: {},
+        targetContentId: warning.targetContentId,
+      });
+      if (recorded) {
+        await tx
+          .update(schema.notifications)
+          .set({ acknowledgedAt: new Date() })
+          .where(eq(schema.notifications.id, id));
+      }
+    });
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(modLogRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "modLog")) {
+      return c.json(featureOff, 403);
+    }
+    const { space } = c.req.valid("query");
+    return c.json({ entries: await listModLog(db, context, space) }, 200);
   });
 
   app.openapi(notificationsViewedRoute, async (c) => {

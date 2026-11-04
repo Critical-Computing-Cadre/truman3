@@ -407,7 +407,7 @@ export const scriptedReactions = pgTable(
     check("scripted_reactions_on", inList(table.on, ["post", "comment"])),
     check(
       "scripted_reactions_type",
-      inList(table.type, ["read", "like", "reply", "up", "down", "remove"]),
+      inList(table.type, ["read", "like", "reply", "up", "down", "remove", "warn"]),
     ),
   ],
 );
@@ -546,15 +546,17 @@ export const notifications = pgTable(
       .references(() => content.id, { onDelete: "cascade" }),
     /** For a reply, the comment that holds its text. */
     replyContentId: uuid("reply_content_id").references(() => content.id, { onDelete: "cascade" }),
-    /** For a removal, the reason the moderator gave, if any. */
+    /** For a removal, the reason the moderator gave, if any. For a warning, what it says. */
     reason: text(),
+    /** For a warning, when they pressed its button. */
+    acknowledgedAt: time("acknowledged_at"),
     dueAt: time("due_at").notNull(),
   },
   (table) => [
     index("notifications_recipient").on(table.worldId, table.recipientActorId, table.dueAt),
     check(
       "notifications_type",
-      inList(table.type, ["read", "like", "reply", "up", "down", "remove"]),
+      inList(table.type, ["read", "like", "reply", "up", "down", "remove", "warn"]),
     ),
   ],
 );

@@ -382,9 +382,14 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       type !== "reply" &&
       type !== "up" &&
       type !== "down" &&
-      type !== "remove"
+      type !== "remove" &&
+      type !== "warn"
     ) {
-      rowError(file, row, `"${type}" in type has to be read, like, reply, up, down, or remove.`);
+      rowError(
+        file,
+        row,
+        `"${type}" in type has to be read, like, reply, up, down, remove, or warn.`,
+      );
       continue;
     }
     reactions.push({

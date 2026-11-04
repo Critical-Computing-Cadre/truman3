@@ -227,6 +227,8 @@ export function karmaShownIn(posts: readonly FeedPost[]): Record<string, number>
 export interface Removal {
   actorId: string;
   reason: string | null;
+  /** When it came due. */
+  at: Date;
 }
 
 /**
@@ -254,10 +256,11 @@ export async function loadRemovals(
       ),
     )
     .orderBy(asc(schema.scriptedRemovals.offsetMs));
-  for (const { contentId, actorId, reason, conditions } of scripted) {
+  for (const { contentId, actorId, reason, conditions, offsetMs } of scripted) {
     const applies = conditions.length === 0 || conditions.includes(context.conditionKey);
     if (applies && !removals.has(contentId)) {
-      removals.set(contentId, { actorId, reason });
+      const at = new Date(context.worldStartedAt.getTime() + offsetMs);
+      removals.set(contentId, { actorId, reason, at });
     }
   }
   const reactions = await db
@@ -271,9 +274,9 @@ export async function loadRemovals(
       ),
     )
     .orderBy(asc(schema.notifications.dueAt));
-  for (const { targetContentId, actorId, reason } of reactions) {
+  for (const { targetContentId, actorId, reason, dueAt } of reactions) {
     if (!removals.has(targetContentId)) {
-      removals.set(targetContentId, { actorId, reason });
+      removals.set(targetContentId, { actorId, reason, at: dueAt });
     }
   }
   return removals;

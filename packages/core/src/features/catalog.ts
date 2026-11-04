@@ -81,6 +81,20 @@ export const FEATURES = {
     version: 1,
     events: ["reaction.scheduled"],
   },
+  warnings: {
+    name: "Moderators warning people",
+    description:
+      "A moderator the study writes can warn a participant about something they wrote, in a notice they have to acknowledge. Telling a real person they broke a rule is a deception to raise with your IRB and in a debriefing.",
+    version: 1,
+    events: ["reaction.scheduled", "moderation.warning_acknowledged"],
+  },
+  modLog: {
+    name: "A public mod log",
+    description:
+      "A page lists what moderators have removed, by whom, and why, without what it said. Viewing it is recorded.",
+    version: 1,
+    events: ["page.viewed"],
+  },
   karma: {
     name: "Karma",
     description:

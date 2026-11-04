@@ -20,6 +20,8 @@ function describe(item: NotificationItem): string {
       return `${who} replied: ${item.replyBody ?? ""}`;
     case "remove":
       return `${who} removed your ${item.targetKind}`;
+    case "warn":
+      return `${who} warned you about your ${item.targetKind}`;
   }
 }
 
@@ -81,7 +83,11 @@ export function NotificationsPage() {
               {item.targetBody && (
                 <p className="truncate text-sm text-stone-500">"{item.targetBody}"</p>
               )}
-              {item.reason && <p className="break-words text-sm">Reason: {item.reason}</p>}
+              {item.reason && (
+                <p className="break-words text-sm">
+                  {item.type === "remove" ? `Reason: ${item.reason}` : item.reason}
+                </p>
+              )}
               <p className="text-xs text-stone-500">{shortTime(item.at)}</p>
             </div>
             {item.targetImageUrl && (

@@ -21,7 +21,7 @@ export function VoteButtons({
       aria-label={label}
       aria-pressed={item.vote === value}
       disabled={!actions || Boolean(item.removed)}
-      className={item.vote === value ? "font-semibold text-sky-700" : ""}
+      className={`${item.vote === value ? "font-semibold text-sky-700" : ""} ${item.removed ? "opacity-40" : ""}`}
       onClick={() => actions?.onVote(item.id, item.vote === value ? null : value)}
     >
       {symbol}
