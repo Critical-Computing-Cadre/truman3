@@ -41,7 +41,7 @@ function Comment({
   }
 
   return (
-    <li className="flex gap-2" style={replyIndent(comment.depth)}>
+    <li id={`comment-${comment.id}`} className="flex gap-2" style={replyIndent(comment.depth)}>
       {author(
         "shrink-0",
         <Avatar seed={comment.author.username} url={comment.author.pictureUrl} size="h-8 w-8" />,

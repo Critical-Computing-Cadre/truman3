@@ -116,6 +116,10 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     if (!on.karma && scored.length > 0) {
       warning(`Karma is off in "${arm.key}", so ${scored.length} written totals won't show there.`);
     }
+    const changes = arm.platform?.karmaChanges ?? settings.platform.karmaChanges ?? [];
+    if (!on.karma && changes.length > 0) {
+      warning(`Karma is off in "${arm.key}", so its scripted changes won't show there.`);
+    }
     if (on.postPages && !on.comments) {
       warning(`A page for each post is on in "${arm.key}", but it's for comments, which are off.`);
     }
@@ -208,6 +212,16 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       error(`${label} is by "${username}", who isn't in the list of actors.`, source);
     }
   };
+
+  const karmaChanges = [
+    ...(settings.platform.karmaChanges ?? []),
+    ...settings.conditions.arms.flatMap((arm) => arm.platform?.karmaChanges ?? []),
+  ];
+  for (const { actor } of karmaChanges) {
+    if (actor && !usernames.has(actor)) {
+      error(`A scripted karma change names "${actor}", who isn't in the list of actors.`);
+    }
+  }
 
   const spacesByKey = new Map<string, StudyDefinition["spaces"][number]>();
   for (const space of study.spaces) {

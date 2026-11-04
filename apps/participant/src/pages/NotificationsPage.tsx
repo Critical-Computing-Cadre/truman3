@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Avatar, shortTime } from "@truman3/ui";
 import { useEffect, useRef } from "react";
-import { get, type NotificationItem, post } from "../api.ts";
+import { flowQuery, get, type NotificationItem, post } from "../api.ts";
+import { rememberOpenedFrom } from "../tracking.ts";
 
 function describe(item: NotificationItem): string {
   const [first] = item.actors;
@@ -21,7 +23,10 @@ function describe(item: NotificationItem): string {
 
 export function NotificationsPage() {
   const client = useQueryClient();
+  const flow = useQuery(flowQuery);
   const marked = useRef(false);
+  // Only a platform with a page for each post has somewhere to send someone.
+  const pages = flow.data?.features.postPages ?? false;
 
   const list = useQuery({
     queryKey: ["notifications"],
@@ -58,7 +63,19 @@ export function NotificationsPage() {
               url={item.actors[0]?.pictureUrl ?? null}
             />
             <div className="min-w-0 flex-1">
-              <p className="break-words">{describe(item)}</p>
+              {pages ? (
+                <Link
+                  to="/p/$postId"
+                  params={{ postId: item.postId }}
+                  {...(item.commentId ? { hash: `comment-${item.commentId}` } : {})}
+                  onClick={() => rememberOpenedFrom("notifications")}
+                  className="block break-words underline-offset-2 hover:underline"
+                >
+                  {describe(item)}
+                </Link>
+              ) : (
+                <p className="break-words">{describe(item)}</p>
+              )}
               {item.targetBody && (
                 <p className="truncate text-sm text-stone-500">"{item.targetBody}"</p>
               )}

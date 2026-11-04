@@ -126,6 +126,7 @@ export function ProfileCard({
   karma,
   renderName,
   footer,
+  compact = false,
 }: {
   username: string;
   name: string;
@@ -138,8 +139,30 @@ export function ProfileCard({
   renderName?: (className: string, name: string) => ReactNode;
   /** Shown along the bottom of the card, such as a way to edit it. */
   footer?: ReactNode;
+  /** A small picture beside the name, rather than a large one across the top. */
+  compact?: boolean;
 }) {
   const nameClass = "block truncate font-semibold";
+  if (compact) {
+    return (
+      <section
+        aria-label="Your profile"
+        className="overflow-hidden rounded-2xl border border-stone-200 bg-white"
+      >
+        <div className="flex items-center gap-3 p-3">
+          <Avatar seed={username} url={pictureUrl} size="h-10 w-10" />
+          <div className="min-w-0">
+            {renderName ? renderName(nameClass, name) : <p className={nameClass}>{name}</p>}
+            <p className="truncate text-xs text-stone-500">
+              @{username}
+              <KarmaBadge author={{ karma }} />
+            </p>
+          </div>
+        </div>
+        {footer}
+      </section>
+    );
+  }
   return (
     <section aria-label="Your profile" className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
       <Avatar seed={username} url={pictureUrl} size="aspect-square w-full" shape="" />

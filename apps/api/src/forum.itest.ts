@@ -30,7 +30,16 @@ middle,Written next,ben,first,,12,0,-3:30
 reply,A reply to the first one,ann,first,early,20,0,-2:00
 `;
 
-async function study({ feed = "", template = "forum", platform = "", arms = "[{ key: main }]" }) {
+const SPACES = "key,name,description,accent\ncooking,Cooking,About food,#1d4ed8\nnews,News,,\n";
+const SPACES_WITH_MEMBERS = "key,name,members\ncooking,Cooking,1200\nnews,News,\n";
+
+async function study({
+  feed = "",
+  template = "forum",
+  platform = "",
+  arms = "[{ key: main }]",
+  spaces = SPACES,
+}) {
   const dir = mkdtempSync(path.join(tmpdir(), "truman-forum-"));
   dirs.push(dir);
   const slug = `forum-${randomUUID().slice(0, 8)}`;
@@ -51,7 +60,7 @@ media: { baseUrl: "https://cdn.example.com/m" }
 flow: [{ step: feed }, { step: exit }]
 `,
     "actors.csv": "username,name,karma\nann,Ann,1200\nben,Ben,-3\n",
-    "spaces.csv": "key,name,description,accent\ncooking,Cooking,About food,#1d4ed8\nnews,News,,\n",
+    "spaces.csv": spaces,
     "posts.csv": POSTS,
     "comments.csv": COMMENTS,
     "reactions.csv": "on,nth,type,actor,after\npost,0,up,ann,0:00\npost,0,up,ben,0:00\n",
@@ -519,5 +528,218 @@ describe("starting a study from a template", () => {
       conditions: [],
     });
     expect(tooLong).toMatchObject({ problem: "invalid" });
+  });
+});
+
+describe("more orders", () => {
+  it("can be set by a study, and each showing records which and why", async () => {
+    const { slug } = await study({ feed: ", spaceRanker: rising" });
+    const cookie = await join(slug);
+    await home(cookie);
+    expect((await lastImpression()).ranker).toBe("top");
+    await call(cookie, "GET", "/feed?surface=space&space=cooking");
+    const shown = await lastImpression();
+    expect(shown).toMatchObject({ surface: "space", ranker: "rising", rankerVersion: "1" });
+    expect((shown.items as { score?: number }[])[0]?.score).toEqual(expect.any(Number));
+  });
+
+  it("can be chosen by a participant where allowed, and stay chosen", async () => {
+    const { slug } = await study({
+      feed: ", participantsCanSort: true, participantsCanSortComments: true",
+    });
+    const cookie = await join(slug);
+    const chosen = await call(cookie, "POST", "/feed/sort", {
+      ...meta(),
+      surface: "home",
+      sort: "controversial",
+    });
+    expect(chosen.status).toBe(200);
+    expect((await home(cookie)).sort).toBe("controversial");
+    expect(await lastImpression()).toMatchObject({
+      sort: "controversial",
+      ranker: "controversial",
+    });
+
+    const commented = await call(cookie, "POST", "/comments/sort", { ...meta(), sort: "best" });
+    expect(commented.status).toBe(200);
+    const first = titled((await home(cookie)).posts, "Best way to sear a steak?");
+    const opened = await page(cookie, first.id);
+    expect(opened.commentSort).toBe("best");
+    expect(await lastImpression()).toMatchObject({ commentOrder: "best", commentSort: "best" });
+    // By share of up votes, and how sure that is, since none of these have any down votes.
+    expect(opened.posts[0]?.comments[0]?.body).toBe("Written next");
+  });
+
+  it("refuses an order that doesn't apply, and one for comments on a feed", async () => {
+    const { slug } = await study({
+      feed: ", participantsCanSort: true, participantsCanSortComments: true",
+    });
+    const cookie = await join(slug);
+    const old = await call(cookie, "POST", "/feed/sort", {
+      ...meta(),
+      surface: "home",
+      sort: "old",
+    });
+    expect(old.status).toBe(400);
+    const hot = await call(cookie, "POST", "/comments/sort", { ...meta(), sort: "hot" });
+    expect(hot.status).toBe(400);
+  });
+});
+
+describe("member counts", () => {
+  const spacesOf = async (cookie: string) =>
+    ((await (await call(cookie, "GET", "/spaces")).json()) as { spaces: SpaceView[] }).spaces;
+
+  it("shows nothing unless the study wrote a number", async () => {
+    const { slug } = await study({});
+    expect((await spacesOf(await join(slug)))[0]?.memberCount).toBeNull();
+  });
+
+  it("adds this person only while they're in it", async () => {
+    const { slug } = await study({ spaces: SPACES_WITH_MEMBERS });
+    const cookie = await join(slug);
+    const count = async () =>
+      (await spacesOf(cookie)).find(({ key }) => key === "cooking")?.memberCount;
+    expect(await count()).toBe(1201);
+    const left = await call(cookie, "POST", "/spaces/cooking/membership", {
+      ...meta(),
+      joined: false,
+    });
+    expect(left.status).toBe(200);
+    expect(await count()).toBe(1200);
+    expect((await spacesOf(cookie)).find(({ key }) => key === "news")?.memberCount).toBeNull();
+  });
+});
+
+describe("scripted karma changes", () => {
+  const CHANGES =
+    ", karmaChanges: [{ afterMinutes: 60, change: 500 }, { actor: ann, afterMinutes: 60, change: -200 }, { actor: ben, afterMinutes: 600, change: 50 }]";
+
+  const shiftBack = async (hours: number) => {
+    const [row] = await database.db
+      .select({ worldId: schema.feedImpressions.worldId })
+      .from(schema.feedImpressions)
+      .orderBy(desc(schema.feedImpressions.id))
+      .limit(1);
+    await database.db
+      .update(schema.worlds)
+      .set({ startedAt: new Date(Date.now() - hours * 60 * 60 * 1000) })
+      .where(eq(schema.worlds.id, row?.worldId as string));
+  };
+
+  it("applies each at its time, and records what was shown", async () => {
+    const { slug } = await study({ platform: CHANGES });
+    const cookie = await join(slug);
+
+    const before = titled((await home(cookie)).posts, "Best way to sear a steak?");
+    expect(before.author.karma).toBe(1200);
+    expect(((await (await call(cookie, "GET", "/me")).json()) as { karma: number }).karma).toBe(0);
+
+    await shiftBack(2);
+    const after = titled((await home(cookie)).posts, "Best way to sear a steak?");
+    expect(after.author.karma).toBe(1000);
+    const small = titled((await home(cookie)).posts, "Small news");
+    expect(small.author.karma).toBe(-3);
+    expect(((await (await call(cookie, "GET", "/me")).json()) as { karma: number }).karma).toBe(
+      500,
+    );
+    expect((await lastImpression()).karmaShown).toMatchObject({ ann: 1000, ben: -3 });
+
+    const profile = (await (await call(cookie, "GET", "/actors/ann")).json()) as {
+      karma?: number;
+    };
+    expect(profile.karma).toBe(1000);
+  });
+
+  it("can differ by condition, replacing the study's list", async () => {
+    const { slug } = await study({
+      platform: CHANGES,
+      arms: "[{ key: main, platform: { karmaChanges: [{ afterMinutes: 0, change: 7 }] } }]",
+    });
+    const cookie = await join(slug);
+    expect(((await (await call(cookie, "GET", "/me")).json()) as { karma: number }).karma).toBe(7);
+  });
+
+  it("won't take someone who isn't in the cast", async () => {
+    await expect(
+      study({ platform: ", karmaChanges: [{ actor: nobody, afterMinutes: 1, change: 1 }]" }),
+    ).rejects.toThrow(/nobody/);
+  });
+});
+
+describe("notifications", () => {
+  it("say which post, and which comment, they're about", async () => {
+    const { slug } = await study({
+      platform: ", features: { notifications: true }",
+    });
+    const cookie = await join(slug);
+    const posted = await postForm(cookie, { title: "Mine", body: "My post" });
+    expect(posted.status).toBe(200);
+    const mine = titled((await home(cookie)).posts, "Mine");
+    const commented = await call(cookie, "POST", `/content/${mine.id}/comments`, {
+      ...meta(),
+      body: "My comment",
+    });
+    expect(commented.status).toBe(200);
+    const onPage = (await page(cookie, mine.id)).posts[0]?.comments[0];
+    expect(onPage?.body).toBe("My comment");
+
+    const [row] = await database.db
+      .select()
+      .from(schema.feedImpressions)
+      .orderBy(desc(schema.feedImpressions.id))
+      .limit(1);
+    const [ann] = await database.db
+      .select({ id: schema.actors.id })
+      .from(schema.actors)
+      .where(eq(schema.actors.username, "ann"))
+      .orderBy(desc(schema.actors.id))
+      .limit(1);
+    await database.db.insert(schema.notifications).values([
+      {
+        worldId: row?.worldId as string,
+        recipientActorId: row?.viewerActorId as string,
+        actorId: ann?.id as string,
+        type: "like",
+        targetContentId: onPage?.id as string,
+        dueAt: new Date(Date.now() - 1000),
+      },
+      {
+        worldId: row?.worldId as string,
+        recipientActorId: row?.viewerActorId as string,
+        actorId: ann?.id as string,
+        type: "like",
+        targetContentId: mine.id,
+        dueAt: new Date(Date.now() - 2000),
+      },
+    ]);
+
+    const { notifications } = (await (await call(cookie, "GET", "/notifications")).json()) as {
+      notifications: { targetKind: string; postId: string; commentId: string | null }[];
+    };
+    expect(notifications.find(({ targetKind }) => targetKind === "comment")).toMatchObject({
+      postId: mine.id,
+      commentId: onPage?.id,
+    });
+    expect(notifications.find(({ targetKind }) => targetKind === "post")).toMatchObject({
+      postId: mine.id,
+      commentId: null,
+    });
+  });
+});
+
+describe("the codebook", () => {
+  it("says how orders are worked out, and that they're not a real platform's", async () => {
+    const { slug } = await study({});
+    await join(slug);
+    const folder = mkdtempSync(path.join(tmpdir(), "truman-forum-export-"));
+    dirs.push(folder);
+    await exportStudy(database.db, slug, folder);
+    const codebook = readFileSync(path.join(folder, "codebook.md"), "utf8");
+    expect(codebook).toContain("How orders are worked out");
+    expect(codebook).toContain("aren't any real platform's formulas");
+    expect(codebook).toContain("(age in hours + 2)^1.5");
+    expect(codebook).toContain("Wilson score interval");
+    expect(codebook).toContain("karma_shown");
   });
 });

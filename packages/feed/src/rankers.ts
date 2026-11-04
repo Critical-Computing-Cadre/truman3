@@ -1,3 +1,5 @@
+import { bestScore, controversyScore, hotScore, RISING_WINDOW_MS, risingScore } from "./scores.ts";
+
 /** A post the feed could show, with what rankers are allowed to know about it. */
 export interface RankablePost {
   id: string;
@@ -5,8 +7,11 @@ export interface RankablePost {
   timeMs: number;
   /** Its order in the study definition. Empty for content created during the study. */
   position: number | null;
-  /** Up votes minus down votes, including this viewer's own. Only the top order uses it. */
+  /** Up votes minus down votes, including this viewer's own. Orders by votes use it. */
   score?: number;
+  /** The votes behind that, for orders that care how they split. */
+  ups?: number;
+  downs?: number;
 }
 
 export interface RankingContext {
@@ -14,6 +19,8 @@ export interface RankingContext {
   seed: number;
   /** Posts this viewer has already seen. */
   viewedPostIds: ReadonlySet<string>;
+  /** The moment this feed is for, so orders that use age can be reproduced. */
+  nowMs: number;
 }
 
 export interface RankedPost {
@@ -104,6 +111,57 @@ const top: Ranker = {
       .map(({ id, score }) => ({ id, score: score ?? 0 })),
 };
 
-export const RANKERS = { chronological, shuffle, scripted, new: newest, top } as const;
+/** Sorts by a number worked out from each post, highest first, and records it. */
+function byScore(
+  name: string,
+  score: (post: RankablePost, context: RankingContext) => number,
+): Ranker {
+  return {
+    name,
+    version: "1",
+    rank: (posts, context) =>
+      posts
+        .map((post) => ({ post, value: score(post, context) }))
+        .sort((a, b) => b.value - a.value || newestFirst(a.post, b.post))
+        .map(({ post, value }) => ({ id: post.id, score: value })),
+  };
+}
+
+const hot = byScore("hot", ({ score, timeMs }, { nowMs }) => hotScore(score ?? 0, timeMs, nowMs));
+const best = byScore("best", ({ ups, downs }) => bestScore(ups ?? 0, downs ?? 0));
+const controversial = byScore("controversial", ({ ups, downs }) =>
+  controversyScore(ups ?? 0, downs ?? 0),
+);
+
+/** Score per hour, with everything from the last day ahead of anything older. */
+const rising: Ranker = {
+  name: "rising",
+  version: "1",
+  rank: (posts, { nowMs }) => {
+    const scored = posts.map((post) => ({
+      post,
+      value: risingScore(post.score ?? 0, post.timeMs, nowMs),
+      recent: nowMs - post.timeMs <= RISING_WINDOW_MS,
+    }));
+    return scored
+      .sort(
+        (a, b) =>
+          Number(b.recent) - Number(a.recent) || b.value - a.value || newestFirst(a.post, b.post),
+      )
+      .map(({ post, value }) => ({ id: post.id, score: value }));
+  },
+};
+
+export const RANKERS = {
+  chronological,
+  shuffle,
+  scripted,
+  new: newest,
+  top,
+  hot,
+  best,
+  rising,
+  controversial,
+} as const;
 
 export type RankerName = keyof typeof RANKERS;

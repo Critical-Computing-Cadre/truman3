@@ -95,6 +95,8 @@ export interface NotificationItem {
   type: "read" | "like" | "reply";
   actors: { username: string; name: string; pictureUrl: string | null }[];
   targetKind: "post" | "comment";
+  postId: string;
+  commentId: string | null;
   targetBody: string;
   targetImageUrl: string | null;
   replyBody: string | null;

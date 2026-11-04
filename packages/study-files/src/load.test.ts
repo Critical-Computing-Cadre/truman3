@@ -190,6 +190,7 @@ flow: [{ step: feed }]
       startsJoined: false,
     });
     expect(definition?.spaces[1]?.startsJoined).toBe(true);
+    expect(definition?.spaces[0]?.members).toBeUndefined();
     expect(definition?.posts[0]?.space).toBe("cooking");
     expect(definition?.posts[1]).not.toHaveProperty("space");
     expect(definition?.actors[0]?.moderator).toBe(true);

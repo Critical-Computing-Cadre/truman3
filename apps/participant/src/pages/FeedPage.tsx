@@ -1,9 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { type FeedResponse, MAX_TITLE_LENGTH, type SpaceView } from "@truman3/core";
-import { CreatePostBar, PhotoIcon, ProfileCard } from "@truman3/ui";
+import {
+  type FeedSort as ChosenSort,
+  FEED_SORTS,
+  type FeedResponse,
+  MAX_TITLE_LENGTH,
+  SORT_LABELS,
+  type SpaceView,
+} from "@truman3/core";
+import { CreatePostBar, FeedFrame, PhotoIcon, ProfileCard } from "@truman3/ui";
 import { type FormEvent, type RefObject, useEffect, useRef, useState } from "react";
 import { type FlowState, flowQuery, get, meQuery, post, postForm } from "../api.ts";
+import { CommunitiesCard } from "../components/Community.tsx";
 import { PostCard } from "../components/PostCard.tsx";
 
 /** Picked once per page load, for studies that reshuffle the feed on each visit. */
@@ -15,7 +23,7 @@ const COMPOSER = {
   mixed: { placeholder: "What's new?", ready: (text: boolean, image: boolean) => text || image },
 };
 
-export type FeedSort = "new" | "top" | null;
+export type FeedSort = ChosenSort | null;
 
 /** Lets someone choose the order, on a study that allows it. Each choice is recorded. */
 export function SortPicker({
@@ -47,8 +55,11 @@ export function SortPicker({
           className="rounded border border-stone-300 bg-white px-2 py-1"
         >
           <option value="">Default</option>
-          <option value="new">New</option>
-          <option value="top">Top</option>
+          {FEED_SORTS.map((order) => (
+            <option key={order} value={order}>
+              {SORT_LABELS[order]}
+            </option>
+          ))}
         </select>
       </label>
       {change.error && (
@@ -236,58 +247,52 @@ export function FeedPage() {
   const newPost = useRef<HTMLDialogElement>(null);
 
   return (
-    <div className="justify-center gap-4 md:grid md:grid-cols-[14rem_minmax(0,36rem)] lg:grid-cols-[14rem_minmax(0,36rem)_14rem]">
-      {/* Too narrow on a phone, where the Profile link in the header does this job. */}
-      <aside className="hidden md:block">
-        {me.data && (
-          <div className="sticky top-16">
-            <ProfileCard
-              {...me.data}
-              renderName={(className, name) => (
-                <Link
-                  to="/u/$username"
-                  params={{ username: me.data.username }}
-                  className={className}
-                >
-                  {name}
-                </Link>
-              )}
-              footer={
-                <Link
-                  to="/account"
-                  className="block border-t border-stone-200 py-2 text-center text-sm text-stone-700"
-                >
-                  Edit profile
-                </Link>
-              }
-            />
-          </div>
-        )}
-      </aside>
-      <div className="min-w-0 space-y-3 sm:space-y-4">
-        {flow.data?.features.posting && me.data && (
-          <>
-            <CreatePostBar
-              seed={me.data.username}
-              pictureUrl={me.data.pictureUrl}
-              showPhoto={flow.data.platformStyle !== "text"}
-              onOpen={() => newPost.current?.showModal()}
-            />
-            <NewPostDialog
-              style={flow.data.platformStyle}
-              several={flow.data.features.galleries}
-              dialogRef={newPost}
-            />
-          </>
-        )}
-        <SortPicker surface="home" sort={feed.data?.sort ?? null} />
-        {feed.data?.posts.length === 0 && (
-          <p className="p-6 text-center text-stone-500">No posts to show.</p>
-        )}
-        {feed.data?.posts.map((post) => (
-          <PostCard key={post.id} post={post} />
-        ))}
-      </div>
-    </div>
+    <FeedFrame
+      renderProfile={(compact) =>
+        me.data && (
+          <ProfileCard
+            {...me.data}
+            compact={compact}
+            renderName={(className, name) => (
+              <Link to="/u/$username" params={{ username: me.data.username }} className={className}>
+                {name}
+              </Link>
+            )}
+            footer={
+              <Link
+                to="/account"
+                className="block border-t border-stone-200 py-2 text-center text-sm text-stone-700"
+              >
+                Edit profile
+              </Link>
+            }
+          />
+        )
+      }
+      side={flow.data?.features.spaces ? <CommunitiesCard /> : undefined}
+    >
+      {flow.data?.features.posting && me.data && (
+        <>
+          <CreatePostBar
+            seed={me.data.username}
+            pictureUrl={me.data.pictureUrl}
+            showPhoto={flow.data.platformStyle !== "text"}
+            onOpen={() => newPost.current?.showModal()}
+          />
+          <NewPostDialog
+            style={flow.data.platformStyle}
+            several={flow.data.features.galleries}
+            dialogRef={newPost}
+          />
+        </>
+      )}
+      {feed.data && <SortPicker surface="home" sort={feed.data.sort ?? null} />}
+      {feed.data?.posts.length === 0 && (
+        <p className="p-6 text-center text-stone-500">No posts to show.</p>
+      )}
+      {feed.data?.posts.map((post) => (
+        <PostCard key={post.id} post={post} />
+      ))}
+    </FeedFrame>
   );
 }

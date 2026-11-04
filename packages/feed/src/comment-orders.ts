@@ -1,4 +1,5 @@
 import type { RankablePost } from "./rankers.ts";
+import { bestScore, controversyScore } from "./scores.ts";
 
 /**
  * Decides the order of comments among others at the same level. Replies stay under what they reply
@@ -29,6 +30,24 @@ export const COMMENT_ORDERS = {
     version: "1",
     compare: (a: RankablePost, b: RankablePost) =>
       (b.score ?? 0) - (a.score ?? 0) || newestFirst(a, b),
+  },
+  /** Oldest first. It's the same as `scripted` today, under the name a participant would choose. */
+  old: { name: "old", version: "1", compare: oldestFirst },
+  /** The Wilson lower bound on the share of up votes, in scores.ts. Ties go to the newer. */
+  best: {
+    name: "best",
+    version: "1",
+    compare: (a: RankablePost, b: RankablePost) =>
+      bestScore(b.ups ?? 0, b.downs ?? 0) - bestScore(a.ups ?? 0, a.downs ?? 0) ||
+      newestFirst(a, b),
+  },
+  /** All votes times how evenly they split, in scores.ts. Ties go to the newer. */
+  controversial: {
+    name: "controversial",
+    version: "1",
+    compare: (a: RankablePost, b: RankablePost) =>
+      controversyScore(b.ups ?? 0, b.downs ?? 0) - controversyScore(a.ups ?? 0, a.downs ?? 0) ||
+      newestFirst(a, b),
   },
 } as const satisfies Record<string, CommentOrder>;
 

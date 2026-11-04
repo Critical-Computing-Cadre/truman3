@@ -382,7 +382,7 @@ describe("the new and top orders", () => {
     position: null,
     ...(score === undefined ? {} : { score }),
   });
-  const context = { seed: 1, viewedPostIds: new Set<string>() };
+  const context = { seed: 1, viewedPostIds: new Set<string>(), nowMs: 0 };
 
   it("puts the newest first with new", () => {
     const order = RANKERS.new.rank([post("old", 1), post("recent", 2)], context);

@@ -44,6 +44,7 @@ const SPACES: CsvSpec = {
     "banner",
     "accent",
     "startsJoined",
+    "members",
     "condition",
     "class",
   ],
@@ -213,6 +214,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       ...optional("picture", cells.picture),
       ...optional("banner", cells.banner),
       ...optional("accent", cells.accent),
+      ...optional("members", wholeNumber(cells.members, "members", "spaces.csv", row)),
       ...targeting(cells, "spaces.csv", row),
     };
   });

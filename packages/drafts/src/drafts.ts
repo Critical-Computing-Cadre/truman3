@@ -176,6 +176,7 @@ export async function openDraft(
           ...optional("banner", space.banner),
           ...optional("accent", space.accent),
           startsJoined: space.startsJoined,
+          ...optional("members", space.baseMembers),
           conditions: space.conditions,
           ...optional("class", space.class),
         },

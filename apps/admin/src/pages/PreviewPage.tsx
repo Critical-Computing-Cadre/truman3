@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { CommentBox, CreatePostBar, FeedPostView, PlatformProvider } from "@truman3/ui";
+import { type ReactNode, useState } from "react";
 import { get, type PreviewInfo, type PreviewResponse } from "../api.ts";
 import { TimelineControls, useTimeline } from "../components/TimelineControls.tsx";
 
@@ -28,6 +29,11 @@ function FeedColumn({
     placeholderData: keepPreviousData,
   });
 
+  // On a platform with a page for each post, comments wait there, as they do for a participant.
+  const pages = platform?.features.postPages ?? false;
+  const [openId, setOpenId] = useState<string | null>(null);
+  const opened = pages ? feed.data?.posts.find(({ id }) => id === openId) : undefined;
+
   const targeting = feed.data?.targeting ?? {};
   const note = (contentId: string) => {
     const conditions = targeting[contentId];
@@ -47,23 +53,43 @@ function FeedColumn({
         {condition}{" "}
         <span className="font-normal text-stone-500">({feed.data?.posts.length ?? 0} posts)</span>
       </h2>
-      {platform?.features.posting !== false && (
-        <CreatePostBar
-          seed={VIEWER}
-          pictureUrl={null}
-          showPhoto={platform?.platformStyle !== "text"}
-        />
+      {opened ? (
+        <button type="button" onClick={() => setOpenId(null)} className="text-sm underline">
+          Back to the feed
+        </button>
+      ) : (
+        platform?.features.posting !== false && (
+          <CreatePostBar
+            seed={VIEWER}
+            pictureUrl={null}
+            showPhoto={platform?.platformStyle !== "text"}
+          />
+        )
       )}
       {feed.data?.posts.length === 0 && (
         <p className="rounded-lg bg-white p-6 text-center text-stone-500">No posts to show.</p>
       )}
       <PlatformProvider platform={platform}>
-        {feed.data?.posts.map((post) => (
+        {(opened ? [opened] : (feed.data?.posts ?? [])).map((post) => (
           <FeedPostView
             key={post.id}
-            post={post}
+            post={pages && !opened ? { ...post, comments: [] } : post}
+            detail={opened !== undefined}
             renderNote={note}
-            {...(platform?.commentBox === "onReply"
+            {...(pages
+              ? {
+                  renderPostLink: (postId: string, className: string, children: ReactNode) => (
+                    <button
+                      type="button"
+                      onClick={() => setOpenId(postId)}
+                      className={`text-left ${className}`}
+                    >
+                      {children}
+                    </button>
+                  ),
+                }
+              : {})}
+            {...(platform?.commentBox === "onReply" || (pages && !opened)
               ? {}
               : { belowComments: <CommentBox seed={VIEWER} pictureUrl={null} /> })}
           />

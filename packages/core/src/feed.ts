@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { COMMENT_SORTS, FEED_SORTS } from "./orders.ts";
 
 export const feedAuthorSchema = z.object({
   username: z.string(),
@@ -68,9 +69,9 @@ export const feedPostSchema = z.object({
 export const feedResponseSchema = z.object({
   posts: z.array(feedPostSchema),
   /** The order this person chose for this list, where a study lets them. Null is the study's. */
-  sort: z.enum(["new", "top"]).nullable().optional(),
+  sort: z.enum(FEED_SORTS).nullable().optional(),
   /** The order this person chose for comments, where a study lets them. Null is the study's. */
-  commentSort: z.enum(["top", "new"]).nullable().optional(),
+  commentSort: z.enum(COMMENT_SORTS).nullable().optional(),
 });
 
 /** A space, as a participant sees it. */
@@ -83,6 +84,8 @@ export const spaceViewSchema = z.object({
   bannerUrl: z.string().nullable(),
   /** A color from the study, as #rrggbb. Draw it with `textOnAccent` for what goes on top. */
   accent: z.string().nullable(),
+  /** How many members it says it has. Null if the study didn't write a number, so none is shown. */
+  memberCount: z.number().nullable(),
   joined: z.boolean(),
 });
 export type SpaceView = z.infer<typeof spaceViewSchema>;

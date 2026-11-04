@@ -357,6 +357,15 @@ function StudyForm({
           </Hint>
         </label>
       )}
+      {(value.platform.features?.karma ??
+        TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features.karma) && (
+        <KarmaChanges
+          changes={value.platform.karmaChanges ?? []}
+          onChange={(karmaChanges) =>
+            set({ ...value, platform: { ...value.platform, karmaChanges } })
+          }
+        />
+      )}
       <fieldset className="space-y-1">
         <legend className="text-sm font-medium">What's on this platform?</legend>
         {FEATURE_KEYS.map((key) => (
@@ -511,6 +520,10 @@ function ArmDifferences({ arm, set }: { arm: EditingArm; set: (arm: EditingArm) 
             { value: "scripted", label: "As written" },
             { value: "new", label: "New" },
             { value: "top", label: "Top, by score" },
+            { value: "hot", label: "Hot" },
+            { value: "best", label: "Best" },
+            { value: "rising", label: "Rising" },
+            { value: "controversial", label: "Controversial" },
           ]}
           onChange={(value) => change("feed", "ranker", choice(value))}
         />
@@ -788,10 +801,103 @@ function LikeValues({
   );
 }
 
+type KarmaChange = NonNullable<StudySettings["platform"]["karmaChanges"]>[number];
+
+/** Scripted changes to karma, timed from when each participant starts. */
+function KarmaChanges({
+  changes,
+  onChange,
+}: {
+  changes: KarmaChange[];
+  onChange: (changes: KarmaChange[]) => void;
+}) {
+  const update = (index: number, change: Partial<KarmaChange>) =>
+    onChange(
+      changes.map((item, at) => {
+        if (at !== index) {
+          return item;
+        }
+        // A blank username is the participant, which is left out rather than saved as empty.
+        const { actor, ...rest } = { ...item, ...change };
+        return actor ? { actor, ...rest } : rest;
+      }),
+    );
+  return (
+    <fieldset className="space-y-2 text-sm">
+      <legend className="font-medium">Scripted karma changes</legend>
+      <Hint>
+        Each adds or takes away points, some time after a participant starts. Leave the username
+        blank for the participant. Study folders can also set these for one condition.
+      </Hint>
+      {changes.map((change, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: rows have no identity of their own
+        <div key={index} className="flex flex-wrap items-center gap-2" data-testid="karma-change">
+          <input
+            aria-label="Username"
+            placeholder="The participant"
+            value={change.actor ?? ""}
+            onChange={(event) => update(index, { actor: event.target.value.trim() })}
+            className={`${input} w-40`}
+          />
+          <label className="flex items-center gap-1">
+            after
+            <input
+              aria-label="Minutes after starting"
+              type="number"
+              min="0"
+              step="1"
+              value={change.afterMinutes}
+              onChange={(event) =>
+                update(index, { afterMinutes: Math.max(0, Math.trunc(Number(event.target.value))) })
+              }
+              className={`${input} w-20`}
+            />
+            minutes,
+          </label>
+          <label className="flex items-center gap-1">
+            add
+            <input
+              aria-label="Points to add"
+              type="number"
+              step="1"
+              value={change.change}
+              onChange={(event) =>
+                update(index, { change: Math.trunc(Number(event.target.value)) })
+              }
+              className={`${input} w-24`}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => onChange(changes.filter((_, at) => at !== index))}
+            className="underline"
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange([...changes, { afterMinutes: 60, change: 100 }])}
+        className="rounded border border-stone-300 px-2 py-1"
+      >
+        Add a karma change
+      </button>
+    </fieldset>
+  );
+}
+
 const COMMENT_ORDERS = [
   { value: "scripted", label: "As written", hint: "The time each was written for, oldest first." },
   { value: "top", label: "Top", hint: "Highest score first." },
   { value: "new", label: "New", hint: "Newest first." },
+  { value: "old", label: "Old", hint: "Oldest first." },
+  {
+    value: "best",
+    label: "Best",
+    hint: "Cautious about few votes, so a few up votes don't beat many mostly-up ones.",
+  },
+  { value: "controversial", label: "Controversial", hint: "Many votes, split evenly, first." },
 ] as const;
 
 const FEED_ORDERS = [
@@ -808,6 +914,14 @@ const FEED_ORDERS = [
     label: "Top",
     hint: "Highest score first. The scores you wrote, plus scripted votes and the person's own.",
   },
+  { value: "hot", label: "Hot", hint: "High scores and recent posts first, falling with age." },
+  {
+    value: "best",
+    label: "Best",
+    hint: "Cautious about few votes, so a few up votes don't beat many mostly-up ones.",
+  },
+  { value: "rising", label: "Rising", hint: "The last day's posts first, by score per hour." },
+  { value: "controversial", label: "Controversial", hint: "Many votes, split evenly, first." },
 ] as const;
 
 function FeedForm({
@@ -821,7 +935,7 @@ function FeedForm({
   /** Whether any condition has spaces, so whether a space's own order means anything. */
   spacesOn: boolean;
   /** The comment order a study has until it chooses one, from its template. */
-  defaultCommentOrder: "scripted" | "top" | "new";
+  defaultCommentOrder: (typeof COMMENT_ORDERS)[number]["value"];
 }) {
   const { feed, likes, length } = value;
   const setFeed = (changes: Partial<typeof feed>) =>
@@ -875,7 +989,7 @@ function FeedForm({
           }
         />
         Let people pick how comments are sorted{" "}
-        <Hint>Top or New. Off by default, and each change is recorded.</Hint>
+        <Hint>Off by default, and each change is recorded.</Hint>
       </label>
       <label className="flex items-center gap-2 text-sm">
         <input
@@ -887,8 +1001,7 @@ function FeedForm({
             >)
           }
         />
-        Let participants choose the order{" "}
-        <Hint>New or Top. Off by default, and each change is recorded.</Hint>
+        Let participants choose the order <Hint>Off by default, and each change is recorded.</Hint>
       </label>
       {feed.ranker === "shuffle" && (
         <label className="flex items-center gap-2 text-sm">

@@ -33,6 +33,13 @@ export {
   spaceViewSchema,
 } from "./feed.ts";
 export { type HealthResponse, healthResponseSchema } from "./health.ts";
+export {
+  COMMENT_SORTS,
+  type CommentSort,
+  FEED_SORTS,
+  type FeedSort,
+  SORT_LABELS,
+} from "./orders.ts";
 export { createRandom, pickFrom, shuffled } from "./random.ts";
 export { type CurrentFlowStep, canLeaveFeed, currentFlowStep } from "./study/flow.ts";
 export * from "./study/index.ts";

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { COMMENT_SORTS, FEED_SORTS } from "./orders.ts";
 
 const empty = z.strictObject({});
 
@@ -41,10 +42,10 @@ export const eventPayloadSchemas = {
   /** Someone chose an order for a feed, where a study allows that. Null is the study's own order. */
   "feed.sort_changed": z.strictObject({
     surface: z.enum(["home", "space"]),
-    sort: z.enum(["new", "top"]).nullable(),
+    sort: z.enum(FEED_SORTS).nullable(),
   }),
   /** Someone chose an order for comments, where a study allows that. Null is the study's own. */
-  "comments.sort_changed": z.strictObject({ sort: z.enum(["top", "new"]).nullable() }),
+  "comments.sort_changed": z.strictObject({ sort: z.enum(COMMENT_SORTS).nullable() }),
   /** A scripted reaction was triggered by something a participant did. */
   "reaction.scheduled": z.strictObject({
     reaction: z.enum(["read", "like", "reply", "up", "down"]),

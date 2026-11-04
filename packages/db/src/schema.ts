@@ -181,6 +181,8 @@ export const spaces = pgTable(
     /** Its color, as #rrggbb. */
     accent: text(),
     startsJoined: boolean("starts_joined").notNull().default(true),
+    /** How many members it says it has, before this participant. Null shows no number. */
+    baseMembers: integer("base_members"),
     conditions: text().array().notNull().default(sql`'{}'`),
     class: text(),
     position: integer().notNull().default(0),
@@ -528,6 +530,8 @@ export const feedImpressions = pgTable(
     /** The seed used for this order, so it can be reproduced. */
     seed: bigint({ mode: "number" }),
     items: jsonb().notNull(),
+    /** On a platform with karma, the number shown for each author. The participant is "viewer". */
+    karmaShown: jsonb("karma_shown").$type<Record<string, number>>(),
     fallbackUsed: boolean("fallback_used").notNull().default(false),
     shownAt: time("shown_at").notNull().defaultNow(),
   },

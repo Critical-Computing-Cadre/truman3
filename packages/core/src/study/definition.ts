@@ -2,15 +2,27 @@ import { z } from "zod";
 import { ACCENT_PATTERN } from "../color.ts";
 import { FEATURE_KEYS } from "../features/catalog.ts";
 import { LAYOUT_KEYS, TEMPLATE_KEYS } from "../features/templates.ts";
+import { COMMENT_SORTS, FEED_SORTS } from "../orders.ts";
 
 const keySchema = z
   .string()
   .regex(/^[a-z0-9][a-z0-9_-]*$/, "Use lowercase letters, numbers, dashes, and underscores");
 
-const rankerSchema = z.enum(["chronological", "shuffle", "scripted", "new", "top"]);
+const rankerSchema = z.enum(["chronological", "shuffle", "scripted", ...FEED_SORTS]);
 
 /** How comments on a post are ordered. Replies stay under what they reply to in every one. */
-const commentOrderSchema = z.enum(["scripted", "top", "new"]);
+const commentOrderSchema = z.enum(["scripted", ...COMMENT_SORTS]);
+
+/**
+ * A scripted change to someone's karma, some time after a participant starts. It says who by
+ * username, and leaving that out means the participant. Changes add up.
+ */
+const karmaChangeSchema = z.strictObject({
+  actor: z.string().min(1).optional(),
+  afterMinutes: z.number().int().nonnegative(),
+  change: z.number().int(),
+});
+export type KarmaChange = z.infer<typeof karmaChangeSchema>;
 
 /** The longest a post's title can be. */
 export const MAX_TITLE_LENGTH = 300;
@@ -78,6 +90,8 @@ const armSchema = z.strictObject({
       features: featureChangesSchema.optional(),
       canJoinSpaces: z.boolean().optional(),
       startingKarma: z.number().int().optional(),
+      /** Replaces the study's list for this condition. */
+      karmaChanges: z.array(karmaChangeSchema).optional(),
     })
     .optional(),
 });
@@ -145,6 +159,8 @@ export const studySettingsSchema = z.strictObject({
       canJoinSpaces: z.boolean().optional(),
       /** A participant's karma before any votes on what they post. Leave out for zero. */
       startingKarma: z.number().int().optional(),
+      /** Scripted changes to karma during the study. */
+      karmaChanges: z.array(karmaChangeSchema).optional(),
     })
     .prefault({ style: "mixed" }),
   feed: feedSettingsSchema.prefault({}),
@@ -213,6 +229,8 @@ export const spaceDefinitionSchema = z.object({
   accent: z.string().regex(ACCENT_PATTERN, "Use a color like #1d4ed8.").optional(),
   /** Whether a participant starts out in it. */
   startsJoined: z.boolean().default(true),
+  /** How many members it says it has, before this participant. Leave out to show no number. */
+  members: z.number().int().nonnegative().optional(),
   ...targetingFields,
 });
 
