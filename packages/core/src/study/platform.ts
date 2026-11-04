@@ -75,6 +75,26 @@ export function startingKarmaFor(settings: StudySettings, conditionKey: string):
   return arm?.platform?.startingKarma ?? settings.platform.startingKarma ?? 0;
 }
 
+/**
+ * What scripted changes have added to someone's karma by this point. `username` is someone in the
+ * cast, and null is the participant.
+ */
+export function scriptedKarmaChange(
+  settings: StudySettings,
+  conditionKey: string,
+  username: string | null,
+  elapsedMs: number,
+): number {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  const changes = arm?.platform?.karmaChanges ?? settings.platform.karmaChanges ?? [];
+  return changes
+    .filter(
+      ({ actor, afterMinutes }) =>
+        (actor ?? null) === username && afterMinutes * 60_000 <= elapsedMs,
+    )
+    .reduce((total, { change }) => total + change, 0);
+}
+
 /** Everything a browser needs to draw this platform for someone in a condition. */
 export function platformFor(settings: StudySettings, conditionKey: string) {
   return {

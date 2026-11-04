@@ -1,8 +1,11 @@
 import {
+  type CommentSort,
   type FeedAuthor,
   type FeedPost,
+  type FeedSort,
   featureOn,
   type StudySettings,
+  scriptedKarmaChange,
   startingKarmaFor,
 } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
@@ -104,6 +107,8 @@ export function toCandidate(item: FeedContent, worldStartMs: number): FeedCandid
     timeMs: contentTimeMs(item, worldStartMs),
     position: item.position,
     score: item.baseUps - item.baseDowns,
+    ups: item.baseUps,
+    downs: item.baseDowns,
     conditions: item.conditions,
   };
 }
@@ -135,8 +140,9 @@ export async function loadSpacesFor(db: Database, context: ParticipantContext) {
 }
 
 /**
- * A participant's karma: where the study starts them, plus scripted votes that have happened on what
- * they've written. Their own votes don't count, and with a world per person nobody else can vote.
+ * A participant's karma: where the study starts them, plus scripted changes so far, plus scripted
+ * votes that have happened on what they've written. Their own votes don't count, and with a world per
+ * person nobody else can vote.
  */
 export async function participantKarma(
   db: Database,
@@ -157,7 +163,38 @@ export async function participantKarma(
         lte(schema.notifications.dueAt, now),
       ),
     );
-  return startingKarmaFor(context.settings, context.conditionKey) + (row?.total ?? 0);
+  const elapsedMs = now.getTime() - context.worldStartedAt.getTime();
+  return (
+    startingKarmaFor(context.settings, context.conditionKey) +
+    scriptedKarmaChange(context.settings, context.conditionKey, null, elapsedMs) +
+    (row?.total ?? 0)
+  );
+}
+
+/** Someone in the cast's karma: what the study wrote, plus scripted changes so far. */
+export function castKarma(
+  settings: StudySettings,
+  conditionKey: string,
+  username: string,
+  written: number | undefined,
+  elapsedMs: number,
+): number {
+  return (written ?? 0) + scriptedKarmaChange(settings, conditionKey, username, elapsedMs);
+}
+
+/** What was on screen, for the record. A participant's username can identify them, so it's "viewer". */
+export function karmaShownIn(posts: readonly FeedPost[]): Record<string, number> {
+  const shown: Record<string, number> = {};
+  const note = ({ author }: { author: FeedAuthor }) => {
+    if (author.karma !== undefined) {
+      shown[author.isViewer ? "viewer" : author.username] = author.karma;
+    }
+  };
+  for (const post of posts) {
+    note(post);
+    post.comments.forEach(note);
+  }
+  return shown;
 }
 
 export interface FeedDependencies {
@@ -234,8 +271,8 @@ export async function shapeFeedPosts({
   spaces?: SpaceLabels;
   /** False in a list that leaves comments for each post's own page. */
   commentsHere?: boolean;
-  /** On a platform with karma, the viewer's own. Each person in the cast has theirs in their profile. */
-  karma?: { viewer: number } | undefined;
+  /** On a platform with karma, the viewer's own, and how to work out anyone else's. */
+  karma?: { viewer: number; cast: (username: string, written?: number) => number } | undefined;
 }): Promise<FeedPost[]> {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const shownIds = feed.posts.flatMap((post) => [post.id, ...post.commentIds]);
@@ -251,7 +288,12 @@ export async function shapeFeedPosts({
       pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
       isViewer: actor.id === viewerActorId,
       ...(profile.moderator ? { moderator: true as const } : {}),
-      ...(karma ? { karma: actor.id === viewerActorId ? karma.viewer : (profile.karma ?? 0) } : {}),
+      ...(karma
+        ? {
+            karma:
+              actor.id === viewerActorId ? karma.viewer : karma.cast(actor.username, profile.karma),
+          }
+        : {}),
     };
   };
 
@@ -315,11 +357,11 @@ export interface BuildFeedOptions {
   /** Only this space's posts, on its own page, in the order set for space pages. */
   space?: { id: string } | undefined;
   /** An order this person chose and it was recorded, where the study allows it. */
-  sort?: "new" | "top" | undefined;
+  sort?: FeedSort | undefined;
   /** Only this post, on its own page. */
   post?: string | undefined;
   /** An order for comments this person chose and it was recorded, where the study allows it. */
-  commentSort?: "top" | "new" | undefined;
+  commentSort?: CommentSort | undefined;
 }
 
 /** Works out what a participant sees now, and records that it was shown. */
@@ -425,23 +467,19 @@ export async function buildFeed(
   }
 
   /** Scripted votes so far and this person's own, on top of what the study wrote. */
-  const scoreOf = (row: ContentRow) => {
+  const votesOf = (row: ContentRow) => {
     const vote = state.viewerVotes.get(row.id);
-    return (
-      row.baseUps -
-      row.baseDowns +
-      (scriptedCounts.get(`up:${row.id}`) ?? 0) -
-      (scriptedCounts.get(`down:${row.id}`) ?? 0) +
-      (vote === "up" ? 1 : 0) -
-      (vote === "down" ? 1 : 0)
-    );
+    const ups = row.baseUps + (scriptedCounts.get(`up:${row.id}`) ?? 0) + (vote === "up" ? 1 : 0);
+    const downs =
+      row.baseDowns + (scriptedCounts.get(`down:${row.id}`) ?? 0) + (vote === "down" ? 1 : 0);
+    return { ups, downs, score: ups - downs };
   };
 
   const feed = assembleFeed(
     shownOnThisPlatform(rows.filter(inScope), context.settings, context.conditionKey).map(
       (row) => ({
         ...toCandidate(row, worldStartMs),
-        score: scoreOf(row),
+        ...votesOf(row),
       }),
     ),
     {
@@ -459,6 +497,31 @@ export async function buildFeed(
     },
   );
 
+  const karmaOn = featureOn(context.settings, context.conditionKey, "karma");
+  const elapsedMs = now.getTime() - worldStartMs;
+
+  const shaped = await shapeFeedPosts({
+    loadAuthors: (ids) => loadAuthors(db, ids),
+    mediaPublicUrl,
+    feed,
+    rows,
+    worldStartMs,
+    viewerActorId: context.actorId,
+    likedContentIds: state.likedContentIds,
+    flaggedContentIds: state.flaggedContentIds,
+    scriptedCounts,
+    viewerVotes: state.viewerVotes,
+    spaces: visibleSpaces,
+    commentsHere,
+    karma: karmaOn
+      ? {
+          viewer: await participantKarma(db, context, now),
+          cast: (username, written) =>
+            castKarma(context.settings, context.conditionKey, username, written, elapsedMs),
+        }
+      : undefined,
+  });
+
   await db.insert(schema.feedImpressions).values({
     worldId: context.worldId,
     viewerActorId: context.actorId,
@@ -473,6 +536,7 @@ export async function buildFeed(
     commentSort,
     seed: feed.seed,
     shownAt: now,
+    karmaShown: karmaOn ? karmaShownIn(shaped) : null,
     items: feed.posts.map((post, index) => ({
       contentId: post.id,
       position: index,
@@ -482,21 +546,5 @@ export async function buildFeed(
     })),
   });
 
-  const karmaOn = featureOn(context.settings, context.conditionKey, "karma");
-
-  return shapeFeedPosts({
-    loadAuthors: (ids) => loadAuthors(db, ids),
-    mediaPublicUrl,
-    feed,
-    rows,
-    worldStartMs,
-    viewerActorId: context.actorId,
-    likedContentIds: state.likedContentIds,
-    flaggedContentIds: state.flaggedContentIds,
-    scriptedCounts,
-    viewerVotes: state.viewerVotes,
-    spaces: visibleSpaces,
-    commentsHere,
-    karma: karmaOn ? { viewer: await participantKarma(db, context, now) } : undefined,
-  });
+  return shaped;
 }

@@ -1,8 +1,15 @@
-import { featureOn, type StudySettings, studySettingsSchema } from "@truman3/core";
+import {
+  featureOn,
+  type StudySettings,
+  scriptedKarmaChange,
+  startingKarmaFor,
+  studySettingsSchema,
+} from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { assembleFeed, feedSettingsFor } from "@truman3/feed";
 import { and, eq, isNull } from "drizzle-orm";
 import {
+  castKarma,
   type FeedActor,
   type FeedContent,
   loadAuthors,
@@ -99,7 +106,15 @@ export async function previewContent(
     scriptedCounts: new Map(),
     viewerVotes: new Map(),
     spaces: visible,
-    karma: featureOn(version.settings, conditionKey, "karma") ? { viewer: 0 } : undefined,
+    karma: featureOn(version.settings, conditionKey, "karma")
+      ? {
+          viewer:
+            startingKarmaFor(version.settings, conditionKey) +
+            scriptedKarmaChange(version.settings, conditionKey, null, elapsedMs),
+          cast: (username, written) =>
+            castKarma(version.settings, conditionKey, username, written, elapsedMs),
+        }
+      : undefined,
   });
 
   const targeting: Record<string, string[]> = {};

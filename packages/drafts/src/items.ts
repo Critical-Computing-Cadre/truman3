@@ -29,6 +29,7 @@ export const itemDataSchemas = {
     banner: z.string().optional(),
     accent: z.string().regex(ACCENT_PATTERN).optional(),
     startsJoined: z.boolean().default(true),
+    members: z.number().int().nonnegative().optional(),
     ...targeting,
   }),
   post: z.strictObject({

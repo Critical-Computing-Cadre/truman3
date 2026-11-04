@@ -169,6 +169,13 @@
       "when": 1793762457803,
       "tag": "0023_forum",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793764652933,
+      "tag": "0024_forum_part_two",
+      "breakpoints": true
     }
   ]
 }

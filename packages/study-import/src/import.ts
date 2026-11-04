@@ -327,6 +327,7 @@ export async function freezeStudy(
             banner: space.banner && mediaKeys.get(path.join(MEDIA_FOLDERS.spaces, space.banner)),
             accent: space.accent,
             startsJoined: space.startsJoined,
+            baseMembers: space.members,
             conditions: space.conditions,
             class: space.class,
             position,

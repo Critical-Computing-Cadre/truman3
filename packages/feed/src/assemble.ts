@@ -152,7 +152,7 @@ export function assembleFeed(
   const ranker = RANKERS[settings.ranker];
   const ranked = ranker.rank(
     posts.filter(({ id }) => !pinnedIds.has(id)),
-    { seed, viewedPostIds: viewer.viewedContentIds },
+    { seed, viewedPostIds: viewer.viewedContentIds, nowMs },
   );
 
   const commentOrder = COMMENT_ORDERS[settings.commentOrder ?? "scripted"];

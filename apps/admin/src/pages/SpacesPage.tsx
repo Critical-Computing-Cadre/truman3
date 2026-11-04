@@ -179,6 +179,29 @@ function Space({
       >
         Participants start out in it, so its posts are in their home feed
       </SavedCheckbox>
+      <label className="flex items-center gap-2 text-sm">
+        Members
+        <input
+          key={space.members ?? ""}
+          type="number"
+          min="0"
+          step="1"
+          aria-label={`Members of ${space.name}`}
+          disabled={!canEdit}
+          defaultValue={space.members ?? ""}
+          onBlur={(event) => {
+            const text = event.target.value.trim();
+            const members = text === "" ? null : Math.max(0, Math.trunc(Number(text)));
+            if (members !== space.members) {
+              save({ members });
+            }
+          }}
+          className="w-28 rounded border border-stone-300 px-2 py-1"
+        />
+        <span className="text-xs text-stone-500">
+          Blank shows no number. A participant adds one while they're in it.
+        </span>
+      </label>
       {conditions.length > 1 && (
         <fieldset className="flex flex-wrap items-center gap-3 text-sm">
           <legend className="sr-only">Who sees it</legend>

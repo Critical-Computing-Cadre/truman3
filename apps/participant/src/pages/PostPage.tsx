@@ -1,12 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import type { FeedResponse } from "@truman3/core";
+import {
+  type CommentSort as ChosenSort,
+  COMMENT_SORTS,
+  type FeedResponse,
+  SORT_LABELS,
+} from "@truman3/core";
+import { PostFrame } from "@truman3/ui";
 import { useEffect, useRef } from "react";
 import { flowQuery, get, post } from "../api.ts";
+import { CommunityCard } from "../components/Community.tsx";
 import { PostCard } from "../components/PostCard.tsx";
 import { takeOpenedFrom } from "../tracking.ts";
 
-type CommentSort = "top" | "new" | null;
+type CommentSort = ChosenSort | null;
 
 /** Lets someone choose the order of comments, on a study that allows it. Each choice is recorded. */
 function CommentSortPicker({ sort }: { sort: CommentSort }) {
@@ -30,8 +37,11 @@ function CommentSortPicker({ sort }: { sort: CommentSort }) {
           className="rounded border border-stone-300 bg-white px-2 py-1"
         >
           <option value="">Default</option>
-          <option value="top">Top</option>
-          <option value="new">New</option>
+          {COMMENT_SORTS.map((order) => (
+            <option key={order} value={order}>
+              {SORT_LABELS[order]}
+            </option>
+          ))}
         </select>
       </label>
       {change.error && (
@@ -63,16 +73,31 @@ export function PostPage() {
   }, [postId]);
 
   const shown = feed.data?.posts[0];
+
+  // A notification can point at one comment, which isn't on the page until the post has loaded.
+  const pointedAt = useRef<string | null>(null);
+  const loaded = shown !== undefined;
+  useEffect(() => {
+    const { hash } = window.location;
+    if (!loaded || !hash.startsWith("#comment-") || pointedAt.current === hash) {
+      return;
+    }
+    pointedAt.current = hash;
+    const comment = document.getElementById(hash.slice(1));
+    comment?.scrollIntoView({ block: "center" });
+    comment?.classList.add("rounded", "ring-2", "ring-amber-400", "ring-offset-2");
+  }, [loaded]);
   if (feed.error) {
     return <p className="p-6 text-center text-stone-500">This post isn't available.</p>;
   }
   return (
-    <div className="mx-auto max-w-2xl space-y-3 sm:space-y-4">
+    <PostFrame side={shown?.space ? <CommunityCard spaceKey={shown.space.key} /> : undefined}>
       <Link to="/" className="block px-3 pt-3 text-sm text-stone-600 underline sm:px-0 sm:pt-0">
         Back to the feed
       </Link>
-      <CommentSortPicker sort={feed.data?.commentSort ?? null} />
+      {/* Not before it's loaded, or a choice made meanwhile wouldn't show until the next reload. */}
+      {feed.data && <CommentSortPicker sort={feed.data.commentSort ?? null} />}
       {shown && <PostCard post={shown} surface="post" />}
-    </div>
+    </PostFrame>
   );
 }

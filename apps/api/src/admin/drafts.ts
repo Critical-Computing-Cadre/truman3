@@ -259,6 +259,7 @@ const fieldsSchema = z.strictObject({
   description: z.string().max(2000).nullable().optional(),
   rules: z.string().max(5000).nullable().optional(),
   startsJoined: z.boolean().optional(),
+  members: z.number().int().nonnegative().nullable().optional(),
   banner: z.string().regex(STORED_IMAGE).nullable().optional(),
   accent: z.string().regex(ACCENT_PATTERN).nullable().optional(),
   /** Part of a space's address. */
@@ -598,6 +599,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               description: data.description ?? "",
               rules: data.rules ?? "",
               startsJoined: data.startsJoined,
+              members: data.members ?? null,
               pictureUrl: data.picture ? mediaUrl(data.picture, mediaPublicUrl) : null,
               bannerUrl: data.banner ? mediaUrl(data.banner, mediaPublicUrl) : null,
               accent: data.accent ?? null,

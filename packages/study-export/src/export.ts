@@ -238,6 +238,7 @@ export async function exportStudy(
           "class",
           "banner",
           "accent",
+          "members",
         ],
         spaces.map((space) => ({
           study_version: versionNumber.get(space.studyVersionId),
@@ -248,6 +249,7 @@ export async function exportStudy(
           picture: safeText(space.picture),
           banner: safeText(space.banner),
           accent: safeText(space.accent),
+          members: space.baseMembers ?? "",
           starts_joined: String(space.startsJoined),
           conditions: space.conditions.join("|"),
           class: safeText(space.class),
@@ -432,6 +434,7 @@ export async function exportStudy(
         "seed",
         "fallback_used",
         "shown_at",
+        "karma_shown",
         "position",
         "content_id",
         "content_ref",
@@ -461,6 +464,7 @@ export async function exportStudy(
           seed: impression.seed ?? "",
           fallback_used: impression.fallbackUsed,
           shown_at: iso(impression.shownAt),
+          karma_shown: impression.karmaShown ? JSON.stringify(impression.karmaShown) : "",
           position: item.position,
           content_id: item.contentId,
           content_ref: contentById.get(item.contentId)?.sourceRef ?? "",
@@ -614,9 +618,16 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ["impression_id", "One showing of a feed or profile. It has one row per post"],
     ["surface", "Where it was shown: feed (the home feed), space, post (its own page), or profile"],
     ["space", "On a space's page, which space"],
-    ["sort", "An order the participant chose, new or top. Empty means the study's own order"],
-    ["ranker, ranker_version", "What ordered it"],
-    ["comment_order, comment_order_version", "What ordered its comments"],
+    ["sort", "An order the participant chose. Empty means the study's own order"],
+    ["ranker, ranker_version", "What ordered it. See how orders are worked out, below"],
+    [
+      "comment_order, comment_order_version",
+      "What ordered its comments. See how orders are worked out, below",
+    ],
+    [
+      "karma_shown",
+      "On a platform with karma, the number shown for each author, as JSON, by username. The participant is viewer",
+    ],
     ["comment_sort", "An order for comments the participant chose. Empty means the study's own"],
     ["seed", "The random seed used, so a shuffled order can be reproduced"],
     ["position", "Its place in the list, from 0. Being listed doesn't mean it was looked at"],
@@ -631,6 +642,10 @@ const FILE_DOCS: Record<string, [string, string][]> = {
       "How content.csv and impressions.csv refer to it. Only present if a version has spaces",
     ],
     ["starts_joined", "Whether a participant starts out in it"],
+    [
+      "members",
+      "The member count the study wrote. A participant saw this, plus one while they were in it. Empty means no count was shown",
+    ],
     ["conditions", "Conditions that see it, separated by |. Empty means all"],
   ],
   "content.csv": [
@@ -650,6 +665,31 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ["conditions", "Conditions it applies to, separated by |. Empty means all"],
   ],
 };
+
+/** What each order does, word for word what the code does. Changing one means a new version. */
+const ORDER_NOTES: [string, string][] = [
+  ["chronological, new", "Newest first."],
+  ["shuffle", "A random order from the seed, with unseen posts first."],
+  [
+    "scripted",
+    "For posts, the order in the study definition, after anything written during the study. For comments, the time each was written for, oldest first.",
+  ],
+  ["old", "Comments only. Oldest first."],
+  ["top", "Highest score first, where score is up votes minus down votes."],
+  ["hot", "Posts only. Highest score / (age in hours + 2)^1.5."],
+  [
+    "rising",
+    "Posts only. Anything from the last 24 hours comes first, then the rest. Within each, highest score / (age in hours + 1).",
+  ],
+  [
+    "best",
+    "Highest lower bound of the Wilson score interval, at 95% (z = 1.96), on the share of up votes. Nothing with no votes scores above 0.",
+  ],
+  [
+    "controversial",
+    "Highest (up votes + down votes) x (the smaller of the two / the larger). Anything with only up or only down votes scores 0.",
+  ],
+];
 
 /** What an event means, where its name doesn't say enough. */
 const EVENT_NOTES: Record<string, string> = {
@@ -735,6 +775,16 @@ function buildCodebook(input: {
     );
   }
 
+  lines.push(
+    "## How orders are worked out",
+    "",
+    "`ranker` and `comment_order` in impressions.csv name one of these, with a version. Those with votes use what the study wrote, plus scripted votes so far, plus this person's own. Ties go to the newer. **These are Truman's own, inspired by forums. They aren't any real platform's formulas, and shouldn't be reported as if they were.**",
+    "",
+    ...ORDER_NOTES.map(([name, meaning]) => `- \`${name}\`: ${meaning}`),
+    "",
+    "Scores for these orders are in `score` in the `items` of each showing, where a ranker records one.",
+    "",
+  );
   lines.push("## Files", "");
   for (const [file, columns] of Object.entries(FILE_DOCS)) {
     lines.push(`### ${file}`, "", "| Column | Meaning |", "|---|---|");

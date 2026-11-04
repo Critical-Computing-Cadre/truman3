@@ -31,6 +31,7 @@ export {
   type PlatformView,
   platformFor,
   platformStyleFor,
+  scriptedKarmaChange,
   startingKarmaFor,
 } from "./platform.ts";
 export { formatStudyTime, parseStudyTime } from "./time.ts";

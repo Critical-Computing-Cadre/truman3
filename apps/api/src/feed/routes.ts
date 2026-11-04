@@ -1,8 +1,11 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import {
+  COMMENT_SORTS,
+  type CommentSort,
   canJoinSpacesFor,
   canSortCommentsFor,
   canSortFor,
+  FEED_SORTS,
   featureOn,
   feedResponseSchema,
   spaceViewSchema,
@@ -20,7 +23,7 @@ const errorResponse = (description: string) => ({
   content: { "application/json": { schema: z.object({ error: z.string() }) } },
 });
 
-const sortSchema = z.enum(["new", "top"]);
+const sortSchema = z.enum(FEED_SORTS);
 
 const feedRoute = createRoute({
   method: "get",
@@ -127,7 +130,7 @@ const commentSortRoute = createRoute({
         "application/json": {
           schema: actionMetaSchema.extend({
             /** Null goes back to the study's own order. */
-            sort: z.enum(["top", "new"]).nullable(),
+            sort: z.enum(COMMENT_SORTS).nullable(),
           }),
         },
       },
@@ -160,7 +163,7 @@ async function chosenCommentSort(db: Database, context: ParticipantContext) {
     )
     .orderBy(desc(schema.events.id))
     .limit(1);
-  return (latest?.payload as { sort: "top" | "new" | null } | undefined)?.sort ?? null;
+  return (latest?.payload as { sort: CommentSort | null } | undefined)?.sort ?? null;
 }
 
 /**
@@ -258,7 +261,7 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
     return c.json(
       {
         spaces: spaces.map(
-          ({ key, name, description, rules, picture, banner, accent, joined }) => ({
+          ({ key, name, description, rules, picture, banner, accent, joined, baseMembers }) => ({
             key,
             name,
             description,
@@ -266,6 +269,8 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
             pictureUrl: picture ? mediaUrl(picture, mediaPublicUrl) : null,
             bannerUrl: banner ? mediaUrl(banner, mediaPublicUrl) : null,
             accent,
+            // Only this person is in their world, so they're the only one who can add to it.
+            memberCount: baseMembers === null ? null : baseMembers + (joined ? 1 : 0),
             joined,
           }),
         ),

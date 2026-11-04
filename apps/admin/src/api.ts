@@ -145,6 +145,7 @@ export interface DraftInfo {
     description: string;
     rules: string;
     startsJoined: boolean;
+    members: number | null;
     pictureUrl: string | null;
     bannerUrl: string | null;
     accent: string | null;

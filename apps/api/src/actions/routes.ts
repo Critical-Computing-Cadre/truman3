@@ -14,6 +14,7 @@ import { type Database, recordEvent, schema, type Transaction } from "@truman3/d
 import { and, count, eq, inArray, isNull, or } from "drizzle-orm";
 import {
   buildFeed,
+  castKarma,
   contentTimeMs,
   loadSpacesFor,
   mediaUrl,
@@ -232,6 +233,10 @@ const notificationsRoute = createRoute({
                   }),
                 ),
                 targetKind: z.enum(["post", "comment"]),
+                /** The post this is about, for a link to its own page. */
+                postId: z.string(),
+                /** The comment to go to there, if it's about one. */
+                commentId: z.string().nullable(),
                 targetBody: z.string(),
                 targetImageUrl: z.string().nullable(),
                 replyBody: z.string().nullable(),
@@ -863,7 +868,13 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           karma:
             actor.id === context.actorId
               ? await participantKarma(db, context)
-              : (profile.karma ?? 0),
+              : castKarma(
+                  context.settings,
+                  context.conditionKey,
+                  actor.username,
+                  profile.karma,
+                  Date.now() - context.worldStartedAt.getTime(),
+                ),
         };
     return c.json(
       {

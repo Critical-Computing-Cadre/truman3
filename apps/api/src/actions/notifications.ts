@@ -142,6 +142,8 @@ export interface NotificationItem {
   /** Whether this reacts to their post or their comment. */
   targetKind: "post" | "comment";
   targetBody: string;
+  postId: string;
+  commentId: string | null;
   targetImageUrl: string | null;
   replyBody: string | null;
   at: string;
@@ -196,6 +198,30 @@ export async function listNotifications(
 
   const actorById = new Map(actorRows.map((actor) => [actor.id, actor]));
   const contentById = new Map(contentRows.map((item) => [item.id, item]));
+
+  // What's above a comment isn't always loaded yet, and a link needs the post at the top.
+  let missing = contentRows.flatMap(({ parentId }) =>
+    parentId && !contentById.has(parentId) ? [parentId] : [],
+  );
+  while (missing.length > 0) {
+    const parents = await db
+      .select()
+      .from(schema.content)
+      .where(inArray(schema.content.id, [...new Set(missing)]));
+    for (const parent of parents) {
+      contentById.set(parent.id, parent);
+    }
+    missing = parents.flatMap(({ parentId }) =>
+      parentId && !contentById.has(parentId) ? [parentId] : [],
+    );
+  }
+  const postOf = (contentId: string) => {
+    let current = contentById.get(contentId);
+    while (current?.parentId && contentById.has(current.parentId)) {
+      current = contentById.get(current.parentId);
+    }
+    return current?.id ?? contentId;
+  };
   const toActor = (actorId: string) => {
     const actor = actorById.get(actorId);
     const profile = (actor?.profile ?? {}) as ActorProfile;
@@ -228,6 +254,8 @@ export async function listNotifications(
       type: row.type as NotificationItem["type"],
       actors: [toActor(row.actorId)],
       targetKind: target?.kind === "comment" ? "comment" : "post",
+      postId: postOf(row.targetContentId),
+      commentId: row.replyContentId ?? (target?.kind === "comment" ? target.id : null),
       targetBody: target?.body ?? "",
       targetImageUrl: target?.attachments[0]
         ? mediaUrl(target.attachments[0].key, mediaPublicUrl)

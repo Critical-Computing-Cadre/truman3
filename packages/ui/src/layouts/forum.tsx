@@ -45,6 +45,7 @@ function ForumComment({
 
   return (
     <li
+      id={`comment-${comment.id}`}
       style={replyIndent(comment.depth)}
       className={comment.depth > 0 ? "border-l-2 border-stone-200 pl-3" : ""}
     >

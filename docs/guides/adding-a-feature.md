@@ -17,6 +17,8 @@ Then add tests:
 - A component test that it disappears when off (`packages/ui/src/FeedPostView.test.tsx`).
 - A server test that its route refuses when off (`apps/api/src/features.itest.ts`).
 
+A layout is also the page around posts: its header and what goes beside a feed, a space, and a post, in `packages/ui/src/layouts/*-page.tsx`. Pages hand over the pieces, and each layout decides where they go.
+
 ## Rules
 
 - **A layout only arranges.** If a layout has an `if` about what a feature does, that belongs in the feature.
