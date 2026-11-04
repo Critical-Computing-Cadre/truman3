@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ACCENT_PATTERN } from "../color.ts";
 import { FEATURE_KEYS } from "../features/catalog.ts";
 import { LAYOUT_KEYS, TEMPLATE_KEYS } from "../features/templates.ts";
 
@@ -7,6 +8,12 @@ const keySchema = z
   .regex(/^[a-z0-9][a-z0-9_-]*$/, "Use lowercase letters, numbers, dashes, and underscores");
 
 const rankerSchema = z.enum(["chronological", "shuffle", "scripted", "new", "top"]);
+
+/** How comments on a post are ordered. Replies stay under what they reply to in every one. */
+const commentOrderSchema = z.enum(["scripted", "top", "new"]);
+
+/** The longest a post's title can be. */
+export const MAX_TITLE_LENGTH = 300;
 
 const feedSettingsSchema = z.strictObject({
   ranker: rankerSchema.default("chronological"),
@@ -22,6 +29,10 @@ const feedSettingsSchema = z.strictObject({
   spaceRanker: rankerSchema.optional(),
   /** Whether participants can choose new or top themselves. Leave out for no. */
   participantsCanSort: z.boolean().optional(),
+  /** The order of comments on a post. Leave out for the template's, or else the scripted order. */
+  commentOrder: commentOrderSchema.optional(),
+  /** Whether participants can choose top or new for comments themselves. Leave out for no. */
+  participantsCanSortComments: z.boolean().optional(),
 });
 
 /** What a condition can change. No defaults here, or leaving something out would reset it. */
@@ -34,6 +45,8 @@ const feedOverridesSchema = z.strictObject({
   removeBlocked: z.boolean().optional(),
   spaceRanker: rankerSchema.optional(),
   participantsCanSort: z.boolean().optional(),
+  commentOrder: commentOrderSchema.optional(),
+  participantsCanSortComments: z.boolean().optional(),
 });
 
 /**
@@ -64,6 +77,7 @@ const armSchema = z.strictObject({
       commentBox: commentBoxSchema.optional(),
       features: featureChangesSchema.optional(),
       canJoinSpaces: z.boolean().optional(),
+      startingKarma: z.number().int().optional(),
     })
     .optional(),
 });
@@ -129,6 +143,8 @@ export const studySettingsSchema = z.strictObject({
       features: featureChangesSchema.optional(),
       /** Whether participants can join and leave spaces. Leave out for yes. */
       canJoinSpaces: z.boolean().optional(),
+      /** A participant's karma before any votes on what they post. Leave out for zero. */
+      startingKarma: z.number().int().optional(),
     })
     .prefault({ style: "mixed" }),
   feed: feedSettingsSchema.prefault({}),
@@ -177,6 +193,8 @@ export const actorDefinitionSchema = z.object({
   picture: z.string().optional(),
   /** Shows a tag on their name. It doesn't give them any powers. */
   moderator: z.boolean().optional(),
+  /** Their points, on a platform with karma. */
+  karma: z.number().int().optional(),
   ...targetingFields,
 });
 
@@ -189,6 +207,10 @@ export const spaceDefinitionSchema = z.object({
   rules: z.string().optional(),
   /** Its picture, in media/spaces. */
   picture: z.string().optional(),
+  /** A wide image across the top of its page, in media/spaces. */
+  banner: z.string().optional(),
+  /** Its color, as #rrggbb. Any color works, since what goes on it is chosen to be readable. */
+  accent: z.string().regex(ACCENT_PATTERN, "Use a color like #1d4ed8.").optional(),
   /** Whether a participant starts out in it. */
   startsJoined: z.boolean().default(true),
   ...targetingFields,
@@ -196,6 +218,8 @@ export const spaceDefinitionSchema = z.object({
 
 export const postDefinitionSchema = z.object({
   ref: z.string().min(1),
+  /** Its title, on a platform with titles. */
+  title: z.string().min(1).max(MAX_TITLE_LENGTH).optional(),
   body: z.string(),
   /** Its photos, in order. */
   pictures: z.array(z.string().min(1)).default([]),

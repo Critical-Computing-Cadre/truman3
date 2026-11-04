@@ -26,7 +26,7 @@ export const FEATURES = {
     name: "Comments",
     description: "Comments show under posts, and participants can write them.",
     version: 1,
-    events: ["content.created"],
+    events: ["content.created", "comments.sort_changed"],
   },
   threads: {
     name: "Replies to replies",
@@ -34,6 +34,19 @@ export const FEATURES = {
       "Participants can reply to a comment, and replies sit under it. Off, the same comments show in time order.",
     version: 1,
     events: ["content.created"],
+  },
+  postPages: {
+    name: "A page for each post",
+    description:
+      "Comments move from under each post to the post's own page, and opening it is recorded.",
+    version: 1,
+    events: ["content.opened"],
+  },
+  titles: {
+    name: "Titles on posts",
+    description: "Every post has a title, which participants have to write for theirs.",
+    version: 1,
+    events: [],
   },
   galleries: {
     name: "Several photos on a post",
@@ -56,9 +69,16 @@ export const FEATURES = {
   spaces: {
     name: "Spaces",
     description:
-      "Posts can belong to communities, each with its own page. Off, every post shows in the one feed.",
-    version: 1,
+      "Posts can belong to communities, each with its own page and look. Off, every post shows in the one feed.",
+    version: 2,
     events: ["space.joined", "space.left"],
+  },
+  karma: {
+    name: "Karma",
+    description:
+      "People show a points total. The study sets everyone's, and a participant's grows with votes on what they post.",
+    version: 1,
+    events: [],
   },
   flagging: {
     name: "Flagging",

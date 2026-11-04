@@ -9,6 +9,9 @@ import {
   type StudyIssue,
   type StudySettings,
   studySettingsSchema,
+  TEMPLATES,
+  type TemplateDefinition,
+  type TemplateKey,
 } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
@@ -97,6 +100,12 @@ export function packContents(
           spaces: spaces.map((space) => ({
             ...withoutSource(space),
             ...stored(MEDIA_FOLDERS.spaces, space.picture),
+            ...(space.banner
+              ? {
+                  banner:
+                    mediaKeys.get(path.join(MEDIA_FOLDERS.spaces, space.banner)) ?? space.banner,
+                }
+              : {}),
           })),
         }
       : {}),
@@ -214,6 +223,8 @@ export interface StartStudy {
   pack?: { id: string; name: string; contents: PackContents } | undefined;
   /** Whether to bring the pack's conditions and what's limited to them, or only its background. */
   keep?: "everything" | "background" | undefined;
+  /** Which kind of platform. It can't change once a study starts. Leave out for the pack's. */
+  template?: TemplateKey | undefined;
 }
 
 /**
@@ -222,7 +233,16 @@ export interface StartStudy {
  */
 export async function startStudy(
   db: Database,
-  { teamId, researcherId, slug, title, assignment, pack, keep = "everything" }: StartStudy,
+  {
+    teamId,
+    researcherId,
+    slug,
+    title,
+    assignment,
+    pack,
+    keep = "everything",
+    template,
+  }: StartStudy,
 ): Promise<{ studyId: string; draftId: string } | EditProblem> {
   const contents = pack?.contents;
   const background = keep === "background";
@@ -250,6 +270,15 @@ export async function startStudy(
           platform: contents.settings.platform,
           feed: contents.settings.feed,
           likes: contents.settings.likes,
+        }
+      : {}),
+    ...(template
+      ? {
+          platform: { style: "mixed", ...contents?.settings.platform, template },
+          feed: {
+            ...contents?.settings.feed,
+            ...(TEMPLATES[template] as TemplateDefinition).feed,
+          },
         }
       : {}),
     flow: [

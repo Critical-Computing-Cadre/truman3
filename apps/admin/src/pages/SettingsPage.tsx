@@ -8,6 +8,7 @@ import {
   fillLinkTemplate,
   type StudySettings,
   TEMPLATES,
+  type TemplateDefinition,
 } from "@truman3/core";
 import { type ReactNode, useState } from "react";
 import Markdown from "react-markdown";
@@ -332,6 +333,30 @@ function StudyForm({
           <Hint>Off means everyone keeps the spaces they start in.</Hint>
         </label>
       )}
+      {(value.platform.features?.karma ??
+        TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features.karma) && (
+        <label className={labelClass}>
+          A participant's karma when they start
+          <input
+            type="number"
+            step="1"
+            value={value.platform.startingKarma ?? 0}
+            onChange={(event) =>
+              set({
+                ...value,
+                platform: {
+                  ...value.platform,
+                  startingKarma: Math.trunc(Number(event.target.value)),
+                },
+              })
+            }
+            className={`${input} w-24`}
+          />
+          <Hint>
+            Votes on what they post add to it. Set each person in the cast's on the Cast page.
+          </Hint>
+        </label>
+      )}
       <fieldset className="space-y-1">
         <legend className="text-sm font-medium">What's on this platform?</legend>
         {FEATURE_KEYS.map((key) => (
@@ -494,6 +519,22 @@ function ArmDifferences({ arm, set }: { arm: EditingArm; set: (arm: EditingArm) 
           value={feed.participantsCanSort === undefined ? "" : String(feed.participantsCanSort)}
           options={YES_NO}
           onChange={(value) => change("feed", "participantsCanSort", yesNo(value))}
+        />
+        <SelectField
+          label="Comment order"
+          value={(feed.commentOrder as string) ?? ""}
+          options={COMMENT_ORDERS.map(({ value: order, label }) => ({ value: order, label }))}
+          onChange={(value) => change("feed", "commentOrder", choice(value))}
+        />
+        <SelectField
+          label="People can choose the comment order"
+          value={
+            feed.participantsCanSortComments === undefined
+              ? ""
+              : String(feed.participantsCanSortComments)
+          }
+          options={YES_NO}
+          onChange={(value) => change("feed", "participantsCanSortComments", yesNo(value))}
         />
         <SelectField
           label="People can join and leave spaces"
@@ -747,6 +788,12 @@ function LikeValues({
   );
 }
 
+const COMMENT_ORDERS = [
+  { value: "scripted", label: "As written", hint: "The time each was written for, oldest first." },
+  { value: "top", label: "Top", hint: "Highest score first." },
+  { value: "new", label: "New", hint: "Newest first." },
+] as const;
+
 const FEED_ORDERS = [
   { value: "chronological", label: "Newest first", hint: "Default." },
   {
@@ -767,11 +814,14 @@ function FeedForm({
   value,
   set,
   spacesOn,
+  defaultCommentOrder,
 }: {
   value: DraftSections["feed"];
   set: (value: DraftSections["feed"]) => void;
   /** Whether any condition has spaces, so whether a space's own order means anything. */
   spacesOn: boolean;
+  /** The comment order a study has until it chooses one, from its template. */
+  defaultCommentOrder: "scripted" | "top" | "new";
 }) {
   const { feed, likes, length } = value;
   const setFeed = (changes: Partial<typeof feed>) =>
@@ -808,6 +858,25 @@ function FeedForm({
           }
         />
       )}
+      <Choice
+        legend="What order are comments in?"
+        value={feed.commentOrder ?? defaultCommentOrder}
+        onChange={(commentOrder) => setFeed({ commentOrder })}
+        options={[...COMMENT_ORDERS]}
+      />
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={feed.participantsCanSortComments ?? false}
+          onChange={(event) =>
+            setFeed({ participantsCanSortComments: event.target.checked || undefined } as Partial<
+              typeof feed
+            >)
+          }
+        />
+        Let people pick how comments are sorted{" "}
+        <Hint>Top or New. Off by default, and each change is recorded.</Hint>
+      </label>
       <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
@@ -1314,6 +1383,13 @@ export function SettingsPage() {
           <FeedForm
             value={value}
             set={set}
+            defaultCommentOrder={
+              (
+                TEMPLATES[
+                  data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE
+                ] as TemplateDefinition
+              ).feed?.commentOrder ?? "scripted"
+            }
             spacesOn={[
               data.sections.study.value.platform.features?.spaces ??
                 TEMPLATES[data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE].features

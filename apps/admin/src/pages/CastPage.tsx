@@ -93,10 +93,13 @@ export function CastField({
 function Person({
   actor,
   canEdit,
+  karmaOn,
   edits,
 }: {
   actor: DraftInfo["actors"][number];
   canEdit: boolean;
+  /** Whether anyone in this study sees karma. */
+  karmaOn: boolean;
   edits: DraftEdits;
 }) {
   const file = useRef<HTMLInputElement>(null);
@@ -176,6 +179,21 @@ function Person({
           canEdit={canEdit}
           onSave={(bio) => save({ bio })}
         />
+        {karmaOn && (
+          <CastField
+            label="Karma"
+            value={String(actor.karma)}
+            canEdit={canEdit}
+            onSave={(text) => {
+              const karma = Number(text);
+              if (Number.isInteger(karma)) {
+                save({ karma });
+              } else {
+                setProblem("Karma has to be a whole number.");
+              }
+            }}
+          />
+        )}
         <SavedCheckbox
           className="flex items-center gap-2 text-xs font-medium text-stone-600"
           disabled={!canEdit}
@@ -277,7 +295,13 @@ export function CastPage() {
       )}
       <ul className="space-y-2">
         {actors.map((actor) => (
-          <Person key={actor.id} actor={actor} canEdit={canEdit} edits={edits} />
+          <Person
+            karmaOn={info.data.conditions.some(({ features }) => features.karma)}
+            key={actor.id}
+            actor={actor}
+            canEdit={canEdit}
+            edits={edits}
+          />
         ))}
       </ul>
     </div>

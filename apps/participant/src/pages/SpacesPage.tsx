@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import type { FeedResponse, SpaceView } from "@truman3/core";
+import { type FeedResponse, type SpaceView, textOnAccent } from "@truman3/core";
 import { CreatePostBar } from "@truman3/ui";
 import { useRef } from "react";
 import { flowQuery, get, meQuery, post } from "../api.ts";
@@ -39,10 +39,15 @@ function JoinButton({ space }: { space: SpaceView }) {
       type="button"
       disabled={change.isPending}
       onClick={() => change.mutate()}
+      style={
+        !space.joined && space.accent
+          ? { backgroundColor: space.accent, color: textOnAccent(space.accent) }
+          : undefined
+      }
       className={
         space.joined
-          ? "shrink-0 rounded border border-stone-300 px-3 py-1 text-sm"
-          : "shrink-0 rounded bg-stone-900 px-3 py-1 text-sm text-white"
+          ? "shrink-0 rounded-full border border-stone-300 px-3 py-1 text-sm"
+          : "shrink-0 rounded-full bg-stone-900 px-3 py-1 text-sm text-white"
       }
     >
       {space.joined ? "Leave" : "Join"}
@@ -107,8 +112,23 @@ export function SpacePage() {
   return (
     <div className="mx-auto max-w-xl space-y-3 sm:space-y-4">
       {space && (
-        <section aria-label={space.name} className="bg-white p-3 shadow-sm sm:rounded-lg">
-          <div className="flex items-start gap-3">
+        <section
+          aria-label={space.name}
+          className="overflow-hidden bg-white shadow-sm sm:rounded-lg"
+        >
+          {/* Nothing is written over these, so a banner or color can't make the name hard to read. */}
+          {space.bannerUrl ? (
+            <img src={space.bannerUrl} alt="" className="h-24 w-full object-cover sm:h-32" />
+          ) : (
+            space.accent && (
+              <div
+                data-testid="space-color"
+                className="h-12 w-full"
+                style={{ backgroundColor: space.accent }}
+              />
+            )
+          )}
+          <div className="flex items-start gap-3 p-3">
             <SpacePicture space={space} />
             <div className="min-w-0 flex-1">
               <h1 className="text-lg font-semibold">{space.name}</h1>
@@ -119,7 +139,7 @@ export function SpacePage() {
             <JoinButton space={space} />
           </div>
           {space.rules && (
-            <div className="mt-2 border-t border-stone-200 pt-2 text-sm">
+            <div className="mx-3 mb-3 border-t border-stone-200 pt-2 text-sm">
               <h2 className="font-medium">Rules</h2>
               <p className="break-words whitespace-pre-wrap text-stone-700">{space.rules}</p>
             </div>

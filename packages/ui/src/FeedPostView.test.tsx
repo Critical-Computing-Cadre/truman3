@@ -1,8 +1,10 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { type FeatureKey, type FeedPost, TEMPLATES } from "@truman3/core";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FeedPostView } from "./FeedPostView.tsx";
 import { PlatformProvider } from "./platform.tsx";
+import type { FeedPostViewProps } from "./post-props.ts";
 
 const author = { username: "ann", name: "Ann", pictureUrl: null, isViewer: false };
 
@@ -18,6 +20,7 @@ const POST: FeedPost = {
   downs: 0,
   vote: null,
   flagged: false,
+  commentCount: 0,
   comments: [
     {
       id: "c1",
@@ -80,6 +83,126 @@ describe("FeedPostView", () => {
 
     expect(screen.getByText("note for p1")).toBeTruthy();
     expect(screen.getByText("note for c1")).toBeTruthy();
+  });
+});
+
+describe("the forum layout", () => {
+  afterEach(cleanup);
+
+  const forum = (props: Partial<FeedPostViewProps> = {}, post: Partial<FeedPost> = {}) => (
+    <PlatformProvider platform={{ layout: "forum", features: TEMPLATES.forum.features }}>
+      <FeedPostView
+        post={{
+          ...POST,
+          title: "A title",
+          commentCount: 3,
+          author: { ...author, karma: 1200 },
+          space: { key: "cooking", name: "Cooking" },
+          ...post,
+        }}
+        {...props}
+      />
+    </PlatformProvider>
+  );
+  const link = (_id: string, className: string, children: ReactNode) => (
+    <a href="/post" className={className}>
+      {children}
+    </a>
+  );
+
+  it("shows its title, community, karma, votes, and a link to its comments", () => {
+    render(forum({ renderPostLink: link }, { comments: [] }));
+
+    expect(screen.getByRole("article", { name: "A title" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "A title" })).toBeTruthy();
+    expect(screen.getByTestId("post-space").textContent).toContain("Cooking");
+    expect(screen.getByTestId("karma").textContent).toBe("1,200 karma");
+    expect(screen.getByRole("button", { name: "Vote up" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "3 comments" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Like/ })).toBeNull();
+  });
+
+  it("doesn't cut its text short, or link to itself, on its own page", () => {
+    render(forum({ renderPostLink: link, detail: true }));
+
+    expect(screen.queryByRole("link", { name: "A title" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "3 comments" })).toBeNull();
+    expect(screen.getByText("A post").className).not.toContain("line-clamp");
+    expect(screen.getByText("A comment")).toBeTruthy();
+  });
+
+  it("loses what a study turns off, the same as Classic", () => {
+    render(
+      <PlatformProvider
+        platform={{
+          layout: "forum",
+          features: {
+            ...TEMPLATES.forum.features,
+            votes: false,
+            spaces: false,
+            titles: false,
+            karma: false,
+            flagging: false,
+            postPages: false,
+          },
+        }}
+      >
+        <FeedPostView
+          post={{
+            ...POST,
+            title: "A title",
+            author: { ...author, karma: 5 },
+            space: { key: "cooking", name: "Cooking" },
+          }}
+          renderPostLink={link}
+        />
+      </PlatformProvider>,
+    );
+
+    expect(screen.queryByRole("heading")).toBeNull();
+    expect(screen.queryByTestId("post-space")).toBeNull();
+    expect(screen.queryByTestId("karma")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Vote up" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Flag" })).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
+    // Comments that the server sends still show, since where they go is up to the feature.
+    expect(screen.getByText("A comment")).toBeTruthy();
+  });
+});
+
+describe("Classic with forum features turned on", () => {
+  afterEach(cleanup);
+
+  it("takes titles, karma, and a page for each post, with no changes to its own arrangement", () => {
+    render(
+      <PlatformProvider
+        platform={{
+          layout: "classic",
+          features: { ...TEMPLATES.classic.features, titles: true, karma: true, postPages: true },
+        }}
+      >
+        <FeedPostView
+          post={{ ...POST, title: "A title", commentCount: 1, author: { ...author, karma: 7 } }}
+          renderPostLink={(_id, className, children) => (
+            <a href="/post" className={className}>
+              {children}
+            </a>
+          )}
+        />
+      </PlatformProvider>,
+    );
+
+    expect(screen.getByRole("link", { name: "A title" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "1 comment" })).toBeTruthy();
+    expect(screen.getAllByTestId("karma").length).toBeGreaterThan(0);
+  });
+
+  it("shows none of them on Classic as it is", () => {
+    render(<FeedPostView post={{ ...POST, title: "A title", author: { ...author, karma: 7 } }} />);
+
+    expect(screen.queryByRole("heading")).toBeNull();
+    expect(screen.queryByTestId("karma")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 });
 

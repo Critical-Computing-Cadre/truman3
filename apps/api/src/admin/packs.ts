@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { roleOnStudy } from "@truman3/accounts";
+import { TEMPLATE_KEYS } from "@truman3/core";
 import { schema } from "@truman3/db";
 import {
   type DraftItem,
@@ -77,6 +78,8 @@ const startRoute = createRoute({
       assignment: z.enum(["uniform", "blocked"]),
       packId: z.uuid().nullable(),
       keep: z.enum(["everything", "background"]).optional(),
+      /** Which kind of platform. It can't change later. Leave out for the pack's, or else Classic. */
+      template: z.enum(TEMPLATE_KEYS).optional(),
     }),
   ),
   responses: {
@@ -198,7 +201,7 @@ export function createPackRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
     if (!researcher) {
       return c.json(pleaseSignIn, 401);
     }
-    const { teamId, title, slug, assignment, packId, keep } = c.req.valid("json");
+    const { teamId, title, slug, assignment, packId, keep, template } = c.req.valid("json");
 
     const teams = await teamsFor(researcher.id);
     if (!teams.some(({ id }) => id === teamId)) {
@@ -230,6 +233,7 @@ export function createPackRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
       assignment,
       pack,
       keep,
+      template,
     });
     if ("problem" in result) {
       return c.json({ error: result.message }, 409);

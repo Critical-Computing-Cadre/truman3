@@ -236,6 +236,8 @@ export async function exportStudy(
           "starts_joined",
           "conditions",
           "class",
+          "banner",
+          "accent",
         ],
         spaces.map((space) => ({
           study_version: versionNumber.get(space.studyVersionId),
@@ -244,6 +246,8 @@ export async function exportStudy(
           description: safeText(space.description),
           rules: safeText(space.rules),
           picture: safeText(space.picture),
+          banner: safeText(space.banner),
+          accent: safeText(space.accent),
           starts_joined: String(space.startsJoined),
           conditions: space.conditions.join("|"),
           class: safeText(space.class),
@@ -422,6 +426,9 @@ export async function exportStudy(
         "sort",
         "ranker",
         "ranker_version",
+        "comment_order",
+        "comment_order_version",
+        "comment_sort",
         "seed",
         "fallback_used",
         "shown_at",
@@ -448,6 +455,9 @@ export async function exportStudy(
           sort: impression.sort ?? "",
           ranker: impression.ranker,
           ranker_version: impression.rankerVersion,
+          comment_order: impression.commentOrder ?? "",
+          comment_order_version: impression.commentOrderVersion ?? "",
+          comment_sort: impression.commentSort ?? "",
           seed: impression.seed ?? "",
           fallback_used: impression.fallbackUsed,
           shown_at: iso(impression.shownAt),
@@ -474,6 +484,7 @@ export async function exportStudy(
         "source_ref",
         "parent_id",
         "author",
+        "title",
         "body",
         "space",
         "media",
@@ -495,6 +506,7 @@ export async function exportStudy(
         source_ref: item.sourceRef ?? "",
         parent_id: item.parentId ?? "",
         author: actorLabel(item.authorActorId),
+        title: safeText(item.title),
         body: safeText(item.body),
         space: item.spaceId ? (spaceById.get(item.spaceId)?.key ?? "") : "",
         media: item.attachments.map(({ key }) => key).join("|"),
@@ -600,13 +612,18 @@ const FILE_DOCS: Record<string, [string, string][]> = {
   ],
   "impressions.csv": [
     ["impression_id", "One showing of a feed or profile. It has one row per post"],
-    ["surface", "Where it was shown: feed (the home feed), space, or profile"],
+    ["surface", "Where it was shown: feed (the home feed), space, post (its own page), or profile"],
     ["space", "On a space's page, which space"],
     ["sort", "An order the participant chose, new or top. Empty means the study's own order"],
     ["ranker, ranker_version", "What ordered it"],
+    ["comment_order, comment_order_version", "What ordered its comments"],
+    ["comment_sort", "An order for comments the participant chose. Empty means the study's own"],
     ["seed", "The random seed used, so a shuffled order can be reproduced"],
     ["position", "Its place in the list, from 0. Being listed doesn't mean it was looked at"],
-    ["comment_ids", "Comments shown with it, separated by |"],
+    [
+      "comment_ids",
+      "Comments shown with it, separated by |. Empty in a list that leaves comments for each post's own page",
+    ],
   ],
   "spaces.csv": [
     [
@@ -638,6 +655,10 @@ const FILE_DOCS: Record<string, [string, string][]> = {
 const EVENT_NOTES: Record<string, string> = {
   "space.joined": "They joined a space, so its posts show in their home feed. Names it by key.",
   "space.left": "They left a space, so its posts no longer show in their home feed.",
+  "content.opened":
+    "They opened a post's own page. `from` is the list they came from, or direct if they arrived another way, such as a reload.",
+  "comments.sort_changed":
+    "They chose an order for comments. An empty sort means they went back to the study's own order.",
   "feed.sort_changed":
     "They chose an order for a feed. An empty sort means they went back to the study's own order.",
 };

@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { TEMPLATE_KEYS, TEMPLATES, type TemplateKey } from "@truman3/core";
 import { type FormEvent, useState } from "react";
 import { type ContentPack, get, post } from "../api.ts";
 
@@ -67,6 +68,8 @@ export function NewStudyPage() {
   const [packId, setPackId] = useState<string | null>(null);
   const [keep, setKeep] = useState<"everything" | "background">("everything");
   const [assignment, setAssignment] = useState<"uniform" | "blocked" | null>(null);
+  /** Left alone, a pack keeps the platform it came with, and anything else is Classic. */
+  const [template, setTemplate] = useState<TemplateKey | null>(null);
 
   const slug = typedSlug ?? toLinkName(title);
   const teams = list.data?.teams ?? [];
@@ -82,6 +85,7 @@ export function NewStudyPage() {
         assignment,
         packId,
         ...(pack ? { keep } : {}),
+        ...(template ? { template } : {}),
       }),
     onSuccess: ({ draftId }) => navigate({ to: "/drafts/$draftId", params: { draftId } }),
   });
@@ -150,6 +154,27 @@ export function NewStudyPage() {
             </select>
           </label>
         )}
+
+        <fieldset className="space-y-1">
+          <legend className="text-sm font-medium">What kind of platform is it?</legend>
+          {TEMPLATE_KEYS.map((key) => (
+            <label key={key} className="flex items-baseline gap-2 text-sm">
+              <input
+                type="radio"
+                name="template"
+                checked={(template ?? "classic") === key}
+                onChange={() => setTemplate(key)}
+              />
+              <span>
+                {TEMPLATES[key].name} <span className={hint}>{TEMPLATES[key].description}</span>
+              </span>
+            </label>
+          ))}
+          <p className={hint}>
+            This can't change once the study starts. What's on it can, in Settings.
+            {pack && !template ? " Left alone, a pack keeps the platform it came with." : ""}
+          </p>
+        </fieldset>
 
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">Where do you want to start?</legend>

@@ -219,3 +219,28 @@ flow: [{ step: feed }]
     expect(issues.map(({ message }) => message).join(" ")).toMatch(/has to be yes or no/);
   });
 });
+
+describe("forum columns", () => {
+  const files = {
+    "study.yaml": YAML,
+    "actors.csv": "username,name,karma\nann,Ann,1200\nben,Ben,-3\nkim,Kim,\n",
+    "spaces.csv": "key,name,accent\nx,X,#1d4ed8\n",
+    "posts.csv": "id,title,body,actor,space,time\n1,A title,text,ann,x,-1:00\n2,,more,ben,,-1:00\n",
+  };
+
+  it("reads titles, karma, and a community's color", () => {
+    const { definition } = loadStudyFolder(folder(files));
+    expect(definition?.posts[0]?.title).toBe("A title");
+    expect(definition?.posts[1]).not.toHaveProperty("title");
+    expect(definition?.actors.map(({ karma }) => karma)).toEqual([1200, -3, undefined]);
+    expect(definition?.spaces[0]?.accent).toBe("#1d4ed8");
+  });
+
+  it("says so when karma isn't a number", () => {
+    const { issues } = loadStudyFolder(
+      folder({ ...files, "actors.csv": "username,name,karma\nann,Ann,lots\nben,Ben,\n" }),
+    );
+    expect(hasErrors(issues)).toBe(true);
+    expect(issues.map(({ message }) => message).join()).toContain('"lots" in karma');
+  });
+});

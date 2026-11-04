@@ -63,6 +63,7 @@ export interface FlowState {
   features: FeatureSet;
   canJoinSpaces: boolean;
   canSort: boolean;
+  canSortComments: boolean;
   site: { name: string; logoUrl: string | null; faviconUrl: string | null };
 }
 

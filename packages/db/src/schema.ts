@@ -176,6 +176,10 @@ export const spaces = pgTable(
     description: text(),
     rules: text(),
     picture: text(),
+    /** A wide image across the top of its page. */
+    banner: text(),
+    /** Its color, as #rrggbb. */
+    accent: text(),
     startsJoined: boolean("starts_joined").notNull().default(true),
     conditions: text().array().notNull().default(sql`'{}'`),
     class: text(),
@@ -314,6 +318,8 @@ export const content = pgTable(
       .notNull()
       .references(() => actors.id),
     kind: text().notNull(),
+    /** A post's title, on a platform with titles. */
+    title: text(),
     body: text().notNull().default(""),
     /** Its files, in order. Each has a type and a stored key or hosted URL. */
     attachments: jsonb().$type<Attachment[]>().notNull().default([]),
@@ -514,6 +520,11 @@ export const feedImpressions = pgTable(
     sort: text(),
     ranker: text().notNull(),
     rankerVersion: text("ranker_version").notNull(),
+    /** What ordered the comments, and which version. */
+    commentOrder: text("comment_order"),
+    commentOrderVersion: text("comment_order_version"),
+    /** The comment order this person chose, where a study allows that. Null is the study's own. */
+    commentSort: text("comment_sort"),
     /** The seed used for this order, so it can be reproduced. */
     seed: bigint({ mode: "number" }),
     items: jsonb().notNull(),

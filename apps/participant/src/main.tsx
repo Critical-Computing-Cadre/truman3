@@ -16,6 +16,7 @@ import { FlowGate } from "./pages/FlowGate.tsx";
 import { JoinPage } from "./pages/JoinPage.tsx";
 import { NotificationsPage } from "./pages/NotificationsPage.tsx";
 import { PilotPage } from "./pages/PilotPage.tsx";
+import { PostPage } from "./pages/PostPage.tsx";
 import { ProfilePage } from "./pages/ProfilePage.tsx";
 import { SpacePage, SpacesPage } from "./pages/SpacesPage.tsx";
 import { track } from "./tracking.ts";
@@ -71,6 +72,12 @@ const spaceRoute = createRoute({
   component: SpacePage,
 });
 
+const postRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/p/$postId",
+  component: PostPage,
+});
+
 const notificationsRoute = createRoute({
   getParentRoute: () => gateRoute,
   path: "/notifications",
@@ -97,6 +104,7 @@ const router = createRouter({
       feedRoute,
       spacesRoute,
       spaceRoute,
+      postRoute,
       notificationsRoute,
       profileRoute,
       editProfileRoute,

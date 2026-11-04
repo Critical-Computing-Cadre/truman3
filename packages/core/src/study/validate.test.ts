@@ -465,3 +465,35 @@ describe("spaces", () => {
     expect(messages(study({ settings: settings() })).join(" ")).not.toMatch(/[Ss]paces/);
   });
 });
+
+describe("forum features", () => {
+  const forum = { platform: { style: "mixed", template: "forum" } };
+
+  it("warns about posts with no title when titles are on", () => {
+    expect(messages(study({ settings: settings(forum) }))).toContainEqual(
+      expect.stringContaining('Titles are on in "a", but 1 posts'),
+    );
+    const titled = [{ ref: "1", title: "Yes", body: "", actor: "ann", timeMs: 0 }];
+    expect(messages(study({ settings: settings(forum), posts: titled })).join()).not.toContain(
+      "Titles",
+    );
+  });
+
+  it("warns about what's written for what's off", () => {
+    const written = messages(
+      study({
+        actors: [{ username: "ann", name: "Ann", karma: 5 }],
+        posts: [{ ref: "1", title: "Yes", body: "hi", actor: "ann", timeMs: 0 }],
+      }),
+    );
+    expect(written).toContainEqual(expect.stringContaining('Titles are off in "a"'));
+    expect(written).toContainEqual(expect.stringContaining('Karma is off in "a"'));
+  });
+
+  it("takes only a real color for a community", () => {
+    const colored = (accent: string) =>
+      study({ spaces: [{ key: "x", name: "X", accent }] }).spaces[0]?.accent;
+    expect(colored("#1d4ed8")).toBe("#1d4ed8");
+    expect(() => colored("red;background:url(x)")).toThrow();
+  });
+});

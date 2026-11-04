@@ -402,3 +402,37 @@ describe("the new and top orders", () => {
     expect(order.map(({ id }) => id)).toEqual(["recent", "old"]);
   });
 });
+
+describe("the order of comments", () => {
+  const thread = [
+    post("p", 10),
+    comment("old", "p", 9, { score: 1 }),
+    comment("reply", "old", 3, { score: 100 }),
+    comment("mid", "p", 5, { score: 8 }),
+    comment("late", "p", 2, { score: 4 }),
+  ];
+  const order = (commentOrder?: "scripted" | "top" | "new") =>
+    assembleFeed(
+      thread,
+      viewer(),
+      {
+        ...settings(),
+        ...(commentOrder ? { commentOrder } : {}),
+      },
+      { nowMs: NOW, seed: 1, threaded: true },
+    );
+
+  it("goes by the time written unless the study sets one, and says which it used", () => {
+    expect(order().posts[0]?.commentIds).toEqual(["old", "reply", "mid", "late"]);
+    expect(order()).toMatchObject({ commentOrder: "scripted", commentOrderVersion: "1" });
+  });
+
+  it("puts the highest score first, and replies stay under what they reply to", () => {
+    expect(order("top").posts[0]?.commentIds).toEqual(["mid", "late", "old", "reply"]);
+    expect(order("top").posts[0]?.commentDepths).toMatchObject({ old: 0, reply: 1 });
+  });
+
+  it("puts the newest first, and replies stay under what they reply to", () => {
+    expect(order("new").posts[0]?.commentIds).toEqual(["late", "mid", "old", "reply"]);
+  });
+});

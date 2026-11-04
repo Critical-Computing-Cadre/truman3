@@ -19,15 +19,34 @@ import { type CsvRow, type CsvSpec, parseCsv } from "./csv.ts";
 
 const ACTORS: CsvSpec = {
   required: ["username", "name"],
-  optional: ["gender", "age", "location", "bio", "picture", "moderator", "condition", "class"],
+  optional: [
+    "gender",
+    "age",
+    "location",
+    "bio",
+    "picture",
+    "moderator",
+    "karma",
+    "condition",
+    "class",
+  ],
 };
 const POSTS: CsvSpec = {
   required: ["id", "actor", "time"],
-  optional: ["body", "picture", "space", "likes", "ups", "downs", "condition", "class"],
+  optional: ["title", "body", "picture", "space", "likes", "ups", "downs", "condition", "class"],
 };
 const SPACES: CsvSpec = {
   required: ["key", "name"],
-  optional: ["description", "rules", "picture", "startsJoined", "condition", "class"],
+  optional: [
+    "description",
+    "rules",
+    "picture",
+    "banner",
+    "accent",
+    "startsJoined",
+    "condition",
+    "class",
+  ],
 };
 const COMMENTS: CsvSpec = {
   required: ["id", "body", "actor", "postID", "time"],
@@ -126,6 +145,18 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     return Number(value);
   };
 
+  // Someone's karma can go below zero, as it can on a real forum.
+  const signedNumber = (value: string | undefined, column: string, file: string, row: number) => {
+    if (!value) {
+      return undefined;
+    }
+    if (!/^-?\d+$/.test(value)) {
+      rowError(file, row, `"${value}" in ${column} isn't a whole number.`);
+      return undefined;
+    }
+    return Number(value);
+  };
+
   const targeting = (cells: Record<string, string>, file: string, row: number) => ({
     conditions: (cells.condition ?? "")
       .split("|")
@@ -165,6 +196,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       ...optional("bio", cells.bio),
       ...optional("picture", cells.picture),
       ...(yesOrNo(cells.moderator, "moderator", "actors.csv", row) ? { moderator: true } : {}),
+      ...optional("karma", signedNumber(cells.karma, "karma", "actors.csv", row)),
       ...targeting(cells, "actors.csv", row),
     };
   });
@@ -179,12 +211,15 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       ...optional("description", cells.description),
       ...optional("rules", cells.rules),
       ...optional("picture", cells.picture),
+      ...optional("banner", cells.banner),
+      ...optional("accent", cells.accent),
       ...targeting(cells, "spaces.csv", row),
     };
   });
 
   const posts: PostDefinition[] = readTable("posts.csv", POSTS, true).map(({ row, cells }) => ({
     ref: cells.id || `(row ${row})`,
+    ...optional("title", cells.title),
     body: cells.body ?? "",
     actor: cells.actor || `(row ${row})`,
     timeMs: time(cells.time, "time", "posts.csv", row),
@@ -275,6 +310,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     }
     for (const space of spaces) {
       checkMedia(MEDIA_FOLDERS.spaces, space.picture, space.source);
+      checkMedia(MEDIA_FOLDERS.spaces, space.banner, space.source);
     }
     for (const post of posts) {
       for (const picture of post.pictures) {

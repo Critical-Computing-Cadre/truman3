@@ -9,8 +9,11 @@ import {
   PostFlagButton,
 } from "../features/flagging.tsx";
 import { PostPhotos } from "../features/galleries.tsx";
+import { KarmaBadge } from "../features/karma.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
+import { CommentsLink } from "../features/post-pages.tsx";
 import { ModeratorTag, SpaceLine } from "../features/spaces.tsx";
+import { PostTitle } from "../features/titles.tsx";
 import { VoteButtons } from "../features/votes.tsx";
 import { useFeature } from "../platform.tsx";
 import type { FeedPostViewProps } from "../post-props.ts";
@@ -48,12 +51,14 @@ function Comment({
           <div className="text-sm">
             {author("font-semibold", comment.author.name)}
             <ModeratorTag author={comment.author} />
+            <KarmaBadge author={comment.author} />
             {renderBody(comment.id, comment.body)}
           </div>
         ) : (
           <p className="text-sm break-words whitespace-pre-wrap">
             {author("mr-1 font-semibold", comment.author.name)}
-            <ModeratorTag author={comment.author} /> {comment.body}
+            <ModeratorTag author={comment.author} />
+            <KarmaBadge author={comment.author} /> {comment.body}
           </p>
         )}
         <p className="mt-0.5 flex gap-3 text-xs text-stone-500">
@@ -83,6 +88,9 @@ export function ClassicPost({
   renderBody,
   wrapImage,
   renderSpace,
+  renderTitle,
+  renderPostLink,
+  detail = false,
 }: FeedPostViewProps) {
   const commentsOn = useFeature("comments");
   const likesOn = useFeature("likes");
@@ -96,6 +104,7 @@ export function ClassicPost({
       <Avatar seed={post.author.username} url={post.author.pictureUrl} />
       <span className="truncate font-semibold">{post.author.name}</span>
       <ModeratorTag author={post.author} />
+      <KarmaBadge author={post.author} />
     </>
   );
   const headerClass = "flex min-w-0 flex-1 items-center gap-3";
@@ -120,6 +129,12 @@ export function ClassicPost({
 
       <div className="relative">
         <FlaggedPostCover post={post} {...(actions ? { actions } : {})} />
+        <PostTitle
+          post={post}
+          className="px-3 pb-2 text-lg font-semibold"
+          {...(renderTitle ? { renderTitle } : {})}
+          {...(renderPostLink && !detail ? { renderPostLink } : {})}
+        />
         {wrapImage ? wrapImage(image) : image}
         {renderBody ? (
           <div className="p-3">{renderBody(post.id, post.body)}</div>
@@ -135,6 +150,13 @@ export function ClassicPost({
           <ReplyButton actions={actions} />
           <PostFlagButton post={post} {...(actions ? { actions } : {})} />
           <PostLikeButton post={post} {...(actions ? { actions } : {})} />
+          {!detail && (
+            <CommentsLink
+              post={post}
+              className="py-3 text-center"
+              {...(renderPostLink ? { renderPostLink } : {})}
+            />
+          )}
         </div>
       )}
 

@@ -25,6 +25,12 @@ export interface FeedPostViewProps {
   renderBody?: (contentId: string, body: string) => ReactNode;
   /** How to link to a space's page. Without it, its name is plain text. */
   renderSpace?: (key: string, className: string, name: string) => ReactNode;
+  /** Replaces how a post's title is drawn. The admin app uses it to edit one where it appears. */
+  renderTitle?: (contentId: string, title: string) => ReactNode;
+  /** How to link to a post's own page. Without it, nothing links there. */
+  renderPostLink?: (postId: string, className: string, children: ReactNode) => ReactNode;
+  /** Whether this is the post's own page, with all of it showing, rather than a place in a list. */
+  detail?: boolean;
   /** Wraps where the image goes, even if there isn't one. The admin app uses it to drop images on. */
   wrapImage?: (image: ReactNode) => ReactNode;
 }

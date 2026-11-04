@@ -7,11 +7,18 @@ import {
   feedPostSchema,
   MAX_ATTACHMENTS,
   MAX_REPLY_DEPTH,
+  MAX_TITLE_LENGTH,
   platformStyleFor,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, inArray, isNull, or } from "drizzle-orm";
-import { buildFeed, contentTimeMs, loadSpacesFor, mediaUrl } from "../feed/build.ts";
+import {
+  buildFeed,
+  contentTimeMs,
+  loadSpacesFor,
+  mediaUrl,
+  participantKarma,
+} from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { type ParticipantContext, participantFromRequest } from "../participants/session.ts";
 import { MAX_IMAGE_BYTES, storeUploadedImage } from "./images.ts";
@@ -108,6 +115,8 @@ const postRoute = createRoute({
       content: {
         "multipart/form-data": {
           schema: actionMetaSchema.extend({
+            /** Required on a platform with titles, and refused on one without. */
+            title: z.string().max(MAX_TITLE_LENGTH).optional(),
             body: z.string().max(5000).default(""),
             /** The key of the space it goes in, on a platform with spaces. */
             space: z.string().optional(),
@@ -236,6 +245,22 @@ const notificationsRoute = createRoute({
     },
     401: notSignedIn,
     403: errorResponse("That feature is off in this condition"),
+  },
+});
+
+const openRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/open",
+  summary: "Record that someone opened a post's own page",
+  request: {
+    params: contentParams,
+    ...jsonBody(actionMetaSchema.extend({ from: z.string().trim().min(1).max(30) })),
+  },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Not something this participant can see"),
   },
 });
 
@@ -386,6 +411,7 @@ interface ProfileFields {
   bio?: string;
   location?: string;
   picture?: string;
+  karma?: number;
 }
 
 export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantRouteDependencies) {
@@ -450,6 +476,28 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json(notAvailable, 404);
     }
     await applyLike(context, id, c.req.valid("json"));
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(openRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "postPages")) {
+      return c.json(featureOff, 403);
+    }
+    const { id: contentId } = c.req.valid("param");
+    if (!(await findVisibleContent(db, context, contentId, new Date()))) {
+      return c.json(notAvailable, 404);
+    }
+    const body = c.req.valid("json");
+    await recordEvent(db, {
+      ...participantEvent(context, body.occurredAt, body.clientEventId),
+      type: "content.opened",
+      payload: { from: body.from },
+      targetContentId: contentId,
+    });
     return c.json({ ok: true as const }, 200);
   });
 
@@ -620,6 +668,13 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (images.length > 1 && isOff(context, "galleries")) {
       return c.json(featureOff, 403);
     }
+    const title = form.title?.trim() ?? "";
+    if (title && isOff(context, "titles")) {
+      return c.json(featureOff, 403);
+    }
+    if (!title && !isOff(context, "titles")) {
+      return c.json({ error: "Give your post a title." }, 400);
+    }
     if (images.length > MAX_ATTACHMENTS) {
       return c.json({ error: `A post can have up to ${MAX_ATTACHMENTS} photos.` }, 400);
     }
@@ -659,6 +714,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
             worldId: context.worldId,
             authorActorId: context.actorId,
             kind: "post",
+            ...(title ? { title } : {}),
             body: text,
             attachments,
             spaceId,
@@ -801,8 +857,17 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     });
 
     const profile = actor.profile as ProfileFields;
+    const karma = isOff(context, "karma")
+      ? {}
+      : {
+          karma:
+            actor.id === context.actorId
+              ? await participantKarma(db, context)
+              : (profile.karma ?? 0),
+        };
     return c.json(
       {
+        ...karma,
         username: actor.username,
         name: profile.name ?? actor.username,
         bio: profile.bio ?? "",

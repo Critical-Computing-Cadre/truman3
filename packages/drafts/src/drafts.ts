@@ -1,4 +1,10 @@
-import { hasErrors, type StudyIssue, type StudySettings, validateStudy } from "@truman3/core";
+import {
+  DEFAULT_TEMPLATE,
+  hasErrors,
+  type StudyIssue,
+  type StudySettings,
+  validateStudy,
+} from "@truman3/core";
 import { type Database, schema, type Transaction } from "@truman3/db";
 import { freezeStudy } from "@truman3/study-import";
 import { and, asc, eq, inArray, isNull, max, sql } from "drizzle-orm";
@@ -149,6 +155,7 @@ export async function openDraft(
             ...optional("bio", profile.bio),
             ...optional("picture", profile.picture),
             ...optional("moderator", profile.moderator),
+            ...optional("karma", profile.karma),
             conditions: actor.conditions,
             ...optional("class", actor.class),
           },
@@ -166,6 +173,8 @@ export async function openDraft(
           ...optional("description", space.description),
           ...optional("rules", space.rules),
           ...optional("picture", space.picture),
+          ...optional("banner", space.banner),
+          ...optional("accent", space.accent),
           startsJoined: space.startsJoined,
           conditions: space.conditions,
           ...optional("class", space.class),
@@ -195,6 +204,7 @@ export async function openDraft(
             item.kind === "post"
               ? {
                   ...shared,
+                  ...optional("title", item.title),
                   pictures: item.attachments.map(({ key }) => key),
                   ...(item.spaceId ? { spaceId: asId(item.spaceId) } : {}),
                 }
@@ -753,6 +763,28 @@ export async function saveSection(
         : sectionValue(current.settings, section as keyof typeof SETTINGS_SECTIONS);
     if (JSON.stringify(before) === JSON.stringify(parsed.data)) {
       return { revision: baseRevision };
+    }
+
+    if (section === "study") {
+      // What's been written depends on it, so a study keeps the kind of platform it started with.
+      const { platform: was } = before as { platform: StudySettings["platform"] };
+      const { platform: now } = parsed.data as { platform: StudySettings["platform"] };
+      if (
+        (now.template !== undefined && now.template !== (was.template ?? DEFAULT_TEMPLATE)) ||
+        (now.layout !== undefined && was.layout !== undefined && now.layout !== was.layout)
+      ) {
+        return {
+          problem: "invalid" as const,
+          message: "A study keeps the template it started with.",
+        };
+      }
+      // A save that leaves them out isn't asking to change them.
+      if (was.template) {
+        now.template = was.template;
+      }
+      if (was.layout) {
+        now.layout = was.layout;
+      }
     }
 
     const historyRows: Parameters<typeof writeHistory>[1] = [];

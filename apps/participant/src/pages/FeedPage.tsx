@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { FeedResponse } from "@truman3/core";
+import { type FeedResponse, MAX_TITLE_LENGTH, type SpaceView } from "@truman3/core";
 import { CreatePostBar, PhotoIcon, ProfileCard } from "@truman3/ui";
 import { type FormEvent, type RefObject, useEffect, useRef, useState } from "react";
 import { type FlowState, flowQuery, get, meQuery, post, postForm } from "../api.ts";
@@ -75,6 +75,16 @@ export function NewPostDialog({
   space?: string;
 }) {
   const client = useQueryClient();
+  const flow = useQuery(flowQuery);
+  const titles = flow.data?.features.titles ?? false;
+  const chooseSpace = !space && (flow.data?.features.spaces ?? false);
+  const spaces = useQuery({
+    queryKey: ["spaces"],
+    queryFn: () => get<{ spaces: SpaceView[] }>("/spaces"),
+    enabled: chooseSpace,
+  });
+  const [title, setTitle] = useState("");
+  const [chosenSpace, setChosenSpace] = useState("");
   const [body, setBody] = useState("");
   const [images, setImages] = useState<File[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -95,8 +105,18 @@ export function NewPostDialog({
   const close = () => dialogRef.current?.close();
 
   const create = useMutation({
-    mutationFn: () => postForm("/posts", { body, image: images, ...(space ? { space } : {}) }),
+    mutationFn: () => {
+      const where = space ?? chosenSpace;
+      return postForm("/posts", {
+        ...(titles ? { title } : {}),
+        body,
+        image: images,
+        ...(where ? { space: where } : {}),
+      });
+    },
     onSuccess: () => {
+      setTitle("");
+      setChosenSpace("");
       setBody("");
       setImages([]);
       if (fileInput.current) {
@@ -127,6 +147,34 @@ export function NewPostDialog({
             ×
           </button>
         </div>
+        {chooseSpace && (
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Community
+            <select
+              value={chosenSpace}
+              onChange={(event) => setChosenSpace(event.target.value)}
+              className="rounded border border-stone-300 bg-white px-2 py-2 text-base font-normal"
+            >
+              <option value="">No community</option>
+              {spaces.data?.spaces.map(({ key, name }) => (
+                <option key={key} value={key}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {titles && (
+          <input
+            aria-label="Title"
+            required
+            maxLength={MAX_TITLE_LENGTH}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Title"
+            className="w-full rounded border border-stone-300 px-3 py-2 text-base font-semibold"
+          />
+        )}
         <textarea
           aria-label="Write a post"
           rows={3}
@@ -164,7 +212,11 @@ export function NewPostDialog({
         )}
         <button
           type="submit"
-          disabled={create.isPending || !ready(body.trim().length > 0, images.length > 0)}
+          disabled={
+            create.isPending ||
+            !ready(body.trim().length > 0, images.length > 0) ||
+            (titles && !title.trim())
+          }
           className="rounded bg-stone-900 px-4 py-2 text-sm text-white disabled:opacity-40"
         >
           Post

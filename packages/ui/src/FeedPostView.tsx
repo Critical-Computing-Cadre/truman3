@@ -1,11 +1,13 @@
 import type { LayoutKey } from "@truman3/core";
 import type { ComponentType } from "react";
 import { ClassicPost } from "./layouts/classic.tsx";
+import { ForumPost } from "./layouts/forum.tsx";
 import { usePlatform } from "./platform.tsx";
 import type { FeedPostViewProps } from "./post-props.ts";
 
 const LAYOUTS: Record<LayoutKey, ComponentType<FeedPostViewProps>> = {
   classic: ClassicPost,
+  forum: ForumPost,
 };
 
 /**

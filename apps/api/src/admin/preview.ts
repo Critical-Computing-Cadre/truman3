@@ -37,6 +37,7 @@ export interface PreviewSpace {
   key: string;
   name: string;
   conditions: string[];
+  picture?: string | null | undefined;
 }
 
 /**
@@ -61,7 +62,7 @@ export async function previewContent(
   const visible = new Map(
     (spacesOn ? spaces : [])
       .filter(({ conditions }) => conditions.length === 0 || conditions.includes(conditionKey))
-      .map(({ id, key, name }) => [id, { key, name }]),
+      .map(({ id, key, name, picture }) => [id, { key, name, picture }]),
   );
   const shownRows = spacesOn
     ? rows.filter(({ spaceId }) => spaceId === null || visible.has(spaceId))
@@ -98,6 +99,7 @@ export async function previewContent(
     scriptedCounts: new Map(),
     viewerVotes: new Map(),
     spaces: visible,
+    karma: featureOn(version.settings, conditionKey, "karma") ? { viewer: 0 } : undefined,
   });
 
   const targeting: Record<string, string[]> = {};
@@ -131,6 +133,7 @@ export async function previewFeed(
         key: schema.spaces.key,
         name: schema.spaces.name,
         conditions: schema.spaces.conditions,
+        picture: schema.spaces.picture,
       })
       .from(schema.spaces)
       .where(eq(schema.spaces.studyVersionId, version.id)),

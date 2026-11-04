@@ -4,6 +4,7 @@ export {
   actorDefinitionSchema,
   type CommentDefinition,
   commentDefinitionSchema,
+  MAX_TITLE_LENGTH,
   type PostDefinition,
   postDefinitionSchema,
   type ReactionDefinition,
@@ -18,6 +19,7 @@ export { fillLinkTemplate, LINK_PLACEHOLDERS } from "./links.ts";
 export {
   type CommentBox,
   canJoinSpacesFor,
+  canSortCommentsFor,
   canSortFor,
   checkNewPost,
   commentBoxFor,
@@ -29,6 +31,7 @@ export {
   type PlatformView,
   platformFor,
   platformStyleFor,
+  startingKarmaFor,
 } from "./platform.ts";
 export { formatStudyTime, parseStudyTime } from "./time.ts";
 export { hasErrors, type StudyIssue, validateStudy } from "./validate.ts";

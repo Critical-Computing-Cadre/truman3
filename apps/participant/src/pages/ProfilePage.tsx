@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import type { FeedPost } from "@truman3/core";
-import { Avatar, useFeature } from "@truman3/ui";
+import { Avatar, KarmaBadge, useFeature } from "@truman3/ui";
 import { useRef, useState } from "react";
 import { get, post as send } from "../api.ts";
 import { PostCard } from "../components/PostCard.tsx";
@@ -16,6 +16,7 @@ interface ActorPage {
   following: boolean;
   blocked: boolean;
   reported: boolean;
+  karma?: number;
   posts: FeedPost[];
 }
 
@@ -58,6 +59,7 @@ export function ProfilePage() {
         <Avatar seed={actor.username} url={actor.pictureUrl} size="h-24 w-24" />
         <h1 className="text-xl font-semibold">{actor.name}</h1>
         <p className="text-sm text-stone-500">@{actor.username}</p>
+        <KarmaBadge author={actor} />
         {actor.bio && <p className="whitespace-pre-wrap">{actor.bio}</p>}
         {actor.location && <p className="text-sm text-stone-500">{actor.location}</p>}
         {actor.isViewer && (

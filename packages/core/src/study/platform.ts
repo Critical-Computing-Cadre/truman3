@@ -1,5 +1,10 @@
 import { FEATURE_KEYS, type FeatureKey, type FeatureSet } from "../features/catalog.ts";
-import { DEFAULT_TEMPLATE, type LayoutKey, TEMPLATES } from "../features/templates.ts";
+import {
+  DEFAULT_TEMPLATE,
+  type LayoutKey,
+  TEMPLATES,
+  type TemplateDefinition,
+} from "../features/templates.ts";
 import type { StudySettings } from "./definition.ts";
 
 export type PlatformStyle = StudySettings["platform"]["style"];
@@ -56,6 +61,20 @@ export function canSortFor(settings: StudySettings, conditionKey: string): boole
   return arm?.feed?.participantsCanSort ?? settings.feed.participantsCanSort ?? false;
 }
 
+/** Whether participants can choose an order for comments in a condition. A study decides this. */
+export function canSortCommentsFor(settings: StudySettings, conditionKey: string): boolean {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  return (
+    arm?.feed?.participantsCanSortComments ?? settings.feed.participantsCanSortComments ?? false
+  );
+}
+
+/** A participant's karma before any votes on what they post. */
+export function startingKarmaFor(settings: StudySettings, conditionKey: string): number {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  return arm?.platform?.startingKarma ?? settings.platform.startingKarma ?? 0;
+}
+
 /** Everything a browser needs to draw this platform for someone in a condition. */
 export function platformFor(settings: StudySettings, conditionKey: string) {
   return {
@@ -65,6 +84,7 @@ export function platformFor(settings: StudySettings, conditionKey: string) {
     commentBox: commentBoxFor(settings, conditionKey),
     canJoinSpaces: canJoinSpacesFor(settings, conditionKey),
     canSort: canSortFor(settings, conditionKey),
+    canSortComments: canSortCommentsFor(settings, conditionKey),
   };
 }
 
@@ -76,8 +96,11 @@ export type PlatformView = ReturnType<typeof platformFor>;
  */
 export function freezePlatform(settings: StudySettings): StudySettings {
   const template = settings.platform.template ?? DEFAULT_TEMPLATE;
+  const commentOrder =
+    settings.feed?.commentOrder ?? (TEMPLATES[template] as TemplateDefinition).feed?.commentOrder;
   return {
     ...settings,
+    ...(commentOrder ? { feed: { ...settings.feed, commentOrder } } : {}),
     platform: {
       ...settings.platform,
       template,

@@ -61,14 +61,23 @@ export function useDraftEdits(draftId: string) {
     /** A person's picture in the cast. */
     setActorPicture: useMutation({
       mutationKey,
-      mutationFn: async ({ itemId, file }: { itemId: string; file: File }) => {
+      mutationFn: async ({
+        itemId,
+        file,
+        field = "picture",
+      }: {
+        itemId: string;
+        file: File;
+        /** Which of an item's images this is: its picture, or a space's banner. */
+        field?: "picture" | "banner";
+      }) => {
         const form = new FormData();
         form.append("image", file);
         const { picture } = await upload<{ picture: string }>(
           `/admin/drafts/${draftId}/images`,
           form,
         );
-        return send("PATCH", `${base}/${itemId}`, { changes: { picture } });
+        return send("PATCH", `${base}/${itemId}`, { changes: { [field]: picture } });
       },
       onSettled: refresh,
     }),
@@ -842,6 +851,20 @@ function EditableFeed({
                         onEditing={(editing) => onEditingItem(editing ? contentId : null)}
                       />
                     ),
+                    renderTitle: (contentId: string, title: string) => (
+                      <EditableText
+                        value={title}
+                        required={false}
+                        label="Title of this post"
+                        onSave={(text) =>
+                          edits.update.mutate({
+                            itemId: contentId,
+                            changes: { title: text || null },
+                          })
+                        }
+                        onEditing={(editing) => onEditingItem(editing ? contentId : null)}
+                      />
+                    ),
                     wrapImage: (image: React.ReactNode) => (
                       <ImageDrop
                         itemId={shown.id}
@@ -1097,6 +1120,7 @@ export function DraftPage() {
   const windowHours = info.data.conditions.find(({ key }) => key === current)?.windowHours ?? null;
   const { lengthMs } = info.data;
   const issues = info.data.issues.filter(({ severity }) => severity === "error");
+  const warnings = info.data.issues.filter(({ severity }) => severity === "warning");
 
   return (
     <div>
@@ -1210,6 +1234,18 @@ export function DraftPage() {
               ))}
             </ul>
           </div>
+        )}
+        {warnings.length > 0 && (
+          <details className="mt-2 rounded bg-amber-50 p-3 text-amber-900">
+            <summary className="cursor-pointer font-medium">
+              {warnings.length === 1 ? "1 thing" : `${warnings.length} things`} to check
+            </summary>
+            <ul className="mt-1 list-disc pl-5">
+              {warnings.map(({ message }) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          </details>
         )}
       </div>
 
