@@ -209,3 +209,57 @@ test("a researcher edits in the feed, saves, tries it, launches, and a new parti
     .where(eq(schema.content.body, "A comment added here"));
   expect(added2[0]?.provenance).toEqual({ origin: "researcher" });
 });
+
+test("it says when edits are saved, and a version waits for an upload still on its way", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+
+  await signIn(page);
+  await page.getByRole("link", { name: "New study" }).click();
+  await page.getByLabel("Title").fill(`Saving status ${Date.now() % 1_000_000}`);
+  await page.getByRole("radio", { name: /EatSnap pack/ }).check();
+  await page.getByRole("radio", { name: /Just the background/ }).check();
+  await page.getByRole("radio", { name: /^Blocked/ }).check();
+  await page.getByRole("button", { name: "Start the study" }).click();
+
+  const status = page.getByTestId("save-status");
+  await expect(status).toHaveText("Changes save as you go");
+
+  const post = page.locator("article").first();
+  await post.getByRole("button", { name: /Text of this post/ }).click();
+  const text = post.getByLabel("Text of this post");
+  await expect(status).toHaveText("Saves when you click away");
+  await text.fill("Edited to see the status");
+  await text.blur();
+  await expect(status).toHaveText("All changes saved");
+
+  // A slow upload, with the version saved while it's on its way.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/admin/drafts/*/images", async (route) => {
+    await held;
+    await route.continue();
+  });
+  await post.getByTestId("image-drop").hover();
+  await post.getByRole("button", { name: /Replace/ }).click({ force: true });
+  await post.getByLabel("Choose a photo").setInputFiles({
+    name: "slow.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(PNG_BASE64, "base64"),
+  });
+  await expect(status).toHaveText("Saving...");
+
+  await page.getByRole("button", { name: "Save as new version" }).click();
+  const dialog = page.getByRole("dialog", { name: "Save as new version" });
+  await expect(
+    dialog.getByRole("button", { name: "Waiting for your last change..." }),
+  ).toBeDisabled();
+
+  release();
+  await expect(status).toHaveText("All changes saved");
+  await expect(dialog.getByRole("button", { name: "Save version" })).toBeEnabled();
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});

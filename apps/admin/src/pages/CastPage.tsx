@@ -3,7 +3,7 @@ import { Link, useParams } from "@tanstack/react-router";
 import { Avatar } from "@truman3/ui";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { type DraftInfo, get } from "../api.ts";
-import { type DraftEdits, useDraftEdits, useDraftPresence } from "./DraftPage.tsx";
+import { type DraftEdits, SaveStatus, useDraftEdits, useDraftPresence } from "./DraftPage.tsx";
 
 const input = "rounded border border-stone-300 px-2 py-1 text-sm disabled:bg-stone-100";
 const labelClass = "flex flex-col gap-1 text-xs font-medium text-stone-600";
@@ -242,6 +242,7 @@ export function CastPage() {
         <h1 className="mr-auto text-lg font-semibold">
           Cast of {title} <span className="font-normal text-stone-500">({actors.length})</span>
         </h1>
+        {canEdit && <SaveStatus draftId={draftId} />}
         {canEdit && (
           <button
             type="button"

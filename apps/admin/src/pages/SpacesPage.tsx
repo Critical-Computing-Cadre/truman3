@@ -3,7 +3,7 @@ import { Link, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import { type DraftInfo, get } from "../api.ts";
 import { CastField, SavedCheckbox } from "./CastPage.tsx";
-import { type DraftEdits, useDraftEdits, useDraftPresence } from "./DraftPage.tsx";
+import { type DraftEdits, SaveStatus, useDraftEdits, useDraftPresence } from "./DraftPage.tsx";
 
 function Space({
   space,
@@ -137,6 +137,7 @@ export function SpacesPage() {
         <h1 className="mr-auto text-lg font-semibold">
           Spaces in {title} <span className="font-normal text-stone-500">({spaces.length})</span>
         </h1>
+        {canEdit && <SaveStatus draftId={draftId} />}
         {canEdit && (
           <button
             type="button"
