@@ -7,6 +7,7 @@ import {
   type FeedViewer,
   feedSettingsFor,
 } from "./assemble.ts";
+import { RANKERS, type RankablePost } from "./rankers.ts";
 
 const HOUR = 3_600_000;
 const MINUTE = 60_000;
@@ -371,5 +372,33 @@ describe("replies to replies", () => {
       true,
     );
     expect(shown?.commentIds).toEqual(["fine"]);
+  });
+});
+
+describe("the new and top orders", () => {
+  const post = (id: string, timeMs: number, score?: number): RankablePost => ({
+    id,
+    timeMs,
+    position: null,
+    ...(score === undefined ? {} : { score }),
+  });
+  const context = { seed: 1, viewedPostIds: new Set<string>() };
+
+  it("puts the newest first with new", () => {
+    const order = RANKERS.new.rank([post("old", 1), post("recent", 2)], context);
+    expect(order.map(({ id }) => id)).toEqual(["recent", "old"]);
+  });
+
+  it("puts the highest score first with top, and records each score", () => {
+    const order = RANKERS.top.rank([post("low", 3, 1), post("high", 1, 50)], context);
+    expect(order).toEqual([
+      { id: "high", score: 50 },
+      { id: "low", score: 1 },
+    ]);
+  });
+
+  it("gives ties to the newer post", () => {
+    const order = RANKERS.top.rank([post("old", 1, 5), post("recent", 2, 5)], context);
+    expect(order.map(({ id }) => id)).toEqual(["recent", "old"]);
   });
 });

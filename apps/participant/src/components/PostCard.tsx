@@ -109,6 +109,11 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
         },
         onReplyTo: setReplyTo,
       }}
+      renderSpace={(key, className, name) => (
+        <Link to="/spaces/$key" params={{ key }} className={className}>
+          {name}
+        </Link>
+      )}
       renderAuthor={(author, className, children) => (
         <Link to="/u/$username" params={{ username: author.username }} className={className}>
           {children}

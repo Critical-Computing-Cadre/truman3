@@ -163,6 +163,47 @@ export const participants = pgTable(
   ],
 );
 
+/** A community posts can belong to. These are part of a version, so they freeze with it. */
+export const spaces = pgTable(
+  "spaces",
+  {
+    id: id(),
+    studyVersionId: uuid("study_version_id")
+      .notNull()
+      .references(() => studyVersions.id),
+    key: text().notNull(),
+    name: text().notNull(),
+    description: text(),
+    rules: text(),
+    startsJoined: boolean("starts_joined").notNull().default(true),
+    conditions: text().array().notNull().default(sql`'{}'`),
+    class: text(),
+    position: integer().notNull().default(0),
+  },
+  (table) => [uniqueIndex("spaces_version_key").on(table.studyVersionId, table.key)],
+);
+
+/**
+ * Who has joined or left a space. There's only a row once someone has done either, and until then
+ * the space's starts_joined decides. Every change is also an event.
+ */
+export const spaceMemberships = pgTable(
+  "space_memberships",
+  {
+    worldId: uuid("world_id")
+      .notNull()
+      .references(() => worlds.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => actors.id, { onDelete: "cascade" }),
+    spaceId: uuid("space_id")
+      .notNull()
+      .references(() => spaces.id),
+    joined: boolean().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.worldId, table.actorId, table.spaceId] })],
+);
+
 /** Everyone who appears in a feed. The cast belongs to a version; participants to a world. */
 export const actors = pgTable(
   "actors",
@@ -266,6 +307,8 @@ export const content = pgTable(
       .references(() => studyVersions.id),
     worldId: uuid("world_id").references(() => worlds.id),
     parentId: uuid("parent_id").references((): AnyPgColumn => content.id),
+    /** The one space a post belongs to. Comments go where their post goes. */
+    spaceId: uuid("space_id").references(() => spaces.id),
     authorActorId: uuid("author_actor_id")
       .notNull()
       .references(() => actors.id),
@@ -464,6 +507,10 @@ export const feedImpressions = pgTable(
     conditionId: uuid("condition_id").references(() => conditions.id),
     /** Where this was shown, such as the feed or someone's profile. */
     surface: text().notNull().default("feed"),
+    /** On a space's page, which space. */
+    spaceId: uuid("space_id").references(() => spaces.id),
+    /** The order this person chose, where a study allows that. Null is the study's own. */
+    sort: text(),
     ranker: text().notNull(),
     rankerVersion: text("ranker_version").notNull(),
     /** The seed used for this order, so it can be reproduced. */
@@ -616,7 +663,7 @@ export const draftItems = pgTable(
     index("draft_items_draft").on(table.draftId, table.kind),
     check(
       "draft_items_kind",
-      inList(table.kind, ["actor", "post", "comment", "reaction", "setting"]),
+      inList(table.kind, ["actor", "post", "comment", "reaction", "setting", "space"]),
     ),
   ],
 );

@@ -20,6 +20,7 @@ import {
   recordPresence,
   SETTINGS_SECTIONS,
   type SectionName,
+  type SpaceData,
   STORED_IMAGE,
   saveSection,
   sectionValue,
@@ -211,6 +212,7 @@ const previewRoute = createRoute({
                 ups: z.number(),
                 downs: z.number(),
                 pictures: z.array(z.string()),
+                spaceId: z.string().nullable(),
                 origin: z.string(),
               }),
             ),
@@ -241,6 +243,12 @@ const fieldsSchema = z.strictObject({
   username: z.string().trim().max(30).optional(),
   bio: z.string().max(500).optional(),
   location: z.string().max(100).optional(),
+  moderator: z.boolean().optional(),
+  // For spaces, as well as name and conditions above. Null removes a post from its space.
+  spaceId: z.uuid().nullable().optional(),
+  description: z.string().max(2000).nullable().optional(),
+  rules: z.string().max(5000).nullable().optional(),
+  startsJoined: z.boolean().optional(),
 });
 
 const uploadRoute = createRoute({
@@ -278,7 +286,9 @@ const createItemRoute = createRoute({
   summary: "Add a post, comment, or person in the cast",
   request: {
     params: draftParams,
-    ...jsonBody(z.object({ kind: z.enum(["post", "comment", "actor"]), fields: fieldsSchema })),
+    ...jsonBody(
+      z.object({ kind: z.enum(["post", "comment", "actor", "space"]), fields: fieldsSchema }),
+    ),
   },
   responses: {
     200: {
@@ -445,6 +455,7 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
         id: item.id,
         kind: item.kind,
         parentId: data.replyToId ?? data.postId ?? null,
+        spaceId: data.spaceId ?? null,
         authorActorId: data.actorId,
         body: data.body,
         attachments: (data.pictures ?? []).map((key) => ({ type: "image" as const, key })),
@@ -555,7 +566,25 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               bio: data.bio ?? "",
               location: data.location ?? "",
               pictureUrl: data.picture ? mediaUrl(data.picture, mediaPublicUrl) : null,
+              moderator: data.moderator ?? false,
               usedBy,
+            };
+          }),
+        spaces: items
+          .filter((item) => item.kind === "space")
+          .map((item) => {
+            const data = item.data as SpaceData;
+            return {
+              id: item.id,
+              key: data.key,
+              name: data.name,
+              description: data.description ?? "",
+              rules: data.rules ?? "",
+              startsJoined: data.startsJoined,
+              conditions: data.conditions,
+              usedBy: items.filter(
+                (other) => (other.data as { spaceId?: string }).spaceId === item.id,
+              ).length,
             };
           }),
         posts: items
@@ -658,8 +687,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
       items
         .filter((item) => item.kind === "actor")
         .map((item) => {
-          const { username, name, picture } = item.data as ActorData;
-          return [item.id, { id: item.id, username, profile: { name, picture } }];
+          const { username, name, picture, moderator } = item.data as ActorData;
+          return [item.id, { id: item.id, username, profile: { name, picture, moderator } }];
         }),
     );
 
@@ -671,6 +700,12 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
       { seed: 1, settings },
       condition,
       elapsedMs,
+      items
+        .filter((item) => item.kind === "space")
+        .map((item) => {
+          const { key, name, conditions } = item.data as SpaceData;
+          return { id: item.id, key, name, conditions };
+        }),
     );
 
     const details: Record<
@@ -683,6 +718,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
         ups: number;
         downs: number;
         pictures: string[];
+        spaceId: string | null;
         origin: string;
       }
     > = {};
@@ -697,6 +733,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           ups: data.ups ?? 0,
           downs: data.downs ?? 0,
           pictures: data.pictures ?? [],
+          spaceId: data.spaceId ?? null,
           origin: (item.provenance as Provenance).origin,
         };
       }

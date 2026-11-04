@@ -315,6 +315,23 @@ function StudyForm({
           },
         ]}
       />
+      {(value.platform.features?.spaces ??
+        TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features.spaces) && (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={value.platform.canJoinSpaces ?? true}
+            onChange={(event) =>
+              set({
+                ...value,
+                platform: { ...value.platform, canJoinSpaces: event.target.checked },
+              })
+            }
+          />
+          Let participants join and leave spaces{" "}
+          <Hint>Off means everyone keeps the spaces they start in.</Hint>
+        </label>
+      )}
       <fieldset className="space-y-1">
         <legend className="text-sm font-medium">What's on this platform?</legend>
         {FEATURE_KEYS.map((key) => (
@@ -467,8 +484,22 @@ function ArmDifferences({ arm, set }: { arm: EditingArm; set: (arm: EditingArm) 
             { value: "chronological", label: "Newest first" },
             { value: "shuffle", label: "Shuffled" },
             { value: "scripted", label: "As written" },
+            { value: "new", label: "New" },
+            { value: "top", label: "Top, by score" },
           ]}
           onChange={(value) => change("feed", "ranker", choice(value))}
+        />
+        <SelectField
+          label="People can choose the order"
+          value={feed.participantsCanSort === undefined ? "" : String(feed.participantsCanSort)}
+          options={YES_NO}
+          onChange={(value) => change("feed", "participantsCanSort", yesNo(value))}
+        />
+        <SelectField
+          label="People can join and leave spaces"
+          value={platform.canJoinSpaces === undefined ? "" : String(platform.canJoinSpaces)}
+          options={YES_NO}
+          onChange={(value) => change("platform", "canJoinSpaces", yesNo(value))}
         />
         <OptionalNumber
           label="Feed reaches back (hours)"
@@ -716,12 +747,31 @@ function LikeValues({
   );
 }
 
+const FEED_ORDERS = [
+  { value: "chronological", label: "Newest first", hint: "Default." },
+  {
+    value: "shuffle",
+    label: "Shuffled",
+    hint: "A random order, kept the same for each person.",
+  },
+  { value: "scripted", label: "As written", hint: "The order the posts were written in." },
+  { value: "new", label: "New", hint: "Newest first, under the name forums use." },
+  {
+    value: "top",
+    label: "Top",
+    hint: "Highest score first. The scores you wrote, plus scripted votes and the person's own.",
+  },
+] as const;
+
 function FeedForm({
   value,
   set,
+  spacesOn,
 }: {
   value: DraftSections["feed"];
   set: (value: DraftSections["feed"]) => void;
+  /** Whether any condition has spaces, so whether a space's own order means anything. */
+  spacesOn: boolean;
 }) {
   const { feed, likes, length } = value;
   const setFeed = (changes: Partial<typeof feed>) =>
@@ -744,16 +794,33 @@ function FeedForm({
         legend="What order is the feed in?"
         value={feed.ranker}
         onChange={(ranker) => setFeed({ ranker })}
-        options={[
-          { value: "chronological", label: "Newest first", hint: "Default." },
-          {
-            value: "shuffle",
-            label: "Shuffled",
-            hint: "A random order, kept the same for each person.",
-          },
-          { value: "scripted", label: "As written", hint: "The order the posts were written in." },
-        ]}
+        options={[...FEED_ORDERS]}
       />
+      {spacesOn && (
+        <SelectField
+          label="Order on a space's page"
+          value={feed.spaceRanker ?? ""}
+          options={FEED_ORDERS.map(({ value: order, label }) => ({ value: order, label }))}
+          onChange={(order) =>
+            setFeed({
+              spaceRanker: (order || undefined) as typeof feed.spaceRanker,
+            } as Partial<typeof feed>)
+          }
+        />
+      )}
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={feed.participantsCanSort ?? false}
+          onChange={(event) =>
+            setFeed({ participantsCanSort: event.target.checked || undefined } as Partial<
+              typeof feed
+            >)
+          }
+        />
+        Let participants choose the order{" "}
+        <Hint>New or Top. Off by default, and each change is recorded.</Hint>
+      </label>
       {feed.ranker === "shuffle" && (
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -1243,7 +1310,20 @@ export function SettingsPage() {
         {(value, set) => <ConditionsForm value={value} set={set} />}
       </Section>
       <Section {...shared} name="feed" title="Feed" intro="How the feed behaves for everyone.">
-        {(value, set) => <FeedForm value={value} set={set} />}
+        {(value, set) => (
+          <FeedForm
+            value={value}
+            set={set}
+            spacesOn={[
+              data.sections.study.value.platform.features?.spaces ??
+                TEMPLATES[data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE].features
+                  .spaces,
+              ...data.sections.conditions.value.conditions.arms.map(
+                (arm) => arm.platform?.features?.spaces,
+              ),
+            ].includes(true)}
+          />
+        )}
       </Section>
       <Section
         {...shared}

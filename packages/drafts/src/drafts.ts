@@ -93,6 +93,10 @@ export async function openDraft(
       .select()
       .from(schema.actors)
       .where(and(eq(schema.actors.studyVersionId, versionId), isNull(schema.actors.worldId)));
+    const spaces = await tx
+      .select()
+      .from(schema.spaces)
+      .where(eq(schema.spaces.studyVersionId, versionId));
     const content = await tx
       .select()
       .from(schema.content)
@@ -104,7 +108,7 @@ export async function openDraft(
 
     // New IDs up front, since items point at each other.
     const newId = new Map<string, string>();
-    for (const row of [...actors, ...content]) {
+    for (const row of [...actors, ...spaces, ...content]) {
       newId.set(row.id, crypto.randomUUID());
     }
     const asId = (oldId: string) => newId.get(oldId) as string;
@@ -144,11 +148,28 @@ export async function openDraft(
             ...optional("location", profile.location),
             ...optional("bio", profile.bio),
             ...optional("picture", profile.picture),
+            ...optional("moderator", profile.moderator),
             conditions: actor.conditions,
             ...optional("class", actor.class),
           },
         };
       }),
+      ...spaces.map((space) => ({
+        id: asId(space.id),
+        draftId: created.id,
+        kind: "space",
+        position: space.position,
+        provenance: fromFile,
+        data: {
+          key: space.key,
+          name: space.name,
+          ...optional("description", space.description),
+          ...optional("rules", space.rules),
+          startsJoined: space.startsJoined,
+          conditions: space.conditions,
+          ...optional("class", space.class),
+        },
+      })),
       ...content.map((item, index) => {
         const shared = {
           ref: item.sourceRef ?? item.id,
@@ -171,7 +192,11 @@ export async function openDraft(
             : fromFile) as Provenance,
           data:
             item.kind === "post"
-              ? { ...shared, pictures: item.attachments.map(({ key }) => key) }
+              ? {
+                  ...shared,
+                  pictures: item.attachments.map(({ key }) => key),
+                  ...(item.spaceId ? { spaceId: asId(item.spaceId) } : {}),
+                }
               : { ...shared, ...commentPlace(item) },
         };
       }),
@@ -281,6 +306,9 @@ async function checkReferences(tx: Transaction, draftId: string, data: Record<st
   if (typeof data.postId === "string" && !(await itemExists(tx, draftId, "post", data.postId))) {
     return "That post isn't in this study.";
   }
+  if (typeof data.spaceId === "string" && !(await itemExists(tx, draftId, "space", data.spaceId))) {
+    return "That space isn't in this study.";
+  }
   if (
     typeof data.replyToId === "string" &&
     !(await itemExists(tx, draftId, "comment", data.replyToId))
@@ -348,12 +376,12 @@ const USERNAME_TAKEN: EditProblem = {
   message: "Someone in the cast already has that username.",
 };
 
-/** Adds a post, comment, or person in the cast, written by a researcher. */
+/** Adds a post, comment, person in the cast, or space, written by a researcher. */
 export async function createItem(
   db: Database,
   draftId: string,
   researcherId: string,
-  kind: "post" | "comment" | "actor",
+  kind: "post" | "comment" | "actor" | "space",
   fields: Record<string, unknown>,
 ): Promise<{ id: string } | EditProblem> {
   return db.transaction(async (tx) => {
@@ -369,9 +397,16 @@ export async function createItem(
     }
 
     const id = crypto.randomUUID();
-    const parsed = itemDataSchemas[kind].safeParse(
-      kind === "actor" ? fields : { likes: 0, ...fields, ref: newRef(kind, id) },
-    );
+    const newItem = () => {
+      if (kind === "actor") {
+        return fields;
+      }
+      // A space's key becomes part of its address, and nobody chooses one for a new space.
+      return kind === "space"
+        ? { ...fields, key: newRef(kind, id) }
+        : { likes: 0, ...fields, ref: newRef(kind, id) };
+    };
+    const parsed = itemDataSchemas[kind].safeParse(newItem());
     if (!parsed.success) {
       return {
         problem: "invalid" as const,
@@ -763,9 +798,12 @@ export async function deleteItem(
       return NOT_FOUND;
     }
 
-    const points = (row: ItemRow, key: "actorId" | "postId") =>
+    const points = (row: ItemRow, key: "actorId" | "postId" | "spaceId") =>
       (row.data as Record<string, unknown>)[key] === itemId;
 
+    if (item.kind === "space" && rows.some((row) => points(row, "spaceId"))) {
+      return { problem: "in-use" as const, message: "This space still has posts in it." };
+    }
     if (item.kind === "actor" && rows.some((row) => points(row, "actorId"))) {
       return { problem: "in-use" as const, message: "This person still has posts or comments." };
     }

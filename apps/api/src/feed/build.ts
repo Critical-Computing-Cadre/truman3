@@ -7,7 +7,7 @@ import {
   type FeedSettings,
   feedSettingsFor,
 } from "@truman3/feed";
-import { and, eq, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import type { ParticipantContext } from "../participants/session.ts";
 
 type ContentRow = typeof schema.content.$inferSelect;
@@ -18,6 +18,7 @@ export type FeedContent = Pick<
   | "id"
   | "kind"
   | "parentId"
+  | "spaceId"
   | "authorActorId"
   | "body"
   | "attachments"
@@ -47,7 +48,11 @@ export async function loadAuthors(db: Database, ids: string[]): Promise<Map<stri
 interface ActorProfile {
   name?: string;
   picture?: string;
+  moderator?: boolean;
 }
+
+/** What the feed needs to name a space on a post. */
+export type SpaceLabels = ReadonlyMap<string, { key: string; name: string }>;
 
 /**
  * A stored media key becomes a URL. Hosted media is already a full URL, and what participants upload
@@ -87,8 +92,35 @@ export function toCandidate(item: FeedContent, worldStartMs: number): FeedCandid
     authorActorId: item.authorActorId,
     timeMs: contentTimeMs(item, worldStartMs),
     position: item.position,
+    score: item.baseUps - item.baseDowns,
     conditions: item.conditions,
   };
+}
+
+/** The spaces someone's condition can see, in order, and whether they're in each. */
+export async function loadSpacesFor(db: Database, context: ParticipantContext) {
+  const rows = await db
+    .select()
+    .from(schema.spaces)
+    .where(eq(schema.spaces.studyVersionId, context.studyVersionId))
+    .orderBy(asc(schema.spaces.position));
+  const choices = rows.length
+    ? await db
+        .select()
+        .from(schema.spaceMemberships)
+        .where(
+          and(
+            eq(schema.spaceMemberships.worldId, context.worldId),
+            eq(schema.spaceMemberships.actorId, context.actorId),
+          ),
+        )
+    : [];
+  const chose = new Map(choices.map(({ spaceId, joined }) => [spaceId, joined]));
+  return rows
+    .filter(
+      ({ conditions }) => conditions.length === 0 || conditions.includes(context.conditionKey),
+    )
+    .map((space) => ({ ...space, joined: chose.get(space.id) ?? space.startsJoined }));
 }
 
 export interface FeedDependencies {
@@ -146,6 +178,7 @@ export async function shapeFeedPosts({
   flaggedContentIds,
   scriptedCounts,
   viewerVotes,
+  spaces = new Map(),
 }: {
   loadAuthors: (ids: string[]) => Promise<ReadonlyMap<string, FeedActor>>;
   mediaPublicUrl: string;
@@ -158,6 +191,8 @@ export async function shapeFeedPosts({
   /** What scripted actors have added so far, by type and content, such as `like:<id>`. */
   scriptedCounts: ReadonlyMap<string, number>;
   viewerVotes: ReadonlyMap<string, "up" | "down">;
+  /** The spaces this viewer can see, by ID. Empty where the feature's off. */
+  spaces?: SpaceLabels;
 }): Promise<FeedPost[]> {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const shownIds = feed.posts.flatMap((post) => [post.id, ...post.commentIds]);
@@ -172,6 +207,7 @@ export async function shapeFeedPosts({
       name: profile.name ?? actor.username,
       pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
       isViewer: actor.id === viewerActorId,
+      ...(profile.moderator ? { moderator: true as const } : {}),
     };
   };
 
@@ -195,8 +231,11 @@ export async function shapeFeedPosts({
 
   return feed.posts.map((post) => {
     const item = byId.get(post.id) as FeedContent;
+    const space = item.spaceId ? spaces.get(item.spaceId) : undefined;
     return {
       ...common(item),
+      // Only these two, since whatever else a space holds has no reason to reach a browser.
+      ...(space ? { space: { key: space.key, name: space.name } } : {}),
       attachments: item.attachments.map(({ type, key }) => ({
         type,
         url: mediaUrl(key, mediaPublicUrl),
@@ -219,13 +258,25 @@ export interface BuildFeedOptions {
   settings?: FeedSettings;
   /** Changes on each page load. Only matters to studies that reshuffle on each visit. */
   visit?: number | undefined;
+  /** Only this space's posts, on its own page, in the order set for space pages. */
+  space?: { id: string } | undefined;
+  /** An order this person chose, where the study allows it. */
+  sort?: "new" | "top" | undefined;
 }
 
 /** Works out what a participant sees now, and records that it was shown. */
 export async function buildFeed(
   { db, mediaPublicUrl }: FeedDependencies,
   context: ParticipantContext,
-  { now = new Date(), surface = "feed", authorActorId, settings, visit }: BuildFeedOptions = {},
+  {
+    now = new Date(),
+    surface = "feed",
+    authorActorId,
+    settings,
+    visit,
+    space,
+    sort,
+  }: BuildFeedOptions = {},
 ): Promise<FeedPost[]> {
   const worldStartMs = context.worldStartedAt.getTime();
 
@@ -251,33 +302,37 @@ export async function buildFeed(
     }
     return current;
   };
+  const spacesOn = featureOn(context.settings, context.conditionKey, "spaces");
+  const spaces = spacesOn ? await loadSpacesFor(db, context) : [];
+  const visibleSpaces = new Map(spaces.map((item) => [item.id, item]));
+  /** With spaces off, posts in them show as ordinary posts, and a study can compare the two. */
+  const inSpaces = (row: ContentRow) => {
+    if (!spacesOn) {
+      return true;
+    }
+    const { spaceId } = postOf(row);
+    if (space) {
+      return spaceId === space.id;
+    }
+    if (!spaceId) {
+      return true;
+    }
+    const found = visibleSpaces.get(spaceId);
+    // Someone's profile shows what they've written, wherever it is, and a home feed what they joined.
+    return found !== undefined && (authorActorId !== undefined || found.joined);
+  };
   const inScope = (row: ContentRow) =>
-    !authorActorId || postOf(row).authorActorId === authorActorId;
+    (!authorActorId || postOf(row).authorActorId === authorActorId) && inSpaces(row);
 
-  const feedSettings = settings ?? feedSettingsFor(context.settings, context.conditionKey);
+  const conditionSettings = settings ?? feedSettingsFor(context.settings, context.conditionKey);
+  const feedSettings: FeedSettings = {
+    ...conditionSettings,
+    ranker: sort ?? (space ? conditionSettings.spaceRanker : undefined) ?? conditionSettings.ranker,
+  };
   const seed =
     feedSettings.reshuffleEachVisit && visit !== undefined
       ? (context.seed ^ visit) >>> 0
       : context.seed;
-
-  const feed = assembleFeed(
-    shownOnThisPlatform(rows.filter(inScope), context.settings, context.conditionKey).map((row) =>
-      toCandidate(row, worldStartMs),
-    ),
-    {
-      actorId: context.actorId,
-      conditionKey: context.conditionKey,
-      flaggedContentIds: state.flaggedContentIds,
-      viewedContentIds: state.viewedContentIds,
-      blockedActorIds: state.blockedActorIds,
-    },
-    feedSettings,
-    {
-      nowMs: now.getTime(),
-      seed,
-      threaded: featureOn(context.settings, context.conditionKey, "threads"),
-    },
-  );
 
   const dueReactions = await db
     .select({ type: schema.notifications.type, contentId: schema.notifications.targetContentId })
@@ -295,11 +350,48 @@ export async function buildFeed(
     scriptedCounts.set(key, (scriptedCounts.get(key) ?? 0) + 1);
   }
 
+  /** Scripted votes so far and this person's own, on top of what the study wrote. */
+  const scoreOf = (row: ContentRow) => {
+    const vote = state.viewerVotes.get(row.id);
+    return (
+      row.baseUps -
+      row.baseDowns +
+      (scriptedCounts.get(`up:${row.id}`) ?? 0) -
+      (scriptedCounts.get(`down:${row.id}`) ?? 0) +
+      (vote === "up" ? 1 : 0) -
+      (vote === "down" ? 1 : 0)
+    );
+  };
+
+  const feed = assembleFeed(
+    shownOnThisPlatform(rows.filter(inScope), context.settings, context.conditionKey).map(
+      (row) => ({
+        ...toCandidate(row, worldStartMs),
+        score: scoreOf(row),
+      }),
+    ),
+    {
+      actorId: context.actorId,
+      conditionKey: context.conditionKey,
+      flaggedContentIds: state.flaggedContentIds,
+      viewedContentIds: state.viewedContentIds,
+      blockedActorIds: state.blockedActorIds,
+    },
+    feedSettings,
+    {
+      nowMs: now.getTime(),
+      seed,
+      threaded: featureOn(context.settings, context.conditionKey, "threads"),
+    },
+  );
+
   await db.insert(schema.feedImpressions).values({
     worldId: context.worldId,
     viewerActorId: context.actorId,
     conditionId: context.conditionId,
     surface,
+    spaceId: space?.id,
+    sort,
     ranker: feed.ranker,
     rankerVersion: feed.rankerVersion,
     seed: feed.seed,
@@ -324,5 +416,6 @@ export async function buildFeed(
     flaggedContentIds: state.flaggedContentIds,
     scriptedCounts,
     viewerVotes: state.viewerVotes,
+    spaces: visibleSpaces,
   });
 }

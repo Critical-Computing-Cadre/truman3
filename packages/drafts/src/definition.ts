@@ -8,6 +8,7 @@ import type {
   PostData,
   Provenance,
   ReactionData,
+  SpaceData,
 } from "./items.ts";
 
 export interface DraftAsDefinition {
@@ -34,6 +35,7 @@ export function draftToDefinition(
       .map((item) => ({ item, data: item.data as T }));
 
   const actors = ofKind<ActorData>("actor");
+  const spaces = ofKind<SpaceData>("space");
   const posts = ofKind<PostData>("post");
   const comments = ofKind<CommentData>("comment");
   const reactions = ofKind<ReactionData>("reaction");
@@ -41,6 +43,7 @@ export function draftToDefinition(
   const usernames = new Map(actors.map(({ item, data }) => [item.id, data.username]));
   const postRefs = new Map(posts.map(({ item, data }) => [item.id, data.ref]));
   const commentRefs = new Map(comments.map(({ item, data }) => [item.id, data.ref]));
+  const spaceKeys = new Map(spaces.map(({ item, data }) => [item.id, data.key]));
   const usernameOf = (actorId: string) => usernames.get(actorId) ?? "(missing actor)";
 
   const mediaKeys = new Map<string, string>();
@@ -75,7 +78,12 @@ export function draftToDefinition(
       ),
     ),
     actors: actors.map(({ data }) => data),
-    posts: posts.map(({ data: { actorId, ...post } }) => ({ ...post, actor: usernameOf(actorId) })),
+    spaces: spaces.map(({ data }) => data),
+    posts: posts.map(({ data: { actorId, spaceId, ...post } }) => ({
+      ...post,
+      actor: usernameOf(actorId),
+      ...(spaceId ? { space: spaceKeys.get(spaceId) ?? "(missing space)" } : {}),
+    })),
     comments: comments.map(({ data: { actorId, postId, replyToId, ...comment } }) => ({
       ...comment,
       actor: usernameOf(actorId),

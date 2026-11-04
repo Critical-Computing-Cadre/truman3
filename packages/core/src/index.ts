@@ -28,6 +28,8 @@ export {
   feedResponseSchema,
   MAX_ATTACHMENTS,
   MAX_REPLY_DEPTH,
+  type SpaceView,
+  spaceViewSchema,
 } from "./feed.ts";
 export { type HealthResponse, healthResponseSchema } from "./health.ts";
 export { createRandom, pickFrom, shuffled } from "./random.ts";

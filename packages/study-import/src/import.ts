@@ -58,6 +58,8 @@ function hashStudy(study: StudyDefinition, mediaKeys: Map<string, string>): stri
     settings: study.settings,
     pages: study.pages,
     actors: withoutSource(study.actors),
+    // Only when there are some, so importing an older study again still finds it unchanged.
+    ...(study.spaces.length > 0 ? { spaces: withoutSource(study.spaces) } : {}),
     posts: withoutSource(study.posts),
     comments: withoutSource(study.comments),
     reactions: withoutSource(study.reactions),
@@ -285,6 +287,7 @@ export async function freezeStudy(
               age: actor.age,
               location: actor.location,
               bio: actor.bio,
+              moderator: actor.moderator,
               picture:
                 actor.picture && mediaKeys.get(path.join(MEDIA_FOLDERS.actors, actor.picture)),
             },
@@ -300,6 +303,29 @@ export async function freezeStudy(
     const drawLikes = (explicit: number | undefined, distribution: number[] | undefined) =>
       explicit ?? (distribution ? pickFrom(distribution, random) : 0);
 
+    const spaceIds = new Map<string, string>();
+    if (study.spaces.length > 0) {
+      const rows = await tx
+        .insert(schema.spaces)
+        .values(
+          study.spaces.map((space, position) => ({
+            studyVersionId,
+            key: space.key,
+            name: space.name,
+            description: space.description,
+            rules: space.rules,
+            startsJoined: space.startsJoined,
+            conditions: space.conditions,
+            class: space.class,
+            position,
+          })),
+        )
+        .returning({ id: schema.spaces.id, key: schema.spaces.key });
+      for (const row of rows) {
+        spaceIds.set(row.key, row.id);
+      }
+    }
+
     const positions = new Map(study.posts.map((post, index) => [post.ref, index]));
     const postIds = new Map<string, string>();
     for (const batch of chunks(study.posts, INSERT_BATCH_SIZE)) {
@@ -309,6 +335,7 @@ export async function freezeStudy(
           batch.map((post) => ({
             studyVersionId,
             authorActorId: actorId(post.actor),
+            spaceId: post.space ? spaceIds.get(post.space) : undefined,
             kind: "post",
             body: post.body,
             attachments: post.pictures.map((picture) => ({

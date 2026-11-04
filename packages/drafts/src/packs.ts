@@ -22,6 +22,7 @@ const INSERT_BATCH_SIZE = 500;
 
 type Arm = StudySettings["conditions"]["arms"][number];
 type Actor = StudyDefinition["actors"][number];
+type Space = StudyDefinition["spaces"][number];
 type Post = StudyDefinition["posts"][number];
 type Comment = StudyDefinition["comments"][number];
 type Reaction = StudyDefinition["reactions"][number];
@@ -34,6 +35,8 @@ export interface PackContents {
   settings: Pick<StudySettings, "site" | "platform" | "feed" | "likes" | "length">;
   arms: Arm[];
   actors: Actor[];
+  /** Packs saved before spaces don't have this. */
+  spaces?: Space[];
   posts: Post[];
   comments: Comment[];
   reactions: Reaction[];
@@ -61,7 +64,7 @@ function withoutSource<T extends { source?: unknown }>(item: T) {
 
 /** Turns a study into what a pack stores, with images pointing at where they're stored. */
 export function packContents(
-  { settings, actors, posts, comments, reactions }: StudyDefinition,
+  { settings, actors, spaces, posts, comments, reactions }: StudyDefinition,
   mediaKeys: Map<string, string>,
   provenance: Map<string, Provenance> = new Map(),
 ): PackContents {
@@ -89,6 +92,7 @@ export function packContents(
       ...withoutSource(actor),
       ...stored(MEDIA_FOLDERS.actors, actor.picture),
     })),
+    ...(spaces.length > 0 ? { spaces: spaces.map(withoutSource) } : {}),
     posts: posts.map((post) => ({
       ...withoutSource(post),
       pictures: post.pictures.map(
@@ -255,6 +259,13 @@ export async function startStudy(
   const keptPosts = new Set(posts.map(({ ref }) => ref));
   const comments = everywhere(contents?.comments ?? []).filter(({ post }) => keptPosts.has(post));
   const reactions = everywhere(contents?.reactions ?? []);
+  // Only the spaces something still needs, when keeping just the background.
+  const keptSpaceKeys = new Set(posts.flatMap(({ space }) => (space ? [space] : [])));
+  const spaces = (contents?.spaces ?? [])
+    .filter(
+      ({ key, conditions }) => !background || keptSpaceKeys.has(key) || conditions.length === 0,
+    )
+    .map((space) => (background ? { ...space, conditions: [] } : space));
   // Everyone stays, even if limited to a condition, since someone's untargeted post may need them.
   const actors = (contents?.actors ?? []).map((actor) =>
     background ? { ...actor, conditions: [] } : actor,
@@ -306,6 +317,7 @@ export async function startStudy(
     const postIds = new Map(posts.map(({ ref }) => [ref, crypto.randomUUID()]));
     const actorId = (username: string) => actorIds.get(username) as string;
     const commentIds = new Map(comments.map(({ ref }) => [ref, crypto.randomUUID()]));
+    const spaceIds = new Map(spaces.map(({ key }) => [key, crypto.randomUUID()]));
 
     const rows: (typeof schema.draftItems.$inferInsert)[] = [
       ...actors.map((actor, position) => ({
@@ -316,7 +328,15 @@ export async function startStudy(
         provenance: fromPack(null),
         data: actor,
       })),
-      ...posts.map(({ actor, likes, ...post }, position) => ({
+      ...spaces.map((space, position) => ({
+        id: spaceIds.get(space.key) as string,
+        draftId: draft.id,
+        kind: "space",
+        position,
+        provenance: fromPack(null),
+        data: space,
+      })),
+      ...posts.map(({ actor, likes, space, ...post }, position) => ({
         id: postIds.get(post.ref) as string,
         draftId: draft.id,
         kind: "post",
@@ -325,6 +345,7 @@ export async function startStudy(
         data: {
           ...post,
           actorId: actorId(actor),
+          ...(space && spaceIds.has(space) ? { spaceId: spaceIds.get(space) as string } : {}),
           likes: drawLikes(likes, settings.likes.posts),
         },
       })),

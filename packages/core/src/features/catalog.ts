@@ -53,6 +53,13 @@ export const FEATURES = {
     version: 1,
     events: ["content.voted"],
   },
+  spaces: {
+    name: "Spaces",
+    description:
+      "Posts can belong to communities, each with its own page. Off, every post shows in the one feed.",
+    version: 1,
+    events: ["space.joined", "space.left"],
+  },
   flagging: {
     name: "Flagging",
     description: "Participants can flag posts and comments.",

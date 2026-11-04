@@ -44,6 +44,18 @@ export function layoutFor(settings: StudySettings): LayoutKey {
   );
 }
 
+/** Whether participants can join and leave spaces in a condition. A study decides this. */
+export function canJoinSpacesFor(settings: StudySettings, conditionKey: string): boolean {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  return arm?.platform?.canJoinSpaces ?? settings.platform.canJoinSpaces ?? true;
+}
+
+/** Whether participants can choose a feed's order in a condition. A study decides this. */
+export function canSortFor(settings: StudySettings, conditionKey: string): boolean {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  return arm?.feed?.participantsCanSort ?? settings.feed.participantsCanSort ?? false;
+}
+
 /** Everything a browser needs to draw this platform for someone in a condition. */
 export function platformFor(settings: StudySettings, conditionKey: string) {
   return {
@@ -51,6 +63,8 @@ export function platformFor(settings: StudySettings, conditionKey: string) {
     features: featuresFor(settings, conditionKey),
     platformStyle: platformStyleFor(settings, conditionKey),
     commentBox: commentBoxFor(settings, conditionKey),
+    canJoinSpaces: canJoinSpacesFor(settings, conditionKey),
+    canSort: canSortFor(settings, conditionKey),
   };
 }
 
