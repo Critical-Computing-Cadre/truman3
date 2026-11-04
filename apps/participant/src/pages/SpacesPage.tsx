@@ -71,7 +71,7 @@ export function SpacePage() {
 
   const posts = (
     <>
-      {space && space.joined && space.userFlair.length > 0 && (
+      {space?.joined && space.userFlair.length > 0 && (
         <div className="px-3 sm:px-0">
           <UserFlairPicker space={space} />
         </div>
