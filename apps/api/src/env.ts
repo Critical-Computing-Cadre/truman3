@@ -7,8 +7,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   MEDIA_PUBLIC_URL: z.url(),
   NODE_ENV: z.string().optional(),
-  /** Only set this behind a load balancer, or anyone could fake their address. */
-  TRUST_PROXY: z.stringbool().default(false),
+  /** How many proxies of ours add to X-Forwarded-For. See client-address.ts. */
+  TRUSTED_PROXIES: z.coerce.number().int().nonnegative().default(0),
   LOGIN_ATTEMPTS_PER_MINUTE: z.coerce.number().int().positive().default(10),
   /** Encrypts researchers' Prolific tokens. Without it, connecting to Prolific is turned off. */
   TRUMAN_SECRET_KEY: z.string().optional(),

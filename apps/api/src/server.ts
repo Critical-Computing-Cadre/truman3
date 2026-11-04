@@ -3,6 +3,7 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import { connectedAsOwner, createDb } from "@truman3/db";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { createApp } from "./app.ts";
+import { forwardedAddress } from "./client-address.ts";
 import { parseServerEnv } from "./env.ts";
 import { describeError } from "./errors.ts";
 import { createRateLimiter } from "./rate-limit.ts";
@@ -39,10 +40,10 @@ const app = createApp({
     participantAppUrl: env.PARTICIPANT_APP_URL,
   },
   getClientIp: (c) => {
-    const forwarded = env.TRUST_PROXY
-      ? c.req.header("x-forwarded-for")?.split(",")[0]?.trim()
-      : undefined;
-    return forwarded ?? getConnInfo(c).remote.address;
+    return (
+      forwardedAddress(c.req.header("x-forwarded-for"), env.TRUSTED_PROXIES) ??
+      getConnInfo(c).remote.address
+    );
   },
 });
 

@@ -70,16 +70,16 @@ Both run in CI, and neither touches your development database.
 
 Keep the real values out of the repo. `.env.example` describes these too.
 
-| Setting                                    | Needed                 | What it is                                                          |
-| ------------------------------------------ | ---------------------- | ------------------------------------------------------------------- |
-| `DATABASE_URL`                             | Yes                    | The Postgres connection, as `truman_app`                            |
-| `S3_REGION`, `S3_BUCKET`                   | Yes                    | Media storage                                                       |
-| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Not on AWS             | Both or neither. Without them, storage uses the container's role    |
-| `S3_ENDPOINT`                              | Not on AWS             | For another S3-compatible service                                   |
-| `MEDIA_PUBLIC_URL`                         | Yes                    | Where browsers fetch media from                                     |
-| `PARTICIPANT_APP_URL`                      | Yes                    | The participant address, for study links                            |
-| `TRUMAN_SECRET_KEY`                        | For Prolific           | Encrypts Prolific tokens. Changing it means everyone connects again |
-| `TRUST_PROXY`                              | Behind a load balancer | Set to `true` so addresses come from `X-Forwarded-For`              |
+| Setting                                    | Needed         | What it is                                                                                                                                                                                      |
+| ------------------------------------------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                             | Yes            | The Postgres connection, as `truman_app`                                                                                                                                                        |
+| `S3_REGION`, `S3_BUCKET`                   | Yes            | Media storage                                                                                                                                                                                   |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Not on AWS     | Both or neither. Without them, storage uses the container's role                                                                                                                                |
+| `S3_ENDPOINT`                              | Not on AWS     | For another S3-compatible service                                                                                                                                                               |
+| `MEDIA_PUBLIC_URL`                         | Yes            | Where browsers fetch media from                                                                                                                                                                 |
+| `PARTICIPANT_APP_URL`                      | Yes            | The participant address, for study links                                                                                                                                                        |
+| `TRUMAN_SECRET_KEY`                        | For Prolific   | Encrypts Prolific tokens. Changing it means everyone connects again                                                                                                                             |
+| `TRUSTED_PROXIES`                          | Behind proxies | How many of your own proxies add to `X-Forwarded-For`. Staging has 2: CloudFront and the load balancer. Too many, and everyone looks like a proxy. Too few, and visitors can fake their address |
 
 The image sets `NODE_ENV=production`, which turns on secure cookies and the shorter error logs.
 
@@ -167,6 +167,5 @@ These are known gaps. Don't run real participants until they're closed.
 
 - **Private media.** Anyone with the link can read an uploaded photo.
 - **Several domains.** The apps work on any domain, and a stage can list them with a certificate, but `PARTICIPANT_APP_URL` is one address, so every study's link uses it. A study needs its own address setting.
-- **`TRUST_PROXY` reads the first address in `X-Forwarded-For`,** which a visitor can fake. Through CloudFront and a load balancer, it should count from the end. This affects rate limits, and the stored address for studies that opt in.
 - **A tested restore, and CI that deploys.** Automatic database backups are on, but nobody has restored one.
 - **Storage tries to create a missing bucket when starting.** On AWS the bucket is always there, so this does nothing.
