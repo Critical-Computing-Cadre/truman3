@@ -7,7 +7,16 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { formatStudyTime, MAX_ATTACHMENTS, parseStudyTime, safeLink } from "@truman3/core";
+import {
+  formatStudyTime,
+  MAX_ATTACHMENTS,
+  MAX_POLL_OPTION_LENGTH,
+  MAX_POLL_OPTIONS,
+  MIN_POLL_OPTIONS,
+  type Poll,
+  parseStudyTime,
+  safeLink,
+} from "@truman3/core";
 import { FeedPostView, PlatformProvider, shortTime } from "@truman3/ui";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import {
@@ -552,7 +561,13 @@ function ItemDetails({
             Space
             <select
               value={details.spaceId ?? ""}
-              onChange={(event) => change({ spaceId: event.target.value || null })}
+              // Flair comes from a space's list, so it doesn't follow a post to a different one.
+              onChange={(event) =>
+                change({
+                  spaceId: event.target.value || null,
+                  ...(details.flair ? { flair: null } : {}),
+                })
+              }
               className={field}
             >
               <option value="">None</option>
@@ -565,7 +580,7 @@ function ItemDetails({
           </label>
         )}
         {kind === "post" && (
-          <PostExtras details={details} info={info} change={change} field={field} />
+          <PostExtras itemId={itemId} details={details} info={info} change={change} field={field} />
         )}
         {info.conditions.some(({ features }) => features.votes) &&
           (["ups", "downs"] as const).map((key) => (
@@ -613,11 +628,13 @@ function ItemDetails({
 
 /** What features add to a post, for the ones on in at least one condition. */
 function PostExtras({
+  itemId,
   details,
   info,
   change,
   field,
 }: {
+  itemId: string;
   details: DraftItemDetails;
   info: DraftInfo;
   change: (changes: object) => void;
@@ -643,6 +660,12 @@ function PostExtras({
   const toggled = (list: string[], item: string, active: boolean) =>
     active ? [...list.filter((other) => other !== item), item] : list.filter((o) => o !== item);
   const row = "flex items-center gap-1";
+  const flairList = info.spaces.find(({ id }) => id === details.spaceId)?.postFlair ?? [];
+  // A crosspost points at the first post, and a post something else points at can't become one.
+  const crosspostChoices = info.posts.filter(
+    ({ id, crosspostOfId }) => id !== itemId && !crosspostOfId,
+  );
+  const isCrossposted = info.posts.some(({ crosspostOfId }) => crosspostOfId === itemId);
 
   return (
     <>
@@ -664,6 +687,41 @@ function PostExtras({
           </label>
           {linkProblem && <p className="text-rose-700">Use a full http or https address</p>}
         </div>
+      )}
+      {on("polls") && <PollEditor poll={details.poll} change={change} field={field} />}
+      {on("flair") && details.spaceId && flairList.length > 0 && (
+        <label className="flex items-center gap-2">
+          Flair
+          <select
+            value={details.flair ?? ""}
+            onChange={(event) => change({ flair: event.target.value || null })}
+            className={field}
+          >
+            <option value="">None</option>
+            {flairList.map(({ text }) => (
+              <option key={text} value={text}>
+                {text}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {on("crossposting") && !isCrossposted && (
+        <label className="flex items-center gap-2">
+          Crosspost of
+          <select
+            value={details.crosspostOfId ?? ""}
+            onChange={(event) => change({ crosspostOfId: event.target.value || null })}
+            className={`${field} min-w-0 flex-1`}
+          >
+            <option value="">Nothing, it's an ordinary post</option>
+            {crosspostChoices.map(({ id, title, body, authorName }) => (
+              <option key={id} value={id}>
+                {authorName}: {(title || body || "A post").slice(0, 60)}
+              </option>
+            ))}
+          </select>
+        </label>
       )}
       {on("pinning") && (
         <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -720,6 +778,133 @@ function PostExtras({
         </div>
       )}
     </>
+  );
+}
+
+/** A post's poll: its options, the votes each starts with, and when results show. */
+function PollEditor({
+  poll,
+  change,
+  field,
+}: {
+  poll: Poll | null;
+  change: (changes: object) => void;
+  field: string;
+}) {
+  if (!poll) {
+    return (
+      <button
+        type="button"
+        className="self-start text-left underline"
+        onClick={() =>
+          change({
+            poll: {
+              options: [
+                { text: "Option 1", votes: 0 },
+                { text: "Option 2", votes: 0 },
+              ],
+              resultsFirst: false,
+            },
+          })
+        }
+      >
+        Add a poll
+      </button>
+    );
+  }
+  const saveOption = (index: number, next: Partial<Poll["options"][number]>) =>
+    change({
+      poll: {
+        ...poll,
+        options: poll.options.map((option, at) => (at === index ? { ...option, ...next } : option)),
+      },
+    });
+  return (
+    <fieldset className="space-y-1 rounded border border-stone-200 p-2">
+      <legend className="px-1">Poll</legend>
+      {poll.options.map((option, index) => (
+        // An option is known by its place, and retyping shouldn't lose focus.
+        // biome-ignore lint/suspicious/noArrayIndexKey: see above
+        <div key={index} className="flex flex-wrap items-center gap-2">
+          <input
+            aria-label={`Poll option ${index + 1}`}
+            defaultValue={option.text}
+            maxLength={MAX_POLL_OPTION_LENGTH}
+            onBlur={(event) => {
+              const text = event.target.value.trim();
+              if (text && text !== option.text) {
+                saveOption(index, { text });
+              } else if (!text) {
+                event.target.value = option.text;
+              }
+            }}
+            className={`${field} min-w-0 flex-1`}
+          />
+          <label className="flex items-center gap-1">
+            Starts with
+            <input
+              aria-label={`Starting votes for option ${index + 1}`}
+              type="number"
+              min={0}
+              defaultValue={option.votes}
+              onBlur={(event) => {
+                const votes = Number(event.target.value);
+                if (Number.isInteger(votes) && votes >= 0 && votes !== option.votes) {
+                  saveOption(index, { votes });
+                }
+              }}
+              className={`${field} w-20`}
+            />
+          </label>
+          {poll.options.length > MIN_POLL_OPTIONS && (
+            <button
+              type="button"
+              className="underline"
+              aria-label={`Remove option ${index + 1}`}
+              onClick={() =>
+                change({
+                  poll: { ...poll, options: poll.options.filter((_, at) => at !== index) },
+                })
+              }
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      ))}
+      <div className="flex flex-wrap items-center gap-3">
+        {poll.options.length < MAX_POLL_OPTIONS && (
+          <button
+            type="button"
+            className="underline"
+            onClick={() =>
+              change({
+                poll: {
+                  ...poll,
+                  options: [
+                    ...poll.options,
+                    { text: `Option ${poll.options.length + 1}`, votes: 0 },
+                  ],
+                },
+              })
+            }
+          >
+            Add an option
+          </button>
+        )}
+        <SavedCheckbox
+          checked={poll.resultsFirst}
+          disabled={false}
+          className="flex items-center gap-1"
+          onChange={(resultsFirst) => change({ poll: { ...poll, resultsFirst } })}
+        >
+          Show results before someone votes
+        </SavedCheckbox>
+        <button type="button" className="underline" onClick={() => change({ poll: null })}>
+          Remove the poll
+        </button>
+      </div>
+    </fieldset>
   );
 }
 

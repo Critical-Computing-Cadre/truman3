@@ -497,3 +497,162 @@ describe("what forum features add to a post", () => {
     expect(await screen.findByRole("button", { name: "Couldn't copy" })).toBeDefined();
   });
 });
+
+describe("polls", () => {
+  afterEach(cleanup);
+  const forum = { ...TEMPLATES.forum, features: { ...TEMPLATES.forum.features } };
+  const polled: FeedPost = {
+    ...POST,
+    poll: { voted: null, options: [{ text: "Yes" }, { text: "No" }] },
+  };
+  const draw = (post: FeedPost, polls = true, onPollVote = vi.fn()) =>
+    render(
+      <PlatformProvider platform={{ ...forum, features: { ...forum.features, polls } }}>
+        <FeedPostView
+          post={post}
+          actions={{
+            onLike: vi.fn(),
+            onVote: vi.fn(),
+            onFlag: vi.fn(),
+            onReply: vi.fn(),
+            onPollVote,
+          }}
+        />
+      </PlatformProvider>,
+    );
+
+  it("disappears when off", () => {
+    draw(polled, false);
+    expect(screen.queryByRole("region", { name: "Poll" })).toBeNull();
+  });
+
+  it("offers options until someone votes, without counts it wasn't sent", () => {
+    const vote = vi.fn();
+    draw(polled, true, vote);
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
+    expect(vote).toHaveBeenCalledWith("p1", 1);
+    expect(screen.getByText("See the results after you vote.")).toBeTruthy();
+  });
+
+  it("shows counts and takes no more votes once they've voted", () => {
+    draw({
+      ...polled,
+      poll: {
+        voted: 0,
+        options: [
+          { text: "Yes", votes: 3 },
+          { text: "No", votes: 1 },
+        ],
+      },
+    });
+    expect(screen.queryByRole("button", { name: /^Yes/ })).toBeNull();
+    expect(screen.getByText("75% · 3")).toBeTruthy();
+    expect(screen.getByText("(your vote)")).toBeTruthy();
+    expect(screen.getByText("4 votes")).toBeTruthy();
+  });
+});
+
+describe("flair and crossposts", () => {
+  afterEach(cleanup);
+  const withThem: FeedPost = {
+    ...POST,
+    flair: { text: "News" },
+    author: { ...author, flair: { text: "Chef" } },
+    crosspost: { original: { id: "o", authorName: "Bo", body: "Original words" } },
+  };
+  const draw = (features: Partial<Record<FeatureKey, boolean>>, post = withThem) =>
+    render(
+      <PlatformProvider
+        platform={{ ...TEMPLATES.forum, features: { ...TEMPLATES.forum.features, ...features } }}
+      >
+        <FeedPostView post={post} />
+      </PlatformProvider>,
+    );
+
+  it("shows them when on", () => {
+    draw({});
+    expect(screen.getByTestId("post-flair").textContent).toBe("News");
+    expect(screen.getByTestId("author-flair").textContent).toBe("Chef");
+    expect(screen.getByTestId("crosspost-original").textContent).toContain("Original words");
+  });
+
+  it("disappears when off", () => {
+    draw({ flair: false, crossposting: false });
+    expect(screen.queryByTestId("post-flair")).toBeNull();
+    expect(screen.queryByTestId("author-flair")).toBeNull();
+    expect(screen.queryByTestId("crosspost-original")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Crosspost" })).toBeNull();
+  });
+
+  it("says when the original can't be seen", () => {
+    draw({}, { ...withThem, crosspost: { original: null } });
+    expect(screen.getByTestId("crosspost-original").textContent).toContain("isn't available");
+  });
+});
+
+describe("the More button on a phone", () => {
+  const setPhone = (phone: boolean) => {
+    window.matchMedia = ((query: string) => ({
+      matches: phone,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+  };
+  afterEach(() => {
+    cleanup();
+    // jsdom has no matchMedia of its own, which every other test relies on.
+    delete (window as { matchMedia?: unknown }).matchMedia;
+  });
+  const draw = (
+    template: "forum" | "classic",
+    features: Partial<Record<FeatureKey, boolean>> = {},
+  ) =>
+    render(
+      <PlatformProvider
+        platform={{
+          ...TEMPLATES[template],
+          features: { ...TEMPLATES[template].features, ...features },
+        }}
+      >
+        <FeedPostView post={POST} />
+      </PlatformProvider>,
+    );
+
+  it("puts less-used buttons behind it, opens them, and closes on Escape", () => {
+    setPhone(true);
+    draw("forum");
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    const more = screen.getByRole("button", { name: "More" });
+    expect(more.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(more);
+    expect(more.getAttribute("aria-expanded")).toBe("true");
+    const save = screen.getByRole("button", { name: "Save" });
+    for (const name of ["Hide", "Share", "Crosspost"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
+    fireEvent.keyDown(save, { key: "Escape" });
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    expect(document.activeElement).toBe(more);
+  });
+
+  it("isn't there on a wider screen", () => {
+    setPhone(false);
+    draw("forum");
+    expect(screen.queryByRole("button", { name: "More" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
+  });
+
+  it("leaves Classic's phone row as it was, without these features", () => {
+    setPhone(true);
+    draw("classic");
+    expect(screen.queryByRole("button", { name: "More" })).toBeNull();
+  });
+
+  it("works on Classic too, when a study turns them on", () => {
+    setPhone(true);
+    draw("classic", { saving: true });
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
+  });
+});

@@ -166,7 +166,16 @@ test("a researcher writes links, pins, locks, and tags, and a participant uses a
   await expect(covered.getByText("They all lived.")).toBeVisible();
   await expect.poll(eventTypes).toContain("content.revealed");
 
+  // On a phone, the less-used buttons are behind More.
+  const openMore = async (post: Locator) => {
+    const more = post.getByRole("button", { name: "More" });
+    if (await more.isVisible()) {
+      await more.click();
+    }
+  };
+
   // Share says it copied, and the link is to that post.
+  await openMore(covered);
   await covered.getByRole("button", { name: "Share" }).click();
   await expect(covered.getByRole("button", { name: "Link copied" })).toBeVisible();
   const copied = await participant.evaluate(() => navigator.clipboard.readText());
@@ -183,9 +192,11 @@ test("a researcher writes links, pins, locks, and tags, and a participant uses a
 
   // Saving and hiding.
   const reading = participant.getByRole("article", { name: "Worth reading" });
+  await openMore(reading);
   await reading.getByRole("button", { name: "Save", exact: true }).click();
   await expect(reading.getByRole("button", { name: "Saved" })).toBeVisible();
   const titleOnly = participant.getByRole("article", { name: "Only a title" });
+  await openMore(titleOnly);
   await titleOnly.getByRole("button", { name: "Hide" }).click();
   await expect(participant.getByRole("article", { name: "Only a title" })).toHaveCount(0);
   await participant.reload();
@@ -198,9 +209,10 @@ test("a researcher writes links, pins, locks, and tags, and a participant uses a
     .getByRole("link", { name: "0 comments" })
     .click();
   const lockedPage = participant.getByRole("article", { name: "No more comments" });
-  await expect(lockedPage.getByText("Locked")).toBeVisible();
+  await expect(lockedPage.getByText("Locked", { exact: true })).toBeVisible();
   await expect(lockedPage.getByLabel("Write a comment")).toHaveCount(0);
   await expect(lockedPage.getByRole("button", { name: "Reply" })).toHaveCount(0);
+  await expect(lockedPage.getByText("This post is locked")).toBeVisible();
   await shot(participant, project, "extras-3-locked");
 
   // Lists on their own profile, and hiding can be undone there.
@@ -208,10 +220,13 @@ test("a researcher writes links, pins, locks, and tags, and a participant uses a
   const lists = participant.getByRole("region", { name: "Your saved and hidden posts" });
   await lists.getByRole("button", { name: "Saved" }).click();
   await expect(lists.getByRole("article", { name: "Worth reading" })).toBeVisible();
+  // An open list takes the place of their own posts, so nothing says there's nothing to show.
+  await expect(participant.getByText("No posts to show.")).toHaveCount(0);
   await shot(participant, project, "extras-4-saved");
   await lists.getByRole("button", { name: "Hidden" }).click();
   const hidden = lists.getByRole("article", { name: "Only a title" });
   await expect(hidden).toBeVisible();
+  await openMore(hidden);
   await hidden.getByRole("button", { name: "Unhide" }).click();
   await expect(hidden).toHaveCount(0);
   await participant.goto(app);

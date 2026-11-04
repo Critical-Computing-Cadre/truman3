@@ -135,10 +135,10 @@ export function checkNewPost(
   style: PlatformStyle,
   hasText: boolean,
   hasImage: boolean,
-  /** A title or a link can be enough by itself, except on a platform that's about photos. */
-  also: { titled?: boolean; linked?: boolean } = {},
+  /** A title, link, or poll can be enough by itself, except on a platform that's about photos. */
+  also: { titled?: boolean; linked?: boolean; polled?: boolean } = {},
 ): string | null {
-  const enough = hasText || Boolean(also.titled) || Boolean(also.linked);
+  const enough = hasText || Boolean(also.titled) || Boolean(also.linked) || Boolean(also.polled);
   switch (style) {
     case "photo":
       return hasImage ? null : "Add a photo to your post.";

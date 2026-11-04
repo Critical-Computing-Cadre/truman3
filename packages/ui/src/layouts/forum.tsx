@@ -2,15 +2,19 @@ import type { FeedComment } from "@truman3/core";
 import type { ReactNode } from "react";
 import { Avatar } from "../Avatar.tsx";
 import { CommentReplyButton, ReplyButton, replyIndent } from "../features/comments.tsx";
+import { CrosspostButton, CrosspostOriginal } from "../features/crossposting.tsx";
 import {
   CommentFlagButton,
   FlaggedComment,
   FlaggedPostCover,
   PostFlagButton,
 } from "../features/flagging.tsx";
+import { AuthorFlair, PostFlair } from "../features/flair.tsx";
 import { PostPhotos } from "../features/galleries.tsx";
 import { KarmaBadge } from "../features/karma.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
+import { useMoreMenu } from "../features/more-menu.tsx";
+import { PostPoll } from "../features/polls.tsx";
 import {
   HideButton,
   PostBadges,
@@ -64,6 +68,7 @@ function ForumComment({
         )}
         {author("font-semibold text-stone-800", comment.author.name)}
         <ModeratorTag author={comment.author} />
+        <AuthorFlair author={comment.author} />
         <KarmaBadge author={comment.author} />
         <span>· {shortTime(comment.at)}</span>
       </p>
@@ -101,6 +106,26 @@ export function ForumPost({
   detail = false,
 }: FeedPostViewProps) {
   const image = post.attachments.length > 0 ? <PostPhotos post={post} /> : null;
+  const more = useMoreMenu(["flagging", "saving", "hiding", "sharing", "crossposting"], PILL);
+  const lessUsed = (
+    <>
+      <div className={PILL}>
+        <PostFlagButton post={post} {...(actions ? { actions } : {})} />
+      </div>
+      <div className={PILL}>
+        <SaveButton post={post} actions={actions} />
+      </div>
+      <div className={PILL}>
+        <HideButton post={post} actions={actions} />
+      </div>
+      <div className={PILL}>
+        <ShareButton post={post} actions={actions} />
+      </div>
+      <div className={PILL}>
+        <CrosspostButton post={post} actions={actions} />
+      </div>
+    </>
+  );
   const author = (className: string, children: ReactNode) =>
     renderAuthor ? (
       renderAuthor(post.author, className, children)
@@ -124,6 +149,7 @@ export function ForumPost({
               post.author.name,
             )}
             <ModeratorTag author={post.author} />
+            <AuthorFlair author={post.author} />
             <KarmaBadge author={post.author} />
           </span>
           <time dateTime={post.at}>· {shortTime(post.at)}</time>
@@ -135,6 +161,7 @@ export function ForumPost({
           {...(renderTitle ? { renderTitle } : {})}
           {...(renderPostLink && !detail ? { renderPostLink } : {})}
         />
+        <PostFlair post={post} className="px-4 pt-1" />
         <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
           {renderBody ? (
             <div className="px-4 pt-1.5 text-sm">{renderBody(post.id, post.body)}</div>
@@ -148,6 +175,12 @@ export function ForumPost({
             )
           )}
           <PostLink post={post} actions={actions} />
+          <PostPoll post={post} actions={actions} />
+          <CrosspostOriginal
+            post={post}
+            {...(renderPostLink ? { renderPostLink } : {})}
+            {...(renderSpace ? { renderSpace } : {})}
+          />
           <div className="mx-4 mt-2.5 overflow-hidden rounded-xl empty:hidden">
             {wrapImage ? wrapImage(image) : image}
           </div>
@@ -171,19 +204,13 @@ export function ForumPost({
               {...(renderPostLink ? { renderPostLink } : {})}
             />
           )}
-          <div className={PILL}>
-            <PostFlagButton post={post} {...(actions ? { actions } : {})} />
-          </div>
-          <div className={PILL}>
-            <SaveButton post={post} actions={actions} />
-          </div>
-          <div className={PILL}>
-            <HideButton post={post} actions={actions} />
-          </div>
-          <div className={PILL}>
-            <ShareButton post={post} actions={actions} />
-          </div>
+          {more.collapsed ? more.toggle : lessUsed}
         </div>
+        {more.open && (
+          <div {...more.panelProps} className="flex flex-wrap items-center gap-2 px-4 pb-2.5">
+            {lessUsed}
+          </div>
+        )}
       </div>
 
       {(post.comments.length > 0 || belowComments) && (

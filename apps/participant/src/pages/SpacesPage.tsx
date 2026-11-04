@@ -4,7 +4,13 @@ import type { FeedResponse } from "@truman3/core";
 import { CreatePostBar, SpaceFrame } from "@truman3/ui";
 import { useRef } from "react";
 import { flowQuery, get, meQuery } from "../api.ts";
-import { JoinButton, MemberCount, SpacePicture, spacesQuery } from "../components/Community.tsx";
+import {
+  JoinButton,
+  MemberCount,
+  SpacePicture,
+  spacesQuery,
+  UserFlairPicker,
+} from "../components/Community.tsx";
 import { PostCard } from "../components/PostCard.tsx";
 import { NewPostDialog, SortPicker } from "./FeedPage.tsx";
 
@@ -65,6 +71,11 @@ export function SpacePage() {
 
   const posts = (
     <>
+      {space && space.joined && space.userFlair.length > 0 && (
+        <div className="px-3 sm:px-0">
+          <UserFlairPicker space={space} />
+        </div>
+      )}
       {flow.data?.features.posting && me.data && (
         <>
           <CreatePostBar

@@ -64,6 +64,36 @@ export function MemberCount({ space }: { space: SpaceView }) {
   );
 }
 
+/** Choosing what someone shows beside their name here, from the community's list. */
+export function UserFlairPicker({ space }: { space: SpaceView }) {
+  const client = useQueryClient();
+  const change = useMutation({
+    mutationFn: (flair: string | null) => post(`/spaces/${space.key}/flair`, { flair }),
+    onSettled: () => client.invalidateQueries(),
+  });
+  if (space.userFlair.length === 0 || !space.joined) {
+    return null;
+  }
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      Your flair
+      <select
+        value={(change.isPending ? change.variables : space.myFlair) ?? ""}
+        disabled={change.isPending}
+        onChange={(event) => change.mutate(event.target.value || null)}
+        className="min-w-0 flex-1 rounded border border-stone-300 bg-white px-2 py-1"
+      >
+        <option value="">None</option>
+        {space.userFlair.map(({ text }) => (
+          <option key={text} value={text}>
+            {text}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 const CARD = "rounded-2xl border border-stone-200 bg-white p-4 text-sm";
 
 /** What a community is, beside one of its posts. */
@@ -89,6 +119,7 @@ export function CommunityCard({ spaceKey }: { spaceKey: string }) {
         </div>
         <JoinButton space={space} />
       </div>
+      <UserFlairPicker space={space} />
       {space.description && <p className="break-words text-stone-700">{space.description}</p>}
       {space.rules && (
         <div>

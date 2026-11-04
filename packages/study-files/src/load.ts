@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   type ActorDefinition,
   type CommentDefinition,
+  type Flair,
   hasErrors,
   PIN_PLACES,
   POST_TAGS,
@@ -29,6 +30,7 @@ const ACTORS: CsvSpec = {
     "picture",
     "moderator",
     "karma",
+    "flair",
     "condition",
     "class",
   ],
@@ -44,6 +46,10 @@ const POSTS: CsvSpec = {
     "pinned",
     "locked",
     "tags",
+    "poll",
+    "pollResultsFirst",
+    "flair",
+    "crosspostOf",
     "likes",
     "ups",
     "downs",
@@ -61,6 +67,9 @@ const SPACES: CsvSpec = {
     "accent",
     "startsJoined",
     "members",
+    "postFlair",
+    "userFlair",
+    "requirePostFlair",
     "condition",
     "class",
   ],
@@ -197,6 +206,50 @@ export function loadStudyFolder(folder: string): LoadedStudy {
   const optional = <K extends string>(key: K, value: string | number | undefined) =>
     value === undefined || value === "" ? {} : ({ [key]: value } as Record<K, never>);
 
+  /** `Label` or `Label=#rrggbb`, separated by |. */
+  const flairList = (value: string | undefined): Flair[] =>
+    (value ?? "")
+      .split("|")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => {
+        const [text = "", color] = item.split("=").map((part) => part.trim());
+        return { text, ...(color ? { color } : {}) };
+      });
+
+  /** `space=Label`, separated by |. */
+  const actorFlair = (value: string | undefined, row: number) => {
+    const pairs = (value ?? "")
+      .split("|")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .flatMap((item) => {
+        const [key, text] = item.split("=").map((part) => part.trim());
+        if (!key || !text) {
+          rowError("actors.csv", row, `"${item}" in flair has to look like space=Label.`);
+          return [];
+        }
+        return [[key, text]];
+      });
+    return pairs.length > 0 ? { spaceFlair: Object.fromEntries(pairs) } : {};
+  };
+
+  /** `Option` or `Option=12` for its starting votes, separated by |. */
+  const pollFrom = (cells: Record<string, string>, row: number) => {
+    const options = (cells.poll ?? "")
+      .split("|")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => {
+        const counted = /^(.*)=(\d+)$/.exec(item);
+        return counted
+          ? { text: (counted[1] as string).trim(), votes: Number(counted[2]) }
+          : { text: item, votes: 0 };
+      });
+    const resultsFirst = yesOrNo(cells.pollResultsFirst, "pollResultsFirst", "posts.csv", row);
+    return options.length > 0 ? { poll: { options, resultsFirst: resultsFirst ?? false } } : {};
+  };
+
   const actors: ActorDefinition[] = readTable("actors.csv", ACTORS, true).map(({ row, cells }) => {
     if (!cells.username) {
       rowError("actors.csv", row, "This actor has no username.");
@@ -214,6 +267,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       ...optional("picture", cells.picture),
       ...(yesOrNo(cells.moderator, "moderator", "actors.csv", row) ? { moderator: true } : {}),
       ...optional("karma", signedNumber(cells.karma, "karma", "actors.csv", row)),
+      ...actorFlair(cells.flair, row),
       ...targeting(cells, "actors.csv", row),
     };
   });
@@ -231,6 +285,11 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       ...optional("banner", cells.banner),
       ...optional("accent", cells.accent),
       ...optional("members", wholeNumber(cells.members, "members", "spaces.csv", row)),
+      ...(cells.postFlair ? { postFlair: flairList(cells.postFlair) } : {}),
+      ...(cells.userFlair ? { userFlair: flairList(cells.userFlair) } : {}),
+      ...(yesOrNo(cells.requirePostFlair, "requirePostFlair", "spaces.csv", row)
+        ? { requirePostFlair: true }
+        : {}),
       ...targeting(cells, "spaces.csv", row),
     };
   });
@@ -273,6 +332,9 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       ...(pinnedOn.length > 0 ? { pinnedOn } : {}),
       ...(locked ? { locked } : {}),
       ...(tags.length > 0 ? { tags } : {}),
+      ...pollFrom(cells, row),
+      ...optional("flair", cells.flair),
+      ...optional("crosspostOf", cells.crosspostOf),
       ...optional("likes", wholeNumber(cells.likes, "likes", "posts.csv", row)),
       ...optional("ups", wholeNumber(cells.ups, "ups", "posts.csv", row)),
       ...optional("downs", wholeNumber(cells.downs, "downs", "posts.csv", row)),

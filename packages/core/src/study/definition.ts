@@ -3,6 +3,7 @@ import { ACCENT_PATTERN } from "../color.ts";
 import { FEATURE_KEYS } from "../features/catalog.ts";
 import { LAYOUT_KEYS, TEMPLATE_KEYS } from "../features/templates.ts";
 import { COMMENT_SORTS, FEED_SORTS } from "../orders.ts";
+import { flairSchema, pollSchema } from "../polls-flair.ts";
 import { linkSchema, PIN_PLACES, POST_TAGS } from "../post-extras.ts";
 
 const keySchema = z
@@ -212,6 +213,8 @@ export const actorDefinitionSchema = z.object({
   moderator: z.boolean().optional(),
   /** Their points, on a platform with karma. */
   karma: z.number().int().optional(),
+  /** The flair they show in each space, by the space's key, on a platform with flair. */
+  spaceFlair: z.record(z.string(), z.string()).optional(),
   ...targetingFields,
 });
 
@@ -232,6 +235,12 @@ export const spaceDefinitionSchema = z.object({
   startsJoined: z.boolean().default(true),
   /** How many members it says it has, before this participant. Leave out to show no number. */
   members: z.number().int().nonnegative().optional(),
+  /** What posts in it can be labeled with, on a platform with flair. */
+  postFlair: z.array(flairSchema).optional(),
+  /** What people in it can show beside their name, on a platform with flair. */
+  userFlair: z.array(flairSchema).optional(),
+  /** Whether a post someone writes here has to have flair. */
+  requirePostFlair: z.boolean().optional(),
   ...targetingFields,
 });
 
@@ -252,6 +261,12 @@ export const postDefinitionSchema = z.object({
   locked: z.boolean().optional(),
   /** Why it's covered until clicked, on a platform with those tags. */
   tags: z.array(z.enum(POST_TAGS)).optional(),
+  /** Its poll, on a platform with polls. */
+  poll: pollSchema.optional(),
+  /** Its label, from its space's list, on a platform with flair. */
+  flair: z.string().min(1).optional(),
+  /** The post this was crossposted from, by its ID in this study. */
+  crosspostOf: z.string().min(1).optional(),
   actor: z.string().min(1),
   /** Milliseconds relative to when a participant starts. */
   timeMs: z.number().int(),

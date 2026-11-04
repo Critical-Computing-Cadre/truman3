@@ -354,14 +354,23 @@ export async function startStudy(
     const spaceIds = new Map(spaces.map(({ key }) => [key, crypto.randomUUID()]));
 
     const rows: (typeof schema.draftItems.$inferInsert)[] = [
-      ...actors.map((actor, position) => ({
-        id: actorId(actor.username),
-        draftId: draft.id,
-        kind: "actor",
-        position,
-        provenance: fromPack(null),
-        data: actor,
-      })),
+      ...actors.map(({ spaceFlair, ...actor }, position) => {
+        const flair = Object.entries(spaceFlair ?? {}).flatMap(([key, text]) => {
+          const id = spaceIds.get(key);
+          return id ? [[id, text]] : [];
+        });
+        return {
+          id: actorId(actor.username),
+          draftId: draft.id,
+          kind: "actor",
+          position,
+          provenance: fromPack(null),
+          data: {
+            ...actor,
+            ...(flair.length > 0 ? { spaceFlair: Object.fromEntries(flair) } : {}),
+          },
+        };
+      }),
       ...spaces.map((space, position) => ({
         id: spaceIds.get(space.key) as string,
         draftId: draft.id,
@@ -370,7 +379,7 @@ export async function startStudy(
         provenance: fromPack(null),
         data: space,
       })),
-      ...posts.map(({ actor, likes, space, ...post }, position) => ({
+      ...posts.map(({ actor, likes, space, crosspostOf, ...post }, position) => ({
         id: postIds.get(post.ref) as string,
         draftId: draft.id,
         kind: "post",
@@ -380,6 +389,10 @@ export async function startStudy(
           ...post,
           actorId: actorId(actor),
           ...(space && spaceIds.has(space) ? { spaceId: spaceIds.get(space) as string } : {}),
+          // A crosspost whose original was left out of this study is an ordinary post.
+          ...(crosspostOf && postIds.has(crosspostOf)
+            ? { crosspostOfId: postIds.get(crosspostOf) as string }
+            : {}),
           likes: drawLikes(likes, settings.likes.posts),
         },
       })),

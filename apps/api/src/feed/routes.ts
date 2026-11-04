@@ -94,6 +94,33 @@ const membershipRoute = createRoute({
   },
 });
 
+const flairRoute = createRoute({
+  method: "post",
+  path: "/spaces/{key}/flair",
+  summary: "Choose the flair this person shows in a space, from its list",
+  request: {
+    params: z.object({ key: z.string() }),
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: actionMetaSchema.extend({
+            /** Null takes it off. */
+            flair: z.string().nullable(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: okResponse,
+    400: errorResponse("That flair isn't on this space's list"),
+    401: errorResponse("Not signed in"),
+    403: errorResponse("Flair is off in this condition, or they aren't in this space"),
+    404: errorResponse("No such space for this participant"),
+  },
+});
+
 const sortRoute = createRoute({
   method: "post",
   path: "/feed/sort",
@@ -275,10 +302,25 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
       return c.json(featureOff, 403);
     }
     const spaces = await loadSpacesFor(db, context);
+    const flairOn = featureOn(context.settings, context.conditionKey, "flair");
     return c.json(
       {
         spaces: spaces.map(
-          ({ key, name, description, rules, picture, banner, accent, joined, baseMembers }) => ({
+          ({
+            key,
+            name,
+            description,
+            rules,
+            picture,
+            banner,
+            accent,
+            joined,
+            baseMembers,
+            postFlair,
+            userFlair,
+            requirePostFlair,
+            flair,
+          }) => ({
             key,
             name,
             description,
@@ -289,11 +331,68 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
             // Only this person is in their world, so they're the only one who can add to it.
             memberCount: baseMembers === null ? null : baseMembers + (joined ? 1 : 0),
             joined,
+            postFlair: flairOn ? postFlair : [],
+            userFlair: flairOn ? userFlair : [],
+            requirePostFlair: flairOn && requirePostFlair,
+            myFlair: flairOn ? flair : null,
           }),
         ),
       },
       200,
     );
+  });
+
+  app.openapi(flairRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (
+      !featureOn(context.settings, context.conditionKey, "flair") ||
+      !featureOn(context.settings, context.conditionKey, "spaces")
+    ) {
+      return c.json(featureOff, 403);
+    }
+    const { key } = c.req.valid("param");
+    const space = (await loadSpacesFor(db, context)).find((item) => item.key === key);
+    if (!space) {
+      return c.json(notAvailable, 404);
+    }
+    if (!space.joined) {
+      return c.json({ error: "Join this community first." }, 403);
+    }
+    const body = c.req.valid("json");
+    if (body.flair !== null && !space.userFlair.some(({ text }) => text === body.flair)) {
+      return c.json({ error: "That flair isn't one this community offers." }, 400);
+    }
+    await db.transaction(async (tx) => {
+      const recorded = await recordEvent(tx, {
+        ...participantEvent(context, body.occurredAt, body.clientEventId),
+        type: "space.flair_chosen",
+        payload: { space: key, flair: body.flair },
+      });
+      if (!recorded) {
+        return;
+      }
+      await tx
+        .insert(schema.spaceMemberships)
+        .values({
+          worldId: context.worldId,
+          actorId: context.actorId,
+          spaceId: space.id,
+          joined: space.joined,
+          flair: body.flair,
+        })
+        .onConflictDoUpdate({
+          target: [
+            schema.spaceMemberships.worldId,
+            schema.spaceMemberships.actorId,
+            schema.spaceMemberships.spaceId,
+          ],
+          set: { flair: body.flair },
+        });
+    });
+    return c.json({ ok: true as const }, 200);
   });
 
   app.openapi(membershipRoute, async (c) => {

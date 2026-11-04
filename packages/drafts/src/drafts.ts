@@ -118,6 +118,14 @@ export async function openDraft(
       newId.set(row.id, crypto.randomUUID());
     }
     const asId = (oldId: string) => newId.get(oldId) as string;
+    const spaceIdByKey = new Map(spaces.map(({ key, id }) => [key, asId(id)]));
+    const actorFlair = (flair: Record<string, string> | undefined) => {
+      const pairs = Object.entries(flair ?? {}).flatMap(([key, text]) => {
+        const id = spaceIdByKey.get(key);
+        return id ? [[id, text]] : [];
+      });
+      return pairs.length > 0 ? { spaceFlair: Object.fromEntries(pairs) } : {};
+    };
 
     // In a frozen version a comment's parent can be another comment. A draft keeps both.
     const contentById = new Map(content.map((row) => [row.id, row]));
@@ -156,6 +164,7 @@ export async function openDraft(
             ...optional("picture", profile.picture),
             ...optional("moderator", profile.moderator),
             ...optional("karma", profile.karma),
+            ...actorFlair(profile.spaceFlair as Record<string, string> | undefined),
             conditions: actor.conditions,
             ...optional("class", actor.class),
           },
@@ -177,6 +186,9 @@ export async function openDraft(
           ...optional("accent", space.accent),
           startsJoined: space.startsJoined,
           ...optional("members", space.baseMembers),
+          ...(space.postFlair.length > 0 ? { postFlair: space.postFlair } : {}),
+          ...(space.userFlair.length > 0 ? { userFlair: space.userFlair } : {}),
+          ...(space.requirePostFlair ? { requirePostFlair: true } : {}),
           conditions: space.conditions,
           ...optional("class", space.class),
         },
@@ -210,6 +222,9 @@ export async function openDraft(
                   ...(item.pinnedOn.length > 0 ? { pinnedOn: item.pinnedOn } : {}),
                   ...(item.locked ? { locked: true } : {}),
                   ...(item.tags.length > 0 ? { tags: item.tags } : {}),
+                  ...(item.poll ? { poll: item.poll } : {}),
+                  ...optional("flair", item.flair),
+                  ...(item.crosspostOf ? { crosspostOfId: asId(item.crosspostOf) } : {}),
                   pictures: item.attachments.map(({ key }) => key),
                   ...(item.spaceId ? { spaceId: asId(item.spaceId) } : {}),
                 }
@@ -432,6 +447,12 @@ async function checkReferences(tx: Transaction, draftId: string, data: Record<st
   }
   if (typeof data.spaceId === "string" && !(await itemExists(tx, draftId, "space", data.spaceId))) {
     return "That space isn't in this study.";
+  }
+  if (
+    typeof data.crosspostOfId === "string" &&
+    !(await itemExists(tx, draftId, "post", data.crosspostOfId))
+  ) {
+    return "That post isn't in this study.";
   }
   if (
     typeof data.replyToId === "string" &&
@@ -967,11 +988,14 @@ export async function deleteItem(
       return NOT_FOUND;
     }
 
-    const points = (row: ItemRow, key: "actorId" | "postId" | "spaceId") =>
+    const points = (row: ItemRow, key: "actorId" | "postId" | "spaceId" | "crosspostOfId") =>
       (row.data as Record<string, unknown>)[key] === itemId;
 
     if (item.kind === "space" && rows.some((row) => points(row, "spaceId"))) {
       return { problem: "in-use" as const, message: "This space still has posts in it." };
+    }
+    if (item.kind === "post" && rows.some((row) => points(row, "crosspostOfId"))) {
+      return { problem: "in-use" as const, message: "Another post is a crosspost of this one." };
     }
     if (item.kind === "actor" && rows.some((row) => points(row, "actorId"))) {
       return { problem: "in-use" as const, message: "This person still has posts or comments." };

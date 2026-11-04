@@ -1,4 +1,5 @@
 import {
+  type Flair,
   featureOn,
   featuresFor,
   type StudySettings,
@@ -11,6 +12,7 @@ import { assembleFeed, feedSettingsFor } from "@truman3/feed";
 import { and, eq, isNull } from "drizzle-orm";
 import {
   castKarma,
+  contentTimeMs,
   type FeedActor,
   type FeedContent,
   loadAuthors,
@@ -46,6 +48,8 @@ export interface PreviewSpace {
   name: string;
   conditions: string[];
   picture?: string | null | undefined;
+  postFlair?: readonly Flair[] | undefined;
+  userFlair?: readonly Flair[] | undefined;
 }
 
 /**
@@ -71,7 +75,10 @@ export async function previewContent(
   const visible = new Map(
     (spacesOn ? spaces : [])
       .filter(({ conditions }) => conditions.length === 0 || conditions.includes(conditionKey))
-      .map(({ id, key, name, picture }) => [id, { key, name, picture }]),
+      .map(({ id, key, name, picture, postFlair, userFlair }) => [
+        id,
+        { key, name, picture, postFlair, userFlair },
+      ]),
   );
   const shownRows = spacesOn
     ? rows.filter(({ spaceId }) => spaceId === null || visible.has(spaceId))
@@ -109,6 +116,10 @@ export async function previewContent(
     scriptedCounts: new Map(),
     viewerVotes: new Map(),
     features,
+    canSeeOriginal: (row) =>
+      (row.conditions.length === 0 || row.conditions.includes(conditionKey)) &&
+      contentTimeMs(row, worldStartMs) <= now.getTime() &&
+      (!spacesOn || !row.spaceId || visible.has(row.spaceId)),
     spaces: visible,
     karma: featureOn(version.settings, conditionKey, "karma")
       ? {

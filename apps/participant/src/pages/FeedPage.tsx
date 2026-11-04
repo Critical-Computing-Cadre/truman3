@@ -6,7 +6,11 @@ import {
   FEED_SORTS,
   type FeedResponse,
   MAX_LINK_LENGTH,
+  MAX_POLL_OPTION_LENGTH,
+  MAX_POLL_OPTIONS,
   MAX_TITLE_LENGTH,
+  MIN_POLL_OPTIONS,
+  pollOptionsProblem,
   SORT_LABELS,
   type SpaceView,
   safeLink,
@@ -94,12 +98,17 @@ export function NewPostDialog({
   const links = flow.data?.features.links ?? false;
   const spoilers = flow.data?.features.spoilers ?? false;
   const adultTags = flow.data?.features.adultTags ?? false;
-  const chooseSpace = !space && (flow.data?.features.spaces ?? false);
+  const polls = flow.data?.features.polls ?? false;
+  const spacesOn = flow.data?.features.spaces ?? false;
+  const chooseSpace = !space && spacesOn;
   const spaces = useQuery({
     queryKey: ["spaces"],
     queryFn: () => get<{ spaces: SpaceView[] }>("/spaces"),
-    enabled: chooseSpace,
+    enabled: spacesOn,
   });
+  const [flair, setFlair] = useState("");
+  const [pollOpen, setPollOpen] = useState(false);
+  const [pollOptions, setPollOptions] = useState(["", ""]);
   const [title, setTitle] = useState("");
   const [link, setLink] = useState("");
   const [spoiler, setSpoiler] = useState(false);
@@ -125,15 +134,21 @@ export function NewPostDialog({
   }, [image]);
 
   const close = () => dialogRef.current?.close();
+  const where = space ?? chosenSpace;
+  const whereSpace = spaces.data?.spaces.find(({ key }) => key === where);
+  const flairChoices = whereSpace?.postFlair ?? [];
+  const writtenOptions = pollOpen ? pollOptions.map((option) => option.trim()).filter(Boolean) : [];
+  const pollProblem = pollOpen ? pollOptionsProblem(writtenOptions) : null;
 
   const create = useMutation({
     mutationFn: () => {
-      const where = space ?? chosenSpace;
       return postForm("/posts", {
         ...(titles ? { title } : {}),
         ...(links && goodLink ? { link: goodLink } : {}),
         ...(spoilers && spoiler ? { spoiler: "true" } : {}),
         ...(adultTags && adult ? { adult: "true" } : {}),
+        ...(flair ? { flair } : {}),
+        ...(writtenOptions.length > 0 ? { pollOption: writtenOptions } : {}),
         body,
         image: images,
         ...(where ? { space: where } : {}),
@@ -145,6 +160,9 @@ export function NewPostDialog({
       setSpoiler(false);
       setAdult(false);
       setChosenSpace("");
+      setFlair("");
+      setPollOpen(false);
+      setPollOptions(["", ""]);
       setBody("");
       setImages([]);
       if (fileInput.current) {
@@ -180,13 +198,34 @@ export function NewPostDialog({
             Community
             <select
               value={chosenSpace}
-              onChange={(event) => setChosenSpace(event.target.value)}
+              onChange={(event) => {
+                setChosenSpace(event.target.value);
+                setFlair("");
+              }}
               className="rounded border border-stone-300 bg-white px-2 py-2 text-base font-normal"
             >
               <option value="">No community</option>
               {spaces.data?.spaces.map(({ key, name }) => (
                 <option key={key} value={key}>
                   {name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {flairChoices.length > 0 && (
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Flair
+            <select
+              required={whereSpace?.requirePostFlair ?? false}
+              value={flair}
+              onChange={(event) => setFlair(event.target.value)}
+              className="rounded border border-stone-300 bg-white px-2 py-2 text-base font-normal"
+            >
+              <option value="">{whereSpace?.requirePostFlair ? "Choose one" : "None"}</option>
+              {flairChoices.map(({ text }) => (
+                <option key={text} value={text}>
+                  {text}
                 </option>
               ))}
             </select>
@@ -229,6 +268,71 @@ export function NewPostDialog({
             )}
           </div>
         )}
+        {polls &&
+          (pollOpen ? (
+            <fieldset className="flex flex-col gap-2 text-sm">
+              <legend className="font-medium">Poll options</legend>
+              {pollOptions.map((option, index) => (
+                // Options have nothing else to tell them apart while they're being written.
+                // biome-ignore lint/suspicious/noArrayIndexKey: see above
+                <div key={index} className="flex gap-2">
+                  <input
+                    aria-label={`Option ${index + 1}`}
+                    maxLength={MAX_POLL_OPTION_LENGTH}
+                    value={option}
+                    onChange={(event) =>
+                      setPollOptions(
+                        pollOptions.map((other, at) => (at === index ? event.target.value : other)),
+                      )
+                    }
+                    className="min-w-0 flex-1 rounded border border-stone-300 px-3 py-2 text-base"
+                  />
+                  {pollOptions.length > MIN_POLL_OPTIONS && (
+                    <button
+                      type="button"
+                      aria-label={`Remove option ${index + 1}`}
+                      onClick={() => setPollOptions(pollOptions.filter((_, at) => at !== index))}
+                      className="px-2 text-xl"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+              <div className="flex gap-3">
+                {pollOptions.length < MAX_POLL_OPTIONS && (
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => setPollOptions([...pollOptions, ""])}
+                  >
+                    Add an option
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => {
+                    setPollOpen(false);
+                    setPollOptions(["", ""]);
+                  }}
+                >
+                  Remove the poll
+                </button>
+              </div>
+              {pollProblem && writtenOptions.length > 0 && (
+                <p className="text-rose-700">{pollProblem}</p>
+              )}
+            </fieldset>
+          ) : (
+            <button
+              type="button"
+              className="self-start text-sm underline"
+              onClick={() => setPollOpen(true)}
+            >
+              Add a poll
+            </button>
+          ))}
         {(spoilers || adultTags) && (
           <div className="flex flex-wrap gap-4 text-sm">
             {spoilers && (
@@ -285,9 +389,11 @@ export function NewPostDialog({
           disabled={
             create.isPending ||
             badLink ||
+            pollProblem !== null ||
             checkNewPost(style, body.trim().length > 0, images.length > 0, {
               titled: titles && title.trim().length > 0,
               linked: goodLink !== null,
+              polled: pollOpen,
             }) !== null ||
             (titles && !title.trim())
           }

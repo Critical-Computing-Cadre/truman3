@@ -297,6 +297,7 @@ export async function freezeStudy(
               bio: actor.bio,
               moderator: actor.moderator,
               karma: actor.karma,
+              spaceFlair: actor.spaceFlair,
               picture:
                 actor.picture && mediaKeys.get(path.join(MEDIA_FOLDERS.actors, actor.picture)),
             },
@@ -328,6 +329,9 @@ export async function freezeStudy(
             accent: space.accent,
             startsJoined: space.startsJoined,
             baseMembers: space.members,
+            postFlair: space.postFlair ?? [],
+            userFlair: space.userFlair ?? [],
+            requirePostFlair: space.requirePostFlair ?? false,
             conditions: space.conditions,
             class: space.class,
             position,
@@ -340,41 +344,44 @@ export async function freezeStudy(
     }
 
     const positions = new Map(study.posts.map((post, index) => [post.ref, index]));
-    const postIds = new Map<string, string>();
-    for (const batch of chunks(study.posts, INSERT_BATCH_SIZE)) {
-      const rows = await tx
-        .insert(schema.content)
-        .values(
-          batch.map((post) => ({
-            studyVersionId,
-            authorActorId: actorId(post.actor),
-            spaceId: post.space ? spaceIds.get(post.space) : undefined,
-            kind: "post",
-            title: post.title,
-            linkUrl: post.link,
-            pinnedOn: post.pinnedOn ?? [],
-            locked: post.locked ?? false,
-            tags: post.tags ?? [],
-            body: post.body,
-            attachments: post.pictures.map((picture) => ({
-              type: "image" as const,
-              key: mediaKeys.get(path.join(MEDIA_FOLDERS.posts, picture)) as string,
-            })),
-            offsetMs: post.timeMs,
-            position: positions.get(post.ref),
-            baseLikes: drawLikes(post.likes, settings.likes.posts),
-            baseUps: post.ups ?? 0,
-            baseDowns: post.downs ?? 0,
-            provenance: provenanceFor("post", post.ref),
-            conditions: post.conditions,
-            class: post.class,
-            sourceRef: post.ref,
+    const postIds = new Map(study.posts.map(({ ref }) => [ref, crypto.randomUUID()]));
+    // A crosspost points at its original, so that has to go in first. Originals can't be crossposts.
+    const originalsFirst = [
+      ...study.posts.filter((post) => !post.crosspostOf),
+      ...study.posts.filter((post) => post.crosspostOf),
+    ];
+    for (const batch of chunks(originalsFirst, INSERT_BATCH_SIZE)) {
+      await tx.insert(schema.content).values(
+        batch.map((post) => ({
+          id: postIds.get(post.ref) as string,
+          studyVersionId,
+          authorActorId: actorId(post.actor),
+          spaceId: post.space ? spaceIds.get(post.space) : undefined,
+          kind: "post",
+          title: post.title,
+          linkUrl: post.link,
+          pinnedOn: post.pinnedOn ?? [],
+          locked: post.locked ?? false,
+          tags: post.tags ?? [],
+          poll: post.poll,
+          flair: post.flair,
+          crosspostOf: post.crosspostOf ? postIds.get(post.crosspostOf) : undefined,
+          body: post.body,
+          attachments: post.pictures.map((picture) => ({
+            type: "image" as const,
+            key: mediaKeys.get(path.join(MEDIA_FOLDERS.posts, picture)) as string,
           })),
-        )
-        .returning({ id: schema.content.id, sourceRef: schema.content.sourceRef });
-      for (const row of rows) {
-        postIds.set(row.sourceRef as string, row.id);
-      }
+          offsetMs: post.timeMs,
+          position: positions.get(post.ref),
+          baseLikes: drawLikes(post.likes, settings.likes.posts),
+          baseUps: post.ups ?? 0,
+          baseDowns: post.downs ?? 0,
+          provenance: provenanceFor("post", post.ref),
+          conditions: post.conditions,
+          class: post.class,
+          sourceRef: post.ref,
+        })),
+      );
     }
 
     // A reply points at its comment, so that comment has to go in first.

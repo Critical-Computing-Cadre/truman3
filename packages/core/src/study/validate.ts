@@ -134,11 +134,21 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
         study.posts.filter((post) => applies(post) && post.tags?.includes("adult")).length,
         "Adult content tags",
       ],
+      [on.polls, study.posts.filter((post) => applies(post) && post.poll).length, "Polls"],
+      [on.flair, study.posts.filter((post) => applies(post) && post.flair).length, "Flair labels"],
+      [
+        on.crossposting,
+        study.posts.filter((post) => applies(post) && post.crosspostOf).length,
+        "Crossposts",
+      ],
     ];
     for (const [featureIsOn, total, name] of unused) {
       if (!featureIsOn && total > 0) {
         warning(`${name} are off in "${arm.key}", so that won't apply to ${total} posts there.`);
       }
+    }
+    if (on.crossposting && (!on.posting || !on.spaces)) {
+      warning(`Crossposting is on in "${arm.key}", but it needs writing posts and spaces.`);
     }
     const scored = study.actors.filter((actor) => applies(actor) && actor.karma !== undefined);
     if (!on.karma && scored.length > 0) {
@@ -285,11 +295,113 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
         }
       }
     }
-    if (!post.body && post.pictures.length === 0 && !post.title && !post.link) {
+    if (post.poll) {
+      const texts = post.poll.options.map(({ text }) => text.toLowerCase());
+      if (new Set(texts).size < texts.length) {
+        error(`${label} has a poll with the same option twice.`, post.source);
+      }
+    }
+    if (post.flair) {
+      const space = post.space ? spacesByKey.get(post.space) : undefined;
+      if (!post.space) {
+        error(
+          `${label} has flair, but flair comes from a space, and it isn't in one.`,
+          post.source,
+        );
+      } else if (space && !space.postFlair?.some(({ text }) => text === post.flair)) {
+        error(
+          `${label} has the flair "${post.flair}", which "${post.space}" doesn't offer.`,
+          post.source,
+        );
+      }
+    } else if (post.space && spacesByKey.get(post.space)?.requirePostFlair) {
+      warning(
+        `${label} has no flair, though "${post.space}" requires it of what participants write.`,
+        post.source,
+      );
+    }
+    if (post.crosspostOf) {
+      const original = study.posts.find(({ ref }) => ref === post.crosspostOf);
+      if (!original) {
+        error(
+          `${label} is a crosspost of "${post.crosspostOf}", which doesn't exist.`,
+          post.source,
+        );
+      } else if (original.ref === post.ref) {
+        error(`${label} is a crosspost of itself.`, post.source);
+      } else if (original.crosspostOf) {
+        error(
+          `${label} is a crosspost of "${original.ref}", which is a crosspost too. Point it at the first post.`,
+          post.source,
+        );
+      } else {
+        if (!post.space) {
+          error(`${label} is a crosspost, so it has to be in a space.`, post.source);
+        } else if (post.space === original.space) {
+          error(`${label} is a crosspost into the space its original is already in.`, post.source);
+        }
+        if (post.timeMs < original.timeMs) {
+          warning(`${label} appears before "${original.ref}", the post it came from.`, post.source);
+        }
+        if (original.conditions.length > 0) {
+          const missing = (post.conditions.length > 0 ? post.conditions : [...armKeys]).filter(
+            (key) => !original.conditions.includes(key),
+          );
+          if (missing.length > 0) {
+            warning(
+              `${label} says its original isn't available in ${missing.join(", ")}, because "${original.ref}" doesn't show there.`,
+              post.source,
+            );
+          }
+        }
+      }
+    }
+    if (
+      !post.body &&
+      post.pictures.length === 0 &&
+      !post.title &&
+      !post.link &&
+      !post.poll &&
+      !post.crosspostOf
+    ) {
       error(`${label} has no text and no picture.`, post.source);
     }
     if (post.pictures.length > MAX_ATTACHMENTS) {
       error(`${label} has more than ${MAX_ATTACHMENTS} pictures.`, post.source);
+    }
+  }
+
+  for (const space of study.spaces) {
+    for (const [list, name] of [
+      [space.postFlair, "post"],
+      [space.userFlair, "people"],
+    ] as const) {
+      const texts = (list ?? []).map(({ text }) => text);
+      if (new Set(texts).size < texts.length) {
+        error(`The space "${space.key}" has the same ${name} flair twice.`, space.source);
+      }
+    }
+    if (space.requirePostFlair && !space.postFlair?.length) {
+      error(
+        `The space "${space.key}" requires flair on posts, but offers none, so nobody could post there.`,
+        space.source,
+      );
+    }
+  }
+  for (const actor of study.actors) {
+    for (const [key, text] of Object.entries(actor.spaceFlair ?? {})) {
+      const space = spacesByKey.get(key);
+      if (!space) {
+        error(
+          `${actor.username} has flair in the space "${key}", which doesn't exist.`,
+          actor.source,
+        );
+      } else if (!space.userFlair?.some((flair) => flair.text === text)) {
+        error(
+          `${actor.username} has the flair "${text}", which "${key}" doesn't offer.`,
+          actor.source,
+        );
+      }
     }
   }
 

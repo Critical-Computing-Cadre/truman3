@@ -2,15 +2,19 @@ import type { FeedComment } from "@truman3/core";
 import type { ReactNode } from "react";
 import { Avatar } from "../Avatar.tsx";
 import { CommentReplyButton, ReplyButton, replyIndent } from "../features/comments.tsx";
+import { CrosspostButton, CrosspostOriginal } from "../features/crossposting.tsx";
 import {
   CommentFlagButton,
   FlaggedComment,
   FlaggedPostCover,
   PostFlagButton,
 } from "../features/flagging.tsx";
+import { AuthorFlair, PostFlair } from "../features/flair.tsx";
 import { PostPhotos } from "../features/galleries.tsx";
 import { KarmaBadge } from "../features/karma.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
+import { useMoreMenu } from "../features/more-menu.tsx";
+import { PostPoll } from "../features/polls.tsx";
 import {
   HideButton,
   PostBadges,
@@ -59,6 +63,7 @@ function Comment({
           <div className="text-sm">
             {author("font-semibold", comment.author.name)}
             <ModeratorTag author={comment.author} />
+            <AuthorFlair author={comment.author} />
             <KarmaBadge author={comment.author} />
             {renderBody(comment.id, comment.body)}
           </div>
@@ -66,6 +71,7 @@ function Comment({
           <p className="text-sm break-words whitespace-pre-wrap">
             {author("mr-1 font-semibold", comment.author.name)}
             <ModeratorTag author={comment.author} />
+            <AuthorFlair author={comment.author} />
             <KarmaBadge author={comment.author} /> {comment.body}
           </p>
         )}
@@ -107,6 +113,16 @@ export function ClassicPost({
   const savingOn = useFeature("saving");
   const hidingOn = useFeature("hiding");
   const sharingOn = useFeature("sharing");
+  const crosspostingOn = useFeature("crossposting");
+  const more = useMoreMenu(["saving", "hiding", "sharing", "crossposting"], "py-3");
+  const lessUsed = (className: string) => (
+    <>
+      <SaveButton post={post} actions={actions} className={className} />
+      <HideButton post={post} actions={actions} className={className} />
+      <ShareButton post={post} actions={actions} className={className} />
+      <CrosspostButton post={post} actions={actions} className={className} />
+    </>
+  );
 
   const image = post.attachments.length > 0 ? <PostPhotos post={post} /> : null;
 
@@ -115,6 +131,7 @@ export function ClassicPost({
       <Avatar seed={post.author.username} url={post.author.pictureUrl} />
       <span className="truncate font-semibold">{post.author.name}</span>
       <ModeratorTag author={post.author} />
+      <AuthorFlair author={post.author} />
       <KarmaBadge author={post.author} />
     </>
   );
@@ -147,6 +164,7 @@ export function ClassicPost({
           {...(renderTitle ? { renderTitle } : {})}
           {...(renderPostLink && !detail ? { renderPostLink } : {})}
         />
+        <PostFlair post={post} className="px-3 pb-2" />
         <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
           {wrapImage ? wrapImage(image) : image}
           {renderBody ? (
@@ -155,19 +173,30 @@ export function ClassicPost({
             post.body && <p className="p-3 break-words whitespace-pre-wrap">{post.body}</p>
           )}
           <PostLink post={post} actions={actions} />
+          <PostPoll post={post} actions={actions} />
+          <CrosspostOriginal
+            post={post}
+            {...(renderPostLink ? { renderPostLink } : {})}
+            {...(renderSpace ? { renderSpace } : {})}
+          />
         </TagCover>
         {renderNote && <div className="px-3 pb-2 empty:hidden">{renderNote(post.id)}</div>}
       </div>
 
-      {(commentsOn || likesOn || flaggingOn || votesOn || savingOn || hidingOn || sharingOn) && (
+      {(commentsOn ||
+        likesOn ||
+        flaggingOn ||
+        votesOn ||
+        savingOn ||
+        hidingOn ||
+        sharingOn ||
+        crosspostingOn) && (
         <div className="grid auto-cols-fr grid-flow-col border-t border-stone-200 text-sm text-stone-700">
           <VoteButtons item={post} actions={actions} className="py-3" />
           <ReplyButton actions={actions} locked={post.locked} />
           <PostFlagButton post={post} {...(actions ? { actions } : {})} />
           <PostLikeButton post={post} {...(actions ? { actions } : {})} />
-          <SaveButton post={post} actions={actions} className="py-3" />
-          <HideButton post={post} actions={actions} className="py-3" />
-          <ShareButton post={post} actions={actions} className="py-3" />
+          {more.collapsed ? more.toggle : lessUsed("py-3")}
           {!detail && (
             <CommentsLink
               post={post}
@@ -175,6 +204,15 @@ export function ClassicPost({
               {...(renderPostLink ? { renderPostLink } : {})}
             />
           )}
+        </div>
+      )}
+
+      {more.open && (
+        <div
+          {...more.panelProps}
+          className="flex flex-wrap items-center gap-4 border-t border-stone-200 px-3 text-sm text-stone-700"
+        >
+          {lessUsed("py-3")}
         </div>
       )}
 

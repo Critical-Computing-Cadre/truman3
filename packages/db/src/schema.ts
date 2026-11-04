@@ -1,4 +1,4 @@
-import type { Attachment } from "@truman3/core";
+import type { Attachment, Flair, Poll } from "@truman3/core";
 import { type SQL, sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
@@ -183,6 +183,12 @@ export const spaces = pgTable(
     startsJoined: boolean("starts_joined").notNull().default(true),
     /** How many members it says it has, before this participant. Null shows no number. */
     baseMembers: integer("base_members"),
+    /** What posts in it can be labeled with. */
+    postFlair: jsonb("post_flair").$type<Flair[]>().notNull().default([]),
+    /** What people in it can show beside their name. */
+    userFlair: jsonb("user_flair").$type<Flair[]>().notNull().default([]),
+    /** Whether a post a participant writes here has to have flair. */
+    requirePostFlair: boolean("require_post_flair").notNull().default(false),
     conditions: text().array().notNull().default(sql`'{}'`),
     class: text(),
     position: integer().notNull().default(0),
@@ -207,6 +213,8 @@ export const spaceMemberships = pgTable(
       .notNull()
       .references(() => spaces.id),
     joined: boolean().notNull(),
+    /** The flair this person chose to show here. */
+    flair: text(),
   },
   (table) => [primaryKey({ columns: [table.worldId, table.actorId, table.spaceId] })],
 );
@@ -331,6 +339,12 @@ export const content = pgTable(
     locked: boolean().notNull().default(false),
     /** Why it's covered until someone clicks it. */
     tags: text().array().notNull().default(sql`'{}'`),
+    /** A post's poll, with the counts it starts from. */
+    poll: jsonb().$type<Poll>(),
+    /** A post's label, from its space's list. */
+    flair: text(),
+    /** The post this was crossposted from. */
+    crosspostOf: uuid("crosspost_of").references((): AnyPgColumn => content.id),
     /** Its files, in order. Each has a type and a stored key or hosted URL. */
     attachments: jsonb().$type<Attachment[]>().notNull().default([]),
     offsetMs: bigint("offset_ms", { mode: "number" }),
@@ -450,12 +464,14 @@ export const contentInteractions = pgTable(
       .notNull()
       .references(() => content.id, { onDelete: "cascade" }),
     kind: text().notNull(),
+    /** With the kind `poll`, which option they chose. The key allows one row, so one choice. */
+    pollOption: integer("poll_option"),
   },
   (table) => [
     primaryKey({ columns: [table.worldId, table.actorId, table.contentId, table.kind] }),
     check(
       "content_interactions_kind",
-      inList(table.kind, ["like", "up", "down", "flag", "view", "save", "hide"]),
+      inList(table.kind, ["like", "up", "down", "flag", "view", "save", "hide", "poll"]),
     ),
   ],
 );
