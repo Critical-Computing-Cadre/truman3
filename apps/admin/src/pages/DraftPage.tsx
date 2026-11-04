@@ -43,7 +43,7 @@ export function useDraftEdits(draftId: string) {
     }),
     create: useMutation({
       mutationKey,
-      mutationFn: (body: { kind: "post" | "comment" | "actor"; fields: object }) =>
+      mutationFn: (body: { kind: "post" | "comment" | "actor" | "space"; fields: object }) =>
         send("POST", base, body),
       onSettled: refresh,
     }),
@@ -537,6 +537,23 @@ function ItemDetails({
             className={`${field} w-20`}
           />
         </label>
+        {kind === "post" && info.conditions.some(({ features }) => features.spaces) && (
+          <label className="flex items-center gap-2">
+            Space
+            <select
+              value={details.spaceId ?? ""}
+              onChange={(event) => change({ spaceId: event.target.value || null })}
+              className={field}
+            >
+              <option value="">None</option>
+              {info.spaces.map(({ id, name }) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {info.conditions.some(({ features }) => features.votes) &&
           (["ups", "downs"] as const).map((key) => (
             <label key={key} className="flex items-center gap-2">
@@ -1114,6 +1131,15 @@ export function DraftPage() {
             >
               Cast
             </Link>
+            {info.data.conditions.some(({ features }) => features.spaces) && (
+              <Link
+                to="/drafts/$draftId/spaces"
+                params={{ draftId }}
+                className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+              >
+                Spaces
+              </Link>
+            )}
             {info.data.canEdit && <SavePack draftId={draftId} defaultName={info.data.title} />}
             {info.data.canEdit && <SaveVersion draftId={draftId} info={info.data} />}
           </>

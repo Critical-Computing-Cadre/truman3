@@ -6,7 +6,7 @@ const keySchema = z
   .string()
   .regex(/^[a-z0-9][a-z0-9_-]*$/, "Use lowercase letters, numbers, dashes, and underscores");
 
-const rankerSchema = z.enum(["chronological", "shuffle", "scripted"]);
+const rankerSchema = z.enum(["chronological", "shuffle", "scripted", "new", "top"]);
 
 const feedSettingsSchema = z.strictObject({
   ranker: rankerSchema.default("chronological"),
@@ -18,6 +18,10 @@ const feedSettingsSchema = z.strictObject({
   pinOwnPostsMinutes: z.number().positive().optional(),
   removeFlagged: z.boolean().default(false),
   removeBlocked: z.boolean().default(false),
+  /** The order on a space's own page. Leave out to use the same one as the home feed. */
+  spaceRanker: rankerSchema.optional(),
+  /** Whether participants can choose new or top themselves. Leave out for no. */
+  participantsCanSort: z.boolean().optional(),
 });
 
 /** What a condition can change. No defaults here, or leaving something out would reset it. */
@@ -28,6 +32,8 @@ const feedOverridesSchema = z.strictObject({
   pinOwnPostsMinutes: feedSettingsSchema.shape.pinOwnPostsMinutes,
   removeFlagged: z.boolean().optional(),
   removeBlocked: z.boolean().optional(),
+  spaceRanker: rankerSchema.optional(),
+  participantsCanSort: z.boolean().optional(),
 });
 
 /**
@@ -57,6 +63,7 @@ const armSchema = z.strictObject({
       style: platformStyleSchema.optional(),
       commentBox: commentBoxSchema.optional(),
       features: featureChangesSchema.optional(),
+      canJoinSpaces: z.boolean().optional(),
     })
     .optional(),
 });
@@ -120,6 +127,8 @@ export const studySettingsSchema = z.strictObject({
       /** Set when a version freezes, so later changes to a template can't affect it. */
       layout: z.enum(LAYOUT_KEYS).optional(),
       features: featureChangesSchema.optional(),
+      /** Whether participants can join and leave spaces. Leave out for yes. */
+      canJoinSpaces: z.boolean().optional(),
     })
     .prefault({ style: "mixed" }),
   feed: feedSettingsSchema.prefault({}),
@@ -166,6 +175,20 @@ export const actorDefinitionSchema = z.object({
   location: z.string().optional(),
   bio: z.string().optional(),
   picture: z.string().optional(),
+  /** Shows a tag on their name. It doesn't give them any powers. */
+  moderator: z.boolean().optional(),
+  ...targetingFields,
+});
+
+/** A community posts can belong to. Only researchers make these. */
+export const spaceDefinitionSchema = z.object({
+  /** What posts use to name it, and part of its address. */
+  key: keySchema,
+  name: z.string().min(1),
+  description: z.string().optional(),
+  rules: z.string().optional(),
+  /** Whether a participant starts out in it. */
+  startsJoined: z.boolean().default(true),
   ...targetingFields,
 });
 
@@ -174,6 +197,8 @@ export const postDefinitionSchema = z.object({
   body: z.string(),
   /** Its photos, in order. */
   pictures: z.array(z.string().min(1)).default([]),
+  /** The key of the one space it belongs to, if any. */
+  space: z.string().min(1).optional(),
   actor: z.string().min(1),
   /** Milliseconds relative to when a participant starts. */
   timeMs: z.number().int(),
@@ -221,6 +246,7 @@ export const studyDefinitionSchema = z.object({
   /** The text of each page used in the flow, keyed by the name the flow uses. */
   pages: z.record(z.string(), z.string()).default({}),
   actors: z.array(actorDefinitionSchema),
+  spaces: z.array(spaceDefinitionSchema).default([]),
   posts: z.array(postDefinitionSchema),
   comments: z.array(commentDefinitionSchema).default([]),
   reactions: z.array(reactionDefinitionSchema).default([]),
@@ -229,6 +255,7 @@ export const studyDefinitionSchema = z.object({
 export type StudySettings = z.infer<typeof studySettingsSchema>;
 export type StudyDefinition = z.infer<typeof studyDefinitionSchema>;
 export type ActorDefinition = z.infer<typeof actorDefinitionSchema>;
+export type SpaceDefinition = z.infer<typeof spaceDefinitionSchema>;
 export type PostDefinition = z.infer<typeof postDefinitionSchema>;
 export type CommentDefinition = z.infer<typeof commentDefinitionSchema>;
 export type ReactionDefinition = z.infer<typeof reactionDefinitionSchema>;

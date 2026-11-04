@@ -240,3 +240,38 @@ describe("photos", () => {
     expect(screen.getByRole("region", { name: "2 photos" })).toBeTruthy();
   });
 });
+
+describe("spaces and moderators", () => {
+  afterEach(cleanup);
+  const inSpace: FeedPost = { ...POST, space: { key: "cooking", name: "Cooking" } };
+  const withFeature = (spaces: boolean) => ({
+    layout: "classic" as const,
+    features: { ...TEMPLATES.classic.features, spaces },
+  });
+
+  it("names the space when the feature's on, and links it if told how", () => {
+    render(
+      <PlatformProvider platform={withFeature(true)}>
+        <FeedPostView
+          post={inSpace}
+          renderSpace={(_key, _class, name) => <a href="/x">{name}</a>}
+        />
+      </PlatformProvider>,
+    );
+    expect(screen.getByRole("link", { name: "Cooking" })).toBeTruthy();
+  });
+
+  it("shows no space when the feature's off", () => {
+    render(
+      <PlatformProvider platform={withFeature(false)}>
+        <FeedPostView post={inSpace} />
+      </PlatformProvider>,
+    );
+    expect(screen.queryByText("Cooking")).toBeNull();
+  });
+
+  it("tags a moderator, with or without spaces, and nobody else", () => {
+    render(<FeedPostView post={{ ...POST, author: { ...author, moderator: true } }} />);
+    expect(screen.getAllByText("Moderator")).toHaveLength(1);
+  });
+});

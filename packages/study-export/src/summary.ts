@@ -29,6 +29,9 @@ export interface ParticipantSummary {
   likeActions: number;
   flagActions: number;
   voteActions: number;
+  spacesJoined: number;
+  spacesLeft: number;
+  sortChanges: number;
   actorsFollowed: number;
   actorsBlocked: number;
   actorsReported: number;
@@ -60,6 +63,9 @@ export function summarizeEvents(
     likeActions: 0,
     flagActions: 0,
     voteActions: 0,
+    spacesJoined: 0,
+    spacesLeft: 0,
+    sortChanges: 0,
     actorsFollowed: 0,
     actorsBlocked: 0,
     actorsReported: 0,
@@ -120,6 +126,15 @@ export function summarizeEvents(
             votes.delete(event.targetContentId);
           }
         }
+        break;
+      case "space.joined":
+        summary.spacesJoined += 1;
+        break;
+      case "space.left":
+        summary.spacesLeft += 1;
+        break;
+      case "feed.sort_changed":
+        summary.sortChanges += 1;
         break;
       case "content.flagged":
         summary.flagActions += 1;

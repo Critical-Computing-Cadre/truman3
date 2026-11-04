@@ -61,6 +61,8 @@ export interface FlowState {
   commentBox: "open" | "onReply";
   layout: LayoutKey;
   features: FeatureSet;
+  canJoinSpaces: boolean;
+  canSort: boolean;
   site: { name: string; logoUrl: string | null; faviconUrl: string | null };
 }
 

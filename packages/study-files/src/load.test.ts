@@ -159,3 +159,63 @@ describe("loadStudyFolder", () => {
     );
   });
 });
+
+describe("spaces", () => {
+  const SETTINGS = `
+schemaVersion: 1
+slug: demo
+title: Demo
+site: { name: Demo }
+length: { days: 1 }
+entry: { idParam: PID, idLabel: ID, source: test }
+conditions: { assignment: { method: uniform }, arms: [{ key: a }] }
+platform: { style: mixed, features: { spaces: true } }
+media: { baseUrl: "https://cdn.example.com/m" }
+flow: [{ step: feed }]
+`;
+
+  it("reads spaces.csv, a post's space, and who's a moderator", () => {
+    const { definition, issues } = loadStudyFolder(
+      folder({
+        "study.yaml": SETTINGS,
+        "actors.csv": "username,name,moderator\nann,Ann,yes\nben,Ben,no\n",
+        "spaces.csv": "key,name,rules,startsJoined\ncooking,Cooking,Be kind,no\nnews,News,,\n",
+        "posts.csv": "id,body,actor,space,time\np1,hi,ann,cooking,0:00\np2,yo,ben,,0:00\n",
+      }),
+    );
+    expect(issues.filter(({ severity }) => severity === "error")).toEqual([]);
+    expect(definition?.spaces[0]).toMatchObject({
+      key: "cooking",
+      rules: "Be kind",
+      startsJoined: false,
+    });
+    expect(definition?.spaces[1]?.startsJoined).toBe(true);
+    expect(definition?.posts[0]?.space).toBe("cooking");
+    expect(definition?.posts[1]).not.toHaveProperty("space");
+    expect(definition?.actors[0]?.moderator).toBe(true);
+    expect(definition?.actors[1]).not.toHaveProperty("moderator");
+  });
+
+  it("needs nothing new from a study without them", () => {
+    const { definition, issues } = loadStudyFolder(
+      folder({
+        "study.yaml": SETTINGS,
+        "actors.csv": "username,name\nann,Ann\n",
+        "posts.csv": "id,body,actor,time\np1,hi,ann,0:00\n",
+      }),
+    );
+    expect(issues.filter(({ severity }) => severity === "error")).toEqual([]);
+    expect(definition?.spaces).toEqual([]);
+  });
+
+  it("refuses a value that isn't yes or no", () => {
+    const { issues } = loadStudyFolder(
+      folder({
+        "study.yaml": SETTINGS,
+        "actors.csv": "username,name,moderator\nann,Ann,maybe\n",
+        "posts.csv": "id,body,actor,time\np1,hi,ann,0:00\n",
+      }),
+    );
+    expect(issues.map(({ message }) => message).join(" ")).toMatch(/has to be yes or no/);
+  });
+});

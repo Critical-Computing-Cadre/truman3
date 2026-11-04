@@ -1,15 +1,47 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { Avatar } from "@truman3/ui";
-import { useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { type DraftInfo, get } from "../api.ts";
 import { type DraftEdits, SaveStatus, useDraftEdits, useDraftPresence } from "./DraftPage.tsx";
 
 const input = "rounded border border-stone-300 px-2 py-1 text-sm disabled:bg-stone-100";
 const labelClass = "flex flex-col gap-1 text-xs font-medium text-stone-600";
 
+/** A checkbox that saves. It shows the change right away, rather than waiting for the save. */
+export function SavedCheckbox({
+  checked,
+  disabled,
+  onChange,
+  className,
+  children,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+  className: string;
+  children: ReactNode;
+}) {
+  const [shown, setShown] = useState(checked);
+  useEffect(() => setShown(checked), [checked]);
+  return (
+    <label className={className}>
+      <input
+        type="checkbox"
+        disabled={disabled}
+        checked={shown}
+        onChange={(event) => {
+          setShown(event.target.checked);
+          onChange(event.target.checked);
+        }}
+      />
+      {children}
+    </label>
+  );
+}
+
 /** A field that saves when you click away, like the text of a post. */
-function CastField({
+export function CastField({
   label,
   value,
   canEdit,
@@ -144,6 +176,14 @@ function Person({
           canEdit={canEdit}
           onSave={(bio) => save({ bio })}
         />
+        <SavedCheckbox
+          className="flex items-center gap-2 text-xs font-medium text-stone-600"
+          disabled={!canEdit}
+          checked={actor.moderator}
+          onChange={(moderator) => save({ moderator })}
+        >
+          Show a moderator tag on their name
+        </SavedCheckbox>
         {problem && (
           <p role="alert" className="text-sm text-rose-700 sm:col-span-2">
             {problem}

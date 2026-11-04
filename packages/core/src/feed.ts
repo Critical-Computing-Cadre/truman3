@@ -6,6 +6,8 @@ export const feedAuthorSchema = z.object({
   pictureUrl: z.string().nullable(),
   /** The viewer's own account, which links to their own page rather than a profile. */
   isViewer: z.boolean(),
+  /** Marked as a moderator in the study. Only ever true, so it's absent for everyone else. */
+  moderator: z.literal(true).optional(),
 });
 
 /** How deep a thread can go. It keeps deep threads readable on a phone, and the work bounded. */
@@ -42,6 +44,8 @@ export const feedPostSchema = z.object({
   author: feedAuthorSchema,
   body: z.string(),
   attachments: z.array(feedAttachmentSchema),
+  /** The space it belongs to, on a platform with spaces. */
+  space: z.object({ key: z.string(), name: z.string() }).optional(),
   at: z.iso.datetime(),
   likes: z.number(),
   liked: z.boolean(),
@@ -54,6 +58,16 @@ export const feedPostSchema = z.object({
 });
 
 export const feedResponseSchema = z.object({ posts: z.array(feedPostSchema) });
+
+/** A space, as a participant sees it. */
+export const spaceViewSchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  rules: z.string().nullable(),
+  joined: z.boolean(),
+});
+export type SpaceView = z.infer<typeof spaceViewSchema>;
 
 export type FeedAuthor = z.infer<typeof feedAuthorSchema>;
 export type FeedComment = z.infer<typeof feedCommentSchema>;
