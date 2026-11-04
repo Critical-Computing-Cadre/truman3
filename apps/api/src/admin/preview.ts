@@ -32,6 +32,13 @@ export function scriptedContent(db: Database, versionId: string) {
     .where(and(eq(schema.content.studyVersionId, versionId), isNull(schema.content.worldId)));
 }
 
+export interface PreviewSpace {
+  id: string;
+  key: string;
+  name: string;
+  conditions: string[];
+}
+
 /**
  * What a new participant in this condition would see at this point in the study. It uses the same
  * rules and shaping as the real feed, but writes nothing, since looking isn't participating. It
@@ -44,12 +51,24 @@ export async function previewContent(
   version: { seed: number; settings: StudySettings },
   conditionKey: string,
   elapsedMs: number,
+  spaces: readonly PreviewSpace[] = [],
   now = new Date(),
 ) {
   const worldStartMs = now.getTime() - elapsedMs;
 
+  // Everyone in a condition sees the same as each other here, since nobody has joined or left yet.
+  const spacesOn = featureOn(version.settings, conditionKey, "spaces");
+  const visible = new Map(
+    (spacesOn ? spaces : [])
+      .filter(({ conditions }) => conditions.length === 0 || conditions.includes(conditionKey))
+      .map(({ id, key, name }) => [id, { key, name }]),
+  );
+  const shownRows = spacesOn
+    ? rows.filter(({ spaceId }) => spaceId === null || visible.has(spaceId))
+    : rows;
+
   const feed = assembleFeed(
-    shownOnThisPlatform(rows, version.settings, conditionKey).map((row) =>
+    shownOnThisPlatform(shownRows, version.settings, conditionKey).map((row) =>
       toCandidate(row, worldStartMs),
     ),
     {
@@ -78,6 +97,7 @@ export async function previewContent(
     flaggedContentIds: new Set(),
     scriptedCounts: new Map(),
     viewerVotes: new Map(),
+    spaces: visible,
   });
 
   const targeting: Record<string, string[]> = {};
@@ -105,5 +125,14 @@ export async function previewFeed(
     version,
     conditionKey,
     elapsedMs,
+    await db
+      .select({
+        id: schema.spaces.id,
+        key: schema.spaces.key,
+        name: schema.spaces.name,
+        conditions: schema.spaces.conditions,
+      })
+      .from(schema.spaces)
+      .where(eq(schema.spaces.studyVersionId, version.id)),
   );
 }

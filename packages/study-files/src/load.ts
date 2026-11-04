@@ -7,6 +7,7 @@ import {
   type PostDefinition,
   parseStudyTime,
   type ReactionDefinition,
+  type SpaceDefinition,
   type StudyDefinition,
   type StudyIssue,
   studyDefinitionSchema,
@@ -18,11 +19,15 @@ import { type CsvRow, type CsvSpec, parseCsv } from "./csv.ts";
 
 const ACTORS: CsvSpec = {
   required: ["username", "name"],
-  optional: ["gender", "age", "location", "bio", "picture", "condition", "class"],
+  optional: ["gender", "age", "location", "bio", "picture", "moderator", "condition", "class"],
 };
 const POSTS: CsvSpec = {
   required: ["id", "actor", "time"],
-  optional: ["body", "picture", "likes", "ups", "downs", "condition", "class"],
+  optional: ["body", "picture", "space", "likes", "ups", "downs", "condition", "class"],
+};
+const SPACES: CsvSpec = {
+  required: ["key", "name"],
+  optional: ["description", "rules", "startsJoined", "condition", "class"],
 };
 const COMMENTS: CsvSpec = {
   required: ["id", "body", "actor", "postID", "time"],
@@ -126,6 +131,17 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     source: { file, row },
   });
 
+  const yesOrNo = (value: string | undefined, column: string, file: string, row: number) => {
+    if (!value) {
+      return undefined;
+    }
+    if (value !== "yes" && value !== "no") {
+      rowError(file, row, `"${value}" in ${column} has to be yes or no.`);
+      return undefined;
+    }
+    return value === "yes";
+  };
+
   const optional = <K extends string>(key: K, value: string | number | undefined) =>
     value === undefined || value === "" ? {} : ({ [key]: value } as Record<K, never>);
 
@@ -144,7 +160,21 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       ...optional("location", cells.location),
       ...optional("bio", cells.bio),
       ...optional("picture", cells.picture),
+      ...(yesOrNo(cells.moderator, "moderator", "actors.csv", row) ? { moderator: true } : {}),
       ...targeting(cells, "actors.csv", row),
+    };
+  });
+
+  // Studies from before spaces don't have this file, or these columns, and need nothing new.
+  const spaces: SpaceDefinition[] = readTable("spaces.csv", SPACES, false).map(({ row, cells }) => {
+    const startsJoined = yesOrNo(cells.startsJoined, "startsJoined", "spaces.csv", row);
+    return {
+      key: cells.key || `(row ${row})`,
+      name: cells.name || `(row ${row})`,
+      startsJoined: startsJoined ?? true,
+      ...optional("description", cells.description),
+      ...optional("rules", cells.rules),
+      ...targeting(cells, "spaces.csv", row),
     };
   });
 
@@ -157,6 +187,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       .split("|")
       .map((name) => name.trim())
       .filter(Boolean),
+    ...optional("space", cells.space),
     ...optional("likes", wholeNumber(cells.likes, "likes", "posts.csv", row)),
     ...optional("ups", wholeNumber(cells.ups, "ups", "posts.csv", row)),
     ...optional("downs", wholeNumber(cells.downs, "downs", "posts.csv", row)),
@@ -257,6 +288,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     settings: settings.data,
     pages,
     actors,
+    spaces,
     posts,
     comments,
     reactions,

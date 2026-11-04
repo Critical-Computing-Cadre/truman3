@@ -16,6 +16,15 @@ export const itemDataSchemas = {
     location: z.string().optional(),
     bio: z.string().optional(),
     picture: z.string().optional(),
+    moderator: z.boolean().optional(),
+    ...targeting,
+  }),
+  space: z.strictObject({
+    key: z.string().min(1),
+    name: z.string().min(1),
+    description: z.string().optional(),
+    rules: z.string().optional(),
+    startsJoined: z.boolean().default(true),
     ...targeting,
   }),
   post: z.strictObject({
@@ -23,6 +32,8 @@ export const itemDataSchemas = {
     body: z.string(),
     pictures: z.array(z.string()).max(MAX_ATTACHMENTS).optional(),
     actorId: z.uuid(),
+    /** The one space it belongs to. */
+    spaceId: z.uuid().optional(),
     timeMs: z.number().int(),
     likes: z.number().int().nonnegative(),
     ups: z.number().int().nonnegative().optional(),
@@ -55,6 +66,7 @@ export const itemDataSchemas = {
 
 export type ItemKind = keyof typeof itemDataSchemas;
 export type ActorData = z.infer<typeof itemDataSchemas.actor>;
+export type SpaceData = z.infer<typeof itemDataSchemas.space>;
 export type PostData = z.infer<typeof itemDataSchemas.post>;
 export type CommentData = z.infer<typeof itemDataSchemas.comment>;
 export type ReactionData = z.infer<typeof itemDataSchemas.reaction>;

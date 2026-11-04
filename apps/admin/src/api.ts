@@ -133,7 +133,19 @@ export interface DraftInfo {
     bio: string;
     location: string;
     pictureUrl: string | null;
+    moderator: boolean;
     /** How many posts, comments, and reactions are theirs. */
+    usedBy: number;
+  }[];
+  spaces: {
+    id: string;
+    key: string;
+    name: string;
+    description: string;
+    rules: string;
+    startsJoined: boolean;
+    conditions: string[];
+    /** How many posts are in it. */
     usedBy: number;
   }[];
   posts: {
@@ -155,6 +167,7 @@ export interface DraftItemDetails {
   ups: number;
   downs: number;
   pictures: string[];
+  spaceId: string | null;
   origin: string;
 }
 

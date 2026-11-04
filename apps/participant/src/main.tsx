@@ -17,6 +17,7 @@ import { JoinPage } from "./pages/JoinPage.tsx";
 import { NotificationsPage } from "./pages/NotificationsPage.tsx";
 import { PilotPage } from "./pages/PilotPage.tsx";
 import { ProfilePage } from "./pages/ProfilePage.tsx";
+import { SpacePage, SpacesPage } from "./pages/SpacesPage.tsx";
 import { track } from "./tracking.ts";
 
 function PageViews() {
@@ -58,6 +59,18 @@ const feedRoute = createRoute({
   component: FeedPage,
 });
 
+const spacesRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/spaces",
+  component: SpacesPage,
+});
+
+const spaceRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/spaces/$key",
+  component: SpacePage,
+});
+
 const notificationsRoute = createRoute({
   getParentRoute: () => gateRoute,
   path: "/notifications",
@@ -80,7 +93,14 @@ const router = createRouter({
   routeTree: rootRoute.addChildren([
     joinRoute,
     pilotRoute,
-    gateRoute.addChildren([feedRoute, notificationsRoute, profileRoute, editProfileRoute]),
+    gateRoute.addChildren([
+      feedRoute,
+      spacesRoute,
+      spaceRoute,
+      notificationsRoute,
+      profileRoute,
+      editProfileRoute,
+    ]),
   ]),
 });
 

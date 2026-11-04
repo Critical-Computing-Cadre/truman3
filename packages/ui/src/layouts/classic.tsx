@@ -10,6 +10,7 @@ import {
 } from "../features/flagging.tsx";
 import { PostPhotos } from "../features/galleries.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
+import { ModeratorTag, SpaceLine } from "../features/spaces.tsx";
 import { VoteButtons } from "../features/votes.tsx";
 import { useFeature } from "../platform.tsx";
 import type { FeedPostViewProps } from "../post-props.ts";
@@ -46,12 +47,13 @@ function Comment({
         {renderBody ? (
           <div className="text-sm">
             {author("font-semibold", comment.author.name)}
+            <ModeratorTag author={comment.author} />
             {renderBody(comment.id, comment.body)}
           </div>
         ) : (
           <p className="text-sm break-words whitespace-pre-wrap">
             {author("mr-1 font-semibold", comment.author.name)}
-            {comment.body}
+            <ModeratorTag author={comment.author} /> {comment.body}
           </p>
         )}
         <p className="mt-0.5 flex gap-3 text-xs text-stone-500">
@@ -80,6 +82,7 @@ export function ClassicPost({
   renderNote,
   renderBody,
   wrapImage,
+  renderSpace,
 }: FeedPostViewProps) {
   const commentsOn = useFeature("comments");
   const likesOn = useFeature("likes");
@@ -92,6 +95,7 @@ export function ClassicPost({
     <>
       <Avatar seed={post.author.username} url={post.author.pictureUrl} />
       <span className="truncate font-semibold">{post.author.name}</span>
+      <ModeratorTag author={post.author} />
     </>
   );
   const headerClass = "flex min-w-0 flex-1 items-center gap-3";
@@ -102,6 +106,7 @@ export function ClassicPost({
       aria-label={`Post by ${post.author.name}`}
       className="overflow-hidden bg-white shadow-sm sm:rounded-lg"
     >
+      <SpaceLine post={post} renderSpace={renderSpace} />
       <header className="flex items-center gap-3 p-3">
         {renderAuthor ? (
           renderAuthor(post.author, headerClass, headerAuthor)

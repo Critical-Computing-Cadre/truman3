@@ -33,6 +33,14 @@ export const eventPayloadSchemas = {
   "actor.reported": z.strictObject({ reason: z.string() }),
   "profile.updated": z.strictObject({ fields: z.array(z.string()) }),
   "notifications.viewed": empty,
+  /** Which space, by its key in the study. */
+  "space.joined": z.strictObject({ space: z.string() }),
+  "space.left": z.strictObject({ space: z.string() }),
+  /** Someone chose an order for a feed, where a study allows that. Null is the study's own order. */
+  "feed.sort_changed": z.strictObject({
+    surface: z.enum(["home", "space"]),
+    sort: z.enum(["new", "top"]).nullable(),
+  }),
   /** A scripted reaction was triggered by something a participant did. */
   "reaction.scheduled": z.strictObject({
     reaction: z.enum(["read", "like", "reply", "up", "down"]),

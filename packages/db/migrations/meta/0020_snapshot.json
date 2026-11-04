@@ -1,5 +1,5 @@
 {
-  "id": "6ef9d268-0d6f-4e38-999e-a440038debbd",
+  "id": "5fb37511-d3b3-4e39-8177-814341566677",
   "prevId": "f238abaa-6979-444f-ac76-0e7eb8364f04",
   "version": "7",
   "dialect": "postgresql",
@@ -483,6 +483,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "space_id": {
+          "name": "space_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "author_actor_id": {
           "name": "author_actor_id",
           "type": "uuid",
@@ -667,6 +673,15 @@
           "tableFrom": "content",
           "tableTo": "content",
           "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "content_space_id_spaces_id_fk": {
+          "name": "content_space_id_spaces_id_fk",
+          "tableFrom": "content",
+          "tableTo": "spaces",
+          "columnsFrom": ["space_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -1208,7 +1223,7 @@
       "checkConstraints": {
         "draft_items_kind": {
           "name": "draft_items_kind",
-          "value": "\"draft_items\".\"kind\" in ('actor', 'post', 'comment', 'reaction', 'setting')"
+          "value": "\"draft_items\".\"kind\" in ('actor', 'post', 'comment', 'reaction', 'setting', 'space')"
         }
       },
       "isRLSEnabled": false
@@ -1629,6 +1644,18 @@
           "notNull": true,
           "default": "'feed'"
         },
+        "space_id": {
+          "name": "space_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sort": {
+          "name": "sort",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "ranker": {
           "name": "ranker",
           "type": "text",
@@ -1715,6 +1742,15 @@
           "tableFrom": "feed_impressions",
           "tableTo": "conditions",
           "columnsFrom": ["condition_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "feed_impressions_space_id_spaces_id_fk": {
+          "name": "feed_impressions_space_id_spaces_id_fk",
+          "tableFrom": "feed_impressions",
+          "tableTo": "spaces",
+          "columnsFrom": ["space_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -2563,6 +2599,185 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.space_memberships": {
+      "name": "space_memberships",
+      "schema": "",
+      "columns": {
+        "world_id": {
+          "name": "world_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "space_id": {
+          "name": "space_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "joined": {
+          "name": "joined",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "space_memberships_world_id_worlds_id_fk": {
+          "name": "space_memberships_world_id_worlds_id_fk",
+          "tableFrom": "space_memberships",
+          "tableTo": "worlds",
+          "columnsFrom": ["world_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "space_memberships_actor_id_actors_id_fk": {
+          "name": "space_memberships_actor_id_actors_id_fk",
+          "tableFrom": "space_memberships",
+          "tableTo": "actors",
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "space_memberships_space_id_spaces_id_fk": {
+          "name": "space_memberships_space_id_spaces_id_fk",
+          "tableFrom": "space_memberships",
+          "tableTo": "spaces",
+          "columnsFrom": ["space_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "space_memberships_world_id_actor_id_space_id_pk": {
+          "name": "space_memberships_world_id_actor_id_space_id_pk",
+          "columns": ["world_id", "actor_id", "space_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.spaces": {
+      "name": "spaces",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "study_version_id": {
+          "name": "study_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rules": {
+          "name": "rules",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "starts_joined": {
+          "name": "starts_joined",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "conditions": {
+          "name": "conditions",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "class": {
+          "name": "class",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "spaces_version_key": {
+          "name": "spaces_version_key",
+          "columns": [
+            {
+              "expression": "study_version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "spaces_study_version_id_study_versions_id_fk": {
+          "name": "spaces_study_version_id_study_versions_id_fk",
+          "tableFrom": "spaces",
+          "tableTo": "study_versions",
+          "columnsFrom": ["study_version_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.studies": {
       "name": "studies",
       "schema": "",
@@ -2803,13 +3018,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
-        },
-        "contents": {
-          "name": "contents",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'data'"
         },
         "at": {
           "name": "at",

@@ -8,6 +8,7 @@ export {
   postDefinitionSchema,
   type ReactionDefinition,
   reactionDefinitionSchema,
+  type SpaceDefinition,
   type StudyDefinition,
   type StudySettings,
   studyDefinitionSchema,
@@ -16,6 +17,8 @@ export {
 export { fillLinkTemplate, LINK_PLACEHOLDERS } from "./links.ts";
 export {
   type CommentBox,
+  canJoinSpacesFor,
+  canSortFor,
   checkNewPost,
   commentBoxFor,
   featureOn,

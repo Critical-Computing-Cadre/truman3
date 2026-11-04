@@ -17,6 +17,8 @@ export function feedSettingsFor(settings: StudySettings, conditionKey: string): 
     pinOwnPostsMinutes: changes?.pinOwnPostsMinutes ?? base.pinOwnPostsMinutes,
     removeFlagged: changes?.removeFlagged ?? base.removeFlagged,
     removeBlocked: changes?.removeBlocked ?? base.removeBlocked,
+    spaceRanker: changes?.spaceRanker ?? base.spaceRanker,
+    participantsCanSort: changes?.participantsCanSort ?? base.participantsCanSort,
   };
 }
 

@@ -339,3 +339,100 @@ test("settings can't be changed while they're saving, so nothing is lost", async
   await expect(settings.getByLabel(/^Text/)).toBeChecked();
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
+
+test("a researcher makes a space, and a participant joins it and chooses an order", async ({
+  page,
+  browser,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+
+  await page.goto(ADMIN);
+  await page.getByLabel("Email").fill(otherLabEmail);
+  await page.getByLabel("Password").fill(otherLabPassword);
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await page.getByRole("link", { name: "New study" }).click();
+  const stamp = Date.now() % 1_000_000;
+  const title = `Spaces ${stamp}`;
+  await page.getByLabel("Title").fill(title);
+  await page.getByRole("radio", { name: /EatSnap pack/ }).check();
+  await page.getByRole("radio", { name: /Just the background/ }).check();
+  await page.getByRole("radio", { name: /^Blocked/ }).check();
+  await page.getByRole("button", { name: "Start the study" }).click();
+
+  const post = page.locator("article").first();
+  await expect(post).toBeVisible();
+  // Off to begin with, so nothing about it shows.
+  await expect(page.getByRole("link", { name: "Spaces", exact: true })).toHaveCount(0);
+  await expect(post.getByLabel("Space")).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Settings" }).click();
+  const settings = page.getByRole("region", { name: "Study and platform" });
+  await settings.getByRole("checkbox", { name: /^Spaces/ }).check();
+  await settings.getByRole("button", { name: "Save changes" }).click();
+  await expect(settings.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  const feed = page.getByRole("region", { name: "Feed", exact: true });
+  await feed.getByRole("checkbox", { name: /Let participants choose the order/ }).check();
+  await feed.getByRole("button", { name: "Save changes" }).click();
+  await expect(feed.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  await page.goBack();
+
+  await page.getByRole("link", { name: "Spaces", exact: true }).click();
+  await page.getByRole("button", { name: "Add a space" }).click();
+  const added = page.getByRole("listitem", { name: "New space" });
+  await added.getByLabel("Name", { exact: true }).fill("Cooking");
+  await added.getByLabel("Name", { exact: true }).blur();
+  const space = page.getByRole("listitem", { name: "Cooking" });
+  await space.getByLabel("Rules").fill("Be kind to each other.");
+  await space.getByLabel("Rules").blur();
+  await expect(space.getByLabel("Rules")).toHaveValue("Be kind to each other.");
+  await space.getByLabel(/start out in it/).uncheck();
+  await expect(space.getByLabel(/start out in it/)).not.toBeChecked();
+  await page.getByRole("link", { name: "Back to the feed" }).click();
+
+  await post.getByText("Details").first().click();
+  await post.getByLabel("Space").first().selectOption({ label: "Cooking" });
+  await expect(post.getByTestId("post-space")).toHaveText("Cooking");
+
+  await page.getByRole("button", { name: "Save as new version" }).click();
+  await page.getByRole("button", { name: "Save version" }).click();
+  const study = page.getByRole("listitem").filter({ hasText: title }).first();
+  await study.getByRole("button", { name: "Launch", exact: true }).click();
+  const launching = page.getByRole("dialog", { name: /Launch version/ });
+  await launching.getByLabel(/only a test/).check();
+  await launching.getByRole("button", { name: "Launch it" }).click();
+  await expect(study.getByText("Open to participants")).toBeVisible();
+
+  const context = await browser.newContext();
+  const participant = await context.newPage();
+  await participant.goto(
+    `http://localhost:${APP_PORT}/join/spaces-${stamp}?PROLIFIC_PID=SPACE-${stamp}`,
+  );
+  await participant.getByRole("button", { name: "I agree" }).click();
+  await participant.getByLabel("Username").fill(`spaces_${stamp}`);
+  await participant.getByLabel("Name", { exact: true }).fill("Space Person");
+  await participant.getByRole("button", { name: "Save and continue" }).click();
+
+  // They haven't joined, so its post isn't in their home feed.
+  await expect(participant.locator("article").first()).toBeVisible();
+  await expect(participant.getByTestId("post-space")).toHaveCount(0);
+
+  await participant.getByRole("link", { name: "Communities" }).click();
+  await participant.getByRole("link", { name: "Cooking" }).click();
+  await expect(participant.getByText("Be kind to each other.")).toBeVisible();
+  await expect(participant.getByTestId("post-space")).toHaveCount(1);
+  await participant.getByRole("button", { name: "Join", exact: true }).click();
+  await expect(participant.getByRole("button", { name: "Leave", exact: true })).toBeVisible();
+  await participant.screenshot({ path: testInfo.outputPath("space-page.png") });
+
+  await participant
+    .getByRole("link", { name: /Demo|EatSnap|Spaces/ })
+    .first()
+    .click();
+  await expect(participant.getByTestId("post-space")).toHaveCount(1);
+
+  const asked = participant.waitForResponse((response) => response.url().includes("sort=top"));
+  await participant.getByLabel("Sort").selectOption("top");
+  expect((await asked).status()).toBe(200);
+  await context.close();
+});

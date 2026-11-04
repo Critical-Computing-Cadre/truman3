@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import type { FeedResponse } from "@truman3/core";
 import { CreatePostBar, PhotoIcon, ProfileCard } from "@truman3/ui";
 import { type FormEvent, type RefObject, useEffect, useRef, useState } from "react";
-import { type FlowState, flowQuery, get, meQuery, postForm } from "../api.ts";
+import { type FlowState, flowQuery, get, meQuery, post, postForm } from "../api.ts";
 import { PostCard } from "../components/PostCard.tsx";
 
 /** Picked once per page load, for studies that reshuffle the feed on each visit. */
@@ -15,16 +15,55 @@ const COMPOSER = {
   mixed: { placeholder: "What's new?", ready: (text: boolean, image: boolean) => text || image },
 };
 
+export type FeedSort = "new" | "top" | null;
+
+/** Lets someone choose the order, on a study that allows it. Each choice is recorded. */
+export function SortPicker({
+  surface,
+  sort,
+  onChange,
+}: {
+  surface: "home" | "space";
+  sort: FeedSort;
+  onChange: (sort: FeedSort) => void;
+}) {
+  const flow = useQuery(flowQuery);
+  if (!flow.data?.canSort) {
+    return null;
+  }
+  return (
+    <label className="flex items-center justify-end gap-2 px-3 text-sm sm:px-0">
+      Sort
+      <select
+        value={sort ?? ""}
+        onChange={(event) => {
+          const next = (event.target.value || null) as FeedSort;
+          post("/feed/sort", { surface, sort: next }).catch(() => {});
+          onChange(next);
+        }}
+        className="rounded border border-stone-300 bg-white px-2 py-1"
+      >
+        <option value="">Default</option>
+        <option value="new">New</option>
+        <option value="top">Top</option>
+      </select>
+    </label>
+  );
+}
+
 /** The window for writing a post, opened from the bar at the top of the feed. */
-function NewPostDialog({
+export function NewPostDialog({
   style,
   several,
   dialogRef,
+  space,
 }: {
   style: FlowState["platformStyle"];
   /** Whether this platform lets a post have several photos. */
   several: boolean;
   dialogRef: RefObject<HTMLDialogElement | null>;
+  /** The key of the space this goes in, when writing from a space's page. */
+  space?: string;
 }) {
   const client = useQueryClient();
   const [body, setBody] = useState("");
@@ -47,7 +86,7 @@ function NewPostDialog({
   const close = () => dialogRef.current?.close();
 
   const create = useMutation({
-    mutationFn: () => postForm("/posts", { body, image: images }),
+    mutationFn: () => postForm("/posts", { body, image: images, ...(space ? { space } : {}) }),
     onSuccess: () => {
       setBody("");
       setImages([]);
@@ -127,9 +166,10 @@ function NewPostDialog({
 }
 
 export function FeedPage() {
+  const [sort, setSort] = useState<FeedSort>(null);
   const feed = useQuery({
-    queryKey: ["feed"],
-    queryFn: () => get<FeedResponse>(`/feed?visit=${VISIT}`),
+    queryKey: ["feed", "home", sort],
+    queryFn: () => get<FeedResponse>(`/feed?visit=${VISIT}${sort ? `&sort=${sort}` : ""}`),
   });
   const flow = useQuery(flowQuery);
   const me = useQuery(meQuery);
@@ -180,6 +220,7 @@ export function FeedPage() {
             />
           </>
         )}
+        <SortPicker surface="home" sort={sort} onChange={setSort} />
         {feed.data?.posts.length === 0 && (
           <p className="p-6 text-center text-stone-500">No posts to show.</p>
         )}
