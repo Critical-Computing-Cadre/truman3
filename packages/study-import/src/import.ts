@@ -63,6 +63,7 @@ function hashStudy(study: StudyDefinition, mediaKeys: Map<string, string>): stri
     posts: withoutSource(study.posts),
     comments: withoutSource(study.comments),
     reactions: withoutSource(study.reactions),
+    ...(study.removals.length > 0 ? { removals: withoutSource(study.removals) } : {}),
     media: [...mediaKeys.entries()].sort(([a], [b]) => a.localeCompare(b)),
   };
   return createHash("sha256").update(stableStringify(identity)).digest("hex");
@@ -428,6 +429,20 @@ export async function freezeStudy(
           body: reaction.body,
           conditions: reaction.conditions,
           class: reaction.class,
+        })),
+      );
+    }
+
+    for (const batch of chunks(study.removals, INSERT_BATCH_SIZE)) {
+      await tx.insert(schema.scriptedRemovals).values(
+        batch.map((removal) => ({
+          studyVersionId,
+          contentId: (removal.on === "post" ? postIds : commentIds).get(removal.target) as string,
+          actorId: actorId(removal.actor),
+          offsetMs: removal.timeMs,
+          reason: removal.reason,
+          conditions: removal.conditions,
+          class: removal.class,
         })),
       );
     }

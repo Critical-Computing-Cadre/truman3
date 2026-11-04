@@ -10,6 +10,7 @@ import {
   type PostDefinition,
   parseStudyTime,
   type ReactionDefinition,
+  type RemovalDefinition,
   type SpaceDefinition,
   type StudyDefinition,
   type StudyIssue,
@@ -81,6 +82,10 @@ const COMMENTS: CsvSpec = {
 const REACTIONS: CsvSpec = {
   required: ["on", "nth", "type", "actor", "after"],
   optional: ["body", "condition", "class"],
+};
+const REMOVALS: CsvSpec = {
+  required: ["on", "target", "actor", "time"],
+  optional: ["reason", "condition", "class"],
 };
 
 export const MEDIA_FOLDERS = {
@@ -376,9 +381,10 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       type !== "like" &&
       type !== "reply" &&
       type !== "up" &&
-      type !== "down"
+      type !== "down" &&
+      type !== "remove"
     ) {
-      rowError(file, row, `"${type}" in type has to be read, like, reply, up, or down.`);
+      rowError(file, row, `"${type}" in type has to be read, like, reply, up, down, or remove.`);
       continue;
     }
     reactions.push({
@@ -388,6 +394,24 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       actor: cells.actor || `(row ${row})`,
       afterMs: Math.max(time(cells.after, "after", file, row), 0),
       ...optional("body", cells.body),
+      ...targeting(cells, file, row),
+    });
+  }
+
+  const removals: RemovalDefinition[] = [];
+  for (const { row, cells } of readTable("removals.csv", REMOVALS, false)) {
+    const file = "removals.csv";
+    const on = cells.on;
+    if (on !== "post" && on !== "comment") {
+      rowError(file, row, `"${on}" in on has to be post or comment.`);
+      continue;
+    }
+    removals.push({
+      on,
+      target: cells.target || `(row ${row})`,
+      actor: cells.actor || `(row ${row})`,
+      timeMs: time(cells.time, "time", file, row),
+      ...optional("reason", cells.reason || undefined),
       ...targeting(cells, file, row),
     });
   }
@@ -444,6 +468,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     posts,
     comments,
     reactions,
+    removals,
   });
   if (!parsed.success) {
     return {

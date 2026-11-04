@@ -84,10 +84,18 @@ export const itemDataSchemas = {
   reaction: z.strictObject({
     on: z.enum(["post", "comment"]),
     nth: z.number().int().nonnegative(),
-    type: z.enum(["read", "like", "reply", "up", "down"]),
+    type: z.enum(["read", "like", "reply", "up", "down", "remove"]),
     actorId: z.uuid(),
     afterMs: z.number().int().nonnegative(),
     body: z.string().optional(),
+    ...targeting,
+  }),
+  removal: z.strictObject({
+    on: z.enum(["post", "comment"]),
+    targetId: z.uuid(),
+    actorId: z.uuid(),
+    timeMs: z.number().int(),
+    reason: z.string().min(1).optional(),
     ...targeting,
   }),
 } as const;
@@ -98,6 +106,7 @@ export type SpaceData = z.infer<typeof itemDataSchemas.space>;
 export type PostData = z.infer<typeof itemDataSchemas.post>;
 export type CommentData = z.infer<typeof itemDataSchemas.comment>;
 export type ReactionData = z.infer<typeof itemDataSchemas.reaction>;
+export type RemovalData = z.infer<typeof itemDataSchemas.removal>;
 
 /**
  * Where an item came from, recorded from the start because it can't be worked out later. It belongs

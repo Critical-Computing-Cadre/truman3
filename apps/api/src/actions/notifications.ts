@@ -48,7 +48,8 @@ export async function scheduleReactions(
       (reaction.type === "reply" && !features.comments) ||
       (reaction.type === "like" && !features.likes) ||
       ((reaction.type === "up" || reaction.type === "down") && !features.votes) ||
-      (reaction.type === "read" && !features.notifications)
+      (reaction.type === "read" && !features.notifications) ||
+      (reaction.type === "remove" && !features.removal)
     ) {
       continue;
     }
@@ -80,14 +81,16 @@ export async function scheduleReactions(
       type: reaction.type,
       targetContentId: trigger.contentId,
       replyContentId,
+      ...(reaction.type === "remove" ? { reason: reaction.body } : {}),
       dueAt,
     });
 
     await recordEvent(tx, {
       type: "reaction.scheduled",
       payload: {
-        reaction: reaction.type as "read" | "like" | "reply" | "up" | "down",
+        reaction: reaction.type as "read" | "like" | "reply" | "up" | "down" | "remove",
         dueAt: dueAt.toISOString(),
+        ...(reaction.type === "remove" && reaction.body ? { reason: reaction.body } : {}),
       },
       worldId: context.worldId,
       studyVersionId: context.studyVersionId,
@@ -137,7 +140,7 @@ export async function countUnreadNotifications(
 
 export interface NotificationItem {
   key: string;
-  type: "read" | "like" | "reply";
+  type: "read" | "like" | "reply" | "remove";
   actors: { username: string; name: string; pictureUrl: string | null }[];
   /** Whether this reacts to their post or their comment. */
   targetKind: "post" | "comment";
@@ -146,12 +149,14 @@ export interface NotificationItem {
   commentId: string | null;
   targetImageUrl: string | null;
   replyBody: string | null;
+  /** Why a moderator removed it, if they said. */
+  reason: string | null;
   at: string;
   unread: boolean;
 }
 
 /** Votes change a score without telling anyone who voted, as on the platforms that have them. */
-const SHOWN_TO_PARTICIPANTS = ["read", "like", "reply"];
+const SHOWN_TO_PARTICIPANTS = ["read", "like", "reply", "remove"];
 
 /**
  * Notifications that have come due, newest first. Reads and likes on the same content get grouped
@@ -234,7 +239,8 @@ export async function listNotifications(
 
   const groups = new Map<string, NotificationItem>();
   for (const row of rows) {
-    const key = row.type === "reply" ? row.id : `${row.type}:${row.targetContentId}`;
+    const key =
+      row.type === "reply" || row.type === "remove" ? row.id : `${row.type}:${row.targetContentId}`;
     const at = row.dueAt.toISOString();
     const unread = !viewedAt || row.dueAt > viewedAt;
     const existing = groups.get(key);
@@ -261,6 +267,7 @@ export async function listNotifications(
         ? mediaUrl(target.attachments[0].key, mediaPublicUrl)
         : null,
       replyBody: row.replyContentId ? (contentById.get(row.replyContentId)?.body ?? null) : null,
+      reason: row.reason,
       at,
       unread,
     });

@@ -1,4 +1,4 @@
-import { type FeedComment, MAX_REPLY_DEPTH } from "@truman3/core";
+import { type FeedComment, type FeedPost, MAX_REPLY_DEPTH } from "@truman3/core";
 import type { CSSProperties } from "react";
 import { useFeature } from "../platform.tsx";
 import type { PostActions } from "../post-props.ts";
@@ -20,7 +20,7 @@ export function CommentReplyButton({
   actions?: PostActions | undefined;
 }) {
   const on = useFeature("threads");
-  if (!on || !actions?.onReplyTo || comment.depth + 1 >= MAX_REPLY_DEPTH) {
+  if (!on || !actions?.onReplyTo || comment.removed || comment.depth + 1 >= MAX_REPLY_DEPTH) {
     return null;
   }
   return (
@@ -33,12 +33,12 @@ export function CommentReplyButton({
 /** The button that starts a comment. */
 export function ReplyButton({
   actions,
-  locked = false,
+  post,
 }: {
   actions?: PostActions | undefined;
-  locked?: boolean | undefined;
+  post: Pick<FeedPost, "locked" | "removed">;
 }) {
-  if (!useFeature("comments") || locked) {
+  if (!useFeature("comments") || post.locked || post.removed) {
     return null;
   }
   return (

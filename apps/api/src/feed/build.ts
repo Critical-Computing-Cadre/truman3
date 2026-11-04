@@ -5,6 +5,7 @@ import {
   type FeedOriginal,
   type FeedPoll,
   type FeedPost,
+  type FeedRemoved,
   type FeedSort,
   type Flair,
   featureOn,
@@ -222,6 +223,62 @@ export function karmaShownIn(posts: readonly FeedPost[]): Record<string, number>
   return shown;
 }
 
+/** Who took something down, and what they said. */
+export interface Removal {
+  actorId: string;
+  reason: string | null;
+}
+
+/**
+ * What a moderator has taken down so far for this person, by content ID: scripted removals of what
+ * the study wrote, and scripted reactions to what they wrote. Nothing has to run later, since this
+ * only counts what has come due. If there are several for one thing, the first stands.
+ */
+export async function loadRemovals(
+  db: Database,
+  context: ParticipantContext,
+  now: Date,
+): Promise<Map<string, Removal>> {
+  const removals = new Map<string, Removal>();
+  if (!featureOn(context.settings, context.conditionKey, "removal")) {
+    return removals;
+  }
+  const elapsedMs = now.getTime() - context.worldStartedAt.getTime();
+  const scripted = await db
+    .select()
+    .from(schema.scriptedRemovals)
+    .where(
+      and(
+        eq(schema.scriptedRemovals.studyVersionId, context.studyVersionId),
+        lte(schema.scriptedRemovals.offsetMs, elapsedMs),
+      ),
+    )
+    .orderBy(asc(schema.scriptedRemovals.offsetMs));
+  for (const { contentId, actorId, reason, conditions } of scripted) {
+    const applies = conditions.length === 0 || conditions.includes(context.conditionKey);
+    if (applies && !removals.has(contentId)) {
+      removals.set(contentId, { actorId, reason });
+    }
+  }
+  const reactions = await db
+    .select()
+    .from(schema.notifications)
+    .where(
+      and(
+        eq(schema.notifications.worldId, context.worldId),
+        eq(schema.notifications.type, "remove"),
+        lte(schema.notifications.dueAt, now),
+      ),
+    )
+    .orderBy(asc(schema.notifications.dueAt));
+  for (const { targetContentId, actorId, reason } of reactions) {
+    if (!removals.has(targetContentId)) {
+      removals.set(targetContentId, { actorId, reason });
+    }
+  }
+  return removals;
+}
+
 export interface FeedDependencies {
   db: Database;
   mediaPublicUrl: string;
@@ -293,6 +350,7 @@ export async function shapeFeedPosts({
   viewerFlair = new Map(),
   pollChoices = new Map(),
   canSeeOriginal = () => true,
+  removals = new Map(),
 }: {
   loadAuthors: (ids: string[]) => Promise<ReadonlyMap<string, FeedActor>>;
   mediaPublicUrl: string;
@@ -321,6 +379,8 @@ export async function shapeFeedPosts({
   pollChoices?: ReadonlyMap<string, number>;
   /** Whether this viewer can see a post a crosspost came from, which may not be shown to them. */
   canSeeOriginal?: (row: FeedContent) => boolean;
+  /** What a moderator has taken down so far, by content ID. */
+  removals?: ReadonlyMap<string, Removal>;
 }): Promise<FeedPost[]> {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const shownIds = feed.posts.flatMap((post) => [post.id, ...post.commentIds]);
@@ -334,6 +394,10 @@ export async function shapeFeedPosts({
     ...new Set([
       ...shownIds.map((id) => (byId.get(id) as FeedContent).authorActorId),
       ...shownOriginals.map(({ authorActorId }) => authorActorId),
+      ...shownIds.flatMap((id) => {
+        const removal = removals.get(id);
+        return removal ? [removal.actorId] : [];
+      }),
     ]),
   ];
   const authorById = await loadAuthors(authorIds);
@@ -398,27 +462,75 @@ export async function shapeFeedPosts({
     };
   };
 
+  /** What a browser gets about a removal, and whether what was removed stays hidden from this viewer. */
+  const removalOf = (item: FeedContent) => {
+    const removal = removals.get(item.id);
+    if (!removal) {
+      return { removed: undefined, withheld: false };
+    }
+    const moderator = authorById.get(removal.actorId) as FeedActor;
+    const removed: FeedRemoved = {
+      by: (moderator.profile as ActorProfile).name ?? moderator.username,
+      ...(removal.reason ? { reason: removal.reason } : {}),
+    };
+    return { removed, withheld: item.authorActorId !== viewerActorId };
+  };
+
   const common = (item: FeedContent, spaceId: string | null) => {
+    const { removed, withheld } = removalOf(item);
     const liked = likedContentIds.has(item.id);
     const vote = viewerVotes.get(item.id) ?? null;
     const scripted = (type: string) => scriptedCounts.get(`${type}:${item.id}`) ?? 0;
     return {
       id: item.id,
       author: toAuthor(item.authorActorId, spaceId),
-      body: item.body,
+      body: withheld ? "" : item.body,
       at: new Date(contentTimeMs(item, worldStartMs)).toISOString(),
       likes: item.baseLikes + scripted("like") + (liked ? 1 : 0),
       liked,
       ups: item.baseUps + scripted("up") + (vote === "up" ? 1 : 0),
       downs: item.baseDowns + scripted("down") + (vote === "down" ? 1 : 0),
       vote,
-      flagged: flaggedContentIds.has(item.id),
+      // A flag's cover and its button to undo it have no place on what's already gone.
+      flagged: !removed && flaggedContentIds.has(item.id),
+      ...(removed ? { removed } : {}),
     };
   };
 
   return feed.posts.map((post) => {
     const item = byId.get(post.id) as FeedContent;
     const space = item.spaceId ? spaces.get(item.spaceId) : undefined;
+    const { withheld } = removalOf(item);
+    const comments = (commentsHere ? post.commentIds : []).map((id) => ({
+      ...common(byId.get(id) as FeedContent, item.spaceId),
+      depth: post.commentDepths[id] ?? 0,
+    }));
+    const place = {
+      // Only these, since whatever else a space holds has no reason to reach a browser.
+      ...(space
+        ? {
+            space: {
+              key: space.key,
+              name: space.name,
+              ...(space.picture ? { pictureUrl: mediaUrl(space.picture, mediaPublicUrl) } : {}),
+            },
+          }
+        : {}),
+      ...(post.studyPinned ? { pinned: true as const } : {}),
+      ...(item.locked && features.locking ? { locked: true as const } : {}),
+      ...(savedContentIds.has(item.id) ? { saved: true as const } : {}),
+      ...(hiddenContentIds.has(item.id) ? { hidden: true as const } : {}),
+    };
+    // Nothing of what it said reaches someone who isn't its author, including what covered it.
+    if (withheld) {
+      return {
+        ...common(item, item.spaceId),
+        ...place,
+        attachments: [],
+        comments,
+        commentCount: post.commentIds.length,
+      };
+    }
     const original = features.crossposting ? originalOf(item) : null;
     // A crosspost shows its original, so whatever covers that has to cover this too.
     const tags = [
@@ -440,29 +552,13 @@ export async function shapeFeedPosts({
       ...(item.linkUrl && features.links
         ? { link: { url: item.linkUrl, domain: linkDomain(item.linkUrl) } }
         : {}),
-      ...(post.studyPinned ? { pinned: true as const } : {}),
-      ...(item.locked && features.locking ? { locked: true as const } : {}),
+      ...place,
       ...(tags.length > 0 ? { tags } : {}),
-      ...(savedContentIds.has(item.id) ? { saved: true as const } : {}),
-      ...(hiddenContentIds.has(item.id) ? { hidden: true as const } : {}),
-      // Only these, since whatever else a space holds has no reason to reach a browser.
-      ...(space
-        ? {
-            space: {
-              key: space.key,
-              name: space.name,
-              ...(space.picture ? { pictureUrl: mediaUrl(space.picture, mediaPublicUrl) } : {}),
-            },
-          }
-        : {}),
       attachments: item.attachments.map(({ type, key }) => ({
         type,
         url: mediaUrl(key, mediaPublicUrl),
       })),
-      comments: (commentsHere ? post.commentIds : []).map((id) => ({
-        ...common(byId.get(id) as FeedContent, item.spaceId),
-        depth: post.commentDepths[id] ?? 0,
-      })),
+      comments,
       commentCount: post.commentIds.length,
     };
   });
@@ -639,6 +735,7 @@ export async function buildFeed(
 
   const karmaOn = featureOn(context.settings, context.conditionKey, "karma");
   const elapsedMs = now.getTime() - worldStartMs;
+  const removals = await loadRemovals(db, context, now);
 
   const shaped = await shapeFeedPosts({
     loadAuthors: (ids) => loadAuthors(db, ids),
@@ -664,8 +761,9 @@ export async function buildFeed(
       const removed =
         (feedSettings.removeBlocked && state.blockedActorIds.has(row.authorActorId)) ||
         (feedSettings.removeFlagged && state.flaggedContentIds.has(row.id));
-      return inCondition && appeared && inVisibleSpace && !removed;
+      return inCondition && appeared && inVisibleSpace && !removed && !removals.has(row.id);
     },
+    removals,
     spaces: visibleSpaces,
     commentsHere,
     karma: karmaOn
@@ -698,6 +796,11 @@ export async function buildFeed(
       pinned: post.pinned,
       commentIds: commentsHere ? post.commentIds : [],
       ...(post.score === undefined ? {} : { score: post.score }),
+      // What was on screen in place of it, since a removal depends on the moment and the person.
+      ...(removals.has(post.id) ? { removed: true } : {}),
+      ...(commentsHere && post.commentIds.some((id) => removals.has(id))
+        ? { removedCommentIds: post.commentIds.filter((id) => removals.has(id)) }
+        : {}),
     })),
   });
 

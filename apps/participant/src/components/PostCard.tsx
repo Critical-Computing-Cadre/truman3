@@ -179,7 +179,7 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
             setReplying(true);
             inputRef.current?.focus();
           },
-          ...(post.locked ? {} : { onReplyTo: setReplyTo }),
+          ...(post.locked || post.removed ? {} : { onReplyTo: setReplyTo }),
         }}
         renderSpace={(key, className, name) => (
           <Link to="/spaces/$key" params={{ key }} className={className}>
@@ -198,6 +198,7 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
             </p>
           ) : (
             !post.locked &&
+            !post.removed &&
             me.data &&
             (detail || !pages) &&
             (flow.data?.commentBox === "open" || replying || replyTo) && (

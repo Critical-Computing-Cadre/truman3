@@ -636,3 +636,57 @@ describe("polls, flair, and crossposts", () => {
     expect(messages(study({ settings: on })).join()).toContain("it needs writing posts and spaces");
   });
 });
+
+describe("removals", () => {
+  const removal = { on: "post", target: "1", actor: "ann", timeMs: 1000 };
+
+  it("needs something that exists to remove, and someone to do it", () => {
+    const found = messages(
+      study({
+        removals: [
+          { ...removal, target: "nope" },
+          { ...removal, actor: "nobody" },
+          { ...removal, on: "comment" },
+        ],
+      }),
+    );
+    expect(found.some((text) => text.includes('post "nope" points at a post that isn'))).toBe(true);
+    expect(found.some((text) => text.includes("nobody"))).toBe(true);
+    expect(found.some((text) => text.includes("points at a comment"))).toBe(true);
+  });
+
+  it("warns about one set before what it removes appears", () => {
+    expect(messages(study({ removals: [{ ...removal, timeMs: -1 }] }))).toContainEqual(
+      expect.stringContaining("already be removed"),
+    );
+  });
+
+  it("warns when the feature is off, as it is in Classic", () => {
+    expect(messages(study({ removals: [removal] }))).toContainEqual(
+      expect.stringContaining('Moderators removing things is off in "a"'),
+    );
+    expect(
+      messages(
+        study({
+          reactions: [
+            { on: "post", nth: 0, type: "remove", actor: "ann", afterMs: 0, body: "Why" },
+          ],
+        }),
+      ),
+    ).toContainEqual(expect.stringContaining('Moderators removing things is off in "a"'));
+  });
+
+  it("lets a removal reaction have a reason, and nothing else new have text", () => {
+    const reaction = { on: "post", nth: 0, actor: "ann", afterMs: 0, body: "Text" };
+    const found = validateStudy(
+      study({
+        settings: settings({ platform: { style: "mixed", template: "forum" } }),
+        reactions: [{ ...reaction, type: "remove" }],
+      }),
+    );
+    expect(hasErrors(found)).toBe(false);
+    expect(hasErrors(validateStudy(study({ reactions: [{ ...reaction, type: "like" }] })))).toBe(
+      true,
+    );
+  });
+});

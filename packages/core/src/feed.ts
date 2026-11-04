@@ -19,6 +19,17 @@ export const feedAuthorSchema = z.object({
   flair: feedFlairSchema.optional(),
 });
 
+/**
+ * A moderator took this down. Someone else's then has no text, pictures, or anything else of what it
+ * said, so it can't be read from a response. The author still gets what they wrote.
+ */
+export const feedRemovedSchema = z.object({
+  /** The moderator's name. */
+  by: z.string(),
+  reason: z.string().optional(),
+});
+export type FeedRemoved = z.infer<typeof feedRemovedSchema>;
+
 /** How deep a thread can go. It keeps deep threads readable on a phone, and the work bounded. */
 export const MAX_REPLY_DEPTH = 16;
 
@@ -36,6 +47,7 @@ export const feedCommentSchema = z.object({
   /** How this viewer voted. */
   vote: z.enum(["up", "down"]).nullable(),
   flagged: z.boolean(),
+  removed: feedRemovedSchema.optional(),
 });
 
 /** The most photos one post can have. */
@@ -108,6 +120,7 @@ export const feedPostSchema = z.object({
   /** How this viewer voted. */
   vote: z.enum(["up", "down"]).nullable(),
   flagged: z.boolean(),
+  removed: feedRemovedSchema.optional(),
   comments: z.array(feedCommentSchema),
   /** How many comments it has, even in a list that leaves them for the post's own page. */
   commentCount: z.number(),

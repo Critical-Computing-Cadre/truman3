@@ -142,6 +142,17 @@ export default async function globalSetup() {
     email: otherLabEmail,
     name: "Other Researcher",
   });
+  // Removals have no place in the builder yet, so this comes from files. It comes after the teams,
+  // since setting up a team adopts any study without one, and would crowd that team's page.
+  const moderation = await importStudyFolder(
+    database.db,
+    storage,
+    path.join(import.meta.dirname, "fixtures/moderation"),
+    { launch: true },
+  );
+  if (moderation.status === "failed") {
+    throw new Error(moderation.issues.map((issue) => issue.message).join("\n"));
+  }
   writeFileSync(
     STATE_FILE,
     JSON.stringify({

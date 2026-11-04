@@ -8,7 +8,7 @@ export function VoteButtons({
   actions,
   className = "",
 }: {
-  item: Pick<FeedPost | FeedComment, "id" | "ups" | "downs" | "vote">;
+  item: Pick<FeedPost | FeedComment, "id" | "ups" | "downs" | "vote" | "removed">;
   actions?: PostActions | undefined;
   className?: string;
 }) {
@@ -20,7 +20,7 @@ export function VoteButtons({
       type="button"
       aria-label={label}
       aria-pressed={item.vote === value}
-      disabled={!actions}
+      disabled={!actions || Boolean(item.removed)}
       className={item.vote === value ? "font-semibold text-sky-700" : ""}
       onClick={() => actions?.onVote(item.id, item.vote === value ? null : value)}
     >

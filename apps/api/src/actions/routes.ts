@@ -21,6 +21,7 @@ import {
   buildFeed,
   castKarma,
   contentTimeMs,
+  loadRemovals,
   loadSpacesFor,
   mediaUrl,
   participantKarma,
@@ -351,7 +352,7 @@ const notificationsRoute = createRoute({
             notifications: z.array(
               z.object({
                 key: z.string(),
-                type: z.enum(["read", "like", "reply"]),
+                type: z.enum(["read", "like", "reply", "remove"]),
                 actors: z.array(
                   z.object({
                     username: z.string(),
@@ -367,6 +368,7 @@ const notificationsRoute = createRoute({
                 targetBody: z.string(),
                 targetImageUrl: z.string().nullable(),
                 replyBody: z.string().nullable(),
+                reason: z.string().nullable(),
                 at: z.iso.datetime(),
                 unread: z.boolean(),
               }),
@@ -618,6 +620,11 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
   const applySave = toggle("save", "content.saved", "content.unsaved");
   const applyHide = toggle("hide", "content.hidden", "content.unhidden");
 
+  const wasRemoved = { error: "A moderator removed this." };
+  /** Whether a moderator has taken this down, as far as this person is concerned, by now. */
+  const isRemoved = async (context: ParticipantContext, id: string) =>
+    (await loadRemovals(db, context, new Date())).has(id);
+
   /** The post this acts on, if it's a post this person can see. */
   const visiblePost = async (context: ParticipantContext, id: string) => {
     const item = await findVisibleContent(db, context, id, new Date());
@@ -745,6 +752,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (!item?.poll) {
       return c.json(notAvailable, 404);
     }
+    if (await isRemoved(context, contentId)) {
+      return c.json(wasRemoved, 403);
+    }
     const body = c.req.valid("json");
     if (body.option >= item.poll.options.length) {
       return c.json({ error: "That isn't one of its options." }, 400);
@@ -808,6 +818,10 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       : target;
     if (!target || !original) {
       return c.json(notAvailable, 404);
+    }
+    const removals = await loadRemovals(db, context, now);
+    if (removals.has(target.id) || removals.has(original.id)) {
+      return c.json(wasRemoved, 403);
     }
 
     const space = (await loadSpacesFor(db, context)).find(({ key }) => key === body.space);
@@ -890,6 +904,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (!(await findVisibleContent(db, context, id, new Date()))) {
       return c.json(notAvailable, 404);
     }
+    if (await isRemoved(context, id)) {
+      return c.json(wasRemoved, 403);
+    }
     await applyLike(context, id, c.req.valid("json"));
     return c.json({ ok: true as const }, 200);
   });
@@ -927,6 +944,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     const { id: contentId } = c.req.valid("param");
     if (!(await findVisibleContent(db, context, contentId, new Date()))) {
       return c.json(notAvailable, 404);
+    }
+    if (await isRemoved(context, contentId)) {
+      return c.json(wasRemoved, 403);
     }
     const body = c.req.valid("json");
     await db.transaction(async (tx) => {
@@ -974,6 +994,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (!(await findVisibleContent(db, context, id, new Date()))) {
       return c.json(notAvailable, 404);
     }
+    if (await isRemoved(context, id)) {
+      return c.json(wasRemoved, 403);
+    }
     await applyFlag(context, id, c.req.valid("json"));
     return c.json({ ok: true as const }, 200);
   });
@@ -1004,6 +1027,17 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     }
     if (!(await canReplyUnder(db, context, target, now))) {
       return c.json(notAvailable, 404);
+    }
+    // Nobody can add to something a moderator took down, or to the post it's on.
+    const removals = await loadRemovals(db, context, now);
+    if (removals.size > 0) {
+      let above: typeof target | null = target;
+      while (above) {
+        if (removals.has(above.id)) {
+          return c.json(wasRemoved, 403);
+        }
+        above = above.parentId ? await findVisibleContent(db, context, above.parentId, now) : null;
+      }
     }
     if (!isOff(context, "locking")) {
       let top: typeof target | null = target;

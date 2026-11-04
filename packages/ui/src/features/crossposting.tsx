@@ -82,7 +82,7 @@ export function CrosspostButton({
   const crossposting = useFeature("crossposting");
   const posting = useFeature("posting");
   const spaces = useFeature("spaces");
-  if (!crossposting || !posting || !spaces) {
+  if (!crossposting || !posting || !spaces || post.removed) {
     return null;
   }
   return (

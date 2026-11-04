@@ -74,6 +74,13 @@ export const FEATURES = {
     version: 2,
     events: ["space.joined", "space.left"],
   },
+  removal: {
+    name: "Moderators removing things",
+    description:
+      "A moderator the study writes can remove a post or comment, with a reason, and a note takes its place. Telling a real person they broke a rule is a deception to raise with your IRB and in a debriefing.",
+    version: 1,
+    events: ["reaction.scheduled"],
+  },
   karma: {
     name: "Karma",
     description:
