@@ -144,6 +144,9 @@ export interface DraftInfo {
     description: string;
     rules: string;
     startsJoined: boolean;
+    pictureUrl: string | null;
+    /** Whether a saved version has it, which means its address can't change. */
+    keyLocked: boolean;
     conditions: string[];
     /** How many posts are in it. */
     usedBy: number;

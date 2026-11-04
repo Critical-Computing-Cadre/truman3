@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { type DraftInfo, get } from "../api.ts";
 import { CastField, SavedCheckbox } from "./CastPage.tsx";
 import { type DraftEdits, SaveStatus, useDraftEdits, useDraftPresence } from "./DraftPage.tsx";
@@ -17,6 +17,9 @@ function Space({
   edits: DraftEdits;
 }) {
   const [problem, setProblem] = useState<string | null>(null);
+  const file = useRef<HTMLInputElement>(null);
+  const uploading =
+    edits.setActorPicture.isPending && edits.setActorPicture.variables?.itemId === space.id;
   const save = (changes: object) => {
     setProblem(null);
     edits.update.mutate(
@@ -31,6 +34,44 @@ function Space({
 
   return (
     <li aria-label={space.name} className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+      <div className="flex items-center gap-3">
+        {space.pictureUrl ? (
+          <img src={space.pictureUrl} alt="" className="h-12 w-12 rounded-lg object-cover" />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-stone-200 font-semibold text-stone-600">
+            {space.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+        {canEdit && (
+          <div className="flex gap-3 text-xs">
+            <button type="button" onClick={() => file.current?.click()} className="underline">
+              {uploading ? "Saving..." : space.pictureUrl ? "Change picture" : "Add a picture"}
+            </button>
+            {space.pictureUrl && (
+              <button type="button" onClick={() => save({ picture: null })} className="underline">
+                Remove picture
+              </button>
+            )}
+            <input
+              ref={file}
+              aria-label={`Picture of ${space.name}`}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(event) => {
+                const chosen = event.target.files?.[0];
+                if (chosen) {
+                  setProblem(null);
+                  edits.setActorPicture.mutate(
+                    { itemId: space.id, file: chosen },
+                    { onError: (error) => setProblem(error.message) },
+                  );
+                }
+              }}
+            />
+          </div>
+        )}
+      </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <CastField
           label="Name"
@@ -45,6 +86,20 @@ function Space({
           canEdit={canEdit}
           onSave={(description) => save({ description: description || null })}
         />
+        <div className="sm:col-span-2">
+          <CastField
+            label="Address"
+            required
+            value={space.key}
+            canEdit={canEdit && !space.keyLocked}
+            onSave={(key) => save({ key })}
+          />
+          <p className="mt-1 text-xs text-stone-500">
+            {space.keyLocked
+              ? "It's in a saved version, so this stays the same, and data reads the same across versions."
+              : `Participants see /spaces/${space.key}. It follows the name until you change it.`}
+          </p>
+        </div>
         <div className="sm:col-span-2">
           <CastField
             label="Rules"

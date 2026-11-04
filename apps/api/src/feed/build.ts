@@ -260,7 +260,7 @@ export interface BuildFeedOptions {
   visit?: number | undefined;
   /** Only this space's posts, on its own page, in the order set for space pages. */
   space?: { id: string } | undefined;
-  /** An order this person chose, where the study allows it. */
+  /** An order this person chose and it was recorded, where the study allows it. */
   sort?: "new" | "top" | undefined;
 }
 
@@ -318,8 +318,12 @@ export async function buildFeed(
       return true;
     }
     const found = visibleSpaces.get(spaceId);
-    // Someone's profile shows what they've written, wherever it is, and a home feed what they joined.
-    return found !== undefined && (authorActorId !== undefined || found.joined);
+    // A profile shows what they've written, wherever it is. A home feed shows what someone joined,
+    // and always their own posts, so writing one in a space they aren't in doesn't seem to lose it.
+    return (
+      found !== undefined &&
+      (authorActorId !== undefined || found.joined || postOf(row).authorActorId === context.actorId)
+    );
   };
   const inScope = (row: ContentRow) =>
     (!authorActorId || postOf(row).authorActorId === authorActorId) && inSpaces(row);

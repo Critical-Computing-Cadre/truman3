@@ -9,6 +9,7 @@ import {
   createItem,
   deleteItem,
   freezeDraft,
+  frozenSpaceKeys,
   type LoadedDraft,
   listChanges,
   loadDraft,
@@ -249,6 +250,8 @@ const fieldsSchema = z.strictObject({
   description: z.string().max(2000).nullable().optional(),
   rules: z.string().max(5000).nullable().optional(),
   startsJoined: z.boolean().optional(),
+  /** Part of a space's address. */
+  key: z.string().trim().min(1).max(100).optional(),
 });
 
 const uploadRoute = createRoute({
@@ -536,6 +539,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
 
     const { loaded, canEdit } = found;
     const { settings, items, draft } = loaded;
+    const frozenKeys = await frozenSpaceKeys(db, draft.studyId);
     return c.json(
       {
         title: settings.title,
@@ -581,6 +585,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               description: data.description ?? "",
               rules: data.rules ?? "",
               startsJoined: data.startsJoined,
+              pictureUrl: data.picture ? mediaUrl(data.picture, mediaPublicUrl) : null,
+              keyLocked: frozenKeys.has(data.key),
               conditions: data.conditions,
               usedBy: items.filter(
                 (other) => (other.data as { spaceId?: string }).spaceId === item.id,

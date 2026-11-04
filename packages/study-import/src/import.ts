@@ -93,6 +93,11 @@ export async function storeMedia(
       files.set(path.join(MEDIA_FOLDERS.actors, actor.picture), actor.picture);
     }
   }
+  for (const space of study.spaces) {
+    if (space.picture) {
+      files.set(path.join(MEDIA_FOLDERS.spaces, space.picture), space.picture);
+    }
+  }
   for (const post of study.posts) {
     for (const picture of post.pictures) {
       files.set(path.join(MEDIA_FOLDERS.posts, picture), picture);
@@ -314,6 +319,7 @@ export async function freezeStudy(
             name: space.name,
             description: space.description,
             rules: space.rules,
+            picture: space.picture && mediaKeys.get(path.join(MEDIA_FOLDERS.spaces, space.picture)),
             startsJoined: space.startsJoined,
             conditions: space.conditions,
             class: space.class,

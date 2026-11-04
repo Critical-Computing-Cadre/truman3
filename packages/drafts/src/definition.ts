@@ -54,6 +54,11 @@ export function draftToDefinition(
       mediaKeys.set(path.join(MEDIA_FOLDERS.actors, data.picture), data.picture);
     }
   }
+  for (const { data } of spaces) {
+    if (data.picture) {
+      mediaKeys.set(path.join(MEDIA_FOLDERS.spaces, data.picture), data.picture);
+    }
+  }
   for (const { item, data } of posts) {
     for (const picture of data.pictures ?? []) {
       mediaKeys.set(path.join(MEDIA_FOLDERS.posts, picture), picture);

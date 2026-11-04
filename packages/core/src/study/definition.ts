@@ -187,6 +187,8 @@ export const spaceDefinitionSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   rules: z.string().optional(),
+  /** Its picture, in media/spaces. */
+  picture: z.string().optional(),
   /** Whether a participant starts out in it. */
   startsJoined: z.boolean().default(true),
   ...targetingFields,

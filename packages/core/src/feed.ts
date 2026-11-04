@@ -57,7 +57,11 @@ export const feedPostSchema = z.object({
   comments: z.array(feedCommentSchema),
 });
 
-export const feedResponseSchema = z.object({ posts: z.array(feedPostSchema) });
+export const feedResponseSchema = z.object({
+  posts: z.array(feedPostSchema),
+  /** The order this person chose for this list, where a study lets them. Null is the study's. */
+  sort: z.enum(["new", "top"]).nullable().optional(),
+});
 
 /** A space, as a participant sees it. */
 export const spaceViewSchema = z.object({
@@ -65,6 +69,7 @@ export const spaceViewSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   rules: z.string().nullable(),
+  pictureUrl: z.string().nullable(),
   joined: z.boolean(),
 });
 export type SpaceView = z.infer<typeof spaceViewSchema>;

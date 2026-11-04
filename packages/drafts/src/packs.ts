@@ -92,7 +92,14 @@ export function packContents(
       ...withoutSource(actor),
       ...stored(MEDIA_FOLDERS.actors, actor.picture),
     })),
-    ...(spaces.length > 0 ? { spaces: spaces.map(withoutSource) } : {}),
+    ...(spaces.length > 0
+      ? {
+          spaces: spaces.map((space) => ({
+            ...withoutSource(space),
+            ...stored(MEDIA_FOLDERS.spaces, space.picture),
+          })),
+        }
+      : {}),
     posts: posts.map((post) => ({
       ...withoutSource(post),
       pictures: post.pictures.map(
@@ -255,17 +262,15 @@ export async function startStudy(
 
   const everywhere = <T extends { conditions: string[] }>(items: T[]) =>
     background ? items.filter(({ conditions }) => conditions.length === 0) : items;
-  const posts = everywhere(contents?.posts ?? []);
+  // A space limited to a condition limits what's in it, even if a post doesn't say so itself.
+  const spaces = everywhere(contents?.spaces ?? []);
+  const keptSpaces = new Set(spaces.map(({ key }) => key));
+  const posts = everywhere(contents?.posts ?? []).filter(
+    ({ space }) => !background || !space || keptSpaces.has(space),
+  );
   const keptPosts = new Set(posts.map(({ ref }) => ref));
   const comments = everywhere(contents?.comments ?? []).filter(({ post }) => keptPosts.has(post));
   const reactions = everywhere(contents?.reactions ?? []);
-  // Only the spaces something still needs, when keeping just the background.
-  const keptSpaceKeys = new Set(posts.flatMap(({ space }) => (space ? [space] : [])));
-  const spaces = (contents?.spaces ?? [])
-    .filter(
-      ({ key, conditions }) => !background || keptSpaceKeys.has(key) || conditions.length === 0,
-    )
-    .map((space) => (background ? { ...space, conditions: [] } : space));
   // Everyone stays, even if limited to a condition, since someone's untargeted post may need them.
   const actors = (contents?.actors ?? []).map((actor) =>
     background ? { ...actor, conditions: [] } : actor,
