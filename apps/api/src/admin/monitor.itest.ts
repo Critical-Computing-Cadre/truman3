@@ -142,7 +142,7 @@ interface Monitor {
   }[];
   steps: { version: number; steps: { label: string; people: number }[] }[];
   enrolledByDay: { day: string; people: number }[];
-  exports: { by: string; includedRecruitmentIds: boolean }[];
+  exports: { by: string; includedRecruitmentIds: boolean; contents: string }[];
 }
 
 const monitor = async (team: Lab, cookie = team.cookie) => {
@@ -282,6 +282,110 @@ describe("downloading data", () => {
     expect((await call(other.cookie, "POST", url, {})).status).toBe(404);
     // Viewers can still see how it's going.
     expect((await monitor(team, viewer)).enrolled).toBe(0);
+  });
+});
+
+describe("downloading photos", () => {
+  const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+  const url = (team: { studyId: string }) => `/admin/studies/${team.studyId}/photos`;
+
+  async function addPhoto(cookie: string, body: string) {
+    const form = new FormData();
+    form.set("clientEventId", randomUUID());
+    form.set("occurredAt", new Date().toISOString());
+    form.set("body", body);
+    form.set("image", new File([JPEG], "photo.jpg", { type: "image/jpeg" }));
+    const response = await app.request("/posts", {
+      method: "POST",
+      headers: { cookie },
+      body: form,
+    });
+    expect(response.status).toBe(200);
+  }
+
+  it("gives each photo with a list tying it to the data, and records who took them", async () => {
+    const team = await lab();
+    const { cookie } = await enter(team.slug);
+    await addPhoto(cookie, "mine");
+
+    const response = await call(team.cookie, "POST", url(team), {});
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-disposition")).toContain("-photos-");
+
+    const files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+    const manifest = strFromU8(files["photos.csv"] as Uint8Array)
+      .trim()
+      .split("\n");
+    expect(manifest).toHaveLength(2);
+    const [key, participantId, kind, contentId] = (manifest[1] as string).split(",");
+    expect(kind).toBe("post");
+    expect(files[key as string]).toEqual(JPEG);
+
+    const data = strFromU8((await exported(team))["content.csv"] as Uint8Array);
+    expect(data).toContain(contentId);
+    expect(data).toContain(participantId);
+    expect(data).toContain(key);
+
+    const taken = (await monitor(team)).exports.map(({ contents }) => contents);
+    expect(taken).toContain("photos");
+    expect(taken).toContain("data");
+  });
+
+  it("includes profile pictures", async () => {
+    const team = await lab();
+    const { cookie } = await enter(team.slug);
+    const form = new FormData();
+    form.set("clientEventId", randomUUID());
+    form.set("occurredAt", new Date().toISOString());
+    form.set("username", `u${randomUUID().slice(0, 8)}`);
+    form.set("name", "Someone");
+    form.set("picture", new File([JPEG], "me.jpg", { type: "image/jpeg" }));
+    const saved = await app.request("/me/profile", {
+      method: "POST",
+      headers: { cookie },
+      body: form,
+    });
+    expect(saved.status).toBe(200);
+
+    const response = await call(team.cookie, "POST", url(team), {});
+    const files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+    expect(strFromU8(files["photos.csv"] as Uint8Array)).toContain(",profile,");
+  });
+
+  it("works with no photos at all", async () => {
+    const team = await lab();
+    const response = await call(team.cookie, "POST", url(team), {});
+    const files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+    expect(Object.keys(files)).toEqual(["photos.csv"]);
+  });
+
+  it("isn't available to viewers or other teams, and records nothing for them", async () => {
+    const team = await lab();
+    const other = await lab();
+    const viewer = await member(team, "viewer");
+
+    expect((await call(viewer, "POST", url(team), {})).status).toBe(403);
+    expect((await call(other.cookie, "POST", url(team), {})).status).toBe(404);
+    expect((await call("", "POST", url(team), {})).status).toBe(401);
+    expect((await monitor(team)).exports).toEqual([]);
+  });
+
+  it("leaves out someone who withdrew", async () => {
+    const team = await lab();
+    const leaving = await enter(team.slug, "LEAVING");
+    const staying = await enter(team.slug, "STAYING");
+    await addPhoto(leaving.cookie, "theirs");
+    await addPhoto(staying.cookie, "kept");
+
+    const withdrawn = await call(team.cookie, "POST", `/admin/studies/${team.studyId}/withdraw`, {
+      externalId: "LEAVING",
+      reason: "withdrew",
+    });
+    expect(withdrawn.status).toBe(200);
+
+    const response = await call(team.cookie, "POST", url(team), {});
+    const files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+    expect(Object.keys(files).filter((name) => name !== "photos.csv")).toHaveLength(1);
   });
 });
 

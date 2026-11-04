@@ -5,11 +5,12 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { roleOnStudy } from "@truman3/accounts";
 import type { StudySettings } from "@truman3/core";
 import { schema } from "@truman3/db";
-import { exportStudy } from "@truman3/study-export";
+import { exportStudy, listParticipantPhotos } from "@truman3/study-export";
 import { withdrawParticipant } from "@truman3/study-import";
 import { and, asc, count, countDistinct, desc, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import { zipSync } from "fflate";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
+import { photoZipStream } from "./photo-zip.ts";
 import { researcherFromRequest } from "./session.ts";
 
 const errorSchema = z.object({ error: z.string() });
@@ -81,6 +82,7 @@ const monitorRoute = createRoute({
                 by: z.string(),
                 at: z.iso.datetime(),
                 includedRecruitmentIds: z.boolean(),
+                contents: z.string(),
               }),
             ),
           }),
@@ -113,6 +115,22 @@ const exportRoute = createRoute({
   responses: {
     200: {
       description: "A zip file",
+      content: {
+        "application/zip": { schema: z.any().openapi({ type: "string", format: "binary" }) },
+      },
+    },
+    ...commonErrors,
+  },
+});
+
+const photosRoute = createRoute({
+  method: "post",
+  path: "/admin/studies/{studyId}/photos",
+  summary: "Download the photos participants uploaded, as a zip file",
+  request: { params: studyParams },
+  responses: {
+    200: {
+      description: "A zip file, with photos.csv tying each photo to the data",
       content: {
         "application/zip": { schema: z.any().openapi({ type: "string", format: "binary" }) },
       },
@@ -365,10 +383,11 @@ export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencie
               ];
         }),
         enrolledByDay,
-        exports: exports.map(({ by, at, includedRecruitmentIds }) => ({
+        exports: exports.map(({ by, at, includedRecruitmentIds, contents }) => ({
           by,
           at: at.toISOString(),
           includedRecruitmentIds,
+          contents,
         })),
       },
       200,
@@ -424,6 +443,34 @@ export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencie
     } finally {
       rmSync(folder, { recursive: true, force: true });
     }
+  });
+
+  app.openapi(photosRoute, async (c) => {
+    const researcher = await researcherFromRequest(c, db);
+    if (!researcher) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const { studyId } = c.req.valid("param");
+    const role = await roleOnStudy(db, researcher.id, studyId);
+    const [study] = await db.select().from(schema.studies).where(eq(schema.studies.id, studyId));
+    if (!role || !study) {
+      return c.json(notAvailable, 404);
+    }
+    if (role === "viewer") {
+      return c.json({ error: "Viewers can't download a study's data." }, 403);
+    }
+
+    const photos = await listParticipantPhotos(db, studyId);
+    await db.insert(schema.studyExports).values({
+      studyId,
+      by: researcher.email,
+      contents: "photos",
+    });
+
+    return c.body(photoZipStream(storage, photos), 200, {
+      "content-type": "application/zip",
+      "content-disposition": `attachment; filename="${study.slug}-photos-${inferredDay(new Date())}.zip"`,
+    });
   });
 
   app.openapi(withdrawRoute, async (c) => {

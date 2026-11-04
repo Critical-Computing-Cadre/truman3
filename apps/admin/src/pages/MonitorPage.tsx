@@ -31,7 +31,7 @@ interface Monitor {
   }[];
   steps: { version: number; steps: { label: string; people: number }[] }[];
   enrolledByDay: { day: string; people: number }[];
-  exports: { by: string; at: string; includedRecruitmentIds: boolean }[];
+  exports: { by: string; at: string; includedRecruitmentIds: boolean; contents: string }[];
 }
 
 const input = "rounded border border-stone-300 px-2 py-1.5 text-sm";
@@ -117,6 +117,11 @@ function ExportCard({ studyId, monitor }: { studyId: string; monitor: Monitor })
     onSuccess: () => client.invalidateQueries({ queryKey: ["monitor", studyId] }),
   });
 
+  const photos = useMutation({
+    mutationFn: () => download(`/admin/studies/${studyId}/photos`, {}),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["monitor", studyId] }),
+  });
+
   if (monitor.role === "viewer") {
     return null;
   }
@@ -181,14 +186,34 @@ function ExportCard({ studyId, monitor }: { studyId: string; monitor: Monitor })
       >
         {run.isPending ? "Preparing..." : "Download"}
       </button>
+      <div className="border-t border-stone-200 pt-3 text-sm">
+        <p className="mb-2 text-stone-600">
+          Photos participants uploaded are a separate download, since there can be a lot of them. It
+          includes photos.csv, which ties each one to the data. Test participants aren't included.
+        </p>
+        <button
+          type="button"
+          disabled={photos.isPending}
+          onClick={() => photos.mutate()}
+          className="rounded border border-stone-300 px-3 py-1.5 disabled:opacity-40"
+        >
+          {photos.isPending ? "Preparing..." : "Download photos"}
+        </button>
+        {photos.error && (
+          <p role="alert" className="mt-2 text-rose-800">
+            {photos.error.message}
+          </p>
+        )}
+      </div>
       {monitor.exports.length > 0 && (
         <details className="text-sm">
           <summary className="cursor-pointer text-stone-600">Who has downloaded it</summary>
           <ul className="mt-1 space-y-0.5 text-stone-600">
-            {monitor.exports.map(({ by, at, includedRecruitmentIds }) => (
+            {monitor.exports.map(({ by, at, includedRecruitmentIds, contents }) => (
               <li key={`${by}${at}`}>
                 {by}, {new Date(at).toLocaleString()}
                 {includedRecruitmentIds ? ", with recruitment IDs" : ""}
+                {contents === "photos" ? ", the photos" : ""}
               </li>
             ))}
           </ul>
