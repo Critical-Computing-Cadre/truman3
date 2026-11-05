@@ -20,6 +20,7 @@ import {
   checkDraft,
   createItem,
   deleteItem,
+  type FlagAnswerData,
   freezeDraft,
   frozenSpaceKeys,
   type LoadedDraft,
@@ -272,13 +273,16 @@ const fieldsSchema = z.strictObject({
   downs: z.number().int().nonnegative().optional(),
   conditions: z.array(z.string()).optional(),
   // For a moderator's decisions, as well as actorId, timeMs, body, and conditions above.
-  on: z.enum(["post", "comment"]).optional(),
-  targetId: z.uuid().optional(),
+  on: z.enum(["post", "comment"]).nullable().optional(),
+  targetId: z.uuid().nullable().optional(),
   /** Null gives no reason. */
   reason: z.string().trim().min(1).max(2000).nullable().optional(),
   nth: z.number().int().nonnegative().optional(),
   type: z.enum(["remove", "warn"]).optional(),
   afterMs: z.number().int().nonnegative().optional(),
+  /** A flag's answer. It's for any flag without `targetId`, and null takes one away. */
+  action: z.enum(["remove", "answer"]).optional(),
+  message: z.string().trim().min(1).max(2000).nullable().optional(),
   // For people in the cast.
   name: z.string().trim().min(1).max(100).optional(),
   username: z.string().trim().max(30).optional(),
@@ -335,7 +339,7 @@ const createItemRoute = createRoute({
     params: draftParams,
     ...jsonBody(
       z.object({
-        kind: z.enum(["post", "comment", "actor", "space", "removal", "reaction"]),
+        kind: z.enum(["post", "comment", "actor", "space", "removal", "reaction", "flagAnswer"]),
         fields: fieldsSchema,
       }),
     ),
@@ -699,6 +703,21 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               actorId: data.actorId,
               timeMs: data.timeMs,
               reason: data.reason ?? "",
+              conditions: data.conditions,
+            };
+          }),
+        flagAnswers: items
+          .filter((item) => item.kind === "flagAnswer")
+          .map((item) => {
+            const data = item.data as FlagAnswerData;
+            return {
+              id: item.id,
+              on: data.on ?? null,
+              targetId: data.targetId ?? null,
+              action: data.action,
+              actorId: data.actorId,
+              afterMs: data.afterMs,
+              message: data.message ?? "",
               conditions: data.conditions,
             };
           }),

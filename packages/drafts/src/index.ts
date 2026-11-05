@@ -21,6 +21,7 @@ export {
   type ActorData,
   type CommentData,
   type DraftItem,
+  type FlagAnswerData,
   type ItemKind,
   itemDataSchemas,
   type PostData,

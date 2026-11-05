@@ -54,7 +54,7 @@ export function useDraftEdits(draftId: string) {
     create: useMutation({
       mutationKey,
       mutationFn: (body: {
-        kind: "post" | "comment" | "actor" | "space" | "removal" | "reaction";
+        kind: "post" | "comment" | "actor" | "space" | "removal" | "reaction" | "flagAnswer";
         fields: object;
       }) => send("POST", base, body),
       onSettled: refresh,
@@ -1481,7 +1481,9 @@ export function DraftPage() {
                 Spaces
               </Link>
             )}
-            {info.data.conditions.some(({ features }) => features.removal || features.warnings) && (
+            {info.data.conditions.some(
+              ({ features }) => features.removal || features.warnings || features.flagAnswers,
+            ) && (
               <Link
                 to="/drafts/$draftId/moderation"
                 params={{ draftId }}

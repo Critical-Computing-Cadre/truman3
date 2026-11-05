@@ -320,3 +320,24 @@ describe("removals.csv", () => {
     expect(issues.map(({ message }) => message).join()).toContain("has to be post or comment");
   });
 });
+
+describe("flag-answers.csv", () => {
+  it("reads an answer to any flag, and one naming a post", () => {
+    const dir = folder({
+      ...base,
+      "flag-answers.csv":
+        "on,target,action,actor,after,message\npost,1,remove,ann,0:10,Why\n,,answer,ann,0:00,No\n",
+    });
+    expect(loadStudyFolder(dir).definition?.flagAnswers).toEqual([
+      expect.objectContaining({ on: "post", target: "1", action: "remove", message: "Why" }),
+      expect.objectContaining({ action: "answer", message: "No", afterMs: 0 }),
+    ]);
+  });
+
+  it("refuses an action it doesn't know", () => {
+    const { issues } = loadStudyFolder(
+      folder({ ...base, "flag-answers.csv": "action,actor,after\nban,ann,0:00\n" }),
+    );
+    expect(issues.map(({ message }) => message).join()).toContain("has to be remove or answer");
+  });
+});

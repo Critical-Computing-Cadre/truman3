@@ -338,6 +338,115 @@ function ReactionCard({
   );
 }
 
+function FlagAnswerCard({
+  answer,
+  info,
+  edits,
+}: {
+  answer: DraftInfo["flagAnswers"][number];
+  info: DraftInfo;
+  edits: DraftEdits;
+}) {
+  const [problem, setProblem] = useState<string | null>(null);
+  const save = (changes: object) => {
+    setProblem(null);
+    edits.update.mutate(
+      { itemId: answer.id, changes },
+      { onError: (error) => setProblem(error.message) },
+    );
+  };
+  return (
+    <li aria-label="Answer to a flag" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className={`${LABEL} sm:col-span-2`}>
+          When someone flags
+          <select
+            disabled={!info.canEdit}
+            value={answer.targetId ? `${answer.on}:${answer.targetId}` : "any"}
+            onChange={(event) => {
+              const [on, targetId] = event.target.value.split(":");
+              save(targetId ? { on, targetId } : { on: null, targetId: null });
+            }}
+            className={INPUT}
+          >
+            <option value="any">Anything without its own answer here</option>
+            <optgroup label="Posts">
+              {info.posts.map((post) => (
+                <option key={post.id} value={`post:${post.id}`}>
+                  {post.authorName}: {shorten(post.title ?? post.body) || "(no text)"}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Comments">
+              {info.comments.map((comment) => (
+                <option key={comment.id} value={`comment:${comment.id}`}>
+                  {comment.authorName}: {shorten(comment.body)}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+        </label>
+        <label className={LABEL}>
+          What happens
+          <select
+            disabled={!info.canEdit}
+            value={answer.action}
+            onChange={(event) => save({ action: event.target.value })}
+            className={INPUT}
+          >
+            <option value="answer">Answer with a message</option>
+            <option value="remove">Remove it</option>
+          </select>
+        </label>
+        <ModeratorPicker
+          actors={info.actors}
+          value={answer.actorId}
+          canEdit={info.canEdit}
+          onChange={(actorId) => save({ actorId })}
+        />
+        <TimeField
+          label="How long after"
+          help="hours:minutes after they flag it"
+          valueMs={answer.afterMs}
+          canEdit={info.canEdit}
+          allowBefore={false}
+          onSave={(afterMs) => save({ afterMs })}
+        />
+      </div>
+      <CastField
+        label={answer.action === "answer" ? "What the answer says" : "Reason shown (optional)"}
+        value={answer.message}
+        canEdit={info.canEdit}
+        required={answer.action === "answer"}
+        multiline
+        onSave={(message) => save({ message: message || null })}
+      />
+      <ConditionChoices
+        all={info.conditions.map(({ key }) => key)}
+        chosen={answer.conditions}
+        canEdit={info.canEdit}
+        onChange={(conditions) => save({ conditions })}
+      />
+      {problem && (
+        <p role="alert" className="text-sm text-rose-700">
+          {problem}
+        </p>
+      )}
+      {info.canEdit && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => edits.remove.mutate(answer.id)}
+            className="rounded border border-stone-300 px-2 py-1 text-xs"
+          >
+            Delete this answer
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
 /** What a moderator does in a study. It's written here, and freezes with a version (ADR 31, 32). */
 export function ModerationPage() {
   const { draftId } = useParams({ from: "/drafts/$draftId/moderation" });
@@ -359,7 +468,7 @@ export function ModerationPage() {
   const warningsOn = data.conditions.some(({ features }) => features.warnings);
   const firstPost = [...data.posts].sort((a, b) => a.offsetMs - b.offsetMs)[0];
 
-  const add = (kind: "removal" | "reaction", fields: object) => {
+  const add = (kind: "removal" | "reaction" | "flagAnswer", fields: object) => {
     setProblem(null);
     edits.create.mutate({ kind, fields }, { onError: (error) => setProblem(error.message) });
   };
@@ -421,6 +530,41 @@ export function ModerationPage() {
         <ul className="space-y-3">
           {data.removals.map((removal) => (
             <RemovalCard key={removal.id} removal={removal} info={data} edits={edits} />
+          ))}
+        </ul>
+      </section>
+
+      <section aria-label="What someone flags" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-semibold">Answering what someone flags</h2>
+            <p className="text-sm text-stone-500">
+              One naming a post or comment comes before one for anything else. Each person hears
+              once for each thing they flag.
+            </p>
+          </div>
+          {data.canEdit && (
+            <button
+              type="button"
+              disabled={!moderator || edits.create.isPending}
+              onClick={() =>
+                add("flagAnswer", {
+                  action: "answer",
+                  actorId: moderator,
+                  afterMs: 0,
+                  message: "We looked at this, and no rule was broken.",
+                  conditions: [],
+                })
+              }
+              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+            >
+              Add an answer
+            </button>
+          )}
+        </div>
+        <ul className="space-y-3">
+          {data.flagAnswers.map((answer) => (
+            <FlagAnswerCard key={answer.id} answer={answer} info={data} edits={edits} />
           ))}
         </ul>
       </section>

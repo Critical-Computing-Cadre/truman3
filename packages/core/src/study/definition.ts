@@ -320,6 +320,21 @@ export const removalDefinitionSchema = z.object({
   ...targetingFields,
 });
 
+/** What a moderator does when someone flags something. One naming a target beats one that doesn't. */
+export const flagAnswerDefinitionSchema = z.object({
+  /** What kind of thing `target` is. */
+  on: z.enum(["post", "comment"]).optional(),
+  /** The post or comment, by its ID in this study. Leave out to answer any flag. */
+  target: z.string().min(1).optional(),
+  action: z.enum(["remove", "answer"]),
+  actor: z.string().min(1),
+  /** Milliseconds after they flag it. */
+  afterMs: z.number().int().nonnegative(),
+  /** What an answer says, or the reason given for a removal. */
+  message: z.string().min(1).optional(),
+  ...targetingFields,
+});
+
 /**
  * A complete study, however it was authored. Files, a visual builder, or an agent can all
  * produce one of these (see ADR 10).
@@ -334,6 +349,7 @@ export const studyDefinitionSchema = z.object({
   comments: z.array(commentDefinitionSchema).default([]),
   reactions: z.array(reactionDefinitionSchema).default([]),
   removals: z.array(removalDefinitionSchema).default([]),
+  flagAnswers: z.array(flagAnswerDefinitionSchema).default([]),
 });
 
 export type StudySettings = z.infer<typeof studySettingsSchema>;
@@ -344,3 +360,4 @@ export type PostDefinition = z.infer<typeof postDefinitionSchema>;
 export type CommentDefinition = z.infer<typeof commentDefinitionSchema>;
 export type ReactionDefinition = z.infer<typeof reactionDefinitionSchema>;
 export type RemovalDefinition = z.infer<typeof removalDefinitionSchema>;
+export type FlagAnswerDefinition = z.infer<typeof flagAnswerDefinitionSchema>;

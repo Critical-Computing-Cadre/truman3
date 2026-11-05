@@ -1,7 +1,7 @@
 import { featuresFor } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, gt, inArray, lte } from "drizzle-orm";
-import { mediaUrl } from "../feed/build.ts";
+import { loadRemovals, mediaUrl } from "../feed/build.ts";
 import type { ParticipantContext } from "../participants/session.ts";
 
 interface ActorProfile {
@@ -107,6 +107,81 @@ export async function scheduleReactions(
   }
 }
 
+/**
+ * What a moderator does about a flag, the first time this person flags this. Answers naming what
+ * was flagged come before answers to any flag. Like a reaction, nothing has to run later.
+ */
+export async function scheduleFlagAnswer(
+  tx: Transaction,
+  context: ParticipantContext,
+  target: { id: string; authorActorId: string },
+  now: Date,
+) {
+  const features = featuresFor(context.settings, context.conditionKey);
+  if (!features.flagAnswers || target.authorActorId === context.actorId) {
+    return;
+  }
+  const answers = await tx
+    .select()
+    .from(schema.scriptedFlagAnswers)
+    .where(eq(schema.scriptedFlagAnswers.studyVersionId, context.studyVersionId));
+  const applicable = answers.filter(
+    ({ conditions, action, contentId }) =>
+      (conditions.length === 0 || conditions.includes(context.conditionKey)) &&
+      (action !== "remove" || features.removal) &&
+      (contentId === null || contentId === target.id),
+  );
+  const answer =
+    applicable.find(({ contentId }) => contentId === target.id) ??
+    applicable.find(({ contentId }) => contentId === null);
+  if (!answer) {
+    return;
+  }
+
+  const [already] = await tx
+    .select({ id: schema.notifications.id })
+    .from(schema.notifications)
+    .where(
+      and(
+        eq(schema.notifications.worldId, context.worldId),
+        eq(schema.notifications.recipientActorId, context.actorId),
+        eq(schema.notifications.targetContentId, target.id),
+        inArray(schema.notifications.type, ["remove", "answer"]),
+      ),
+    )
+    .limit(1);
+  if (already) {
+    return;
+  }
+
+  const dueAt = new Date(now.getTime() + answer.afterMs);
+  await tx.insert(schema.notifications).values({
+    worldId: context.worldId,
+    recipientActorId: context.actorId,
+    actorId: answer.actorId,
+    type: answer.action,
+    targetContentId: target.id,
+    reason: answer.message,
+    dueAt,
+  });
+  await recordEvent(tx, {
+    type: "reaction.scheduled",
+    payload: {
+      reaction: answer.action as "remove" | "answer",
+      dueAt: dueAt.toISOString(),
+      ...(answer.message ? { reason: answer.message } : {}),
+    },
+    worldId: context.worldId,
+    studyVersionId: context.studyVersionId,
+    participantId: context.participantId,
+    conditionId: context.conditionId,
+    actorId: answer.actorId,
+    targetContentId: target.id,
+    source: "script",
+    occurredAt: now,
+  });
+}
+
 async function lastViewedAt(db: Database, context: ParticipantContext): Promise<Date | null> {
   const [membership] = await db
     .select({ viewedAt: schema.worldMemberships.notificationsViewedAt })
@@ -143,10 +218,12 @@ export async function countUnreadNotifications(
 
 export interface NotificationItem {
   key: string;
-  type: "read" | "like" | "reply" | "remove" | "warn";
+  type: "read" | "like" | "reply" | "remove" | "warn" | "answer";
   actors: { username: string; name: string; pictureUrl: string | null }[];
-  /** Whether this reacts to their post or their comment. */
+  /** Whether this reacts to a post or a comment. */
   targetKind: "post" | "comment";
+  /** Whether they wrote it. If not, this answers their flag. */
+  targetIsTheirs: boolean;
   targetBody: string;
   postId: string;
   commentId: string | null;
@@ -159,7 +236,7 @@ export interface NotificationItem {
 }
 
 /** Votes change a score without telling anyone who voted, as on the platforms that have them. */
-const SHOWN_TO_PARTICIPANTS = ["read", "like", "reply", "remove", "warn"];
+const SHOWN_TO_PARTICIPANTS = ["read", "like", "reply", "remove", "warn", "answer"];
 
 /**
  * Notifications that have come due, newest first. Reads and likes on the same content get grouped
@@ -204,6 +281,7 @@ export async function listNotifications(
     .from(schema.content)
     .where(inArray(schema.content.id, contentIds));
 
+  const removals = await loadRemovals(db, context, now);
   const actorById = new Map(actorRows.map((actor) => [actor.id, actor]));
   const contentById = new Map(contentRows.map((item) => [item.id, item]));
 
@@ -243,7 +321,7 @@ export async function listNotifications(
   const groups = new Map<string, NotificationItem>();
   for (const row of rows) {
     const key =
-      row.type === "reply" || row.type === "remove" || row.type === "warn"
+      row.type === "reply" || row.type === "remove" || row.type === "warn" || row.type === "answer"
         ? row.id
         : `${row.type}:${row.targetContentId}`;
     const at = row.dueAt.toISOString();
@@ -260,6 +338,9 @@ export async function listNotifications(
     }
 
     const target = contentById.get(row.targetContentId);
+    const targetIsTheirs = target?.authorActorId === context.actorId;
+    // What a moderator took down stays out of responses, unless it's this person's own.
+    const withheld = removals.has(row.targetContentId) && !targetIsTheirs;
     groups.set(key, {
       key,
       type: row.type as NotificationItem["type"],
@@ -267,10 +348,12 @@ export async function listNotifications(
       targetKind: target?.kind === "comment" ? "comment" : "post",
       postId: postOf(row.targetContentId),
       commentId: row.replyContentId ?? (target?.kind === "comment" ? target.id : null),
-      targetBody: target?.body ?? "",
-      targetImageUrl: target?.attachments[0]
-        ? mediaUrl(target.attachments[0].key, mediaPublicUrl)
-        : null,
+      targetIsTheirs,
+      targetBody: withheld ? "" : (target?.body ?? ""),
+      targetImageUrl:
+        !withheld && target?.attachments[0]
+          ? mediaUrl(target.attachments[0].key, mediaPublicUrl)
+          : null,
       replyBody: row.replyContentId ? (contentById.get(row.replyContentId)?.body ?? null) : null,
       reason: row.reason,
       at,

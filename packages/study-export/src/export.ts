@@ -200,6 +200,12 @@ export async function exportStudy(
         .orderBy(asc(schema.spaces.position))
     : [];
   const spaceById = new Map(spaces.map((space) => [space.id, space]));
+  const flagAnswers = versionIds.length
+    ? await db
+        .select()
+        .from(schema.scriptedFlagAnswers)
+        .where(inArray(schema.scriptedFlagAnswers.studyVersionId, versionIds))
+    : [];
   const removals = versionIds.length
     ? await db
         .select()
@@ -227,6 +233,35 @@ export async function exportStudy(
 
   mkdirSync(folder, { recursive: true });
   const files: string[] = [];
+
+  if (flagAnswers.length > 0) {
+    files.push(
+      writeCsv(
+        folder,
+        "flag_answers.csv",
+        [
+          "study_version",
+          "content_id",
+          "action",
+          "moderator",
+          "after_ms",
+          "message",
+          "conditions",
+          "class",
+        ],
+        flagAnswers.map((answer) => ({
+          study_version: versionNumber.get(answer.studyVersionId),
+          content_id: answer.contentId ?? "",
+          action: answer.action,
+          moderator: safeText(actorById.get(answer.actorId)?.username),
+          after_ms: answer.afterMs,
+          message: safeText(answer.message),
+          conditions: answer.conditions.join("|"),
+          class: safeText(answer.class),
+        })),
+      ),
+    );
+  }
 
   if (removals.length > 0) {
     files.push(
@@ -693,6 +728,16 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ],
     ["removed_comment_ids", "Which of comment_ids a moderator had removed by then"],
   ],
+  "flag_answers.csv": [
+    [
+      "content_id",
+      "What a moderator does when someone flags this. Empty means any flag, unless one names what was flagged. What happened for each person is reaction.scheduled in events.csv. Only present if a version has some",
+    ],
+    ["action", "remove takes it down. answer sends a message"],
+    ["moderator", "Who does it, by username"],
+    ["after_ms", "How long after the flag"],
+    ["message", "What an answer says, or the reason for a removal"],
+  ],
   "removals.csv": [
     [
       "content_id",
@@ -776,7 +821,7 @@ const ORDER_NOTES: [string, string][] = [
 /** What an event means, where its name doesn't say enough. */
 const EVENT_NOTES: Record<string, string> = {
   "reaction.scheduled":
-    "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator. `warn` means a moderator warned them, and `reason` is what it said.",
+    "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator. `warn` means a moderator warned them, and `reason` is what it said. `answer` means a moderator answered their flag, and `reason` is what it said. A `remove` following a flag is about what they flagged, not something they wrote.",
   "moderation.warning_acknowledged":
     "They pressed the button on a moderator's warning, which stays on every page until they do. It names what the warning was about, and doesn't say they read it.",
   "space.joined": "They joined a space, so its posts show in their home feed. Names it by key.",

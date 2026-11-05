@@ -64,6 +64,7 @@ function hashStudy(study: StudyDefinition, mediaKeys: Map<string, string>): stri
     comments: withoutSource(study.comments),
     reactions: withoutSource(study.reactions),
     ...(study.removals.length > 0 ? { removals: withoutSource(study.removals) } : {}),
+    ...(study.flagAnswers.length > 0 ? { flagAnswers: withoutSource(study.flagAnswers) } : {}),
     media: [...mediaKeys.entries()].sort(([a], [b]) => a.localeCompare(b)),
   };
   return createHash("sha256").update(stableStringify(identity)).digest("hex");
@@ -443,6 +444,23 @@ export async function freezeStudy(
           reason: removal.reason,
           conditions: removal.conditions,
           class: removal.class,
+        })),
+      );
+    }
+
+    for (const batch of chunks(study.flagAnswers, INSERT_BATCH_SIZE)) {
+      await tx.insert(schema.scriptedFlagAnswers).values(
+        batch.map((answer) => ({
+          studyVersionId,
+          contentId: answer.target
+            ? ((answer.on === "comment" ? commentIds : postIds).get(answer.target) as string)
+            : null,
+          action: answer.action,
+          actorId: actorId(answer.actor),
+          afterMs: answer.afterMs,
+          message: answer.message,
+          conditions: answer.conditions,
+          class: answer.class,
         })),
       );
     }

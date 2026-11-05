@@ -1,0 +1,3 @@
+on,target,action,actor,after,message
+post,flagme,remove,sam,0:00,Thanks for flagging this
+,,answer,sam,0:00,We looked at this and no rule was broken

@@ -32,7 +32,7 @@ import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { type ParticipantContext, participantFromRequest } from "../participants/session.ts";
 import { MAX_IMAGE_BYTES, storeUploadedImage } from "./images.ts";
 import { listModLog, listWarnings } from "./moderation.ts";
-import { listNotifications, scheduleReactions } from "./notifications.ts";
+import { listNotifications, scheduleFlagAnswer, scheduleReactions } from "./notifications.ts";
 import { actionMetaSchema } from "./request.ts";
 
 const errorSchema = z.object({ error: z.string() });
@@ -355,7 +355,7 @@ const notificationsRoute = createRoute({
             notifications: z.array(
               z.object({
                 key: z.string(),
-                type: z.enum(["read", "like", "reply", "remove", "warn"]),
+                type: z.enum(["read", "like", "reply", "remove", "warn", "answer"]),
                 actors: z.array(
                   z.object({
                     username: z.string(),
@@ -363,6 +363,7 @@ const notificationsRoute = createRoute({
                     pictureUrl: z.string().nullable(),
                   }),
                 ),
+                targetIsTheirs: z.boolean(),
                 targetKind: z.enum(["post", "comment"]),
                 /** The post this is about, for a link to its own page. */
                 postId: z.string(),
@@ -634,6 +635,8 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       context: ParticipantContext,
       contentId: string,
       body: z.infer<typeof toggleBodySchema>,
+      /** Anything else that happens with this, the first time it's recorded. */
+      alsoDo?: (tx: Transaction) => Promise<void>,
     ) => {
       await db.transaction(async (tx) => {
         const recorded = await recordEvent(tx, {
@@ -661,6 +664,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
               ),
             );
         }
+        await alsoDo?.(tx);
       });
     };
   };
@@ -1040,13 +1044,20 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json(featureOff, 403);
     }
     const { id } = c.req.valid("param");
-    if (!(await findVisibleContent(db, context, id, new Date()))) {
+    const now = new Date();
+    const target = await findVisibleContent(db, context, id, now);
+    if (!target) {
       return c.json(notAvailable, 404);
     }
     if (await isRemoved(context, id)) {
       return c.json(wasRemoved, 403);
     }
-    await applyFlag(context, id, c.req.valid("json"));
+    const body = c.req.valid("json");
+    await applyFlag(context, id, body, async (tx) => {
+      if (body.active) {
+        await scheduleFlagAnswer(tx, context, target, now);
+      }
+    });
     return c.json({ ok: true as const }, 200);
   });
 

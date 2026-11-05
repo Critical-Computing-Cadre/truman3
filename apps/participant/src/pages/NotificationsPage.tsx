@@ -19,7 +19,11 @@ function describe(item: NotificationItem): string {
     case "reply":
       return `${who} replied: ${item.replyBody ?? ""}`;
     case "remove":
-      return `${who} removed your ${item.targetKind}`;
+      return item.targetIsTheirs
+        ? `${who} removed your ${item.targetKind}`
+        : `${who} removed the ${item.targetKind} you flagged`;
+    case "answer":
+      return `${who} looked at the ${item.targetKind} you flagged`;
     case "warn":
       return `${who} warned you about your ${item.targetKind}`;
   }

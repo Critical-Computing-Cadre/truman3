@@ -1,3 +1,5 @@
 id,title,body,actor,space,time
 kept,A post that stays,Still here,ann,cooking,-4:00
 gone,A post that breaks a rule,Words nobody should read,ann,cooking,-3:00
+flagme,A post someone flags,Words to flag,ann,cooking,-5:00
+flagother,A different post,More words,ann,cooking,-6:00

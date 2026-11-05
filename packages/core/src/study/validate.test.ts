@@ -719,3 +719,36 @@ describe("warnings and the mod log", () => {
     ).toContainEqual(expect.stringContaining("A mod log is on"));
   });
 });
+
+describe("answers to flags", () => {
+  const forum = settings({ platform: { style: "mixed", template: "forum" } });
+  const any = { action: "answer", actor: "ann", afterMs: 0, message: "No rule was broken" };
+
+  it("needs an answer to say something, and a target to exist and have a kind", () => {
+    const errors = (answer: object) =>
+      hasErrors(validateStudy(study({ settings: forum, flagAnswers: [answer] })));
+    expect(errors(any)).toBe(false);
+    expect(errors({ ...any, message: undefined })).toBe(true);
+    expect(errors({ ...any, target: "nope", on: "post" })).toBe(true);
+    expect(errors({ ...any, target: "1" })).toBe(true);
+    expect(errors({ ...any, target: "1", on: "post" })).toBe(false);
+    expect(errors({ action: "remove", actor: "ann", afterMs: 0 })).toBe(false);
+  });
+
+  it("warns when it can't happen", () => {
+    expect(messages(study({ flagAnswers: [any] }))).toContainEqual(
+      expect.stringContaining("Answering flags needs flagging"),
+    );
+    const noRemoval = settings({
+      platform: { style: "mixed", template: "forum", features: { removal: false } },
+    });
+    expect(
+      messages(
+        study({
+          settings: noRemoval,
+          flagAnswers: [{ action: "remove", actor: "ann", afterMs: 0 }],
+        }),
+      ),
+    ).toContainEqual(expect.stringContaining("flags won't lead to removals"));
+  });
+});

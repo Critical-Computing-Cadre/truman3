@@ -434,6 +434,30 @@ export const scriptedRemovals = pgTable(
   (table) => [index("scripted_removals_version").on(table.studyVersionId)],
 );
 
+/** What a moderator does when someone flags something. Without a content ID, it's for any flag. */
+export const scriptedFlagAnswers = pgTable(
+  "scripted_flag_answers",
+  {
+    id: id(),
+    studyVersionId: uuid("study_version_id")
+      .notNull()
+      .references(() => studyVersions.id),
+    contentId: uuid("content_id").references(() => content.id),
+    action: text().notNull(),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => actors.id),
+    afterMs: bigint("after_ms", { mode: "number" }).notNull(),
+    message: text(),
+    conditions: text().array().notNull().default(sql`'{}'`),
+    class: text(),
+  },
+  (table) => [
+    index("scripted_flag_answers_version").on(table.studyVersionId),
+    check("scripted_flag_answers_action", inList(table.action, ["remove", "answer"])),
+  ],
+);
+
 /** Append-only. See docs/adr/0006-append-only-event-log.md. */
 export const events = pgTable(
   "events",
@@ -556,7 +580,7 @@ export const notifications = pgTable(
     index("notifications_recipient").on(table.worldId, table.recipientActorId, table.dueAt),
     check(
       "notifications_type",
-      inList(table.type, ["read", "like", "reply", "up", "down", "remove", "warn"]),
+      inList(table.type, ["read", "like", "reply", "up", "down", "remove", "warn", "answer"]),
     ),
   ],
 );
@@ -740,7 +764,16 @@ export const draftItems = pgTable(
     index("draft_items_draft").on(table.draftId, table.kind),
     check(
       "draft_items_kind",
-      inList(table.kind, ["actor", "post", "comment", "reaction", "removal", "setting", "space"]),
+      inList(table.kind, [
+        "actor",
+        "post",
+        "comment",
+        "reaction",
+        "removal",
+        "flagAnswer",
+        "setting",
+        "space",
+      ]),
     ),
   ],
 );
