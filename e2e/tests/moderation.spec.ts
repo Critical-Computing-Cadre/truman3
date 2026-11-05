@@ -1,7 +1,11 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
-import { APP_PORT } from "../playwright.config.ts";
+import { ADMIN_PORT, APP_PORT } from "../playwright.config.ts";
+
+const { otherLabEmail, otherLabPassword } = JSON.parse(
+  readFileSync(path.resolve(import.meta.dirname, "../.e2e-state.json"), "utf8"),
+) as { otherLabEmail: string; otherLabPassword: string };
 
 const SHOTS = process.env.FORUM_SHOTS;
 const shot = async (page: Page, project: string, name: string) => {
@@ -88,4 +92,93 @@ test("a moderator's removals show in place of what was removed", async ({ page }
   await expect(warning).toBeVisible();
   await warning.getByRole("button", { name: "I understand" }).click();
   await expect(warning).toHaveCount(0);
+});
+
+test("a researcher writes a moderator's decisions in the builder, and a participant gets them", async ({
+  page: participant,
+  browser,
+}, testInfo) => {
+  test.setTimeout(150_000);
+  const project = testInfo.project.name;
+  const stamp = Date.now() % 1_000_000;
+  const title = `Moderated ${project} ${stamp}`;
+  const slug = `moderated-${project}-${stamp}`;
+
+  const researcher = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await researcher.newPage();
+  await page.goto(`http://localhost:${ADMIN_PORT}`);
+  await page.getByLabel("Email").fill(otherLabEmail);
+  await page.getByLabel("Password").fill(otherLabPassword);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("link", { name: "New study" }).click();
+  await page.getByLabel("Title").fill(title);
+  await page.getByRole("radio", { name: /^Forum/ }).check();
+  await page.getByRole("radio", { name: /Start with nothing/ }).check();
+  await page.getByRole("radio", { name: /^Blocked/ }).check();
+  await page.getByRole("button", { name: "Start the study" }).click();
+
+  await page.getByRole("link", { name: "Add someone to the cast first" }).click();
+  await page.getByRole("button", { name: "Add a person" }).click();
+  const added = page.getByRole("listitem", { name: "New person" });
+  await added.getByLabel("Name", { exact: true }).fill("Sam the Mod");
+  await added.getByLabel("Name", { exact: true }).blur();
+  await expect(page.getByRole("listitem", { name: "Sam the Mod" })).toBeVisible();
+  await page.getByRole("link", { name: "Back to the feed" }).click();
+
+  await page.getByRole("button", { name: "New post here" }).click();
+  const empty = page.getByRole("article", { name: /^Post by/ });
+  await empty.getByRole("button", { name: /Title of this post/ }).click();
+  await empty.getByLabel("Title of this post").fill("Breaks a rule");
+  await empty.getByLabel("Title of this post").blur();
+  await expect(page.getByRole("article", { name: "Breaks a rule" })).toBeVisible();
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved");
+
+  await page.getByRole("link", { name: "Moderation" }).click();
+  await page.getByRole("button", { name: "Add a removal" }).click();
+  const removal = page.getByRole("listitem", { name: "Removal" });
+  await expect(removal.getByLabel("What it removes")).toContainText("Breaks a rule");
+  await removal.getByLabel("Reason shown (optional)").fill("Rule 2: be kind");
+  await removal.getByLabel("Reason shown (optional)").blur();
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved");
+
+  await page.getByRole("button", { name: "Add a response" }).click();
+  const response = page.getByRole("listitem", { name: "Response" });
+  await response.getByLabel("What happens").selectOption({ label: "Warn them" });
+  await expect(response.getByLabel("What the warning says")).toBeVisible();
+  await response.getByLabel("What the warning says").fill("Please keep it civil");
+  await response.getByLabel("What the warning says").blur();
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved");
+  await shot(page, project, "7-builder");
+
+  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await expect(page.getByText(/A moderator removes this at/)).toBeVisible();
+  await page.getByRole("button", { name: "Save as new version" }).click();
+  await page.getByRole("button", { name: "Save version" }).click();
+  const study = page.getByRole("listitem").filter({ hasText: title }).first();
+  await study.getByRole("button", { name: "Launch", exact: true }).click();
+  const launching = page.getByRole("dialog", { name: /Launch version/ });
+  await launching.getByLabel(/only a test/).check();
+  await launching.getByRole("button", { name: "Launch it" }).click();
+  await expect(study.getByText("Open to participants")).toBeVisible();
+  await researcher.close();
+
+  const app = `http://localhost:${APP_PORT}`;
+  await participant.goto(`${app}/join/${slug}?PROLIFIC_PID=MODERATED-${project}-${stamp}`);
+  await participant.getByRole("button", { name: "I agree" }).click();
+  await participant.getByLabel("Username").fill(`moderated_${project}_${stamp}`);
+  await participant.getByLabel("Name", { exact: true }).fill("Someone");
+  await participant.getByRole("button", { name: "Save and continue" }).click();
+
+  const note = participant.getByTestId("removed-note");
+  await expect(note).toContainText("Removed by Sam the Mod.");
+  await expect(note).toContainText("Reason: Rule 2: be kind");
+  await expect(participant.getByText("Breaks a rule")).toHaveCount(0);
+
+  await participant.getByRole("button", { name: /Create a post/ }).click();
+  const dialog = participant.getByRole("dialog");
+  await dialog.getByLabel("Title").fill("My post");
+  await dialog.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(participant.getByRole("article", { name: "My post" })).toBeVisible();
+  await participant.reload();
+  await expect(participant.getByTestId("warning-notice")).toContainText("Please keep it civil");
 });

@@ -167,6 +167,28 @@ export interface DraftInfo {
     /** How many posts are in it. */
     usedBy: number;
   }[];
+  comments: { id: string; offsetMs: number; body: string; authorName: string }[];
+  /** A moderator taking down what the study wrote. */
+  removals: {
+    id: string;
+    on: "post" | "comment";
+    targetId: string;
+    actorId: string;
+    timeMs: number;
+    reason: string;
+    conditions: string[];
+  }[];
+  /** A moderator responding to what a participant writes. */
+  moderatorReactions: {
+    id: string;
+    on: "post" | "comment";
+    nth: number;
+    type: "remove" | "warn";
+    actorId: string;
+    afterMs: number;
+    body: string;
+    conditions: string[];
+  }[];
   posts: {
     id: string;
     offsetMs: number;

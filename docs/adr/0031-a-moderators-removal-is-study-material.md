@@ -26,7 +26,7 @@ This is the first piece of Forum part 3, from the vault note `Moderation design`
 
 ## Consequences
 
-- A removal only exists in study files and packs for now. A researcher in the builder can't write one or see one in the preview, and the builder keeps them when it saves a new version. Deleting a post or comment deletes any removal of it.
+- A removal only exists in study files and packs for now (ADR 33 adds the builder's screen). A researcher in the builder can't write one or see one in the preview, and the builder keeps them when it saves a new version. Deleting a post or comment deletes any removal of it.
 - Reactions due after a removal still happen. A scripted like on a removed post still arrives, unless the study doesn't write one.
 - What someone sees now depends on what they wrote and when, so comparing conditions needs `impressions.csv`. The codebook says what's recorded.
 - `FeedPost` can have an empty body and no title, which layouts already handled, since a post can be only a photo.

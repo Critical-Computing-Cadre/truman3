@@ -469,6 +469,12 @@ async function checkReferences(tx: Transaction, draftId: string, data: Record<st
     return "That space isn't in this study.";
   }
   if (
+    typeof data.targetId === "string" &&
+    !(await itemExists(tx, draftId, data.on === "comment" ? "comment" : "post", data.targetId))
+  ) {
+    return "What this removes isn't in this study.";
+  }
+  if (
     typeof data.crosspostOfId === "string" &&
     !(await itemExists(tx, draftId, "post", data.crosspostOfId))
   ) {
@@ -541,12 +547,12 @@ const USERNAME_TAKEN: EditProblem = {
   message: "Someone in the cast already has that username.",
 };
 
-/** Adds a post, comment, person in the cast, or space, written by a researcher. */
+/** Adds a post, comment, person in the cast, space, or moderator's decision, written by a researcher. */
 export async function createItem(
   db: Database,
   draftId: string,
   researcherId: string,
-  kind: "post" | "comment" | "actor" | "space",
+  kind: "post" | "comment" | "actor" | "space" | "removal" | "reaction",
   fields: Record<string, unknown>,
 ): Promise<{ id: string } | EditProblem> {
   return db.transaction(async (tx) => {
@@ -563,7 +569,7 @@ export async function createItem(
 
     const id = crypto.randomUUID();
     const newItem = async () => {
-      if (kind === "actor") {
+      if (kind === "actor" || kind === "removal" || kind === "reaction") {
         return fields;
       }
       // A space's key is part of its address, so it's made from the name, and can be changed later.
@@ -954,6 +960,14 @@ export async function moveItem(
       post,
       ...rows.filter((row) => (row.data as { postId?: string }).postId === itemId),
     ];
+    // A removal stays the same time after what it removes, the way a comment does after its post.
+    const movingIds = new Set(moving.map(({ id }) => id));
+    moving.push(
+      ...rows.filter(
+        (row) =>
+          row.kind === "removal" && movingIds.has((row.data as { targetId: string }).targetId),
+      ),
+    );
     const history: Parameters<typeof writeHistory>[1] = [];
     for (const row of moving) {
       const data = row.data as { timeMs: number };
@@ -1018,7 +1032,10 @@ export async function deleteItem(
       return { problem: "in-use" as const, message: "Another post is a crosspost of this one." };
     }
     if (item.kind === "actor" && rows.some((row) => points(row, "actorId"))) {
-      return { problem: "in-use" as const, message: "This person still has posts or comments." };
+      return {
+        problem: "in-use" as const,
+        message: "This person still has posts, comments, or decisions as a moderator.",
+      };
     }
 
     // Replies go with what they reply to, however far down.

@@ -30,6 +30,8 @@ import {
   type PostData,
   type Provenance,
   pageSection,
+  type ReactionData,
+  type RemovalData,
   recordPresence,
   SETTINGS_SECTIONS,
   type SectionName,
@@ -269,6 +271,14 @@ const fieldsSchema = z.strictObject({
   ups: z.number().int().nonnegative().optional(),
   downs: z.number().int().nonnegative().optional(),
   conditions: z.array(z.string()).optional(),
+  // For a moderator's decisions, as well as actorId, timeMs, body, and conditions above.
+  on: z.enum(["post", "comment"]).optional(),
+  targetId: z.uuid().optional(),
+  /** Null gives no reason. */
+  reason: z.string().trim().min(1).max(2000).nullable().optional(),
+  nth: z.number().int().nonnegative().optional(),
+  type: z.enum(["remove", "warn"]).optional(),
+  afterMs: z.number().int().nonnegative().optional(),
   // For people in the cast.
   name: z.string().trim().min(1).max(100).optional(),
   username: z.string().trim().max(30).optional(),
@@ -324,7 +334,10 @@ const createItemRoute = createRoute({
   request: {
     params: draftParams,
     ...jsonBody(
-      z.object({ kind: z.enum(["post", "comment", "actor", "space"]), fields: fieldsSchema }),
+      z.object({
+        kind: z.enum(["post", "comment", "actor", "space", "removal", "reaction"]),
+        fields: fieldsSchema,
+      }),
     ),
   },
   responses: {
@@ -659,6 +672,54 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               crosspostOfId: data.crosspostOfId ?? null,
               authorName: author?.name ?? "",
               imageUrl: data.pictures?.[0] ? mediaUrl(data.pictures[0], mediaPublicUrl) : null,
+            };
+          }),
+        comments: items
+          .filter((item) => item.kind === "comment")
+          .map((item) => {
+            const data = item.data as CommentData;
+            const author = items.find(({ id }) => id === data.actorId)?.data as
+              | ActorData
+              | undefined;
+            return {
+              id: item.id,
+              offsetMs: data.timeMs,
+              body: data.body,
+              authorName: author?.name ?? "",
+            };
+          }),
+        removals: items
+          .filter((item) => item.kind === "removal")
+          .map((item) => {
+            const data = item.data as RemovalData;
+            return {
+              id: item.id,
+              on: data.on,
+              targetId: data.targetId,
+              actorId: data.actorId,
+              timeMs: data.timeMs,
+              reason: data.reason ?? "",
+              conditions: data.conditions,
+            };
+          }),
+        // Only a moderator's, since other reactions don't have a screen yet.
+        moderatorReactions: items
+          .filter(
+            (item) =>
+              item.kind === "reaction" &&
+              ["remove", "warn"].includes((item.data as ReactionData).type),
+          )
+          .map((item) => {
+            const data = item.data as ReactionData;
+            return {
+              id: item.id,
+              on: data.on,
+              nth: data.nth,
+              type: data.type as "remove" | "warn",
+              actorId: data.actorId,
+              afterMs: data.afterMs,
+              body: data.body ?? "",
+              conditions: data.conditions,
             };
           }),
         issues: checkDraft(loaded).map(({ severity, message }) => ({ severity, message })),

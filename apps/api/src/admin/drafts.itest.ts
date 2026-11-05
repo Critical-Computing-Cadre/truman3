@@ -1068,3 +1068,143 @@ describe("working together", () => {
     });
   });
 });
+
+describe("a moderator's decisions in the builder", () => {
+  const info = async (team: Lab, draftId: string) =>
+    (await (await call(team.cookie, "GET", `/admin/drafts/${draftId}`)).json()) as {
+      actors: { id: string; username: string }[];
+      posts: { id: string; offsetMs: number }[];
+      comments: { id: string }[];
+      removals: { id: string; targetId: string; timeMs: number; reason: string }[];
+      moderatorReactions: { id: string; type: string; nth: number; body: string }[];
+    };
+  const add = (team: Lab, draftId: string, kind: string, fields: object) =>
+    call(team.cookie, "POST", `/admin/drafts/${draftId}/items`, { kind, fields });
+  const change = (team: Lab, draftId: string, itemId: string, changes: object) =>
+    call(team.cookie, "PATCH", `/admin/drafts/${draftId}/items/${itemId}`, { changes });
+
+  it("adds, changes, and deletes a removal, and only of what's in this draft", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await info(team, draftId);
+    const actorId = before.actors[0]?.id as string;
+    const post = before.posts[0] as { id: string; offsetMs: number };
+
+    const missing = await add(team, draftId, "removal", {
+      on: "post",
+      targetId: randomUUID(),
+      actorId,
+      timeMs: 0,
+      conditions: [],
+    });
+    expect(missing.status).toBe(400);
+
+    const wrongKind = await add(team, draftId, "removal", {
+      on: "comment",
+      targetId: post.id,
+      actorId,
+      timeMs: 0,
+      conditions: [],
+    });
+    expect(wrongKind.status).toBe(400);
+
+    const made = await add(team, draftId, "removal", {
+      on: "post",
+      targetId: post.id,
+      actorId,
+      timeMs: 1000,
+      conditions: [],
+    });
+    expect(made.status).toBe(200);
+    const { id } = (await made.json()) as { id: string };
+
+    expect((await change(team, draftId, id, { reason: "Rule 1" })).status).toBe(200);
+    expect((await info(team, draftId)).removals[0]).toMatchObject({ id, reason: "Rule 1" });
+    expect((await change(team, draftId, id, { reason: null })).status).toBe(200);
+    expect((await info(team, draftId)).removals[0]?.reason).toBe("");
+
+    const deleted = await call(team.cookie, "DELETE", `/admin/drafts/${draftId}/items/${id}`);
+    expect(deleted.status).toBe(200);
+    expect((await info(team, draftId)).removals).toEqual([]);
+  });
+
+  it("moves a removal with its post, and removes it with its post", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await info(team, draftId);
+    const post = before.posts[0] as { id: string; offsetMs: number };
+    await add(team, draftId, "removal", {
+      on: "post",
+      targetId: post.id,
+      actorId: before.actors[0]?.id,
+      timeMs: post.offsetMs + 60_000,
+      conditions: [],
+    });
+
+    const moved = await call(
+      team.cookie,
+      "POST",
+      `/admin/drafts/${draftId}/items/${post.id}/move`,
+      {
+        timeMs: post.offsetMs + 3_600_000,
+      },
+    );
+    expect(moved.status).toBe(200);
+    expect((await info(team, draftId)).removals[0]?.timeMs).toBe(post.offsetMs + 3_660_000);
+
+    await call(team.cookie, "DELETE", `/admin/drafts/${draftId}/items/${post.id}`);
+    expect((await info(team, draftId)).removals).toEqual([]);
+  });
+
+  it("writes a response, and a warning with no text can't be saved as a version", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await info(team, draftId);
+    const made = await add(team, draftId, "reaction", {
+      on: "post",
+      nth: 2,
+      type: "warn",
+      actorId: before.actors[0]?.id,
+      afterMs: 0,
+      conditions: [],
+    });
+    expect(made.status).toBe(200);
+    const { id } = (await made.json()) as { id: string };
+    const { issues } = (await (
+      await call(team.cookie, "GET", `/admin/drafts/${draftId}`)
+    ).json()) as {
+      issues: { severity: string; message: string }[];
+    };
+    expect(issues.some(({ severity }) => severity === "error")).toBe(true);
+
+    expect((await change(team, draftId, id, { body: "Keep it civil" })).status).toBe(200);
+    expect((await info(team, draftId)).moderatorReactions).toEqual([
+      expect.objectContaining({ id, type: "warn", nth: 2, body: "Keep it civil" }),
+    ]);
+  });
+
+  it("refuses someone who can only view", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await info(team, draftId);
+    const email = `viewer-${randomUUID().slice(0, 6)}@example.edu`;
+    const viewer = await addResearcherToTeam(database.db, {
+      teamSlug: team.teamSlug,
+      email,
+      name: "Viewer",
+      role: "viewer",
+    });
+    const cookie = await signIn(email, (viewer as { password: string }).password);
+    const refused = await call(cookie, "POST", `/admin/drafts/${draftId}/items`, {
+      kind: "removal",
+      fields: {
+        on: "post",
+        targetId: before.posts[0]?.id,
+        actorId: before.actors[0]?.id,
+        timeMs: 0,
+        conditions: [],
+      },
+    });
+    expect(refused.status).toBe(403);
+  });
+});

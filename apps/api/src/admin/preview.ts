@@ -16,6 +16,7 @@ import {
   type FeedActor,
   type FeedContent,
   loadAuthors,
+  type Removal,
   shapeFeedPosts,
   shownOnThisPlatform,
   toCandidate,
@@ -66,9 +67,30 @@ export async function previewContent(
   elapsedMs: number,
   spaces: readonly PreviewSpace[] = [],
   now = new Date(),
+  /** What the study removes. The draft's editor leaves these out, so what's removed can be edited. */
+  scriptedRemovals: readonly {
+    contentId: string;
+    actorId: string;
+    offsetMs: number;
+    reason: string | null;
+    conditions: string[];
+  }[] = [],
 ) {
   const worldStartMs = now.getTime() - elapsedMs;
   const features = featuresFor(version.settings, conditionKey);
+  const removals = new Map<string, Removal>();
+  if (features.removal) {
+    for (const removal of [...scriptedRemovals].sort((a, b) => a.offsetMs - b.offsetMs)) {
+      const applies = removal.conditions.length === 0 || removal.conditions.includes(conditionKey);
+      if (applies && removal.offsetMs <= elapsedMs && !removals.has(removal.contentId)) {
+        removals.set(removal.contentId, {
+          actorId: removal.actorId,
+          reason: removal.reason,
+          at: new Date(worldStartMs + removal.offsetMs),
+        });
+      }
+    }
+  }
 
   // Everyone in a condition sees the same as each other here, since nobody has joined or left yet.
   const spacesOn = featureOn(version.settings, conditionKey, "spaces");
@@ -116,7 +138,9 @@ export async function previewContent(
     scriptedCounts: new Map(),
     viewerVotes: new Map(),
     features,
+    removals,
     canSeeOriginal: (row) =>
+      !removals.has(row.id) &&
       (row.conditions.length === 0 || row.conditions.includes(conditionKey)) &&
       contentTimeMs(row, worldStartMs) <= now.getTime() &&
       (!spacesOn || !row.spaceId || visible.has(row.spaceId)),
@@ -167,5 +191,10 @@ export async function previewFeed(
       })
       .from(schema.spaces)
       .where(eq(schema.spaces.studyVersionId, version.id)),
+    new Date(),
+    await db
+      .select()
+      .from(schema.scriptedRemovals)
+      .where(eq(schema.scriptedRemovals.studyVersionId, version.id)),
   );
 }

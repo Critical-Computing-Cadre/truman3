@@ -26,4 +26,4 @@ The next piece of Forum part 3, after removal (ADR 31). As there, a moderator's 
 - Someone who writes nothing gets no warning, since a warning is a reaction to what they wrote.
 - A notice over every page takes room on a phone until it's pressed, and pressing it is required only in the sense that it doesn't go away otherwise. The study's flow carries on regardless.
 - A warning arrives when the page next checks, within 30 seconds, or on a reload.
-- As with removals, these can only be written in study files for now.
+- As with removals, these can only be written in study files for now (ADR 33 adds the builder's screen).
