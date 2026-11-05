@@ -32,6 +32,7 @@ export const itemDataSchemas = {
     following: z.number().int().nonnegative().optional(),
     startsFollowed: z.union([z.boolean(), z.array(z.string())]).optional(),
     badge: z.string().min(1).max(40).optional(),
+    suggested: z.boolean().optional(),
     /** The flair they show in each space, by the space's item ID. */
     spaceFlair: z.record(z.uuid(), z.string()).optional(),
     ...targeting,
@@ -72,6 +73,8 @@ export const itemDataSchemas = {
     quoteOfId: z.uuid().optional(),
     reposts: z.number().int().nonnegative().optional(),
     quotes: z.number().int().nonnegative().optional(),
+    ad: z.string().min(1).max(40).optional(),
+    views: z.number().int().nonnegative().optional(),
     timeMs: z.number().int(),
     likes: z.number().int().nonnegative(),
     ups: z.number().int().nonnegative().optional(),
@@ -134,6 +137,15 @@ export const itemDataSchemas = {
     message: z.string().min(1).optional(),
     ...targeting,
   }),
+  contextNote: z.strictObject({
+    ref: z.string().min(1),
+    targetId: z.uuid(),
+    body: z.string().min(1).max(2000),
+    timeMs: z.number().int(),
+    helpful: z.number().int().nonnegative().optional(),
+    notHelpful: z.number().int().nonnegative().optional(),
+    ...targeting,
+  }),
   flagAnswer: z.strictObject({
     on: z.enum(["post", "comment"]).optional(),
     targetId: z.uuid().optional(),
@@ -162,6 +174,7 @@ export type ReactionData = z.infer<typeof itemDataSchemas.reaction>;
 export type RemovalData = z.infer<typeof itemDataSchemas.removal>;
 export type FlagAnswerData = z.infer<typeof itemDataSchemas.flagAnswer>;
 export type BanData = z.infer<typeof itemDataSchemas.ban>;
+export type ContextNoteData = z.infer<typeof itemDataSchemas.contextNote>;
 export type AutoRuleData = z.infer<typeof itemDataSchemas.autoRule>;
 export type AppealAnswerData = z.infer<typeof itemDataSchemas.appealAnswer>;
 export type ReportAnswerData = z.infer<typeof itemDataSchemas.reportAnswer>;

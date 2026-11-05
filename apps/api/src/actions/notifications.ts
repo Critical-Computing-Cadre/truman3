@@ -461,8 +461,26 @@ export async function listNotifications(
   };
 
   const bans = await loadBans(db, context, now);
+  const mutes = await db
+    .select({ actorId: schema.actorRelations.targetActorId })
+    .from(schema.actorRelations)
+    .where(
+      and(
+        eq(schema.actorRelations.worldId, context.worldId),
+        eq(schema.actorRelations.actorId, context.actorId),
+        eq(schema.actorRelations.kind, "mute"),
+      ),
+    );
+  const muted = new Set(mutes.map(({ actorId }) => actorId));
   const groups = new Map<string, NotificationItem>();
   for (const row of rows) {
+    // Muting someone means not hearing from them. A moderator's decisions are a different matter.
+    if (
+      ["read", "like", "reply", "repost", "follow"].includes(row.type) &&
+      muted.has(row.actorId)
+    ) {
+      continue;
+    }
     // Someone banned stops reacting, even if that was already on its way. A moderator's decisions
     // stay, since they're not banned for those.
     const top = row.targetContentId ? contentById.get(postOf(row.targetContentId)) : undefined;

@@ -16,6 +16,7 @@ interface ActorPage {
   following: boolean;
   blocked: boolean;
   reported: boolean;
+  muted: boolean;
   followerCount?: number;
   followingCount?: number;
   badge?: string;
@@ -84,6 +85,7 @@ export function ProfilePage() {
   const following = useFeature("following");
   const blocking = useFeature("blocking");
   const reporting = useFeature("reporting");
+  const muting = useFeature("muting");
   const [reason, setReason] = useState<string | null>(null);
   const [openList, setOpenList] = useState<"saved" | "hidden" | null>(null);
 
@@ -151,6 +153,15 @@ export function ProfilePage() {
                 onClick={() => relate.mutate({ action: actor.following ? "unfollow" : "follow" })}
               >
                 {actor.following ? "Following" : "Follow"}
+              </button>
+            )}
+            {muting && (
+              <button
+                type="button"
+                className={button}
+                onClick={() => relate.mutate({ action: actor.muted ? "unmute" : "mute" })}
+              >
+                {actor.muted ? "Unmute" : "Mute"}
               </button>
             )}
             {blocking && (

@@ -6,6 +6,7 @@ export {
   type FeedSettings,
   type FeedViewer,
   feedSettingsFor,
+  placeAds,
 } from "./assemble.ts";
 export { COMMENT_ORDERS, type CommentOrder, type CommentOrderName } from "./comment-orders.ts";
 export {

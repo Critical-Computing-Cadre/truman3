@@ -75,6 +75,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       shownIn(arm.key, study.reportAnswers),
       shownIn(arm.key, study.autoRules),
       shownIn(arm.key, study.appealAnswers),
+      shownIn(arm.key, study.contextNotes),
     ]);
     const same = conditionLooks.get(looks);
     if (same) {
@@ -297,6 +298,19 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
           `In "${arm.key}", ${over} things you wrote are longer than what participants can write (${limit}).`,
         );
       }
+    }
+    const adPosts = study.posts.filter((post) => applies(post) && post.ad).length;
+    if (!on.ads && adPosts > 0) {
+      warning(`Ads are off in "${arm.key}", so ${adPosts} ads won't show there.`);
+    }
+    if (!on.contextNotes && study.contextNotes.some(applies)) {
+      warning(`Context notes are off in "${arm.key}", so its notes won't show there.`);
+    }
+    if (!on.whoToFollow && study.actors.some((actor) => applies(actor) && actor.suggested)) {
+      warning(`Who to follow is off in "${arm.key}", so nobody will be suggested there.`);
+    }
+    if (on.whoToFollow && !on.following) {
+      warning(`Who to follow is on in "${arm.key}", but following, which it needs, is off.`);
     }
     if (on.modLog && !on.removal) {
       warning(`A mod log is on in "${arm.key}", but it lists removals, which are off.`);
@@ -696,6 +710,25 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
   }
 
+  const noteRefs = new Set<string>();
+  for (const note of study.contextNotes) {
+    const label = `The context note "${note.ref}"`;
+    if (noteRefs.has(note.ref)) {
+      error(`${label} has the same ID as another note.`, note.source);
+    }
+    noteRefs.add(note.ref);
+    checkConditions(note.conditions, label, note.source);
+    const target = posts.get(note.post);
+    if (!target) {
+      error(`${label} is on "${note.post}", a post that isn't in this study.`, note.source);
+    } else if (note.timeMs < target.timeMs) {
+      warning(
+        `${label} is set for before its post appears, so it'll be there from the start.`,
+        note.source,
+      );
+    }
+  }
+
   const ruleRefs = new Set<string>();
   for (const rule of study.autoRules) {
     const label = `The automatic rule "${rule.ref}"`;
@@ -811,6 +844,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       ...study.reportAnswers,
       ...study.autoRules,
       ...study.appealAnswers,
+      ...study.contextNotes,
     ].flatMap((item) => item.conditions),
   );
   const hasOverrides = settings.conditions.arms.some((arm) => arm.feed);

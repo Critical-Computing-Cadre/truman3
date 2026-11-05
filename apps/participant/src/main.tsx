@@ -11,6 +11,7 @@ import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { EditProfilePage } from "./pages/EditProfilePage.tsx";
+import { ExplorePage, TagPage } from "./pages/ExplorePage.tsx";
 import { FeedPage } from "./pages/FeedPage.tsx";
 import { FlowGate } from "./pages/FlowGate.tsx";
 import { JoinPage } from "./pages/JoinPage.tsx";
@@ -85,6 +86,18 @@ const notificationsRoute = createRoute({
   component: NotificationsPage,
 });
 
+const exploreRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/explore",
+  component: ExplorePage,
+});
+
+const tagRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/tags/$tag",
+  component: TagPage,
+});
+
 const modLogRoute = createRoute({
   getParentRoute: () => gateRoute,
   path: "/mod-log",
@@ -120,6 +133,8 @@ const router = createRouter({
       postRoute,
       notificationsRoute,
       modLogRoute,
+      exploreRoute,
+      tagRoute,
       spaceModLogRoute,
       profileRoute,
       editProfileRoute,

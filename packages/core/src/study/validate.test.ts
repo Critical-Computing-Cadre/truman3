@@ -893,3 +893,29 @@ describe("reposts, quotes, and what short posts add", () => {
     );
   });
 });
+
+describe("context notes, ads, and suggestions", () => {
+  const short = settings({ platform: { style: "text", template: "shortPosts" } });
+  const note = { ref: "n", post: "1", body: "Context", timeMs: 0 };
+
+  it("needs a note to be on a post that exists, with its own ID", () => {
+    const errors = (contextNotes: object[]) =>
+      hasErrors(validateStudy(study({ settings: short, contextNotes })));
+    expect(errors([note])).toBe(false);
+    expect(errors([{ ...note, post: "nope" }])).toBe(true);
+    expect(errors([note, note])).toBe(true);
+  });
+
+  it("warns when what's written won't show", () => {
+    const found = messages(
+      study({
+        contextNotes: [note],
+        actors: [{ username: "ann", name: "Ann", suggested: true }],
+        posts: [{ ref: "1", body: "hi", actor: "ann", timeMs: 0, ad: "Sponsored" }],
+      }),
+    );
+    expect(found).toContainEqual(expect.stringContaining('Ads are off in "a"'));
+    expect(found).toContainEqual(expect.stringContaining('Context notes are off in "a"'));
+    expect(found).toContainEqual(expect.stringContaining('Who to follow is off in "a"'));
+  });
+});

@@ -9,7 +9,9 @@ export {
   type BanDefinition,
   banDefinitionSchema,
   type CommentDefinition,
+  type ContextNoteDefinition,
   commentDefinitionSchema,
+  contextNoteDefinitionSchema,
   type FlagAnswerDefinition,
   flagAnswerDefinitionSchema,
   MAX_TITLE_LENGTH,
@@ -26,6 +28,8 @@ export {
   type StudySettings,
   studyDefinitionSchema,
   studySettingsSchema,
+  type TrendingItem,
+  trendingItemSchema,
 } from "./definition.ts";
 export { fillLinkTemplate, LINK_PLACEHOLDERS } from "./links.ts";
 export {
@@ -48,6 +52,7 @@ export {
   scriptedKarmaChange,
   startingFollowersFor,
   startingKarmaFor,
+  trendingFor,
 } from "./platform.ts";
 export { formatStudyTime, parseStudyTime } from "./time.ts";
 export { hasErrors, type StudyIssue, validateStudy } from "./validate.ts";

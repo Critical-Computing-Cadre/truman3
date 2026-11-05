@@ -6,6 +6,7 @@ import {
   type FeedSettings,
   type FeedViewer,
   feedSettingsFor,
+  placeAds,
 } from "./assemble.ts";
 import { RANKERS, type RankablePost } from "./rankers.ts";
 
@@ -477,5 +478,28 @@ describe("posts a study keeps on top", () => {
       seed: 1,
     });
     expect(feed.posts).toEqual([]);
+  });
+});
+
+describe("placeAds", () => {
+  const post = (id: string, pinned = false) => ({ id, pinned });
+  const isAd = ({ id }: { id: string }) => id.startsWith("ad");
+
+  it("puts one after every so many others, and keeps everything", () => {
+    const posts = [post("ad1"), post("a"), post("b"), post("ad2"), post("c"), post("d"), post("e")];
+    expect(placeAds(posts, isAd, 2).map(({ id }) => id)).toEqual([
+      "a",
+      "b",
+      "ad1",
+      "c",
+      "d",
+      "ad2",
+      "e",
+    ]);
+  });
+
+  it("leaves extras at the end, and what's pinned on top", () => {
+    const posts = [post("p", true), post("ad1"), post("ad2"), post("a")];
+    expect(placeAds(posts, isAd, 5).map(({ id }) => id)).toEqual(["p", "a", "ad1", "ad2"]);
   });
 });

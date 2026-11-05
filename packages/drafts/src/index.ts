@@ -23,6 +23,7 @@ export {
   type AutoRuleData,
   type BanData,
   type CommentData,
+  type ContextNoteData,
   type DraftItem,
   type FlagAnswerData,
   type ItemKind,

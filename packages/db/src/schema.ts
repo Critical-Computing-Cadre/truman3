@@ -349,6 +349,9 @@ export const content = pgTable(
     repostOf: uuid("repost_of").references((): AnyPgColumn => content.id),
     /** The post this quotes. */
     quoteOf: uuid("quote_of").references((): AnyPgColumn => content.id),
+    /** Marks it as an ad, with this label. */
+    adLabel: text("ad_label"),
+    baseViews: integer("base_views").notNull().default(0),
     baseReposts: integer("base_reposts").notNull().default(0),
     baseQuotes: integer("base_quotes").notNull().default(0),
     /** Its files, in order. Each has a type and a stored key or hosted URL. */
@@ -580,6 +583,29 @@ export const scriptedAppealAnswers = pgTable(
   ],
 );
 
+/** A note on a post, as if readers had added context, from a set time. */
+export const scriptedContextNotes = pgTable(
+  "scripted_context_notes",
+  {
+    id: id(),
+    studyVersionId: uuid("study_version_id")
+      .notNull()
+      .references(() => studyVersions.id),
+    /** Its ID in the study, which records use. */
+    ref: text().notNull(),
+    contentId: uuid("content_id")
+      .notNull()
+      .references(() => content.id),
+    body: text().notNull(),
+    offsetMs: bigint("offset_ms", { mode: "number" }).notNull(),
+    baseHelpful: integer("base_helpful").notNull().default(0),
+    baseNotHelpful: integer("base_not_helpful").notNull().default(0),
+    conditions: text().array().notNull().default(sql`'{}'`),
+    class: text(),
+  },
+  (table) => [index("scripted_context_notes_version").on(table.studyVersionId)],
+);
+
 /** Append-only. See docs/adr/0006-append-only-event-log.md. */
 export const events = pgTable(
   "events",
@@ -642,7 +668,18 @@ export const contentInteractions = pgTable(
     primaryKey({ columns: [table.worldId, table.actorId, table.contentId, table.kind] }),
     check(
       "content_interactions_kind",
-      inList(table.kind, ["like", "up", "down", "flag", "view", "save", "hide", "poll"]),
+      inList(table.kind, [
+        "like",
+        "up",
+        "down",
+        "flag",
+        "view",
+        "save",
+        "hide",
+        "poll",
+        "note_helpful",
+        "note_not_helpful",
+      ]),
     ),
   ],
 );
@@ -664,7 +701,7 @@ export const actorRelations = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.worldId, table.actorId, table.targetActorId, table.kind] }),
-    check("actor_relations_kind", inList(table.kind, ["follow", "block", "report"])),
+    check("actor_relations_kind", inList(table.kind, ["follow", "block", "report", "mute"])),
   ],
 );
 
@@ -919,6 +956,7 @@ export const draftItems = pgTable(
         "reportAnswer",
         "autoRule",
         "appealAnswer",
+        "contextNote",
         "setting",
         "space",
       ]),

@@ -7,6 +7,7 @@ import type {
   AutoRuleData,
   BanData,
   CommentData,
+  ContextNoteData,
   DraftItem,
   FlagAnswerData,
   PostData,
@@ -48,6 +49,7 @@ export function draftToDefinition(
   const removals = ofKind<RemovalData>("removal");
   const flagAnswers = ofKind<FlagAnswerData>("flagAnswer");
   const bans = ofKind<BanData>("ban");
+  const contextNotes = ofKind<ContextNoteData>("contextNote");
   const autoRules = ofKind<AutoRuleData>("autoRule");
   const appealAnswers = ofKind<AppealAnswerData>("appealAnswer");
   const reportAnswers = ofKind<ReportAnswerData>("reportAnswer");
@@ -140,6 +142,10 @@ export function draftToDefinition(
     appealAnswers: appealAnswers.map(({ data: { actorId, ...answer } }) => ({
       ...answer,
       actor: usernameOf(actorId),
+    })),
+    contextNotes: contextNotes.map(({ data: { targetId, ...note } }) => ({
+      ...note,
+      post: postRefs.get(targetId) ?? "(missing post)",
     })),
     bans: bans.map(({ data: { actorId, bannedActorId, spaceId, ...ban } }) => ({
       ...ban,

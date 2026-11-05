@@ -146,6 +146,7 @@ export interface DraftInfo {
     following: number;
     startsFollowed: boolean | string[];
     badge: string;
+    suggested: boolean;
     /** The flair they show in each space, by the space's ID. */
     spaceFlair: Record<string, string>;
     /** How many posts, comments, and reactions are theirs. */
@@ -191,6 +192,16 @@ export interface DraftInfo {
     actorId: string;
     afterMs: number;
     message: string;
+    conditions: string[];
+  }[];
+  /** A note on a post, as if readers had added context. */
+  contextNotes: {
+    id: string;
+    targetId: string;
+    body: string;
+    timeMs: number;
+    helpful: number;
+    notHelpful: number;
     conditions: string[];
   }[];
   /** Words in what a participant writes bringing a moderator's response. */
@@ -281,6 +292,8 @@ export interface DraftItemDetails {
   quoteOfId: string | null;
   reposts: number;
   quotes: number;
+  ad: string | null;
+  views: number;
   origin: string;
 }
 

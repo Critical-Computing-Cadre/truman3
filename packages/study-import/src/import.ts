@@ -73,6 +73,7 @@ function hashStudy(study: StudyDefinition, mediaKeys: Map<string, string>): stri
     ...(study.appealAnswers.length > 0
       ? { appealAnswers: withoutSource(study.appealAnswers) }
       : {}),
+    ...(study.contextNotes.length > 0 ? { contextNotes: withoutSource(study.contextNotes) } : {}),
     media: [...mediaKeys.entries()].sort(([a], [b]) => a.localeCompare(b)),
   };
   return createHash("sha256").update(stableStringify(identity)).digest("hex");
@@ -311,6 +312,7 @@ export async function freezeStudy(
               following: actor.following,
               startsFollowed: actor.startsFollowed,
               badge: actor.badge,
+              suggested: actor.suggested,
               spaceFlair: actor.spaceFlair,
               picture:
                 actor.picture && mediaKeys.get(path.join(MEDIA_FOLDERS.actors, actor.picture)),
@@ -395,6 +397,8 @@ export async function freezeStudy(
           quoteOf: post.quoteOf ? postIds.get(post.quoteOf) : undefined,
           baseReposts: post.reposts ?? 0,
           baseQuotes: post.quotes ?? 0,
+          adLabel: post.ad,
+          baseViews: post.views ?? 0,
           body: post.body,
           attachments: post.pictures.map((picture) => ({
             type: "image" as const,
@@ -558,6 +562,22 @@ export async function freezeStudy(
           position,
           conditions: answer.conditions,
           class: answer.class,
+        })),
+      );
+    }
+
+    for (const batch of chunks(study.contextNotes, INSERT_BATCH_SIZE)) {
+      await tx.insert(schema.scriptedContextNotes).values(
+        batch.map((note) => ({
+          studyVersionId,
+          ref: note.ref,
+          contentId: postIds.get(note.post) as string,
+          body: note.body,
+          offsetMs: note.timeMs,
+          baseHelpful: note.helpful ?? 0,
+          baseNotHelpful: note.notHelpful ?? 0,
+          conditions: note.conditions,
+          class: note.class,
         })),
       );
     }

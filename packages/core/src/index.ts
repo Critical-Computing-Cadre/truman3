@@ -69,6 +69,7 @@ export {
   type PostTag,
   safeLink,
 } from "./post-extras.ts";
+export { hasHashtag, type TextPiece, textPieces } from "./post-text.ts";
 export { createRandom, pickFrom, shuffled } from "./random.ts";
 export { type CurrentFlowStep, canLeaveFeed, currentFlowStep } from "./study/flow.ts";
 export * from "./study/index.ts";

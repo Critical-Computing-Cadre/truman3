@@ -149,6 +149,58 @@ export const FEATURES = {
     version: 1,
     events: [],
   },
+  contextNotes: {
+    name: "Context notes",
+    description:
+      "A note you write can appear on a post at a set time, as if readers added context, and people can rate whether it helps.",
+    version: 1,
+    events: ["content.note_rated"],
+  },
+  hashtags: {
+    name: "Hashtags",
+    description: "A #word in a post links to a page of posts that use it.",
+    version: 1,
+    events: ["page.viewed"],
+  },
+  mentions: {
+    name: "Mentions",
+    description: "An @username in a post links to that person's profile.",
+    version: 1,
+    events: [],
+  },
+  trending: {
+    name: "Trending",
+    description:
+      "A list you write of what's said to be trending, beside the feed and on an Explore page.",
+    version: 1,
+    events: ["page.viewed"],
+  },
+  whoToFollow: {
+    name: "Who to follow",
+    description:
+      "People you choose from the cast are suggested for following, until someone follows them.",
+    version: 1,
+    events: ["actor.followed"],
+  },
+  viewCounts: {
+    name: "View counts",
+    description: "Posts show how many have seen them: a number you write, plus this person.",
+    version: 1,
+    events: [],
+  },
+  muting: {
+    name: "Muting",
+    description: "Someone can stop seeing what a person writes, without that person being blocked.",
+    version: 1,
+    events: ["actor.muted", "actor.unmuted"],
+  },
+  ads: {
+    name: "Ads",
+    description:
+      "Posts you write can be marked as ads, with a label such as Sponsored, and can be placed every so many posts. Clicking a link is recorded.",
+    version: 1,
+    events: ["content.link_opened"],
+  },
   warnings: {
     name: "Moderators warning people",
     description:

@@ -30,6 +30,17 @@ export type KarmaChange = z.infer<typeof karmaChangeSchema>;
 /** The longest a post's title can be. */
 export const MAX_TITLE_LENGTH = 300;
 
+/** Something said to be trending. A study writes these, and they don't come from what's posted. */
+export const trendingItemSchema = z.strictObject({
+  /** The hashtag it links to, without the #. */
+  tag: z.string().min(1).max(100),
+  /** What it says beside it, such as "12K posts". */
+  note: z.string().max(100).optional(),
+  /** When it starts showing, in minutes after someone starts. Leave out for from the start. */
+  afterMinutes: z.number().int().nonnegative().optional(),
+});
+export type TrendingItem = z.infer<typeof trendingItemSchema>;
+
 const feedSettingsSchema = z.strictObject({
   ranker: rankerSchema.default("chronological"),
   /** With the shuffle ranker: a new order each visit, instead of one order per participant. */
@@ -49,6 +60,8 @@ const feedSettingsSchema = z.strictObject({
   followingTabLabel: z.string().min(1).max(30).optional(),
   /** Which tab someone sees first. Leave out for the study's feed. */
   startOnFollowing: z.boolean().optional(),
+  /** Keeps ads apart, with one after every this many other posts. Leave out to order them like any post. */
+  adEvery: z.number().int().positive().optional(),
   /** Whether participants can choose new or top themselves. Leave out for no. */
   participantsCanSort: z.boolean().optional(),
   /** The order of comments on a post. Leave out for the template's, or else the scripted order. */
@@ -66,6 +79,7 @@ const feedOverridesSchema = z.strictObject({
   removeFlagged: z.boolean().optional(),
   removeBlocked: z.boolean().optional(),
   spaceRanker: rankerSchema.optional(),
+  adEvery: z.number().int().positive().optional(),
   followingRanker: rankerSchema.optional(),
   homeTabLabel: feedSettingsSchema.shape.homeTabLabel,
   followingTabLabel: feedSettingsSchema.shape.followingTabLabel,
@@ -107,6 +121,7 @@ const armSchema = z.strictObject({
       recordUnpostedText: z.boolean().optional(),
       maxPostLength: z.number().int().positive().optional(),
       startingFollowers: z.number().int().nonnegative().optional(),
+      trending: z.array(trendingItemSchema).optional(),
       /** Replaces the study's list for this condition. */
       karmaChanges: z.array(karmaChangeSchema).optional(),
     })
@@ -183,6 +198,8 @@ export const studySettingsSchema = z.strictObject({
       recordUnpostedText: z.boolean().optional(),
       /** The most a participant can write in a post or comment. Leave out for no limit. */
       maxPostLength: z.number().int().positive().optional(),
+      /** What's said to be trending, on a platform with that. */
+      trending: z.array(trendingItemSchema).optional(),
       /** How many followers a participant starts with, on a platform that shows them. */
       startingFollowers: z.number().int().nonnegative().optional(),
       /** Scripted changes to karma during the study. */
@@ -244,6 +261,8 @@ export const actorDefinitionSchema = z.object({
   startsFollowed: z.union([z.boolean(), z.array(z.string())]).optional(),
   /** A label beside their name, on a platform with badges. */
   badge: z.string().min(1).max(40).optional(),
+  /** Whether they're suggested for following, on a platform with that. */
+  suggested: z.boolean().optional(),
   /** The flair they show in each space, by the space's key, on a platform with flair. */
   spaceFlair: z.record(z.string(), z.string()).optional(),
   ...targetingFields,
@@ -302,6 +321,10 @@ export const postDefinitionSchema = z.object({
   repostOf: z.string().min(1).optional(),
   /** The post this quotes, by its ID in this study. */
   quoteOf: z.string().min(1).optional(),
+  /** Marks it as an ad, with this label, such as "Sponsored". */
+  ad: z.string().min(1).max(40).optional(),
+  /** How many it says have seen it. */
+  views: z.number().int().nonnegative().optional(),
   /** How many it says have passed it along or quoted it, before anything in the study. */
   reposts: z.number().int().nonnegative().optional(),
   quotes: z.number().int().nonnegative().optional(),
@@ -430,6 +453,21 @@ export const appealAnswerDefinitionSchema = z.object({
   ...targetingFields,
 });
 
+/** A note on a post, as if readers had added context, from a set time. Only the first due one shows. */
+export const contextNoteDefinitionSchema = z.object({
+  /** What records call it. */
+  ref: z.string().min(1),
+  /** The post, by its ID in this study. */
+  post: z.string().min(1),
+  body: z.string().min(1).max(2000),
+  /** Milliseconds relative to when a participant starts. */
+  timeMs: z.number().int(),
+  /** How many it says have rated it each way. */
+  helpful: z.number().int().nonnegative().optional(),
+  notHelpful: z.number().int().nonnegative().optional(),
+  ...targetingFields,
+});
+
 /**
  * A complete study, however it was authored. Files, a visual builder, or an agent can all
  * produce one of these (see ADR 10).
@@ -449,6 +487,7 @@ export const studyDefinitionSchema = z.object({
   reportAnswers: z.array(reportAnswerDefinitionSchema).default([]),
   autoRules: z.array(autoRuleDefinitionSchema).default([]),
   appealAnswers: z.array(appealAnswerDefinitionSchema).default([]),
+  contextNotes: z.array(contextNoteDefinitionSchema).default([]),
 });
 
 export type StudySettings = z.infer<typeof studySettingsSchema>;
@@ -464,3 +503,4 @@ export type BanDefinition = z.infer<typeof banDefinitionSchema>;
 export type ReportAnswerDefinition = z.infer<typeof reportAnswerDefinitionSchema>;
 export type AutoRuleDefinition = z.infer<typeof autoRuleDefinitionSchema>;
 export type AppealAnswerDefinition = z.infer<typeof appealAnswerDefinitionSchema>;
+export type ContextNoteDefinition = z.infer<typeof contextNoteDefinitionSchema>;

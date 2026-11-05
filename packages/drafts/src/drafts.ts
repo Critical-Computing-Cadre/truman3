@@ -137,6 +137,10 @@ export async function openDraft(
       .from(schema.scriptedAppealAnswers)
       .where(eq(schema.scriptedAppealAnswers.studyVersionId, versionId))
       .orderBy(asc(schema.scriptedAppealAnswers.position));
+    const contextNotes = await tx
+      .select()
+      .from(schema.scriptedContextNotes)
+      .where(eq(schema.scriptedContextNotes.studyVersionId, versionId));
     const contentKinds = new Map(content.map(({ id, kind }) => [id, kind]));
 
     // New IDs up front, since items point at each other.
@@ -195,6 +199,7 @@ export async function openDraft(
             ...optional("following", profile.following),
             ...optional("startsFollowed", profile.startsFollowed),
             ...optional("badge", profile.badge),
+            ...optional("suggested", profile.suggested),
             ...actorFlair(profile.spaceFlair as Record<string, string> | undefined),
             conditions: actor.conditions,
             ...optional("class", actor.class),
@@ -260,6 +265,8 @@ export async function openDraft(
                   ...(item.quoteOf ? { quoteOfId: asId(item.quoteOf) } : {}),
                   ...(item.baseReposts ? { reposts: item.baseReposts } : {}),
                   ...(item.baseQuotes ? { quotes: item.baseQuotes } : {}),
+                  ...optional("ad", item.adLabel),
+                  ...(item.baseViews ? { views: item.baseViews } : {}),
                   pictures: item.attachments.map(({ key }) => key),
                   ...(item.spaceId ? { spaceId: asId(item.spaceId) } : {}),
                 }
@@ -295,6 +302,22 @@ export async function openDraft(
           ...optional("reason", removal.reason),
           conditions: removal.conditions,
           ...optional("class", removal.class),
+        },
+      })),
+      ...contextNotes.map((note, position) => ({
+        draftId: created.id,
+        kind: "contextNote",
+        position,
+        provenance: fromFile,
+        data: {
+          ref: note.ref,
+          targetId: asId(note.contentId),
+          body: note.body,
+          timeMs: note.offsetMs,
+          ...(note.baseHelpful ? { helpful: note.baseHelpful } : {}),
+          ...(note.baseNotHelpful ? { notHelpful: note.baseNotHelpful } : {}),
+          conditions: note.conditions,
+          ...optional("class", note.class),
         },
       })),
       ...autoRules.map((rule, position) => ({
@@ -682,7 +705,8 @@ export async function createItem(
     | "ban"
     | "reportAnswer"
     | "autoRule"
-    | "appealAnswer",
+    | "appealAnswer"
+    | "contextNote",
   fields: Record<string, unknown>,
 ): Promise<{ id: string } | EditProblem> {
   return db.transaction(async (tx) => {
@@ -712,6 +736,9 @@ export async function createItem(
       }
       if (kind === "autoRule") {
         return { ...fields, ref: newRef("rule", id) };
+      }
+      if (kind === "contextNote") {
+        return { ...fields, ref: newRef("note", id) };
       }
       // A space's key is part of its address, so it's made from the name, and can be changed later.
       return kind === "space"
@@ -1106,7 +1133,8 @@ export async function moveItem(
     moving.push(
       ...rows.filter(
         (row) =>
-          row.kind === "removal" && movingIds.has((row.data as { targetId: string }).targetId),
+          (row.kind === "removal" || row.kind === "contextNote") &&
+          movingIds.has((row.data as { targetId: string }).targetId),
       ),
     );
     const history: Parameters<typeof writeHistory>[1] = [];
@@ -1217,7 +1245,7 @@ export async function deleteItem(
     for (const row of rows) {
       const { targetId } = row.data as { targetId?: string };
       if (
-        (row.kind === "removal" || row.kind === "flagAnswer") &&
+        (row.kind === "removal" || row.kind === "flagAnswer" || row.kind === "contextNote") &&
         targetId &&
         removingIds.has(targetId)
       ) {

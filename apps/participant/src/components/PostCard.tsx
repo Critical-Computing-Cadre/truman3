@@ -204,6 +204,11 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
           onPollVote: (id, option) => pollVote.mutate({ id, option }),
           onCrosspost: () => setCrossposting(true),
           onRepost: (id, active) => repost.mutate({ id, active }),
+          onRateNote: (id, value) => {
+            send(`/content/${id}/note-rating`, { value })
+              .catch(() => {})
+              .finally(() => client.invalidateQueries());
+          },
           onQuote: () => setQuoting(true),
           onReply: () => {
             if (pages && !detail) {

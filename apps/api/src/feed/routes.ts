@@ -34,7 +34,11 @@ const feedRoute = createRoute({
       /** A number the app picks on each page load, for studies that reshuffle on each visit. */
       visit: z.coerce.number().int().nonnegative().optional(),
       /** Which list of posts: the home feed, one space's page, or one post's own page. */
-      surface: z.enum(["home", "space", "post", "saved", "hidden", "following"]).default("home"),
+      surface: z
+        .enum(["home", "space", "post", "saved", "hidden", "following", "tag"])
+        .default("home"),
+      /** On surface=tag, which hashtag. */
+      tag: z.string().max(100).optional(),
       /** On a space's page, which space, by its key. */
       space: z.string().optional(),
       /** On a post's own page, which post. */
@@ -235,7 +239,17 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
       return c.json(pleaseSignIn, 401);
     }
 
-    const { visit, surface, space: spaceKey, post } = c.req.valid("query");
+    const { visit, surface, space: spaceKey, post, tag } = c.req.valid("query");
+    if (surface === "tag") {
+      if (!featureOn(context.settings, context.conditionKey, "hashtags")) {
+        return c.json(featureOff, 403);
+      }
+      if (!tag) {
+        return c.json(notAvailable, 404);
+      }
+      const posts = await buildFeed({ db, mediaPublicUrl }, context, { surface: "tag", tag });
+      return c.json({ posts, sort: null, commentSort: null }, 200);
+    }
 
     const commentSort = await chosenCommentSort(db, context);
     if (surface === "post") {

@@ -19,6 +19,7 @@ import {
   hiddenByBan,
   loadAuthors,
   type Removal,
+  type ShownNote,
   shapeFeedPosts,
   shownOnThisPlatform,
   toCandidate,
@@ -87,6 +88,15 @@ export async function previewContent(
   }[] = [],
   /** Shows a repost as its own card, so a researcher can edit it. */
   repostsAsThemselves = false,
+  scriptedNotes: readonly {
+    contentId: string;
+    ref: string;
+    body: string;
+    offsetMs: number;
+    baseHelpful: number;
+    baseNotHelpful: number;
+    conditions: string[];
+  }[] = [],
 ) {
   const worldStartMs = now.getTime() - elapsedMs;
   const features = featuresFor(version.settings, conditionKey);
@@ -129,6 +139,21 @@ export async function previewContent(
         }))
     : [];
   const rowsById = new Map(rows.map((row) => [row.id, row]));
+  const contextNotes = new Map<string, ShownNote>();
+  if (features.contextNotes) {
+    for (const note of [...scriptedNotes].sort((a, b) => a.offsetMs - b.offsetMs)) {
+      const applies = note.conditions.length === 0 || note.conditions.includes(conditionKey);
+      if (applies && note.offsetMs <= elapsedMs && !contextNotes.has(note.contentId)) {
+        contextNotes.set(note.contentId, {
+          ref: note.ref,
+          body: note.body,
+          helpful: note.baseHelpful,
+          notHelpful: note.baseNotHelpful,
+          rating: null,
+        });
+      }
+    }
+  }
   const shownRows = (
     spacesOn ? rows.filter(({ spaceId }) => spaceId === null || visible.has(spaceId)) : rows
   ).filter((row) => {
@@ -183,6 +208,7 @@ export async function previewContent(
     features,
     removals,
     bans,
+    contextNotes,
     repostsAsThemselves,
     countable: (row) =>
       (row.conditions.length === 0 || row.conditions.includes(conditionKey)) &&
@@ -250,5 +276,10 @@ export async function previewFeed(
       .select()
       .from(schema.scriptedBans)
       .where(eq(schema.scriptedBans.studyVersionId, version.id)),
+    false,
+    await db
+      .select()
+      .from(schema.scriptedContextNotes)
+      .where(eq(schema.scriptedContextNotes.studyVersionId, version.id)),
   );
 }
