@@ -63,6 +63,9 @@ function Person({
   actor,
   canEdit,
   karmaOn,
+  followCountsOn,
+  followingOn,
+  badgesOn,
   flairSpaces,
   edits,
 }: {
@@ -72,6 +75,10 @@ function Person({
   flairSpaces: DraftInfo["spaces"];
   /** Whether anyone in this study sees karma. */
   karmaOn: boolean;
+  /** Whether anyone in this study sees follower counts, can follow, or sees badges. */
+  followCountsOn: boolean;
+  followingOn: boolean;
+  badgesOn: boolean;
   edits: DraftEdits;
 }) {
   const file = useRef<HTMLInputElement>(null);
@@ -165,6 +172,54 @@ function Person({
               }
             }}
           />
+        )}
+        {followCountsOn && (
+          <>
+            <CastField
+              label="Followers"
+              value={String(actor.followers)}
+              canEdit={canEdit}
+              onSave={(text) => {
+                const followers = Number(text);
+                if (Number.isInteger(followers) && followers >= 0) {
+                  save({ followers });
+                } else {
+                  setProblem("Followers has to be a whole number.");
+                }
+              }}
+            />
+            <CastField
+              label="Following"
+              value={String(actor.following)}
+              canEdit={canEdit}
+              onSave={(text) => {
+                const following = Number(text);
+                if (Number.isInteger(following) && following >= 0) {
+                  save({ following });
+                } else {
+                  setProblem("Following has to be a whole number.");
+                }
+              }}
+            />
+          </>
+        )}
+        {badgesOn && (
+          <CastField
+            label="Badge (a label you write)"
+            value={actor.badge}
+            canEdit={canEdit}
+            onSave={(badge) => save({ badge: badge || null })}
+          />
+        )}
+        {followingOn && (
+          <SavedCheckbox
+            checked={actor.startsFollowed !== false}
+            disabled={!canEdit}
+            className="flex items-center gap-2 text-sm"
+            onChange={(startsFollowed) => save({ startsFollowed })}
+          >
+            Participants start out following them
+          </SavedCheckbox>
         )}
         {flairSpaces.map((space) => (
           <label key={space.id} className={labelClass}>
@@ -294,6 +349,9 @@ export function CastPage() {
         {actors.map((actor) => (
           <Person
             karmaOn={info.data.conditions.some(({ features }) => features.karma)}
+            followCountsOn={info.data.conditions.some(({ features }) => features.followCounts)}
+            followingOn={info.data.conditions.some(({ features }) => features.following)}
+            badgesOn={info.data.conditions.some(({ features }) => features.badges)}
             flairSpaces={
               info.data.conditions.some(({ features }) => features.flair)
                 ? info.data.spaces.filter(({ userFlair }) => userFlair.length > 0)

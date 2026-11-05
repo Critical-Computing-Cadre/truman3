@@ -54,7 +54,9 @@ export async function scheduleReactions(
       ((reaction.type === "up" || reaction.type === "down") && !features.votes) ||
       (reaction.type === "read" && !features.notifications) ||
       (reaction.type === "remove" && !features.removal) ||
-      (reaction.type === "warn" && !features.warnings)
+      (reaction.type === "warn" && !features.warnings) ||
+      (reaction.type === "repost" && !features.reposts) ||
+      (reaction.type === "follow" && !features.following)
     ) {
       continue;
     }
@@ -84,6 +86,18 @@ export async function scheduleReactions(
       replyContentId = reply?.id ?? null;
     }
 
+    if (reaction.type === "repost" && trigger.on === "post") {
+      await tx.insert(schema.content).values({
+        studyVersionId: context.studyVersionId,
+        worldId: context.worldId,
+        repostOf: trigger.contentId,
+        authorActorId: reaction.actorId,
+        kind: "post",
+        visibleAt: dueAt,
+        class: reaction.class,
+      });
+    }
+
     await tx.insert(schema.notifications).values({
       worldId: context.worldId,
       recipientActorId: context.actorId,
@@ -98,7 +112,16 @@ export async function scheduleReactions(
     await recordEvent(tx, {
       type: "reaction.scheduled",
       payload: {
-        reaction: reaction.type as "read" | "like" | "reply" | "up" | "down" | "remove" | "warn",
+        reaction: reaction.type as
+          | "read"
+          | "like"
+          | "reply"
+          | "up"
+          | "down"
+          | "remove"
+          | "warn"
+          | "repost"
+          | "follow",
         dueAt: dueAt.toISOString(),
         ...((reaction.type === "remove" || reaction.type === "warn") && reaction.body
           ? { reason: reaction.body }
@@ -311,7 +334,9 @@ export interface NotificationItem {
     | "ban"
     | "approve"
     | "uphold"
-    | "restore";
+    | "restore"
+    | "repost"
+    | "follow";
   actors: { username: string; name: string; pictureUrl: string | null }[];
   /** Whether this is about a post, a comment, or a person someone reported. */
   targetKind: "post" | "comment" | "person";
@@ -342,6 +367,8 @@ const SHOWN_TO_PARTICIPANTS = [
   "approve",
   "uphold",
   "restore",
+  "repost",
+  "follow",
 ];
 /** What's kept separate in a list, rather than grouped as "Ann and 3 others." */
 const SHOWN_ALONE = ["reply", "remove", "warn", "answer", "ban", "approve", "uphold", "restore"];
@@ -440,7 +467,7 @@ export async function listNotifications(
     // stay, since they're not banned for those.
     const top = row.targetContentId ? contentById.get(postOf(row.targetContentId)) : undefined;
     if (
-      ["read", "like", "reply"].includes(row.type) &&
+      ["read", "like", "reply", "repost", "follow"].includes(row.type) &&
       bannedAt(bans, row.actorId, top?.spaceId, row.dueAt.getTime())
     ) {
       continue;

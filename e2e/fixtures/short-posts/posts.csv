@@ -1,0 +1,6 @@
+id,body,actor,repostOf,quoteOf,reposts,quotes,time
+story,The story that spreads,bob,,,7,2,-6:00
+strange,A post by someone unfollowed,bob,,,,,-5:30
+step1,,cleo,story,,,,-5:00
+step2,,ann,step1,,,,-4:00
+take,My own take on it,ann,,story,,,-3:00

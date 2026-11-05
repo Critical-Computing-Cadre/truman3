@@ -400,3 +400,28 @@ describe("auto-rules.csv and appeal-answers.csv", () => {
     expect(said).toContain("has to be uphold or restore");
   });
 });
+
+describe("what short posts add to study files", () => {
+  it("reads who starts out followed, for everyone or by condition, and counts", () => {
+    const { definition } = loadStudyFolder(
+      folder({
+        ...base,
+        "actors.csv":
+          "username,name,followers,following,startsFollowed,badge\nann,Ann,5,6,yes,Expert\nbob,Bob,,,a|b,\ncy,Cy,,,no,\n",
+        "posts.csv":
+          "id,body,actor,time,repostOf,quoteOf,reposts,quotes\n1,hi,ann,0:00,,,3,4\n2,,bob,0:10,1,,,\n3,yo,bob,0:20,,1,,\n",
+      }),
+    );
+    expect(definition?.actors[0]).toMatchObject({
+      followers: 5,
+      following: 6,
+      startsFollowed: true,
+      badge: "Expert",
+    });
+    expect(definition?.actors[1]?.startsFollowed).toEqual(["a", "b"]);
+    expect(definition?.actors[2]?.startsFollowed).toBeUndefined();
+    expect(definition?.posts[0]).toMatchObject({ reposts: 3, quotes: 4 });
+    expect(definition?.posts[1]?.repostOf).toBe("1");
+    expect(definition?.posts[2]?.quoteOf).toBe("1");
+  });
+});

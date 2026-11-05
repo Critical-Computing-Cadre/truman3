@@ -13,6 +13,8 @@ export const feedAuthorSchema = z.object({
   isViewer: z.boolean(),
   /** Marked as a moderator in the study. Only ever true, so it's absent for everyone else. */
   moderator: z.literal(true).optional(),
+  /** A label the study gives them, on a platform with badges. */
+  badge: z.string().optional(),
   /** A moderator has banned them, everywhere or from this post's community. Only ever true. */
   banned: z.literal(true).optional(),
   /** Their points, on a platform with karma. */
@@ -136,6 +138,28 @@ export const feedPostSchema = z.object({
   flair: feedFlairSchema.optional(),
   /** On a crosspost, the post it came from. Null if this viewer can't see that post. */
   crosspost: z.object({ original: feedOriginalSchema.nullable() }).optional(),
+  /** On a quote post, the post it quotes. Null if this viewer can't see that post. */
+  quote: z.object({ original: feedOriginalSchema.nullable() }).optional(),
+  /**
+   * Someone passed this along, so it's in this list under their name. The rest of what's here is the
+   * post itself, which is what likes and replies go to. `id` is the repost, which the record names.
+   */
+  repostedBy: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      username: z.string(),
+      isViewer: z.boolean(),
+      /** Who they got it from, in a chain of reposts. */
+      via: z.string().optional(),
+    })
+    .optional(),
+  /** How many have passed it along, on a platform with reposts. */
+  repostCount: z.number().optional(),
+  /** How many have quoted it, on a platform with quote posts. */
+  quoteCount: z.number().optional(),
+  /** This viewer passed it along. Only ever true. */
+  reposted: z.literal(true).optional(),
   /** Kept on top of this list by the study. Only ever true. */
   pinned: z.literal(true).optional(),
   /** Nobody can comment on it. Only ever true. */

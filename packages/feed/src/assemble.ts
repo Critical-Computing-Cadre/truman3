@@ -24,6 +24,10 @@ export function feedSettingsFor(settings: StudySettings, conditionKey: string): 
     removeFlagged: changes?.removeFlagged ?? base.removeFlagged,
     removeBlocked: changes?.removeBlocked ?? base.removeBlocked,
     spaceRanker: changes?.spaceRanker ?? base.spaceRanker,
+    followingRanker: changes?.followingRanker ?? base.followingRanker,
+    homeTabLabel: changes?.homeTabLabel ?? base.homeTabLabel,
+    followingTabLabel: changes?.followingTabLabel ?? base.followingTabLabel,
+    startOnFollowing: changes?.startOnFollowing ?? base.startOnFollowing,
     participantsCanSort: changes?.participantsCanSort ?? base.participantsCanSort,
     commentOrder:
       changes?.commentOrder ??

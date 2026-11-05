@@ -345,6 +345,12 @@ export const content = pgTable(
     flair: text(),
     /** The post this was crossposted from. */
     crosspostOf: uuid("crosspost_of").references((): AnyPgColumn => content.id),
+    /** The post this passes along, which can be another repost. */
+    repostOf: uuid("repost_of").references((): AnyPgColumn => content.id),
+    /** The post this quotes. */
+    quoteOf: uuid("quote_of").references((): AnyPgColumn => content.id),
+    baseReposts: integer("base_reposts").notNull().default(0),
+    baseQuotes: integer("base_quotes").notNull().default(0),
     /** Its files, in order. Each has a type and a stored key or hosted URL. */
     attachments: jsonb().$type<Attachment[]>().notNull().default([]),
     offsetMs: bigint("offset_ms", { mode: "number" }),
@@ -407,7 +413,17 @@ export const scriptedReactions = pgTable(
     check("scripted_reactions_on", inList(table.on, ["post", "comment"])),
     check(
       "scripted_reactions_type",
-      inList(table.type, ["read", "like", "reply", "up", "down", "remove", "warn"]),
+      inList(table.type, [
+        "read",
+        "like",
+        "reply",
+        "up",
+        "down",
+        "remove",
+        "warn",
+        "repost",
+        "follow",
+      ]),
     ),
   ],
 );
@@ -702,6 +718,8 @@ export const notifications = pgTable(
         "approve",
         "uphold",
         "restore",
+        "repost",
+        "follow",
       ]),
     ),
     check(

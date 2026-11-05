@@ -28,6 +28,10 @@ function describe(item: NotificationItem): string {
         : `${who} looked at ${item.targetName}'s ${item.targetKind}, which you flagged`;
     case "ban":
       return `${who} banned ${item.targetName}, whom you reported`;
+    case "repost":
+      return `${who} reposted your ${item.targetKind}`;
+    case "follow":
+      return `${who} followed you`;
     case "approve":
       return `${who} approved your ${item.targetKind}`;
     case "uphold":

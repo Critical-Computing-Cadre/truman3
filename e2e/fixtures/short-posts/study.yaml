@@ -1,0 +1,13 @@
+schemaVersion: 1
+slug: short-posts-e2e
+title: Short posts
+site: { name: Demo }
+length: { days: 2 }
+entry: { idParam: PROLIFIC_PID, idLabel: ID, source: test }
+conditions:
+  assignment: { method: uniform }
+  arms: [{ key: main }]
+platform: { style: text, template: shortPosts, maxPostLength: 40 }
+feed: { ranker: chronological, homeTabLabel: Everything }
+media: { baseUrl: "https://cdn.example.com/m" }
+flow: [{ step: feed }, { step: exit }]

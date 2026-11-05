@@ -736,6 +736,74 @@ function PostExtras({
           </select>
         </label>
       )}
+      {on("reposts") && !details.quoteOfId && (
+        <label className="flex items-center gap-2">
+          Repost of
+          <select
+            value={details.repostOfId ?? ""}
+            onChange={(event) => change({ repostOfId: event.target.value || null })}
+            className={`${field} min-w-0 flex-1`}
+          >
+            <option value="">Nothing, it's an ordinary post</option>
+            {info.posts
+              .filter(({ id }) => id !== itemId)
+              .map(({ id, title, body, authorName }) => (
+                <option key={id} value={id}>
+                  {authorName}: {(title || body || "A repost").slice(0, 60)}
+                </option>
+              ))}
+          </select>
+        </label>
+      )}
+      {on("quotes") && !details.repostOfId && (
+        <label className="flex items-center gap-2">
+          Quote of
+          <select
+            value={details.quoteOfId ?? ""}
+            onChange={(event) => change({ quoteOfId: event.target.value || null })}
+            className={`${field} min-w-0 flex-1`}
+          >
+            <option value="">Nothing, it's an ordinary post</option>
+            {info.posts
+              .filter(({ id }) => id !== itemId)
+              .map(({ id, title, body, authorName }) => (
+                <option key={id} value={id}>
+                  {authorName}: {(title || body || "A repost").slice(0, 60)}
+                </option>
+              ))}
+          </select>
+        </label>
+      )}
+      {(on("reposts") || on("quotes")) && !details.repostOfId && (
+        <div className="flex flex-wrap gap-3">
+          {on("reposts") && (
+            <label className="flex items-center gap-2">
+              Reposts it starts with
+              <input
+                type="number"
+                min="0"
+                aria-label="Reposts it starts with"
+                defaultValue={details.reposts}
+                onBlur={(event) => change({ reposts: Number(event.target.value) || 0 })}
+                className={`${field} w-20`}
+              />
+            </label>
+          )}
+          {on("quotes") && (
+            <label className="flex items-center gap-2">
+              Quotes it starts with
+              <input
+                type="number"
+                min="0"
+                aria-label="Quotes it starts with"
+                defaultValue={details.quotes}
+                onBlur={(event) => change({ quotes: Number(event.target.value) || 0 })}
+                className={`${field} w-20`}
+              />
+            </label>
+          )}
+        </div>
+      )}
       {on("pinning") && (
         <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <legend className="float-left mr-2">Keep on top of</legend>

@@ -75,6 +75,18 @@ export function recordsUnpostedText(settings: StudySettings, conditionKey: strin
   return arm?.platform?.recordUnpostedText ?? settings.platform.recordUnpostedText ?? false;
 }
 
+/** The most a participant can write in a post or comment, or null for no limit. */
+export function maxPostLengthFor(settings: StudySettings, conditionKey: string): number | null {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  return arm?.platform?.maxPostLength ?? settings.platform.maxPostLength ?? null;
+}
+
+/** How many followers a participant starts with, on a platform that shows them. */
+export function startingFollowersFor(settings: StudySettings, conditionKey: string): number {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  return arm?.platform?.startingFollowers ?? settings.platform.startingFollowers ?? 0;
+}
+
 /** A participant's karma before any votes on what they post. */
 export function startingKarmaFor(settings: StudySettings, conditionKey: string): number {
   const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);

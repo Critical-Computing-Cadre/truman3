@@ -2,12 +2,13 @@ import { createHash, randomInt, randomUUID } from "node:crypto";
 import {
   armProbability,
   blockedArm,
+  featureOn,
   pickUniformArm,
   type StudySettings,
   studySettingsSchema,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import type { DeviceSummary } from "./device.ts";
 import { hashSessionToken, newSessionToken } from "./session.ts";
 
@@ -156,7 +157,33 @@ async function enroll(
   participantId: string,
 ) {
   const condition = await assignCondition(tx, version, settings, participantId);
-  return { ...(await createWorld(tx, version, participantId)), conditionId: condition.id };
+  const world = await createWorld(tx, version, participantId);
+
+  // Who someone starts out following is the study's choice. After this it's theirs.
+  if (featureOn(settings, condition.key, "following")) {
+    const cast = await tx
+      .select()
+      .from(schema.actors)
+      .where(and(eq(schema.actors.studyVersionId, version.id), isNull(schema.actors.worldId)));
+    const followed = cast.filter((actor) => {
+      const { startsFollowed } = actor.profile as { startsFollowed?: boolean | string[] };
+      return Array.isArray(startsFollowed)
+        ? startsFollowed.includes(condition.key)
+        : startsFollowed === true;
+    });
+    if (followed.length > 0) {
+      await tx.insert(schema.actorRelations).values(
+        followed.map((actor) => ({
+          worldId: world.worldId,
+          actorId: world.actorId,
+          targetActorId: actor.id,
+          kind: "follow",
+        })),
+      );
+    }
+  }
+
+  return { ...world, conditionId: condition.id };
 }
 
 /**

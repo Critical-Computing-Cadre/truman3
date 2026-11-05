@@ -11,12 +11,14 @@ import {
   MAX_LINK_LENGTH,
   MAX_REPLY_DEPTH,
   MAX_TITLE_LENGTH,
+  maxPostLengthFor,
   modLogEntrySchema,
   POST_TAGS,
   type PostTag,
   platformStyleFor,
   pollOptionsProblem,
   safeLink,
+  startingFollowersFor,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, inArray, isNull, lte, or } from "drizzle-orm";
@@ -75,6 +77,19 @@ const writtenSchema = z.union([
   z.object({ id: z.uuid() }),
   z.object({ confirm: z.object({ rule: z.string(), message: z.string(), by: z.string() }) }),
 ]);
+
+const repostRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/repost",
+  summary: "Pass a post along, or take that back",
+  request: { params: contentParams, ...jsonBody(toggleBodySchema) },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Nothing this participant can see"),
+  },
+});
 
 const confirmAnsweredRoute = createRoute({
   method: "post",
@@ -167,6 +182,7 @@ const commentRoute = createRoute({
         "Recorded, with its ID. Or a rule asks if they're sure, which means it isn't posted yet",
       content: { "application/json": { schema: writtenSchema } },
     },
+    400: errorResponse("It's longer than this study allows"),
     401: notSignedIn,
     403: errorResponse("That feature is off in this condition"),
     404: errorResponse("Nothing this participant can see or reply to"),
@@ -312,6 +328,8 @@ const postRoute = createRoute({
             flair: z.string().optional(),
             /** They've answered a rule's "are you sure?" and want to go ahead. */
             confirmedRule: z.string().optional(),
+            /** The post this quotes, on a platform with quote posts. */
+            quoteOf: z.uuid().optional(),
             /** Repeat this field for several photos, on a platform with galleries. */
             image: z
               .union([z.instanceof(File), z.array(z.instanceof(File))])
@@ -393,6 +411,11 @@ const actorRoute = createRoute({
             following: z.boolean(),
             blocked: z.boolean(),
             reported: z.boolean(),
+            /** On a platform that shows these. */
+            followerCount: z.number().optional(),
+            followingCount: z.number().optional(),
+            /** A label the study gives them, on a platform with badges. */
+            badge: z.string().optional(),
             /** Where a moderator has banned them. */
             bans: z.array(
               z.object({
@@ -435,6 +458,8 @@ const notificationsRoute = createRoute({
                   "approve",
                   "uphold",
                   "restore",
+                  "repost",
+                  "follow",
                 ]),
                 actors: z.array(
                   z.object({
@@ -707,6 +732,8 @@ async function countOwnContent(tx: Transaction, context: ParticipantContext, kin
         eq(schema.content.worldId, context.worldId),
         eq(schema.content.authorActorId, context.actorId),
         eq(schema.content.kind, kind),
+        // Passing something along isn't writing, so scripted reactions to someone's nth post skip it.
+        isNull(schema.content.repostOf),
       ),
     );
   return row?.total ?? 0;
@@ -718,6 +745,9 @@ interface ProfileFields {
   location?: string;
   picture?: string;
   karma?: number;
+  followers?: number;
+  following?: number;
+  badge?: string;
 }
 
 export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantRouteDependencies) {
@@ -794,6 +824,49 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       rule: ref,
       message: message ?? "",
       by: (moderator?.profile as ProfileFields | undefined)?.name ?? moderator?.username ?? "",
+    };
+  };
+
+  /**
+   * How many follow someone, and how many they follow. Someone in the cast has what the study wrote,
+   * plus this person if they follow them. A participant has what's happened to them.
+   */
+  const followCountsOf = async (
+    context: ParticipantContext,
+    actorId: string,
+    profile: ProfileFields,
+    followedByViewer: boolean,
+  ) => {
+    if (actorId !== context.actorId) {
+      return {
+        followerCount: (profile.followers ?? 0) + (followedByViewer ? 1 : 0),
+        followingCount: profile.following ?? 0,
+      };
+    }
+    const [follows] = await db
+      .select({ total: count() })
+      .from(schema.actorRelations)
+      .where(
+        and(
+          eq(schema.actorRelations.worldId, context.worldId),
+          eq(schema.actorRelations.actorId, context.actorId),
+          eq(schema.actorRelations.kind, "follow"),
+        ),
+      );
+    const [followers] = await db
+      .select({ total: count() })
+      .from(schema.notifications)
+      .where(
+        and(
+          eq(schema.notifications.worldId, context.worldId),
+          eq(schema.notifications.type, "follow"),
+          lte(schema.notifications.dueAt, new Date()),
+        ),
+      );
+    return {
+      followerCount:
+        startingFollowersFor(context.settings, context.conditionKey) + (followers?.total ?? 0),
+      followingCount: follows?.total ?? 0,
     };
   };
 
@@ -1266,6 +1339,10 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       }
     }
 
+    const limit = maxPostLengthFor(context.settings, context.conditionKey);
+    if (limit && body.body.length > limit) {
+      return c.json({ error: `That's longer than the ${limit} characters allowed.` }, 400);
+    }
     const rules = await findAutoRules(db, context, "comment", body.body);
     if (rules.confirm && rules.confirm.ref !== body.confirmedRule) {
       await recordRuleAsked(db, context, rules.confirm, body.body, now);
@@ -1387,6 +1464,25 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json(featureOff, 403);
     }
 
+    const limit = maxPostLengthFor(context.settings, context.conditionKey);
+    if (limit && text.length > limit) {
+      return c.json({ error: `That's longer than the ${limit} characters allowed.` }, 400);
+    }
+    if (form.quoteOf && isOff(context, "quotes")) {
+      return c.json(featureOff, 403);
+    }
+    let quoted = form.quoteOf ? await visiblePost(context, form.quoteOf) : null;
+    if (form.quoteOf && !quoted) {
+      return c.json(notAvailable, 404);
+    }
+    // Quoting what's shown under someone's repost means quoting the post, not the repost.
+    while (quoted?.repostOf) {
+      quoted = await findVisibleContent(db, context, quoted.repostOf, now);
+    }
+    if (quoted && (await isRemoved(context, quoted.id))) {
+      return c.json(wasRemoved, 403);
+    }
+
     const images = [form.image ?? []].flat();
     const problem = checkNewPost(
       platformStyleFor(context.settings, context.conditionKey),
@@ -1463,6 +1559,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
             worldId: context.worldId,
             authorActorId: context.actorId,
             kind: "post",
+            ...(quoted ? { quoteOf: quoted.id } : {}),
             ...(title ? { title } : {}),
             ...(link ? { linkUrl: link } : {}),
             tags,
@@ -1635,6 +1732,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     });
 
     const profile = actor.profile as ProfileFields;
+    const followCounts = isOff(context, "followCounts")
+      ? {}
+      : await followCountsOf(context, actor.id, profile, has("follow"));
     const karma = isOff(context, "karma")
       ? {}
       : {
@@ -1652,6 +1752,8 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     return c.json(
       {
         ...karma,
+        ...followCounts,
+        ...(profile.badge && !isOff(context, "badges") ? { badge: profile.badge } : {}),
         username: actor.username,
         name: profile.name ?? actor.username,
         bio: profile.bio ?? "",
@@ -1677,6 +1779,62 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json(featureOff, 403);
     }
     return c.json({ notifications: await listNotifications(db, context, mediaPublicUrl) }, 200);
+  });
+
+  app.openapi(repostRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "reposts")) {
+      return c.json(featureOff, 403);
+    }
+    const now = new Date();
+    const { id } = c.req.valid("param");
+    let target = await visiblePost(context, id);
+    // It always points at the first post, so someone's own act isn't part of anyone's chain.
+    while (target?.repostOf) {
+      target = await findVisibleContent(db, context, target.repostOf, now);
+    }
+    if (!target) {
+      return c.json(notAvailable, 404);
+    }
+    if (await isRemoved(context, target.id)) {
+      return c.json(wasRemoved, 403);
+    }
+    const root = target;
+    const body = c.req.valid("json");
+    await db.transaction(async (tx) => {
+      const recorded = await recordEvent(tx, {
+        ...participantEvent(context, body.occurredAt, body.clientEventId),
+        type: body.active ? "content.reposted" : "content.unreposted",
+        payload: {},
+        targetContentId: root.id,
+      });
+      if (!recorded) {
+        return;
+      }
+      const mine = and(
+        eq(schema.content.worldId, context.worldId),
+        eq(schema.content.authorActorId, context.actorId),
+        eq(schema.content.repostOf, root.id),
+      );
+      const [already] = await tx.select({ id: schema.content.id }).from(schema.content).where(mine);
+      if (body.active && !already) {
+        await tx.insert(schema.content).values({
+          studyVersionId: context.studyVersionId,
+          worldId: context.worldId,
+          repostOf: root.id,
+          authorActorId: context.actorId,
+          kind: "post",
+          visibleAt: now,
+        });
+      }
+      if (!body.active && already) {
+        await tx.delete(schema.content).where(mine);
+      }
+    });
+    return c.json({ ok: true as const }, 200);
   });
 
   app.openapi(confirmAnsweredRoute, async (c) => {

@@ -22,7 +22,12 @@ export const eventPayloadSchemas = {
   "content.created": z.strictObject({
     kind: z.enum(["post", "comment"]),
     crosspostOf: z.string().optional(),
+    /** The post this quotes. */
+    quoteOf: z.string().optional(),
   }),
+  /** They passed a post along, or took that back. It names the first post, not a repost of it. */
+  "content.reposted": empty,
+  "content.unreposted": empty,
   "content.liked": empty,
   "content.unliked": empty,
   /** A vote replaces the one before it. Null means they took their vote back. */
@@ -77,7 +82,7 @@ export const eventPayloadSchemas = {
   "space.flair_chosen": z.strictObject({ space: z.string(), flair: z.string().nullable() }),
   /** Someone chose an order for a feed, where a study allows that. Null is the study's own order. */
   "feed.sort_changed": z.strictObject({
-    surface: z.enum(["home", "space"]),
+    surface: z.enum(["home", "space", "following"]),
     sort: z.enum(FEED_SORTS).nullable(),
   }),
   /** Someone chose an order for comments, where a study allows that. Null is the study's own. */
@@ -98,6 +103,8 @@ export const eventPayloadSchemas = {
       "approve",
       "uphold",
       "restore",
+      "repost",
+      "follow",
     ]),
     /** On a removal, the reason the study wrote, if any. On a warning or answer, what it says. */
     reason: z.string().optional(),

@@ -39,12 +39,14 @@ export {
   featuresFor,
   freezePlatform,
   layoutFor,
+  maxPostLengthFor,
   type PlatformStyle,
   type PlatformView,
   platformFor,
   platformStyleFor,
   recordsUnpostedText,
   scriptedKarmaChange,
+  startingFollowersFor,
   startingKarmaFor,
 } from "./platform.ts";
 export { formatStudyTime, parseStudyTime } from "./time.ts";

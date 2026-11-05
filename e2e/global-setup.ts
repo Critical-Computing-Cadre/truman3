@@ -153,6 +153,15 @@ export default async function globalSetup() {
   if (moderation.status === "failed") {
     throw new Error(moderation.issues.map((issue) => issue.message).join("\n"));
   }
+  const shortPosts = await importStudyFolder(
+    database.db,
+    storage,
+    path.join(import.meta.dirname, "fixtures/short-posts"),
+    { launch: true },
+  );
+  if (shortPosts.status === "failed") {
+    throw new Error(shortPosts.issues.map((issue) => issue.message).join("\n"));
+  }
   writeFileSync(
     STATE_FILE,
     JSON.stringify({

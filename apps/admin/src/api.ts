@@ -142,6 +142,10 @@ export interface DraftInfo {
     pictureUrl: string | null;
     moderator: boolean;
     karma: number;
+    followers: number;
+    following: number;
+    startsFollowed: boolean | string[];
+    badge: string;
     /** The flair they show in each space, by the space's ID. */
     spaceFlair: Record<string, string>;
     /** How many posts, comments, and reactions are theirs. */
@@ -249,6 +253,8 @@ export interface DraftInfo {
     title: string | null;
     /** Set if it's a crosspost, which can't be crossposted in the builder. */
     crosspostOfId: string | null;
+    repostOfId: string | null;
+    quoteOfId: string | null;
     authorName: string;
     imageUrl: string | null;
   }[];
@@ -271,6 +277,10 @@ export interface DraftItemDetails {
   poll: Poll | null;
   flair: string | null;
   crosspostOfId: string | null;
+  repostOfId: string | null;
+  quoteOfId: string | null;
+  reposts: number;
+  quotes: number;
   origin: string;
 }
 

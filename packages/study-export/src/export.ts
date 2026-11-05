@@ -714,6 +714,10 @@ export async function exportStudy(
         "poll",
         "flair",
         "crosspost_of",
+        "repost_of",
+        "quote_of",
+        "base_reposts",
+        "base_quotes",
         "media",
         "provenance",
         "offset_ms",
@@ -743,6 +747,10 @@ export async function exportStudy(
         poll: item.poll ? safeText(JSON.stringify(item.poll)) : "",
         flair: safeText(item.flair),
         crosspost_of: item.crosspostOf ?? "",
+        repost_of: item.repostOf ?? "",
+        quote_of: item.quoteOf ?? "",
+        base_reposts: item.baseReposts,
+        base_quotes: item.baseQuotes,
         media: item.attachments.map(({ key }) => key).join("|"),
         provenance: provenanceLabel(item.provenance),
         offset_ms: item.offsetMs ?? "",
@@ -974,6 +982,15 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ["base_likes", "The like count it starts with, before any likes during the study"],
     ["space", "The space it belongs to, by key. Comments are in their post's space"],
     ["media", "Its files in order, separated by |"],
+    [
+      "repost_of",
+      "The content_id of the post this passes along, which can be another repost, in a chain. impressions.csv lists the repost, and content.viewed names the post it passes along",
+    ],
+    ["quote_of", "The content_id of the post this quotes"],
+    [
+      "base_reposts, base_quotes",
+      "How many it says passed it along or quoted it, before anything during the study",
+    ],
     ["base_ups, base_downs", "The votes it starts with, before any during the study"],
     ["conditions", "Conditions it applies to, separated by |. Empty means all"],
   ],
@@ -1006,6 +1023,8 @@ const ORDER_NOTES: [string, string][] = [
 
 /** What an event means, where its name doesn't say enough. */
 const EVENT_NOTES: Record<string, string> = {
+  "content.reposted":
+    "They passed a post along. It names the first post, even if they saw it through someone else's repost. content.unreposted is taking that back.",
   "moderation.rule_fired":
     "An automatic rule caught what they wrote. `rule` names it, in auto_rules.csv. With no target it hasn't been posted. `unpostedText` is what they wrote, and is only present if the study turned on recording it, so it may be text they chose never to share.",
   "moderation.confirm_answered":
@@ -1013,7 +1032,7 @@ const EVENT_NOTES: Record<string, string> = {
   "moderation.appealed":
     "They appealed a moderator's removal of what they wrote. `text` is their appeal, in their words. Treat it as sensitive.",
   "reaction.scheduled":
-    "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator. `warn` means a moderator warned them, and `reason` is what it said. `answer` means a moderator answered their flag, and `reason` is what it said. A `remove` following a flag is about what they flagged, not something they wrote. An `answer` or `ban` following a report has `target_actor` instead of a post or comment. `hold` and `approve` are a rule holding what they wrote, with `dueAt` when it's decided. `uphold` and `restore` answer an appeal.",
+    "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator. `warn` means a moderator warned them, and `reason` is what it said. `answer` means a moderator answered their flag, and `reason` is what it said. A `remove` following a flag is about what they flagged, not something they wrote. An `answer` or `ban` following a report has `target_actor` instead of a post or comment. `hold` and `approve` are a rule holding what they wrote, with `dueAt` when it's decided. `uphold` and `restore` answer an appeal. `repost` and `follow` are someone in the cast passing along what they wrote, or following them.",
   "moderation.warning_acknowledged":
     "They pressed the button on a moderator's warning, which stays on every page until they do. It names what the warning was about, and doesn't say they read it.",
   "space.joined": "They joined a space, so its posts show in their home feed. Names it by key.",

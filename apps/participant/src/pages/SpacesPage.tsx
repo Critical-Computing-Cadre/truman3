@@ -105,7 +105,7 @@ export function SpacePage() {
         <p className="p-6 text-center text-stone-500">No posts to show.</p>
       )}
       {feed.data?.posts.map((item) => (
-        <PostCard key={item.id} post={item} surface="space" />
+        <PostCard key={item.repostedBy?.id ?? item.id} post={item} surface="space" />
       ))}
     </>
   );

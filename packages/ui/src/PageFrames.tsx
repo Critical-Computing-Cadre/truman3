@@ -42,6 +42,13 @@ const FRAMES: Record<
     Space: ForumSpaceFrame,
     Post: ForumPostFrame,
   },
+  // Its own posts, in the same frame as Forum for now. Templates get their own look later.
+  "short-posts": {
+    Header: ForumHeader,
+    Feed: ForumFeedFrame,
+    Space: ForumSpaceFrame,
+    Post: ForumPostFrame,
+  },
 };
 
 export function PageHeader(props: PageHeaderProps) {

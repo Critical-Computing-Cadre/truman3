@@ -61,6 +61,8 @@ export interface FlowState {
   commentBox: "open" | "onReply";
   layout: LayoutKey;
   features: FeatureSet;
+  maxPostLength: number | null;
+  feedTabs: { home: string; following: string; startOnFollowing: boolean };
   canJoinSpaces: boolean;
   canSort: boolean;
   canSortComments: boolean;
@@ -102,7 +104,9 @@ export interface NotificationItem {
     | "ban"
     | "approve"
     | "uphold"
-    | "restore";
+    | "restore"
+    | "repost"
+    | "follow";
   actors: { username: string; name: string; pictureUrl: string | null }[];
   targetKind: "post" | "comment" | "person";
   targetName: string;

@@ -106,12 +106,16 @@ export function draftToDefinition(
       return { ...actor, ...(flair.length > 0 ? { spaceFlair: Object.fromEntries(flair) } : {}) };
     }),
     spaces: spaces.map(({ data }) => data),
-    posts: posts.map(({ data: { actorId, spaceId, crosspostOfId, ...post } }) => ({
-      ...post,
-      actor: usernameOf(actorId),
-      ...(crosspostOfId ? { crosspostOf: postRefs.get(crosspostOfId) ?? "(missing post)" } : {}),
-      ...(spaceId ? { space: spaceKeys.get(spaceId) ?? "(missing space)" } : {}),
-    })),
+    posts: posts.map(
+      ({ data: { actorId, spaceId, crosspostOfId, repostOfId, quoteOfId, ...post } }) => ({
+        ...post,
+        actor: usernameOf(actorId),
+        ...(repostOfId ? { repostOf: postRefs.get(repostOfId) ?? "(missing post)" } : {}),
+        ...(quoteOfId ? { quoteOf: postRefs.get(quoteOfId) ?? "(missing post)" } : {}),
+        ...(crosspostOfId ? { crosspostOf: postRefs.get(crosspostOfId) ?? "(missing post)" } : {}),
+        ...(spaceId ? { space: spaceKeys.get(spaceId) ?? "(missing space)" } : {}),
+      }),
+    ),
     comments: comments.map(({ data: { actorId, postId, replyToId, ...comment } }) => ({
       ...comment,
       actor: usernameOf(actorId),

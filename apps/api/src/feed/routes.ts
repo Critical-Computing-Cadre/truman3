@@ -34,7 +34,7 @@ const feedRoute = createRoute({
       /** A number the app picks on each page load, for studies that reshuffle on each visit. */
       visit: z.coerce.number().int().nonnegative().optional(),
       /** Which list of posts: the home feed, one space's page, or one post's own page. */
-      surface: z.enum(["home", "space", "post", "saved", "hidden"]).default("home"),
+      surface: z.enum(["home", "space", "post", "saved", "hidden", "following"]).default("home"),
       /** On a space's page, which space, by its key. */
       space: z.string().optional(),
       /** On a post's own page, which post. */
@@ -131,7 +131,7 @@ const sortRoute = createRoute({
       content: {
         "application/json": {
           schema: actionMetaSchema.extend({
-            surface: z.enum(["home", "space"]),
+            surface: z.enum(["home", "space", "following"]),
             /** Null goes back to the study's own order. */
             sort: sortSchema.nullable(),
           }),
@@ -198,7 +198,11 @@ async function chosenCommentSort(db: Database, context: ParticipantContext) {
  * what the data says can't disagree. It's ignored wherever the study doesn't let them choose, such
  * as after moving to a condition that sets the order itself.
  */
-async function chosenSort(db: Database, context: ParticipantContext, surface: "home" | "space") {
+async function chosenSort(
+  db: Database,
+  context: ParticipantContext,
+  surface: "home" | "space" | "following",
+) {
   if (!canSortFor(context.settings, context.conditionKey)) {
     return null;
   }
@@ -281,14 +285,21 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
       }
     }
 
+    if (
+      surface === "following" &&
+      !featureOn(context.settings, context.conditionKey, "followingFeed")
+    ) {
+      return c.json(featureOff, 403);
+    }
     const sort = await chosenSort(db, context, surface);
     const posts = await buildFeed({ db, mediaPublicUrl }, context, {
       visit,
       sort: sort ?? undefined,
       commentSort: commentSort ?? undefined,
       space,
+      following: surface === "following",
       // Home is recorded as "feed", as it always has been, so its data reads the same either way.
-      surface: surface === "space" ? "space" : "feed",
+      surface: surface === "home" ? "feed" : surface,
     });
     return c.json({ posts, sort, commentSort }, 200);
   });

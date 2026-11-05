@@ -260,6 +260,11 @@ const fieldsSchema = z.strictObject({
   flair: z.string().min(1).nullable().optional(),
   /** The post this is a crosspost of. Null makes it an ordinary post. */
   crosspostOfId: z.uuid().nullable().optional(),
+  /** The post this passes along or quotes. Null makes it an ordinary post. */
+  repostOfId: z.uuid().nullable().optional(),
+  quoteOfId: z.uuid().nullable().optional(),
+  reposts: z.number().int().nonnegative().optional(),
+  quotes: z.number().int().nonnegative().optional(),
   /** Someone in the cast's flair in each space, by the space's ID. */
   spaceFlair: z.record(z.uuid(), z.string()).optional(),
   postFlair: z.array(flairSchema).optional(),
@@ -304,6 +309,11 @@ const fieldsSchema = z.strictObject({
   location: z.string().max(100).optional(),
   moderator: z.boolean().optional(),
   karma: z.number().int().optional(),
+  followers: z.number().int().nonnegative().optional(),
+  following: z.number().int().nonnegative().optional(),
+  startsFollowed: z.union([z.boolean(), z.array(z.string())]).optional(),
+  /** Null takes it away. */
+  badge: z.string().trim().min(1).max(40).nullable().optional(),
   // For spaces, as well as name and conditions above. Null removes a post from its space.
   spaceId: z.uuid().nullable().optional(),
   description: z.string().max(2000).nullable().optional(),
@@ -545,6 +555,10 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
         poll: data.poll ?? null,
         flair: data.flair ?? null,
         crosspostOf: data.crosspostOfId ?? null,
+        repostOf: data.repostOfId ?? null,
+        quoteOf: data.quoteOfId ?? null,
+        baseReposts: data.reposts ?? 0,
+        baseQuotes: data.quotes ?? 0,
         body: data.body,
         attachments: (data.pictures ?? []).map((key) => ({ type: "image" as const, key })),
         offsetMs: data.timeMs,
@@ -662,6 +676,10 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               pictureUrl: data.picture ? mediaUrl(data.picture, mediaPublicUrl) : null,
               moderator: data.moderator ?? false,
               karma: data.karma ?? 0,
+              followers: data.followers ?? 0,
+              following: data.following ?? 0,
+              startsFollowed: data.startsFollowed ?? false,
+              badge: data.badge ?? "",
               spaceFlair: data.spaceFlair ?? {},
               usedBy,
             };
@@ -705,6 +723,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               body: data.body,
               title: data.title ?? null,
               crosspostOfId: data.crosspostOfId ?? null,
+              repostOfId: data.repostOfId ?? null,
+              quoteOfId: data.quoteOfId ?? null,
               authorName: author?.name ?? "",
               imageUrl: data.pictures?.[0] ? mediaUrl(data.pictures[0], mediaPublicUrl) : null,
             };
@@ -920,7 +940,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
       items
         .filter((item) => item.kind === "actor")
         .map((item) => {
-          const { username, name, picture, moderator, karma, spaceFlair } = item.data as ActorData;
+          const { username, name, picture, moderator, karma, spaceFlair, badge } =
+            item.data as ActorData;
           const flair = Object.entries(spaceFlair ?? {}).map(([spaceId, text]) => [
             spaceKeyOf.get(spaceId) ?? spaceId,
             text,
@@ -935,6 +956,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
                 picture,
                 moderator,
                 karma,
+                badge,
                 spaceFlair: Object.fromEntries(flair),
               },
             },
@@ -956,6 +978,10 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           const { key, name, conditions, picture, postFlair, userFlair } = item.data as SpaceData;
           return { id: item.id, key, name, conditions, picture, postFlair, userFlair };
         }),
+      new Date(),
+      [],
+      [],
+      true,
     );
 
     const details: Record<
@@ -976,6 +1002,10 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
         poll: Poll | null;
         flair: string | null;
         crosspostOfId: string | null;
+        repostOfId: string | null;
+        quoteOfId: string | null;
+        reposts: number;
+        quotes: number;
         origin: string;
       }
     > = {};
@@ -998,6 +1028,10 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           poll: data.poll ?? null,
           flair: data.flair ?? null,
           crosspostOfId: data.crosspostOfId ?? null,
+          repostOfId: data.repostOfId ?? null,
+          quoteOfId: data.quoteOfId ?? null,
+          reposts: data.reposts ?? 0,
+          quotes: data.quotes ?? 0,
           origin: (item.provenance as Provenance).origin,
         };
       }

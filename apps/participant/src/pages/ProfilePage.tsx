@@ -16,6 +16,9 @@ interface ActorPage {
   following: boolean;
   blocked: boolean;
   reported: boolean;
+  followerCount?: number;
+  followingCount?: number;
+  badge?: string;
   /** Where a moderator has banned them. */
   bans: { by: string; reason?: string; space?: string }[];
   karma?: number;
@@ -67,7 +70,9 @@ function OwnLists({
         <p className="p-6 text-center text-stone-500">Nothing here yet.</p>
       )}
       {open &&
-        list.data?.posts.map((post) => <PostCard key={post.id} post={post} surface={open} />)}
+        list.data?.posts.map((post) => (
+          <PostCard key={post.repostedBy?.id ?? post.id} post={post} surface={open} />
+        ))}
     </section>
   );
 }
@@ -106,6 +111,21 @@ export function ProfilePage() {
         <h1 className="text-xl font-semibold">{actor.name}</h1>
         <p className="text-sm text-stone-500">@{actor.username}</p>
         <KarmaBadge author={actor} />
+        {actor.badge && (
+          <p
+            data-testid="author-badge"
+            className="rounded bg-sky-100 px-2 py-0.5 text-xs text-sky-900"
+          >
+            {actor.badge}
+          </p>
+        )}
+        {actor.followerCount !== undefined && (
+          <p data-testid="follow-counts" className="text-sm text-stone-600">
+            <strong>{actor.followingCount ?? 0}</strong> following ·{" "}
+            <strong>{actor.followerCount}</strong>{" "}
+            {actor.followerCount === 1 ? "follower" : "followers"}
+          </p>
+        )}
         {actor.bio && <p className="whitespace-pre-wrap">{actor.bio}</p>}
         {actor.location && <p className="text-sm text-stone-500">{actor.location}</p>}
         {actor.bans.map(({ by, reason, space }) => (
@@ -199,7 +219,9 @@ export function ProfilePage() {
         <p className="p-6 text-center text-stone-500">No posts to show.</p>
       )}
       {!openList &&
-        actor.posts.map((post) => <PostCard key={post.id} post={post} surface="profile" />)}
+        actor.posts.map((post) => (
+          <PostCard key={post.repostedBy?.id ?? post.id} post={post} surface="profile" />
+        ))}
     </div>
   );
 }

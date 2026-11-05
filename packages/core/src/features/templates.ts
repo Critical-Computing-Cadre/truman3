@@ -4,7 +4,7 @@ import { FEATURE_KEYS, type FeatureSet } from "./catalog.ts";
  * How posts and the page around them are arranged. A layout's look can't change once a study has
  * launched with it, so changing one means adding a new name, such as `classic-2` (ADR 18).
  */
-export const LAYOUT_KEYS = ["classic", "forum"] as const;
+export const LAYOUT_KEYS = ["classic", "forum", "short-posts"] as const;
 
 export type LayoutKey = (typeof LAYOUT_KEYS)[number];
 
@@ -49,6 +49,11 @@ export const TEMPLATES = {
       bans: false,
       autoRules: false,
       appeals: false,
+      followingFeed: false,
+      followCounts: false,
+      reposts: false,
+      quotes: false,
+      badges: false,
       modLog: false,
       saving: false,
       hiding: false,
@@ -60,8 +65,36 @@ export const TEMPLATES = {
     description:
       "Communities with votes and points, where comments are threads on each post's own page.",
     layout: "forum",
-    features: { ...allFeatures, likes: false, following: false, adultTags: false },
+    features: {
+      ...allFeatures,
+      likes: false,
+      following: false,
+      adultTags: false,
+      followingFeed: false,
+      followCounts: false,
+      reposts: false,
+      quotes: false,
+      badges: false,
+    },
     feed: { ranker: "top", commentOrder: "top" },
+  },
+  shortPosts: {
+    name: "Short posts",
+    description:
+      "Short posts from people you follow, with reposts and quotes, and replies on each post's own page.",
+    layout: "short-posts",
+    features: {
+      ...allFeatures,
+      votes: false,
+      titles: false,
+      karma: false,
+      spaces: false,
+      flair: false,
+      crossposting: false,
+      adultTags: false,
+      appeals: false,
+    },
+    feed: { ranker: "new", commentOrder: "top" },
   },
 } as const satisfies Record<string, TemplateDefinition>;
 

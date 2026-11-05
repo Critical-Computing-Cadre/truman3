@@ -25,6 +25,7 @@ import {
 } from "../features/post-extras.tsx";
 import { CommentsLink } from "../features/post-pages.tsx";
 import { RemovedNote } from "../features/removal.tsx";
+import { QuoteButton, QuotedPost, RepostButton, RepostedBy } from "../features/reposts.tsx";
 import { ModeratorTag, SpaceLine } from "../features/spaces.tsx";
 import { PostTitle } from "../features/titles.tsx";
 import { VoteButtons } from "../features/votes.tsx";
@@ -116,13 +117,16 @@ export function ClassicPost({
   const hidingOn = useFeature("hiding");
   const sharingOn = useFeature("sharing");
   const crosspostingOn = useFeature("crossposting");
-  const more = useMoreMenu(["saving", "hiding", "sharing", "crossposting"], "py-3");
+  const repostsOn = useFeature("reposts");
+  const quotesOn = useFeature("quotes");
+  const more = useMoreMenu(["saving", "hiding", "sharing", "crossposting", "quotes"], "py-3");
   const lessUsed = (className: string) => (
     <>
       <SaveButton post={post} actions={actions} className={className} />
       <HideButton post={post} actions={actions} className={className} />
       <ShareButton post={post} actions={actions} className={className} />
       <CrosspostButton post={post} actions={actions} className={className} />
+      <QuoteButton post={post} actions={actions} className={className} />
     </>
   );
 
@@ -145,6 +149,7 @@ export function ClassicPost({
       aria-label={`Post by ${post.author.name}`}
       className="overflow-hidden bg-white shadow-sm sm:rounded-lg"
     >
+      <RepostedBy post={post} />
       <SpaceLine post={post} renderSpace={renderSpace} />
       <header className="flex items-center gap-3 p-3">
         {renderAuthor ? (
@@ -182,6 +187,7 @@ export function ClassicPost({
             {...(renderPostLink ? { renderPostLink } : {})}
             {...(renderSpace ? { renderSpace } : {})}
           />
+          <QuotedPost post={post} {...(renderPostLink ? { renderPostLink } : {})} />
         </TagCover>
         {renderNote && <div className="px-3 pb-2 empty:hidden">{renderNote(post.id)}</div>}
       </div>
@@ -193,12 +199,15 @@ export function ClassicPost({
         savingOn ||
         hidingOn ||
         sharingOn ||
-        crosspostingOn) && (
+        crosspostingOn ||
+        repostsOn ||
+        quotesOn) && (
         <div className="grid auto-cols-fr grid-flow-col border-t border-stone-200 text-sm text-stone-700">
           <VoteButtons item={post} actions={actions} className="py-3" />
           <ReplyButton actions={actions} post={post} />
           <PostFlagButton post={post} {...(actions ? { actions } : {})} />
           <PostLikeButton post={post} {...(actions ? { actions } : {})} />
+          <RepostButton post={post} actions={actions} className="py-3" />
           {more.collapsed ? more.toggle : lessUsed("py-3")}
           {!detail && (
             <CommentsLink
