@@ -193,6 +193,12 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     ) {
       warning(`Moderators removing things is off in "${arm.key}", so its removals won't happen.`);
     }
+    if (!on.warnings && reactions.some(({ type }) => type === "warn")) {
+      warning(`Moderators warning people is off in "${arm.key}", so its warnings won't happen.`);
+    }
+    if (on.modLog && !on.removal) {
+      warning(`A mod log is on in "${arm.key}", but it lists removals, which are off.`);
+    }
   }
 
   // Where posts go is the research team's choice, so these only point out what's easy to miss.
@@ -475,10 +481,15 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     const label = `The reaction to the participant's ${reaction.on} #${reaction.nth}`;
     checkActor(reaction.actor, label, reaction.source);
     checkConditions(reaction.conditions, label, reaction.source);
-    if (reaction.type === "reply" && !reaction.body) {
-      error(`${label} is a reply, but has no text.`, reaction.source);
+    if ((reaction.type === "reply" || reaction.type === "warn") && !reaction.body) {
+      error(`${label} is a ${reaction.type}, but has no text.`, reaction.source);
     }
-    if (reaction.type !== "reply" && reaction.type !== "remove" && reaction.body) {
+    if (
+      reaction.type !== "reply" &&
+      reaction.type !== "remove" &&
+      reaction.type !== "warn" &&
+      reaction.body
+    ) {
       error(`${label} is a ${reaction.type}, so it can't have text.`, reaction.source);
     }
   }

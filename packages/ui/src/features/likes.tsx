@@ -12,7 +12,7 @@ export function PostLikeButton({ post, actions }: { post: FeedPost; actions?: Po
       type="button"
       aria-pressed={post.liked}
       disabled={!actions || Boolean(post.removed)}
-      className={`py-3 ${post.liked ? "font-semibold text-rose-600" : ""}`}
+      className={`py-3 ${post.liked ? "font-semibold text-rose-600" : ""} ${post.removed ? "opacity-40" : ""}`}
       onClick={() => actions?.onLike(post.id, !post.liked)}
     >
       {post.liked ? "♥" : "♡"} Like {post.likes > 0 && <span>({post.likes})</span>}
@@ -35,7 +35,7 @@ export function CommentLikeButton({
     <button
       type="button"
       disabled={!actions || Boolean(comment.removed)}
-      className={comment.liked ? "font-semibold text-rose-600" : ""}
+      className={`${comment.liked ? "font-semibold text-rose-600" : ""} ${comment.removed ? "opacity-40" : ""}`}
       onClick={() => actions?.onLike(comment.id, !comment.liked)}
     >
       {comment.liked ? "Unlike" : "Like"}

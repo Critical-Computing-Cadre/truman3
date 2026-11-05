@@ -43,6 +43,8 @@ export const TEMPLATES = {
       flair: false,
       crossposting: false,
       removal: false,
+      warnings: false,
+      modLog: false,
       saving: false,
       hiding: false,
       sharing: false,

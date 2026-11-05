@@ -776,7 +776,9 @@ const ORDER_NOTES: [string, string][] = [
 /** What an event means, where its name doesn't say enough. */
 const EVENT_NOTES: Record<string, string> = {
   "reaction.scheduled":
-    "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator.",
+    "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator. `warn` means a moderator warned them, and `reason` is what it said.",
+  "moderation.warning_acknowledged":
+    "They pressed the button on a moderator's warning, which stays on every page until they do. It names what the warning was about, and doesn't say they read it.",
   "space.joined": "They joined a space, so its posts show in their home feed. Names it by key.",
   "space.left": "They left a space, so its posts no longer show in their home feed.",
   "content.link_opened":

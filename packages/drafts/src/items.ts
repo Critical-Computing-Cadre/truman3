@@ -84,7 +84,7 @@ export const itemDataSchemas = {
   reaction: z.strictObject({
     on: z.enum(["post", "comment"]),
     nth: z.number().int().nonnegative(),
-    type: z.enum(["read", "like", "reply", "up", "down", "remove"]),
+    type: z.enum(["read", "like", "reply", "up", "down", "remove", "warn"]),
     actorId: z.uuid(),
     afterMs: z.number().int().nonnegative(),
     body: z.string().optional(),

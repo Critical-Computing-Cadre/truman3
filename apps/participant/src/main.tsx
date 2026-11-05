@@ -14,6 +14,7 @@ import { EditProfilePage } from "./pages/EditProfilePage.tsx";
 import { FeedPage } from "./pages/FeedPage.tsx";
 import { FlowGate } from "./pages/FlowGate.tsx";
 import { JoinPage } from "./pages/JoinPage.tsx";
+import { ModLogPage } from "./pages/ModLogPage.tsx";
 import { NotificationsPage } from "./pages/NotificationsPage.tsx";
 import { PilotPage } from "./pages/PilotPage.tsx";
 import { PostPage } from "./pages/PostPage.tsx";
@@ -84,6 +85,18 @@ const notificationsRoute = createRoute({
   component: NotificationsPage,
 });
 
+const modLogRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/mod-log",
+  component: ModLogPage,
+});
+
+const spaceModLogRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/spaces/$key/mod-log",
+  component: ModLogPage,
+});
+
 const profileRoute = createRoute({
   getParentRoute: () => gateRoute,
   path: "/u/$username",
@@ -106,6 +119,8 @@ const router = createRouter({
       spaceRoute,
       postRoute,
       notificationsRoute,
+      modLogRoute,
+      spaceModLogRoute,
       profileRoute,
       editProfileRoute,
     ]),

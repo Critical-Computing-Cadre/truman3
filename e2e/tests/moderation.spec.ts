@@ -60,4 +60,32 @@ test("a moderator's removals show in place of what was removed", async ({ page }
   await expect(page.getByText("Sam the Mod removed your post")).toBeVisible();
   await expect(page.getByText("Reason: Rule 3: no spam")).toBeVisible();
   await shot(page, testInfo.project.name, "4-notification");
+
+  // The mod log lists what was removed, without what it said.
+  await page.goto(`http://localhost:${APP_PORT}/spaces`);
+  await page.getByRole("link", { name: "Mod log" }).click();
+  await expect(page.getByTestId("mod-log-entry")).toHaveCount(3);
+  await expect(page.getByText("Sam the Mod removed your post")).toBeVisible();
+  await expect(page.getByText("Sam the Mod removed a comment by Ann")).toBeVisible();
+  await expect(page.getByText("Words nobody should read")).toHaveCount(0);
+  await shot(page, testInfo.project.name, "5-mod-log");
+
+  // Writing a comment brings a warning, which stays until they press its button.
+  await page.goto(`http://localhost:${APP_PORT}/`);
+  await page
+    .getByRole("article", { name: "A post that stays" })
+    .getByRole("link", { name: "A post that stays" })
+    .click();
+  await page.getByPlaceholder("Write a comment...").fill("Something rude");
+  await page.getByPlaceholder("Write a comment...").press("Enter");
+  await expect(page.getByText("Something rude")).toBeVisible();
+  await page.reload();
+  const warning = page.getByTestId("warning-notice");
+  await expect(warning).toContainText("A warning from Sam the Mod about your comment");
+  await expect(warning).toContainText("Please keep it civil");
+  await shot(page, testInfo.project.name, "6-warning");
+  await page.goto(`http://localhost:${APP_PORT}/`);
+  await expect(warning).toBeVisible();
+  await warning.getByRole("button", { name: "I understand" }).click();
+  await expect(warning).toHaveCount(0);
 });

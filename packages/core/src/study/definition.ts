@@ -297,11 +297,11 @@ export const reactionDefinitionSchema = z.object({
   on: z.enum(["post", "comment"]),
   /** Which one, counting from 0. */
   nth: z.number().int().nonnegative(),
-  type: z.enum(["read", "like", "reply", "up", "down", "remove"]),
+  type: z.enum(["read", "like", "reply", "up", "down", "remove", "warn"]),
   actor: z.string().min(1),
   /** Milliseconds after the participant's post or comment. */
   afterMs: z.number().int().nonnegative(),
-  /** A reply's text, or the reason given for a removal. */
+  /** A reply's or warning's text, or the reason given for a removal. */
   body: z.string().optional(),
   ...targetingFields,
 });

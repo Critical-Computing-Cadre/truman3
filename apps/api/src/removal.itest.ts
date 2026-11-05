@@ -390,3 +390,156 @@ describe("a draft of a study with removals", () => {
     expect(new Set(rows.map(({ reason }) => reason))).toEqual(new Set([null, "Rule 2", "Rule 5"]));
   });
 });
+
+describe("a moderator's warning", () => {
+  const WARN = "on,nth,type,actor,after,body\npost,0,warn,sam,0:00,Keep it civil\n";
+  const write = async (cookie: string) => {
+    const made = await postForm(cookie, { title: "Mine", body: "Text", space: "cooking" });
+    return ((await made.json()) as { id: string }).id;
+  };
+  const warnings = async (cookie: string) =>
+    (
+      (await (await call(cookie, "GET", "/warnings")).json()) as {
+        warnings: { id: string; by: string; message: string; kind: string }[];
+      }
+    ).warnings;
+
+  it("stays until acknowledged, once, and leaves their post alone", async () => {
+    const { slug } = await study({ reactions: WARN });
+    const cookie = await join(slug);
+    const postId = await write(cookie);
+
+    const [warning] = await warnings(cookie);
+    expect(warning).toMatchObject({ by: "Sam the Mod", message: "Keep it civil", kind: "post" });
+    expect(byId(await list(cookie), postId).removed).toBeUndefined();
+    expect(await warnings(cookie)).toHaveLength(1);
+
+    const id = warning?.id as string;
+    expect((await call(cookie, "POST", `/warnings/${id}/acknowledge`, meta())).status).toBe(200);
+    expect((await call(cookie, "POST", `/warnings/${id}/acknowledge`, meta())).status).toBe(200);
+    expect(await warnings(cookie)).toEqual([]);
+
+    const events = await database.db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.targetContentId, postId));
+    const types = events.map(({ type }) => type);
+    expect(types.filter((type) => type === "moderation.warning_acknowledged")).toHaveLength(1);
+    expect(events.find(({ type }) => type === "reaction.scheduled")?.payload).toMatchObject({
+      reaction: "warn",
+      reason: "Keep it civil",
+    });
+
+    const { notifications } = (await (await call(cookie, "GET", "/notifications")).json()) as {
+      notifications: { type: string; reason: string | null }[];
+    };
+    expect(notifications).toEqual([
+      expect.objectContaining({ type: "warn", reason: "Keep it civil" }),
+    ]);
+  });
+
+  it("can't be acknowledged by someone else, or before it's due", async () => {
+    const { slug } = await study({ reactions: WARN });
+    const cookie = await join(slug);
+    await write(cookie);
+    const [warning] = await warnings(cookie);
+    const other = await join(slug);
+    const url = `/warnings/${warning?.id}/acknowledge`;
+    expect((await call(other, "POST", url, meta())).status).toBe(404);
+
+    const later = await study({
+      reactions: "on,nth,type,actor,after,body\npost,0,warn,sam,1:00,Later\n",
+    });
+    const laterCookie = await join(later.slug);
+    await write(laterCookie);
+    expect(await warnings(laterCookie)).toEqual([]);
+  });
+
+  it("does nothing with the feature off", async () => {
+    const { slug } = await study({ reactions: WARN, features: ", features: { warnings: false }" });
+    const cookie = await join(slug);
+    await write(cookie);
+    expect((await call(cookie, "GET", "/warnings")).status).toBe(403);
+    const { notifications } = (await (await call(cookie, "GET", "/notifications")).json()) as {
+      notifications: unknown[];
+    };
+    expect(notifications).toEqual([]);
+  });
+});
+
+describe("the mod log", () => {
+  const logOf = async (cookie: string, query = "") =>
+    (
+      (await (await call(cookie, "GET", `/mod-log${query}`)).json()) as {
+        entries: {
+          id: string;
+          by: string;
+          kind: string;
+          authorName: string | null;
+          reason?: string;
+          space?: { key: string };
+          postId: string;
+          commentId?: string;
+        }[];
+      }
+    ).entries;
+
+  it("lists what's come due, without what it said, and only what this person could see", async () => {
+    const { slug, versionId } = await study();
+    const REMOVED_TEXT = ["Gone title", "Gone body", "A bad comment", "secret"];
+    const entries = await logOf(await join(slug));
+
+    const gone = await withId(versionId, "gone");
+    const bad = await withId(versionId, "bad");
+    const kept = await withId(versionId, "kept");
+    // Which condition someone lands in is random, and "b_only" depends on it. See above for that.
+    const onlyB = await withId(versionId, "b_only");
+    expect(
+      entries
+        .map(({ id }) => id)
+        .filter((id) => id !== onlyB)
+        .sort(),
+    ).toEqual([gone, bad].sort());
+    expect(entries.find(({ id }) => id === gone)).toMatchObject({
+      by: "Sam the Mod",
+      kind: "post",
+      authorName: "Ann",
+      reason: "Rule 2",
+      space: { key: "cooking" },
+      postId: gone,
+    });
+    expect(entries.find(({ id }) => id === bad)).toMatchObject({
+      kind: "comment",
+      postId: kept,
+      commentId: bad,
+    });
+    for (const text of REMOVED_TEXT) {
+      expect(JSON.stringify(entries)).not.toContain(text);
+    }
+  });
+
+  it("includes their own, and not anyone else's, and can show one community", async () => {
+    const { slug } = await study({
+      reactions: "on,nth,type,actor,after,body\npost,0,remove,sam,0:00,Rule 3\n",
+    });
+    const mine = await join(slug);
+    const made = await postForm(mine, { title: "Mine", body: "Text", space: "other" });
+    const { id } = (await made.json()) as { id: string };
+
+    const own = await logOf(mine);
+    expect(own.find((entry) => entry.id === id)).toMatchObject({
+      authorName: null,
+      reason: "Rule 3",
+    });
+    expect((await logOf(await join(slug))).map((entry) => entry.id)).not.toContain(id);
+
+    const inOther = await logOf(mine, "?space=other");
+    expect(inOther.map((entry) => entry.id)).toEqual([id]);
+    expect((await logOf(mine, "?space=cooking")).map((entry) => entry.id)).not.toContain(id);
+  });
+
+  it("is refused with the feature off", async () => {
+    const { slug } = await study({ features: ", features: { modLog: false }" });
+    expect((await call(await join(slug), "GET", "/mod-log")).status).toBe(403);
+  });
+});

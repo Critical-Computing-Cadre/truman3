@@ -49,7 +49,8 @@ export async function scheduleReactions(
       (reaction.type === "like" && !features.likes) ||
       ((reaction.type === "up" || reaction.type === "down") && !features.votes) ||
       (reaction.type === "read" && !features.notifications) ||
-      (reaction.type === "remove" && !features.removal)
+      (reaction.type === "remove" && !features.removal) ||
+      (reaction.type === "warn" && !features.warnings)
     ) {
       continue;
     }
@@ -81,16 +82,18 @@ export async function scheduleReactions(
       type: reaction.type,
       targetContentId: trigger.contentId,
       replyContentId,
-      ...(reaction.type === "remove" ? { reason: reaction.body } : {}),
+      ...(reaction.type === "remove" || reaction.type === "warn" ? { reason: reaction.body } : {}),
       dueAt,
     });
 
     await recordEvent(tx, {
       type: "reaction.scheduled",
       payload: {
-        reaction: reaction.type as "read" | "like" | "reply" | "up" | "down" | "remove",
+        reaction: reaction.type as "read" | "like" | "reply" | "up" | "down" | "remove" | "warn",
         dueAt: dueAt.toISOString(),
-        ...(reaction.type === "remove" && reaction.body ? { reason: reaction.body } : {}),
+        ...((reaction.type === "remove" || reaction.type === "warn") && reaction.body
+          ? { reason: reaction.body }
+          : {}),
       },
       worldId: context.worldId,
       studyVersionId: context.studyVersionId,
@@ -140,7 +143,7 @@ export async function countUnreadNotifications(
 
 export interface NotificationItem {
   key: string;
-  type: "read" | "like" | "reply" | "remove";
+  type: "read" | "like" | "reply" | "remove" | "warn";
   actors: { username: string; name: string; pictureUrl: string | null }[];
   /** Whether this reacts to their post or their comment. */
   targetKind: "post" | "comment";
@@ -156,7 +159,7 @@ export interface NotificationItem {
 }
 
 /** Votes change a score without telling anyone who voted, as on the platforms that have them. */
-const SHOWN_TO_PARTICIPANTS = ["read", "like", "reply", "remove"];
+const SHOWN_TO_PARTICIPANTS = ["read", "like", "reply", "remove", "warn"];
 
 /**
  * Notifications that have come due, newest first. Reads and likes on the same content get grouped
@@ -240,7 +243,9 @@ export async function listNotifications(
   const groups = new Map<string, NotificationItem>();
   for (const row of rows) {
     const key =
-      row.type === "reply" || row.type === "remove" ? row.id : `${row.type}:${row.targetContentId}`;
+      row.type === "reply" || row.type === "remove" || row.type === "warn"
+        ? row.id
+        : `${row.type}:${row.targetContentId}`;
     const at = row.dueAt.toISOString();
     const unread = !viewedAt || row.dueAt > viewedAt;
     const existing = groups.get(key);

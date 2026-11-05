@@ -690,3 +690,32 @@ describe("removals", () => {
     );
   });
 });
+
+describe("warnings and the mod log", () => {
+  const warn = { on: "post", nth: 0, type: "warn", actor: "ann", afterMs: 0 };
+  const forum = settings({ platform: { style: "mixed", template: "forum" } });
+
+  it("needs a warning to say something", () => {
+    expect(hasErrors(validateStudy(study({ settings: forum, reactions: [warn] })))).toBe(true);
+    expect(
+      hasErrors(validateStudy(study({ settings: forum, reactions: [{ ...warn, body: "Hey" }] }))),
+    ).toBe(false);
+  });
+
+  it("warns when warnings are off, as they are in Classic", () => {
+    expect(messages(study({ reactions: [{ ...warn, body: "Hey" }] }))).toContainEqual(
+      expect.stringContaining('Moderators warning people is off in "a"'),
+    );
+  });
+
+  it("warns about a mod log with no removals to list", () => {
+    const features = { modLog: true, removal: false };
+    expect(
+      messages(
+        study({
+          settings: settings({ platform: { style: "mixed", template: "forum", features } }),
+        }),
+      ),
+    ).toContainEqual(expect.stringContaining("A mod log is on"));
+  });
+});
