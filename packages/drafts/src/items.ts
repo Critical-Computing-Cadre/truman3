@@ -3,6 +3,7 @@ import {
   flairSchema,
   linkSchema,
   MAX_ATTACHMENTS,
+  MAX_RULE_MATCH_LENGTH,
   MAX_TITLE_LENGTH,
   PIN_PLACES,
   POST_TAGS,
@@ -106,6 +107,24 @@ export const itemDataSchemas = {
     message: z.string().min(1).optional(),
     ...targeting,
   }),
+  autoRule: z.strictObject({
+    ref: z.string().min(1),
+    on: z.enum(["post", "comment", "both"]),
+    match: z.string().min(1).max(MAX_RULE_MATCH_LENGTH),
+    action: z.enum(["confirm", "remove", "warn", "hold"]),
+    actorId: z.uuid(),
+    afterMs: z.number().int().nonnegative(),
+    message: z.string().min(1).optional(),
+    holdOutcome: z.enum(["approve", "remove"]).optional(),
+    ...targeting,
+  }),
+  appealAnswer: z.strictObject({
+    action: z.enum(["uphold", "restore"]),
+    actorId: z.uuid(),
+    afterMs: z.number().int().nonnegative(),
+    message: z.string().min(1).optional(),
+    ...targeting,
+  }),
   flagAnswer: z.strictObject({
     on: z.enum(["post", "comment"]).optional(),
     targetId: z.uuid().optional(),
@@ -134,6 +153,8 @@ export type ReactionData = z.infer<typeof itemDataSchemas.reaction>;
 export type RemovalData = z.infer<typeof itemDataSchemas.removal>;
 export type FlagAnswerData = z.infer<typeof itemDataSchemas.flagAnswer>;
 export type BanData = z.infer<typeof itemDataSchemas.ban>;
+export type AutoRuleData = z.infer<typeof itemDataSchemas.autoRule>;
+export type AppealAnswerData = z.infer<typeof itemDataSchemas.appealAnswer>;
 export type ReportAnswerData = z.infer<typeof itemDataSchemas.reportAnswer>;
 
 /**

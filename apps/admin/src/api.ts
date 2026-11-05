@@ -189,6 +189,27 @@ export interface DraftInfo {
     message: string;
     conditions: string[];
   }[];
+  /** Words in what a participant writes bringing a moderator's response. */
+  autoRules: {
+    id: string;
+    on: "post" | "comment" | "both";
+    match: string;
+    action: "confirm" | "remove" | "warn" | "hold";
+    actorId: string;
+    afterMs: number;
+    message: string;
+    holdOutcome: "approve" | "remove";
+    conditions: string[];
+  }[];
+  /** What a moderator says to an appeal. */
+  appealAnswers: {
+    id: string;
+    action: "uphold" | "restore";
+    actorId: string;
+    afterMs: number;
+    message: string;
+    conditions: string[];
+  }[];
   /** A moderator banning someone in the cast. Without a space, it's from everywhere. */
   bans: {
     id: string;

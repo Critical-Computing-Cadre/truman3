@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import { formatStudyTime, parseStudyTime } from "@truman3/core";
+import { formatStudyTime, parseStudyTime, ruleMatches } from "@truman3/core";
 import { useState } from "react";
 import { type DraftInfo, get } from "../api.ts";
 import { SavedCheckbox } from "../components/SavedCheckbox.tsx";
@@ -645,6 +645,231 @@ function ReportAnswerCard({
   );
 }
 
+function AutoRuleCard({
+  rule,
+  info,
+  edits,
+}: {
+  rule: DraftInfo["autoRules"][number];
+  info: DraftInfo;
+  edits: DraftEdits;
+}) {
+  const [problem, setProblem] = useState<string | null>(null);
+  const [trying, setTrying] = useState("");
+  const save = (changes: object) => {
+    setProblem(null);
+    edits.update.mutate(
+      { itemId: rule.id, changes },
+      { onError: (error) => setProblem(error.message) },
+    );
+  };
+  const speaks = rule.action === "confirm" || rule.action === "warn";
+  return (
+    <li aria-label="Automatic rule" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+      <CastField
+        label="Words to look for, separated by | (end one with * for the start of a word)"
+        value={rule.match}
+        canEdit={info.canEdit}
+        required
+        onSave={(match) => save({ match })}
+      />
+      <label className={LABEL}>
+        Try it on a sentence
+        <input
+          value={trying}
+          onChange={(event) => setTrying(event.target.value)}
+          className={INPUT}
+        />
+        {trying && (
+          <span
+            data-testid="rule-try"
+            className={`font-normal ${ruleMatches(rule.match, trying) ? "text-rose-700" : "text-stone-500"}`}
+          >
+            {ruleMatches(rule.match, trying)
+              ? "This rule catches that."
+              : "This rule doesn't catch that."}
+          </span>
+        )}
+      </label>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className={LABEL}>
+          Looks at
+          <select
+            disabled={!info.canEdit}
+            value={rule.on}
+            onChange={(event) => save({ on: event.target.value })}
+            className={INPUT}
+          >
+            <option value="both">Posts and comments</option>
+            <option value="post">Posts</option>
+            <option value="comment">Comments</option>
+          </select>
+        </label>
+        <label className={LABEL}>
+          What happens
+          <select
+            disabled={!info.canEdit}
+            value={rule.action}
+            onChange={(event) =>
+              save({
+                action: event.target.value,
+                ...(event.target.value === "hold" ? {} : { holdOutcome: null }),
+              })
+            }
+            className={INPUT}
+          >
+            <option value="confirm">Ask if they're sure, before it posts</option>
+            <option value="hold">Hold it for approval</option>
+            <option value="remove">Remove it</option>
+            <option value="warn">Warn them</option>
+          </select>
+        </label>
+        <ModeratorPicker
+          actors={info.actors}
+          value={rule.actorId}
+          canEdit={info.canEdit}
+          onChange={(actorId) => save({ actorId })}
+        />
+        {rule.action !== "confirm" && (
+          <TimeField
+            label={rule.action === "hold" ? "Decided after" : "How long after"}
+            help="hours:minutes after they write it"
+            valueMs={rule.afterMs}
+            canEdit={info.canEdit}
+            allowBefore={false}
+            onSave={(afterMs) => save({ afterMs })}
+          />
+        )}
+        {rule.action === "hold" && (
+          <label className={LABEL}>
+            How it ends
+            <select
+              disabled={!info.canEdit}
+              value={rule.holdOutcome}
+              onChange={(event) => save({ holdOutcome: event.target.value })}
+              className={INPUT}
+            >
+              <option value="approve">Approved</option>
+              <option value="remove">Removed</option>
+            </select>
+          </label>
+        )}
+      </div>
+      <CastField
+        label={speaks ? "What it says" : "Reason shown (optional)"}
+        value={rule.message}
+        canEdit={info.canEdit}
+        required={speaks}
+        multiline
+        onSave={(message) => save({ message: message || null })}
+      />
+      <ConditionChoices
+        all={info.conditions.map(({ key }) => key)}
+        chosen={rule.conditions}
+        canEdit={info.canEdit}
+        onChange={(conditions) => save({ conditions })}
+      />
+      {problem && (
+        <p role="alert" className="text-sm text-rose-700">
+          {problem}
+        </p>
+      )}
+      {info.canEdit && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => edits.remove.mutate(rule.id)}
+            className="rounded border border-stone-300 px-2 py-1 text-xs"
+          >
+            Delete this rule
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function AppealAnswerCard({
+  answer,
+  info,
+  edits,
+}: {
+  answer: DraftInfo["appealAnswers"][number];
+  info: DraftInfo;
+  edits: DraftEdits;
+}) {
+  const [problem, setProblem] = useState<string | null>(null);
+  const save = (changes: object) => {
+    setProblem(null);
+    edits.update.mutate(
+      { itemId: answer.id, changes },
+      { onError: (error) => setProblem(error.message) },
+    );
+  };
+  return (
+    <li aria-label="Answer to an appeal" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className={LABEL}>
+          What happens
+          <select
+            disabled={!info.canEdit}
+            value={answer.action}
+            onChange={(event) => save({ action: event.target.value })}
+            className={INPUT}
+          >
+            <option value="uphold">The removal stands</option>
+            <option value="restore">It goes back up</option>
+          </select>
+        </label>
+        <ModeratorPicker
+          actors={info.actors}
+          value={answer.actorId}
+          canEdit={info.canEdit}
+          onChange={(actorId) => save({ actorId })}
+        />
+        <TimeField
+          label="How long after"
+          help="hours:minutes after they appeal"
+          valueMs={answer.afterMs}
+          canEdit={info.canEdit}
+          allowBefore={false}
+          onSave={(afterMs) => save({ afterMs })}
+        />
+      </div>
+      <CastField
+        label="What the answer says"
+        value={answer.message}
+        canEdit={info.canEdit}
+        required={answer.action === "uphold"}
+        multiline
+        onSave={(message) => save({ message: message || null })}
+      />
+      <ConditionChoices
+        all={info.conditions.map(({ key }) => key)}
+        chosen={answer.conditions}
+        canEdit={info.canEdit}
+        onChange={(conditions) => save({ conditions })}
+      />
+      {problem && (
+        <p role="alert" className="text-sm text-rose-700">
+          {problem}
+        </p>
+      )}
+      {info.canEdit && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => edits.remove.mutate(answer.id)}
+            className="rounded border border-stone-300 px-2 py-1 text-xs"
+          >
+            Delete this answer
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
 /** What a moderator does in a study. It's written here, and freezes with a version (ADR 31, 32). */
 export function ModerationPage() {
   const { draftId } = useParams({ from: "/drafts/$draftId/moderation" });
@@ -667,7 +892,14 @@ export function ModerationPage() {
   const firstPost = [...data.posts].sort((a, b) => a.offsetMs - b.offsetMs)[0];
 
   const add = (
-    kind: "removal" | "reaction" | "flagAnswer" | "ban" | "reportAnswer",
+    kind:
+      | "removal"
+      | "reaction"
+      | "flagAnswer"
+      | "ban"
+      | "reportAnswer"
+      | "autoRule"
+      | "appealAnswer",
     fields: object,
   ) => {
     setProblem(null);
@@ -766,6 +998,79 @@ export function ModerationPage() {
         <ul className="space-y-3">
           {data.flagAnswers.map((answer) => (
             <FlagAnswerCard key={answer.id} answer={answer} info={data} edits={edits} />
+          ))}
+        </ul>
+      </section>
+
+      <section aria-label="Automatic rules" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-semibold">Automatic rules</h2>
+            <p className="text-sm text-stone-500">
+              Words in what a participant writes bring a response. The first rule that matches
+              applies, in this order. A word list can catch someone disclosing something serious, so
+              try yours out, and raise it with your IRB.
+            </p>
+          </div>
+          {data.canEdit && (
+            <button
+              type="button"
+              disabled={!moderator || edits.create.isPending}
+              onClick={() =>
+                add("autoRule", {
+                  on: "both",
+                  match: "example",
+                  action: "confirm",
+                  actorId: moderator,
+                  afterMs: 0,
+                  message: "This might break a rule. Are you sure you want to post it?",
+                  conditions: [],
+                })
+              }
+              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+            >
+              Add a rule
+            </button>
+          )}
+        </div>
+        <ul className="space-y-3">
+          {data.autoRules.map((rule) => (
+            <AutoRuleCard key={rule.id} rule={rule} info={data} edits={edits} />
+          ))}
+        </ul>
+      </section>
+
+      <section aria-label="Answers to appeals" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-semibold">Answering appeals</h2>
+            <p className="text-sm text-stone-500">
+              When someone appeals a removal of what they wrote. The first that applies to their
+              condition is used. With none, they get no answer.
+            </p>
+          </div>
+          {data.canEdit && (
+            <button
+              type="button"
+              disabled={!moderator || edits.create.isPending}
+              onClick={() =>
+                add("appealAnswer", {
+                  action: "uphold",
+                  actorId: moderator,
+                  afterMs: 0,
+                  message: "We looked at your appeal, and the removal stands.",
+                  conditions: [],
+                })
+              }
+              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+            >
+              Add an answer
+            </button>
+          )}
+        </div>
+        <ul className="space-y-3">
+          {data.appealAnswers.map((answer) => (
+            <AppealAnswerCard key={answer.id} answer={answer} info={data} edits={edits} />
           ))}
         </ul>
       </section>

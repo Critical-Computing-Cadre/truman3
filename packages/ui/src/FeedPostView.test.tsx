@@ -751,3 +751,51 @@ describe("a moderator's warning", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+describe("a held post, and an appeal", () => {
+  afterEach(cleanup);
+  const draw = (post: FeedPost, onAppeal = vi.fn()) => {
+    render(
+      <PlatformProvider platform={{ layout: "forum", features: TEMPLATES.forum.features }}>
+        <FeedPostView
+          post={post}
+          actions={{
+            onLike: vi.fn(),
+            onVote: vi.fn(),
+            onFlag: vi.fn(),
+            onReply: vi.fn(),
+            onAppeal,
+          }}
+        />
+      </PlatformProvider>,
+    );
+    return onAppeal;
+  };
+  const mine = { ...POST, author: { ...author, isViewer: true }, comments: [] };
+
+  it("says a post is waiting", () => {
+    draw({ ...mine, held: true });
+    expect(screen.getByTestId("held-note").textContent).toContain("Waiting for a moderator");
+  });
+
+  it("takes an appeal, and says when it's sent", () => {
+    const onAppeal = draw({ ...mine, removed: { by: "Sam", appeal: "open" } });
+    fireEvent.click(screen.getByRole("button", { name: "Appeal" }));
+    const send = screen.getByRole("button", { name: "Send appeal" }) as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Why should this go back up?"), {
+      target: { value: "  It's fine  " },
+    });
+    fireEvent.click(send);
+    expect(onAppeal).toHaveBeenCalledWith("p1", "It's fine");
+  });
+
+  it("offers nothing once sent, or with no appeal", () => {
+    draw({ ...mine, removed: { by: "Sam", appeal: "sent" } });
+    expect(screen.getByText("You've appealed this.")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Appeal" })).toBeNull();
+    cleanup();
+    draw({ ...mine, removed: { by: "Sam" } });
+    expect(screen.queryByRole("button", { name: "Appeal" })).toBeNull();
+  });
+});

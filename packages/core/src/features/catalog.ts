@@ -102,6 +102,20 @@ export const FEATURES = {
     version: 1,
     events: ["reaction.scheduled"],
   },
+  autoRules: {
+    name: "Automatic rules",
+    description:
+      'Words in what a participant writes can bring an "are you sure?" first, hold it for approval, remove it, or warn them. A word list can catch someone disclosing something serious, so test yours, and raise it with your IRB.',
+    version: 1,
+    events: ["moderation.rule_fired", "moderation.confirm_answered", "reaction.scheduled"],
+  },
+  appeals: {
+    name: "Appeals",
+    description:
+      "A participant can appeal a moderator's removal of what they wrote, and a moderator the study writes answers. What they write is recorded.",
+    version: 1,
+    events: ["moderation.appealed", "reaction.scheduled"],
+  },
   warnings: {
     name: "Moderators warning people",
     description:

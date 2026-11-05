@@ -11,7 +11,7 @@ import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { exportStudy } from "@truman3/study-export";
 import { importStudyFolder, withdrawParticipant } from "@truman3/study-import";
 import { parse } from "csv-parse/sync";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadVersion, previewFeed } from "./admin/preview.ts";
 import { createApp } from "./app.ts";
@@ -48,6 +48,8 @@ async function study({
   bans = "",
   reportAnswers = "",
   extraPosts = "",
+  autoRules = "",
+  appealAnswers = "",
 }: {
   features?: string;
   reactions?: string;
@@ -56,6 +58,8 @@ async function study({
   bans?: string;
   reportAnswers?: string;
   extraPosts?: string;
+  autoRules?: string;
+  appealAnswers?: string;
 } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "truman-removal-"));
   dirs.push(dir);
@@ -84,6 +88,8 @@ flow: [{ step: feed }, { step: exit }]
     ...(reactions ? { "reactions.csv": reactions } : {}),
     ...(flagAnswers ? { "flag-answers.csv": flagAnswers } : {}),
     ...(bans ? { "bans.csv": bans } : {}),
+    ...(autoRules ? { "auto-rules.csv": autoRules } : {}),
+    ...(appealAnswers ? { "appeal-answers.csv": appealAnswers } : {}),
     ...(reportAnswers ? { "report-answers.csv": reportAnswers } : {}),
   };
   for (const [name, text] of Object.entries(files)) {
@@ -259,7 +265,7 @@ describe("a moderator removing what a participant wrote", () => {
     const { id } = (await made.json()) as { id: string };
 
     const mine = byId(await list(cookie), id);
-    expect(mine.removed).toEqual({ by: "Sam the Mod", reason: "Rule 3" });
+    expect(mine.removed).toEqual({ by: "Sam the Mod", reason: "Rule 3", appeal: "open" });
     expect(mine.body).toBe("I wrote this");
     expect(mine.title).toBe("Mine");
     expect((await act(cookie, id, "comments", { body: "More" })).status).toBe(403);
@@ -1021,5 +1027,309 @@ ann,ban,sam,0:00,Thanks for telling us
       requestedBy: "tester",
     });
     expect(result.status).toBe("withdrawn");
+  });
+});
+
+describe("automatic rules", () => {
+  const HEAD = "id,on,match,action,actor,after,message,holdOutcome\n";
+  const write = async (cookie: string, title: string, fields: Record<string, string> = {}) => {
+    const made = await postForm(cookie, { title, body: "Text", space: "cooking", ...fields });
+    return (await made.json()) as {
+      id?: string;
+      confirm?: { rule: string; message: string; by: string };
+    };
+  };
+  const firedFor = async (versionId: string) =>
+    database.db
+      .select()
+      .from(schema.events)
+      .where(
+        and(
+          eq(schema.events.studyVersionId, versionId),
+          eq(schema.events.type, "moderation.rule_fired"),
+        ),
+      );
+
+  it("asks if they're sure first, posts nothing, and records what they do", async () => {
+    const { slug, versionId } = await study({
+      autoRules: `${HEAD}ask,post,badword,confirm,sam,0:00,Are you sure?,\n`,
+    });
+    const cookie = await join(slug);
+
+    const asked = await write(cookie, "A badword here");
+    expect(asked.id).toBeUndefined();
+    expect(asked.confirm).toEqual({ rule: "ask", message: "Are you sure?", by: "Sam the Mod" });
+    const before = await list(cookie);
+    expect(before.some(({ title }) => title === "A badword here")).toBe(false);
+
+    const [fired] = await firedFor(versionId);
+    expect(fired?.payload).toEqual({ rule: "ask", action: "confirm" });
+    expect(fired?.targetContentId).toBeNull();
+
+    const back = await call(cookie, "POST", "/moderation/confirm-answered", {
+      ...meta(),
+      rule: "ask",
+    });
+    expect(back.status).toBe(200);
+
+    const posted = await write(cookie, "A badword here", { confirmedRule: "ask" });
+    expect(posted.id).toBeDefined();
+    const answers = await database.db
+      .select()
+      .from(schema.events)
+      .where(
+        and(
+          eq(schema.events.studyVersionId, versionId),
+          eq(schema.events.type, "moderation.confirm_answered"),
+        ),
+      );
+    expect(answers.map(({ payload }) => payload)).toEqual(
+      expect.arrayContaining([
+        { rule: "ask", choice: "went_back" },
+        { rule: "ask", choice: "posted" },
+      ]),
+    );
+    expect((await write(cookie, "Nothing wrong")).id).toBeDefined();
+  });
+
+  it("keeps text someone didn't post only if the study turns that on", async () => {
+    const rules = `${HEAD}ask,post,badword,confirm,sam,0:00,Sure?,\n`;
+    const off = await study({ autoRules: rules });
+    await write(await join(off.slug), "A badword here");
+    const [notKept] = await firedFor(off.versionId);
+    expect(JSON.stringify(notKept?.payload)).not.toContain("badword");
+
+    const on = await study({ autoRules: rules, features: ", recordUnpostedText: true" });
+    await write(await join(on.slug), "A badword here");
+    const [kept] = await firedFor(on.versionId);
+    expect(kept?.payload).toMatchObject({ unpostedText: "A badword here\nText" });
+  });
+
+  it("removes or warns once posted, and checks comments too", async () => {
+    const { slug, versionId } = await study({
+      autoRules: `${HEAD}gone,post,removeme,remove,sam,0:00,Rule 1,
+warned,comment,warnme,warn,sam,0:00,Careful,
+`,
+    });
+    const cookie = await join(slug);
+    const { id } = await write(cookie, "Please removeme");
+    expect(byId(await list(cookie), id as string).removed).toMatchObject({ reason: "Rule 1" });
+
+    const kept = await withId(versionId, "kept");
+    await act(cookie, kept, "comments", { body: "warnme now" });
+    const warnings = (await (await call(cookie, "GET", "/warnings")).json()) as {
+      warnings: { message: string }[];
+    };
+    expect(warnings.warnings.map(({ message }) => message)).toEqual(["Careful"]);
+    expect((await firedFor(versionId)).map(({ payload }) => payload)).toEqual(
+      expect.arrayContaining([
+        { rule: "gone", action: "remove" },
+        { rule: "warned", action: "warn" },
+      ]),
+    );
+  });
+
+  it("uses the first that matches, and can ask and then act", async () => {
+    const { slug } = await study({
+      autoRules: `${HEAD}ask,post,word,confirm,sam,0:00,Sure?,
+first,post,word,remove,sam,0:00,First,
+second,post,word,warn,sam,0:00,Second,
+`,
+    });
+    const cookie = await join(slug);
+    const { id } = await write(cookie, "A word here", { confirmedRule: "ask" });
+    expect(byId(await list(cookie), id as string).removed?.reason).toBe("First");
+    const { warnings } = (await (await call(cookie, "GET", "/warnings")).json()) as {
+      warnings: unknown[];
+    };
+    expect(warnings).toEqual([]);
+  });
+
+  it("holds until it's decided, with reactions after, and ends as written", async () => {
+    const { slug } = await study({
+      autoRules: `${HEAD}wait,post,waiting,hold,sam,5:00,,approve
+yes,post,approved,hold,sam,0:00,Looks fine,approve
+no,post,refused,hold,sam,0:00,Not allowed,remove
+`,
+      reactions: "on,nth,type,actor,after,body\npost,0,reply,ann,0:00,From Ann\n",
+    });
+    const cookie = await join(slug);
+    const { id: waiting } = await write(cookie, "Still waiting");
+    const posts = await list(cookie);
+    expect(byId(posts, waiting as string).held).toBe(true);
+    // Reactions wait for it, since nobody could have seen it.
+    expect(byId(posts, waiting as string).commentCount).toBe(0);
+
+    const { id: approved } = await write(cookie, "Now approved");
+    const { id: refused } = await write(cookie, "Now refused");
+    const after = await list(cookie);
+    expect(byId(after, approved as string).held).toBeUndefined();
+    expect(byId(after, approved as string).removed).toBeUndefined();
+    expect(byId(after, refused as string).removed).toMatchObject({ reason: "Not allowed" });
+
+    const { notifications } = (await (await call(cookie, "GET", "/notifications")).json()) as {
+      notifications: { type: string; reason: string | null }[];
+    };
+    const types = notifications.map(({ type }) => type);
+    expect(types).toContain("approve");
+    expect(types).toContain("remove");
+    expect(types).not.toContain("hold");
+  });
+
+  it("does nothing with the feature off, or the action's feature off", async () => {
+    const off = await study({
+      autoRules: `${HEAD}gone,post,word,remove,sam,0:00,Rule 1,\n`,
+      features: ", features: { autoRules: false }",
+    });
+    const cookie = await join(off.slug);
+    const { id } = await write(cookie, "A word");
+    expect(byId(await list(cookie), id as string).removed).toBeUndefined();
+
+    const noRemoval = await study({
+      autoRules: `${HEAD}gone,post,word,remove,sam,0:00,Rule 1,\n`,
+      features: ", features: { removal: false }",
+    });
+    await write(await join(noRemoval.slug), "A word");
+    expect(await firedFor(noRemoval.versionId)).toEqual([]);
+  });
+
+  it("freezes, stays through a draft, and is exported", async () => {
+    const { slug, versionId } = await study({
+      autoRules: `${HEAD}gone,post,word,remove,sam,0:00,Rule 1,\n`,
+      appealAnswers: "action,actor,after,message\nuphold,sam,0:00,It stands\n",
+    });
+    await expect(
+      database.db
+        .update(schema.scriptedAutoRules)
+        .set({ match: "changed" })
+        .where(eq(schema.scriptedAutoRules.studyVersionId, versionId)),
+    ).rejects.toThrow();
+
+    const email = `${randomUUID()}@example.edu`;
+    await setUpTeam(database.db, {
+      teamName: "Lab",
+      slug: `lab-${randomUUID().slice(0, 8)}`,
+      email,
+      name: "R",
+    });
+    const [researcher] = await database.db
+      .select({ id: schema.researchers.id })
+      .from(schema.researchers)
+      .where(eq(schema.researchers.email, email));
+    const opened = await openDraft(database.db, versionId, researcher?.id as string);
+    const draft = await loadDraft(database.db, opened?.draftId as string);
+    expect(draft?.items.filter(({ kind }) => kind === "autoRule")).toHaveLength(1);
+    expect(draft?.items.filter(({ kind }) => kind === "appealAnswer")).toHaveLength(1);
+
+    const folder = mkdtempSync(path.join(tmpdir(), "truman-rule-export-"));
+    dirs.push(folder);
+    await exportStudy(database.db, slug, folder);
+    expect(readFileSync(path.join(folder, "auto_rules.csv"), "utf8")).toContain("Rule 1");
+    expect(readFileSync(path.join(folder, "appeal_answers.csv"), "utf8")).toContain("It stands");
+  });
+});
+
+describe("appeals", () => {
+  const REMOVE_FIRST = "on,nth,type,actor,after,body\npost,0,remove,sam,0:00,Rule 3\n";
+  const removedPost = async (cookie: string) => {
+    const made = await postForm(cookie, { title: "Mine", body: "Text", space: "cooking" });
+    return ((await made.json()) as { id: string }).id;
+  };
+  const appeal = (cookie: string, id: string, text = "It's fine") =>
+    act(cookie, id, "appeal", { text });
+
+  it("lets its author appeal once, and records what they wrote", async () => {
+    const { slug, versionId } = await study({ reactions: REMOVE_FIRST });
+    const cookie = await join(slug);
+    const id = await removedPost(cookie);
+    expect(byId(await list(cookie), id).removed?.appeal).toBe("open");
+
+    expect((await appeal(cookie, id)).status).toBe(200);
+    expect(byId(await list(cookie), id).removed?.appeal).toBe("sent");
+    expect((await appeal(cookie, id)).status).toBe(409);
+
+    const events = await database.db
+      .select()
+      .from(schema.events)
+      .where(
+        and(
+          eq(schema.events.studyVersionId, versionId),
+          eq(schema.events.type, "moderation.appealed"),
+        ),
+      );
+    expect(events.map(({ payload }) => payload)).toEqual([{ text: "It's fine" }]);
+  });
+
+  it("puts it back, or keeps the removal, as the study writes", async () => {
+    const restored = await study({
+      reactions: REMOVE_FIRST,
+      appealAnswers: "action,actor,after,message\nrestore,sam,0:00,Back it goes\n",
+    });
+    const cookie = await join(restored.slug);
+    const id = await removedPost(cookie);
+    await appeal(cookie, id);
+    expect(byId(await list(cookie), id).removed).toBeUndefined();
+    expect((await act(cookie, id, "comments", { body: "Back" })).status).toBe(200);
+    const log = (await (await call(cookie, "GET", "/mod-log")).json()) as {
+      entries: { id: string }[];
+    };
+    expect(log.entries.map((entry) => entry.id)).not.toContain(id);
+
+    const upheld = await study({
+      reactions: REMOVE_FIRST,
+      appealAnswers: "action,actor,after,message\nuphold,sam,0:00,It stands\n",
+    });
+    const other = await join(upheld.slug);
+    const stays = await removedPost(other);
+    await appeal(other, stays);
+    expect(byId(await list(other), stays).removed).toBeDefined();
+    const { notifications } = (await (await call(other, "GET", "/notifications")).json()) as {
+      notifications: { type: string; reason: string | null }[];
+    };
+    expect(notifications).toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: "uphold", reason: "It stands" })]),
+    );
+  });
+
+  it("is only for what's theirs and removed, and goes with a withdrawal", async () => {
+    const { slug, versionId } = await study({ reactions: REMOVE_FIRST });
+    const externalId = randomUUID();
+    const cookie = await join(slug, externalId);
+    const gone = await withId(versionId, "gone");
+    expect((await appeal(cookie, gone)).status).toBe(404);
+    const kept = await withId(versionId, "kept");
+    expect((await appeal(cookie, kept)).status).toBe(404);
+    expect(byId(await list(cookie), gone).removed?.appeal).toBeUndefined();
+
+    const id = await removedPost(cookie);
+    await appeal(cookie, id);
+    const result = await withdrawParticipant(database.db, storage, {
+      slug,
+      externalId,
+      reason: "withdrew",
+      requestedBy: "tester",
+    });
+    expect(result.status).toBe("withdrawn");
+    const left = await database.db
+      .select()
+      .from(schema.events)
+      .where(
+        and(
+          eq(schema.events.studyVersionId, versionId),
+          eq(schema.events.type, "moderation.appealed"),
+        ),
+      );
+    expect(left).toEqual([]);
+  });
+
+  it("is refused with the feature off", async () => {
+    const { slug } = await study({
+      reactions: REMOVE_FIRST,
+      features: ", features: { appeals: false }",
+    });
+    const cookie = await join(slug);
+    const id = await removedPost(cookie);
+    expect(byId(await list(cookie), id).removed?.appeal).toBeUndefined();
+    expect((await appeal(cookie, id)).status).toBe(403);
   });
 });

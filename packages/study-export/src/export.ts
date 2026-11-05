@@ -200,6 +200,20 @@ export async function exportStudy(
         .orderBy(asc(schema.spaces.position))
     : [];
   const spaceById = new Map(spaces.map((space) => [space.id, space]));
+  const autoRules = versionIds.length
+    ? await db
+        .select()
+        .from(schema.scriptedAutoRules)
+        .where(inArray(schema.scriptedAutoRules.studyVersionId, versionIds))
+        .orderBy(asc(schema.scriptedAutoRules.position))
+    : [];
+  const appealAnswers = versionIds.length
+    ? await db
+        .select()
+        .from(schema.scriptedAppealAnswers)
+        .where(inArray(schema.scriptedAppealAnswers.studyVersionId, versionIds))
+        .orderBy(asc(schema.scriptedAppealAnswers.position))
+    : [];
   const bans = versionIds.length
     ? await db
         .select()
@@ -246,6 +260,62 @@ export async function exportStudy(
 
   mkdirSync(folder, { recursive: true });
   const files: string[] = [];
+
+  if (autoRules.length > 0) {
+    files.push(
+      writeCsv(
+        folder,
+        "auto_rules.csv",
+        [
+          "study_version",
+          "rule",
+          "position",
+          "on",
+          "match",
+          "action",
+          "moderator",
+          "after_ms",
+          "message",
+          "hold_outcome",
+          "conditions",
+          "class",
+        ],
+        autoRules.map((rule) => ({
+          study_version: versionNumber.get(rule.studyVersionId),
+          rule: safeText(rule.ref),
+          position: rule.position,
+          on: rule.on,
+          match: safeText(rule.match),
+          action: rule.action,
+          moderator: safeText(actorById.get(rule.actorId)?.username),
+          after_ms: rule.afterMs,
+          message: safeText(rule.message),
+          hold_outcome: rule.holdOutcome ?? "",
+          conditions: rule.conditions.join("|"),
+          class: safeText(rule.class),
+        })),
+      ),
+    );
+  }
+
+  if (appealAnswers.length > 0) {
+    files.push(
+      writeCsv(
+        folder,
+        "appeal_answers.csv",
+        ["study_version", "action", "moderator", "after_ms", "message", "conditions", "class"],
+        appealAnswers.map((answer) => ({
+          study_version: versionNumber.get(answer.studyVersionId),
+          action: answer.action,
+          moderator: safeText(actorById.get(answer.actorId)?.username),
+          after_ms: answer.afterMs,
+          message: safeText(answer.message),
+          conditions: answer.conditions.join("|"),
+          class: safeText(answer.class),
+        })),
+      ),
+    );
+  }
 
   if (bans.length > 0) {
     files.push(
@@ -801,6 +871,29 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ],
     ["removed_comment_ids", "Which of comment_ids a moderator had removed by then"],
   ],
+  "auto_rules.csv": [
+    [
+      "rule",
+      "An automatic rule's ID, which moderation.rule_fired in events.csv names. The first in position order that matches applies. Only present if a version has some",
+    ],
+    [
+      "match",
+      "What it looks for: words and phrases, separated by |. One ending in * matches the start of a word",
+    ],
+    ["action", "confirm asks if they're sure. remove, warn, and hold happen after they post"],
+    ["moderator", "Who it says did this, by username"],
+    ["after_ms", "How long after they write it. For a hold, how long until it's decided"],
+    ["hold_outcome", "How a hold ends: approve, or remove"],
+  ],
+  "appeal_answers.csv": [
+    [
+      "action",
+      "What a moderator does about an appeal: uphold keeps the removal, restore puts it back. What each person wrote is moderation.appealed in events.csv. Only present if a version has some",
+    ],
+    ["moderator", "Who answers, by username"],
+    ["after_ms", "How long after the appeal"],
+    ["message", "What the answer says"],
+  ],
   "bans.csv": [
     [
       "user",
@@ -913,8 +1006,14 @@ const ORDER_NOTES: [string, string][] = [
 
 /** What an event means, where its name doesn't say enough. */
 const EVENT_NOTES: Record<string, string> = {
+  "moderation.rule_fired":
+    "An automatic rule caught what they wrote. `rule` names it, in auto_rules.csv. With no target it hasn't been posted. `unpostedText` is what they wrote, and is only present if the study turned on recording it, so it may be text they chose never to share.",
+  "moderation.confirm_answered":
+    "What they did when a rule asked if they were sure: posted anyway, or went back. Someone who closes the page does neither.",
+  "moderation.appealed":
+    "They appealed a moderator's removal of what they wrote. `text` is their appeal, in their words. Treat it as sensitive.",
   "reaction.scheduled":
-    "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator. `warn` means a moderator warned them, and `reason` is what it said. `answer` means a moderator answered their flag, and `reason` is what it said. A `remove` following a flag is about what they flagged, not something they wrote. An `answer` or `ban` following a report has `target_actor` instead of a post or comment.",
+    "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator. `warn` means a moderator warned them, and `reason` is what it said. `answer` means a moderator answered their flag, and `reason` is what it said. A `remove` following a flag is about what they flagged, not something they wrote. An `answer` or `ban` following a report has `target_actor` instead of a post or comment. `hold` and `approve` are a rule holding what they wrote, with `dueAt` when it's decided. `uphold` and `restore` answer an appeal.",
   "moderation.warning_acknowledged":
     "They pressed the button on a moderator's warning, which stays on every page until they do. It names what the warning was about, and doesn't say they read it.",
   "space.joined": "They joined a space, so its posts show in their home feed. Names it by key.",

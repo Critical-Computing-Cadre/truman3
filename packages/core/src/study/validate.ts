@@ -1,3 +1,4 @@
+import { ruleTerms } from "../auto-rules.ts";
 import { MAX_ATTACHMENTS } from "../feed.ts";
 import { hasPlaceholderConsent } from "./consent.ts";
 import type { StudyDefinition } from "./definition.ts";
@@ -72,6 +73,8 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       shownIn(arm.key, study.flagAnswers),
       shownIn(arm.key, study.bans),
       shownIn(arm.key, study.reportAnswers),
+      shownIn(arm.key, study.autoRules),
+      shownIn(arm.key, study.appealAnswers),
     ]);
     const same = conditionLooks.get(looks);
     if (same) {
@@ -246,6 +249,21 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
           );
         }
       }
+    }
+    const autoRules = study.autoRules.filter(applies);
+    if (!on.autoRules && autoRules.length > 0) {
+      warning(`Automatic rules are off in "${arm.key}", so its rules won't happen.`);
+    }
+    if (on.autoRules && !on.removal && autoRules.some(({ action }) => action === "remove")) {
+      warning(
+        `Moderators removing things is off in "${arm.key}", so a rule can't remove anything.`,
+      );
+    }
+    if (on.autoRules && !on.warnings && autoRules.some(({ action }) => action === "warn")) {
+      warning(`Moderators warning people is off in "${arm.key}", so a rule can't warn anyone.`);
+    }
+    if (!on.appeals && study.appealAnswers.some(applies)) {
+      warning(`Appeals are off in "${arm.key}", so its answers won't happen.`);
     }
     if (on.modLog && !on.removal) {
       warning(`A mod log is on in "${arm.key}", but it lists removals, which are off.`);
@@ -607,6 +625,34 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
   }
 
+  const ruleRefs = new Set<string>();
+  for (const rule of study.autoRules) {
+    const label = `The automatic rule "${rule.ref}"`;
+    if (ruleRefs.has(rule.ref)) {
+      error(`${label} has the same ID as another rule.`, rule.source);
+    }
+    ruleRefs.add(rule.ref);
+    checkActor(rule.actor, label, rule.source);
+    checkConditions(rule.conditions, label, rule.source);
+    if (ruleTerms(rule.match).length === 0) {
+      error(`${label} has no words to look for.`, rule.source);
+    }
+    if ((rule.action === "confirm" || rule.action === "warn") && !rule.message) {
+      error(`${label} has to say something, since it asks or warns.`, rule.source);
+    }
+    if (rule.holdOutcome && rule.action !== "hold") {
+      error(`${label} says how a hold ends, but it isn't a hold.`, rule.source);
+    }
+  }
+  for (const answer of study.appealAnswers) {
+    const label = "An answer to an appeal";
+    checkActor(answer.actor, label, answer.source);
+    checkConditions(answer.conditions, label, answer.source);
+    if (answer.action === "uphold" && !answer.message) {
+      error(`${label} keeps the removal, but doesn't say anything.`, answer.source);
+    }
+  }
+
   const steps = settings.flow.map((step) => step.step);
   if (steps.filter((step) => step === "feed").length !== 1) {
     error("The flow needs exactly one feed step.");
@@ -692,6 +738,8 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       ...study.flagAnswers,
       ...study.bans,
       ...study.reportAnswers,
+      ...study.autoRules,
+      ...study.appealAnswers,
     ].flatMap((item) => item.conditions),
   );
   const hasOverrides = settings.conditions.arms.some((arm) => arm.feed);

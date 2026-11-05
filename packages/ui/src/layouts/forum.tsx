@@ -76,7 +76,7 @@ function ForumComment({
       <div className="mt-1 text-sm break-words whitespace-pre-wrap">
         {renderBody ? renderBody(comment.id, comment.body) : comment.body}
       </div>
-      <RemovedNote item={comment} className="mt-1" />
+      <RemovedNote item={comment} actions={actions} className="mt-1" />
       <p className="mt-1 flex flex-wrap items-center gap-3 text-xs font-medium text-stone-500">
         <VoteButtons item={comment} actions={actions} />
         <CommentLikeButton comment={comment} actions={actions} />
@@ -164,7 +164,7 @@ export function ForumPost({
           {...(renderPostLink && !detail ? { renderPostLink } : {})}
         />
         <PostFlair post={post} className="px-4 pt-1" />
-        <RemovedNote item={post} className="mx-4 mt-2" />
+        <RemovedNote item={post} actions={actions} className="mx-4 mt-2" />
         <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
           {renderBody ? (
             <div className="px-4 pt-1.5 text-sm">{renderBody(post.id, post.body)}</div>

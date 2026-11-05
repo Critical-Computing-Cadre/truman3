@@ -5,6 +5,7 @@ export {
   pickUniformArm,
   type WeightedArm,
 } from "./assignment.ts";
+export { MAX_RULE_MATCH_LENGTH, ruleMatches, ruleTerms } from "./auto-rules.ts";
 export { ACCENT_PATTERN, contrast, textOnAccent } from "./color.ts";
 export {
   EVENT_SOURCES,

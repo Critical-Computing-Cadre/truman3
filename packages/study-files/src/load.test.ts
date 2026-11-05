@@ -368,3 +368,35 @@ describe("bans.csv and report-answers.csv", () => {
     expect(issues.map(({ message }) => message).join()).toContain("has to be answer or ban");
   });
 });
+
+describe("auto-rules.csv and appeal-answers.csv", () => {
+  it("reads both", () => {
+    const { definition } = loadStudyFolder(
+      folder({
+        ...base,
+        "auto-rules.csv":
+          "id,on,match,action,actor,after,message,holdOutcome\nr,both,a|b,hold,ann,0:10,,remove\n",
+        "appeal-answers.csv": "action,actor,after,message\nuphold,ann,0:00,No\n",
+      }),
+    );
+    expect(definition?.autoRules).toEqual([
+      expect.objectContaining({ ref: "r", on: "both", match: "a|b", holdOutcome: "remove" }),
+    ]);
+    expect(definition?.appealAnswers).toEqual([
+      expect.objectContaining({ action: "uphold", message: "No" }),
+    ]);
+  });
+
+  it("refuses what it doesn't know", () => {
+    const { issues } = loadStudyFolder(
+      folder({
+        ...base,
+        "auto-rules.csv": "id,on,match,action,actor,after\nr,space,a,ban,ann,0:00\n",
+        "appeal-answers.csv": "action,actor,after\nmaybe,ann,0:00\n",
+      }),
+    );
+    const said = issues.map(({ message }) => message).join();
+    expect(said).toContain("has to be post, comment, or both");
+    expect(said).toContain("has to be uphold or restore");
+  });
+});

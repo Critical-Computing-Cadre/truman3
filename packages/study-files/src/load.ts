@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
   type ActorDefinition,
+  type AppealAnswerDefinition,
+  type AutoRuleDefinition,
   type BanDefinition,
   type CommentDefinition,
   type FlagAnswerDefinition,
@@ -97,6 +99,14 @@ const BANS: CsvSpec = {
 const REPORT_ANSWERS: CsvSpec = {
   required: ["action", "actor", "after"],
   optional: ["user", "message", "condition", "class"],
+};
+const AUTO_RULES: CsvSpec = {
+  required: ["id", "on", "match", "action", "actor", "after"],
+  optional: ["message", "holdOutcome", "condition", "class"],
+};
+const APPEAL_ANSWERS: CsvSpec = {
+  required: ["action", "actor", "after"],
+  optional: ["message", "condition", "class"],
 };
 const REMOVALS: CsvSpec = {
   required: ["on", "target", "actor", "time"],
@@ -490,6 +500,52 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     });
   }
 
+  const autoRules: AutoRuleDefinition[] = [];
+  for (const { row, cells } of readTable("auto-rules.csv", AUTO_RULES, false)) {
+    const file = "auto-rules.csv";
+    const { on, action, holdOutcome } = cells;
+    if (on !== "post" && on !== "comment" && on !== "both") {
+      rowError(file, row, `"${on}" in on has to be post, comment, or both.`);
+      continue;
+    }
+    if (action !== "confirm" && action !== "remove" && action !== "warn" && action !== "hold") {
+      rowError(file, row, `"${action}" in action has to be confirm, remove, warn, or hold.`);
+      continue;
+    }
+    if (holdOutcome && holdOutcome !== "approve" && holdOutcome !== "remove") {
+      rowError(file, row, `"${holdOutcome}" in holdOutcome has to be approve or remove.`);
+      continue;
+    }
+    autoRules.push({
+      ref: cells.id || `(row ${row})`,
+      on,
+      match: cells.match ?? "",
+      action,
+      actor: cells.actor || `(row ${row})`,
+      afterMs: Math.max(time(cells.after, "after", file, row), 0),
+      ...optional("message", cells.message || undefined),
+      ...(holdOutcome === "approve" || holdOutcome === "remove" ? { holdOutcome } : {}),
+      ...targeting(cells, file, row),
+    });
+  }
+
+  const appealAnswers: AppealAnswerDefinition[] = [];
+  for (const { row, cells } of readTable("appeal-answers.csv", APPEAL_ANSWERS, false)) {
+    const file = "appeal-answers.csv";
+    const { action } = cells;
+    if (action !== "uphold" && action !== "restore") {
+      rowError(file, row, `"${action}" in action has to be uphold or restore.`);
+      continue;
+    }
+    appealAnswers.push({
+      action,
+      actor: cells.actor || `(row ${row})`,
+      afterMs: Math.max(time(cells.after, "after", file, row), 0),
+      ...optional("message", cells.message || undefined),
+      ...targeting(cells, file, row),
+    });
+  }
+
   const pages: Record<string, string> = {};
   for (const step of settings.data.flow) {
     if (step.step === "consent" || step.step === "page") {
@@ -546,6 +602,8 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     flagAnswers,
     bans,
     reportAnswers,
+    autoRules,
+    appealAnswers,
   });
   if (!parsed.success) {
     return {

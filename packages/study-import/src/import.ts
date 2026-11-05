@@ -69,6 +69,10 @@ function hashStudy(study: StudyDefinition, mediaKeys: Map<string, string>): stri
     ...(study.reportAnswers.length > 0
       ? { reportAnswers: withoutSource(study.reportAnswers) }
       : {}),
+    ...(study.autoRules.length > 0 ? { autoRules: withoutSource(study.autoRules) } : {}),
+    ...(study.appealAnswers.length > 0
+      ? { appealAnswers: withoutSource(study.appealAnswers) }
+      : {}),
     media: [...mediaKeys.entries()].sort(([a], [b]) => a.localeCompare(b)),
   };
   return createHash("sha256").update(stableStringify(identity)).digest("hex");
@@ -493,6 +497,46 @@ export async function freezeStudy(
           actorId: actorId(answer.actor),
           afterMs: answer.afterMs,
           message: answer.message,
+          conditions: answer.conditions,
+          class: answer.class,
+        })),
+      );
+    }
+
+    for (const batch of chunks(
+      study.autoRules.map((rule, position) => ({ rule, position })),
+      INSERT_BATCH_SIZE,
+    )) {
+      await tx.insert(schema.scriptedAutoRules).values(
+        batch.map(({ rule, position }) => ({
+          studyVersionId,
+          ref: rule.ref,
+          on: rule.on,
+          match: rule.match,
+          action: rule.action,
+          actorId: actorId(rule.actor),
+          afterMs: rule.afterMs,
+          message: rule.message,
+          holdOutcome: rule.holdOutcome,
+          position,
+          conditions: rule.conditions,
+          class: rule.class,
+        })),
+      );
+    }
+
+    for (const batch of chunks(
+      study.appealAnswers.map((answer, position) => ({ answer, position })),
+      INSERT_BATCH_SIZE,
+    )) {
+      await tx.insert(schema.scriptedAppealAnswers).values(
+        batch.map(({ answer, position }) => ({
+          studyVersionId,
+          action: answer.action,
+          actorId: actorId(answer.actor),
+          afterMs: answer.afterMs,
+          message: answer.message,
+          position,
           conditions: answer.conditions,
           class: answer.class,
         })),

@@ -3,9 +3,10 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import type { FeedComment, FeedPost } from "@truman3/core";
 import { CommentBox, FeedPostView } from "@truman3/ui";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { flowQuery, meQuery, post as send } from "../api.ts";
+import { flowQuery, meQuery, post as send, type Written } from "../api.ts";
 import { createDwellTimer } from "../dwell.ts";
 import { rememberOpenedFrom, track } from "../tracking.ts";
+import { AreYouSure } from "./AreYouSure.tsx";
 import { CrosspostDialog } from "./CrosspostDialog.tsx";
 
 /** Counts as being looked at once half of it is on screen. */
@@ -95,9 +96,19 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
     onSettled: () => client.invalidateQueries(),
   });
 
+  const [asked, setAsked] = useState<NonNullable<Written["confirm"]> | null>(null);
   const comment = useMutation({
-    mutationFn: (body: string) => send(`/content/${replyTo?.id ?? post.id}/comments`, { body }),
-    onSuccess: () => {
+    mutationFn: ({ body, confirmedRule }: { body: string; confirmedRule?: string }) =>
+      send<Written>(`/content/${replyTo?.id ?? post.id}/comments`, {
+        body,
+        ...(confirmedRule ? { confirmedRule } : {}),
+      }),
+    onSuccess: (written) => {
+      if (written.confirm) {
+        setAsked(written.confirm);
+        return;
+      }
+      setAsked(null);
       setDraft("");
       setReplying(false);
       setReplyTo(null);
@@ -169,6 +180,11 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
           onReveal: (id) => {
             send(`/content/${id}/reveal`).catch(() => {});
           },
+          onAppeal: (id, text) => {
+            send(`/content/${id}/appeal`, { text })
+              .catch(() => {})
+              .finally(() => client.invalidateQueries());
+          },
           onPollVote: (id, option) => pollVote.mutate({ id, option }),
           onCrosspost: () => setCrossposting(true),
           onReply: () => {
@@ -211,12 +227,20 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
                     </button>
                   </p>
                 )}
+                {asked && (
+                  <AreYouSure
+                    asked={asked}
+                    sending={comment.isPending}
+                    onPost={() => comment.mutate({ body: draft, confirmedRule: asked.rule })}
+                    onBack={() => setAsked(null)}
+                  />
+                )}
                 <CommentBox
                   seed={me.data.username}
                   pictureUrl={me.data.pictureUrl}
                   value={draft}
                   onChange={setDraft}
-                  onSubmit={() => comment.mutate(draft)}
+                  onSubmit={() => comment.mutate({ body: draft })}
                   sending={comment.isPending}
                   inputRef={inputRef}
                 />

@@ -1261,6 +1261,58 @@ describe("a moderator's decisions in the builder", () => {
     expect(flags).toEqual([expect.objectContaining({ action: "remove", contentId: null })]);
   });
 
+  it("writes automatic rules and answers to appeals, and keeps them in order", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await info(team, draftId);
+    const actorId = before.actors[0]?.id as string;
+    const rule = (match: string) => ({
+      on: "both",
+      match,
+      action: "confirm",
+      actorId,
+      afterMs: 0,
+      message: "Sure?",
+      conditions: [],
+    });
+    const first = await add(team, draftId, "autoRule", rule("first"));
+    expect(first.status).toBe(200);
+    expect((await add(team, draftId, "autoRule", rule("second"))).status).toBe(200);
+    const { id } = (await first.json()) as { id: string };
+    expect(
+      (await change(team, draftId, id, { action: "hold", holdOutcome: "remove", afterMs: 60_000 }))
+        .status,
+    ).toBe(200);
+    expect((await change(team, draftId, id, { action: "warn", holdOutcome: null })).status).toBe(
+      200,
+    );
+    expect((await change(team, draftId, id, { match: "" })).status).toBe(400);
+
+    const answer = await add(team, draftId, "appealAnswer", {
+      action: "restore",
+      actorId,
+      afterMs: 0,
+      conditions: [],
+    });
+    expect(answer.status).toBe(200);
+
+    const saved = await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+    expect(saved.status).toBe(200);
+    const [draft] = await database.db
+      .select({ version: schema.studyDrafts.frozenVersionId })
+      .from(schema.studyDrafts)
+      .where(eq(schema.studyDrafts.id, draftId));
+    const rules = await database.db
+      .select()
+      .from(schema.scriptedAutoRules)
+      .where(eq(schema.scriptedAutoRules.studyVersionId, draft?.version as string));
+    const byPosition = [...rules].sort((a, b) => a.position - b.position);
+    expect(byPosition.map(({ match, action }) => [match, action])).toEqual([
+      ["first", "warn"],
+      ["second", "confirm"],
+    ]);
+  });
+
   it("refuses someone who can only view", async () => {
     const team = await lab();
     const { draftId } = await open(team);

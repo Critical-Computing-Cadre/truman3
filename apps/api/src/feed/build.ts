@@ -24,7 +24,7 @@ import {
   type FeedSettings,
   feedSettingsFor,
 } from "@truman3/feed";
-import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { ParticipantContext } from "../participants/session.ts";
 
 type ContentRow = typeof schema.content.$inferSelect;
@@ -269,13 +269,16 @@ export async function loadRemovals(
     .where(
       and(
         eq(schema.notifications.worldId, context.worldId),
-        eq(schema.notifications.type, "remove"),
+        inArray(schema.notifications.type, ["remove", "restore"]),
         lte(schema.notifications.dueAt, now),
       ),
     )
     .orderBy(asc(schema.notifications.dueAt));
-  for (const { targetContentId, actorId, reason, dueAt } of reactions) {
-    if (targetContentId && !removals.has(targetContentId)) {
+  for (const { type, targetContentId, actorId, reason, dueAt } of reactions) {
+    // An appeal can put back what a moderator removed.
+    if (type === "restore" && targetContentId) {
+      removals.delete(targetContentId);
+    } else if (targetContentId && !removals.has(targetContentId)) {
       removals.set(targetContentId, { actorId, reason, at: dueAt });
     }
   }
@@ -388,6 +391,49 @@ export function hiddenByBan<T extends FeedContent>(
   );
 }
 
+/** What's waiting for a moderator's approval now. A hold's row comes due when it's decided. */
+export async function loadHeldIds(
+  db: Pick<Database, "select">,
+  context: ParticipantContext,
+  now: Date,
+): Promise<Set<string>> {
+  if (!featureOn(context.settings, context.conditionKey, "autoRules")) {
+    return new Set();
+  }
+  const rows = await db
+    .select({ contentId: schema.notifications.targetContentId })
+    .from(schema.notifications)
+    .where(
+      and(
+        eq(schema.notifications.worldId, context.worldId),
+        eq(schema.notifications.type, "hold"),
+        gt(schema.notifications.dueAt, now),
+      ),
+    );
+  return new Set(rows.flatMap(({ contentId }) => (contentId ? [contentId] : [])));
+}
+
+/** What this person has appealed. */
+export async function loadAppealedIds(
+  db: Pick<Database, "select">,
+  context: ParticipantContext,
+): Promise<Set<string>> {
+  if (!featureOn(context.settings, context.conditionKey, "appeals")) {
+    return new Set();
+  }
+  const rows = await db
+    .select({ contentId: schema.events.targetContentId })
+    .from(schema.events)
+    .where(
+      and(
+        eq(schema.events.worldId, context.worldId),
+        eq(schema.events.participantId, context.participantId),
+        eq(schema.events.type, "moderation.appealed"),
+      ),
+    );
+  return new Set(rows.flatMap(({ contentId }) => (contentId ? [contentId] : [])));
+}
+
 export interface FeedDependencies {
   db: Database;
   mediaPublicUrl: string;
@@ -461,6 +507,8 @@ export async function shapeFeedPosts({
   canSeeOriginal = () => true,
   removals = new Map(),
   bans = [],
+  heldIds = new Set(),
+  appealedIds = new Set(),
 }: {
   loadAuthors: (ids: string[]) => Promise<ReadonlyMap<string, FeedActor>>;
   mediaPublicUrl: string;
@@ -493,6 +541,10 @@ export async function shapeFeedPosts({
   removals?: ReadonlyMap<string, Removal>;
   /** Who a moderator has banned so far. */
   bans?: readonly Ban[];
+  /** What's waiting for a moderator's approval now. */
+  heldIds?: ReadonlySet<string>;
+  /** What this viewer has appealed. */
+  appealedIds?: ReadonlySet<string>;
 }): Promise<FeedPost[]> {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const shownIds = feed.posts.flatMap((post) => [post.id, ...post.commentIds]);
@@ -590,6 +642,9 @@ export async function shapeFeedPosts({
     const removed: FeedRemoved = {
       by: (moderator.profile as ActorProfile).name ?? moderator.username,
       ...(removal.reason ? { reason: removal.reason } : {}),
+      ...(features.appeals && item.authorActorId === viewerActorId
+        ? { appeal: appealedIds.has(item.id) ? ("sent" as const) : ("open" as const) }
+        : {}),
     };
     return { removed, withheld: item.authorActorId !== viewerActorId };
   };
@@ -612,6 +667,7 @@ export async function shapeFeedPosts({
       // A flag's cover and its button to undo it have no place on what's already gone.
       flagged: !removed && flaggedContentIds.has(item.id),
       ...(removed ? { removed } : {}),
+      ...(heldIds.has(item.id) && !removed ? { held: true as const } : {}),
     };
   };
 
@@ -902,6 +958,8 @@ export async function buildFeed(
     },
     removals,
     bans,
+    heldIds: await loadHeldIds(db, context, now),
+    appealedIds: await loadAppealedIds(db, context),
     spaces: visibleSpaces,
     commentsHere,
     karma: karmaOn

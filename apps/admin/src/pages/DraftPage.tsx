@@ -63,7 +63,9 @@ export function useDraftEdits(draftId: string) {
           | "reaction"
           | "flagAnswer"
           | "ban"
-          | "reportAnswer";
+          | "reportAnswer"
+          | "autoRule"
+          | "appealAnswer";
         fields: object;
       }) => send("POST", base, body),
       onSettled: refresh,
@@ -1496,7 +1498,9 @@ export function DraftPage() {
                 features.warnings ||
                 features.flagAnswers ||
                 features.reportAnswers ||
-                features.bans,
+                features.bans ||
+                features.autoRules ||
+                features.appeals,
             ) && (
               <Link
                 to="/drafts/$draftId/moderation"

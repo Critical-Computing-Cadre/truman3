@@ -170,6 +170,57 @@ test("someone banned stops posting, and a report brings an answer or a ban", asy
   await expect(page.getByTestId("banned-note")).toContainText("Banned by Sam the Mod.");
 });
 
+test("a rule asks if they're sure, a post waits for approval, and an appeal puts one back", async ({
+  page,
+}, testInfo) => {
+  const id = `RULE-${testInfo.project.name}-${Date.now()}`;
+  const app = `http://localhost:${APP_PORT}`;
+  await page.goto(`${app}/join/moderation-e2e?PROLIFIC_PID=${id}`);
+
+  const write = async (title: string) => {
+    await page.getByRole("button", { name: /Create a post/ }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Title").fill(title);
+    await dialog.getByLabel("Write a post").fill("Some words");
+    await dialog.getByLabel("Community").selectOption({ label: "Cooking" });
+    await dialog.getByRole("button", { name: "Post", exact: true }).click();
+    return dialog;
+  };
+
+  // The first post of theirs is removed in this study, so it can be appealed.
+  await write("My first post");
+  const first = page.getByRole("article", { name: "My first post" });
+  await expect(first.getByTestId("removed-note")).toContainText("Removed by Sam the Mod.");
+  await first.getByRole("button", { name: "Appeal" }).click();
+  await first.getByLabel("Why should this go back up?").fill("It didn't break anything");
+  await shot(page, testInfo.project.name, "11-appeal");
+  await first.getByRole("button", { name: "Send appeal" }).click();
+  await expect(first.getByTestId("removed-note")).toHaveCount(0);
+
+  // Going back leaves it unposted. Going ahead posts it.
+  const dialog = await write("A badword in here");
+  const asking = dialog.getByTestId("are-you-sure");
+  await expect(asking).toContainText("This might break a rule. Are you sure?");
+  await shot(page, testInfo.project.name, "12-are-you-sure");
+  await asking.getByRole("button", { name: "Go back and edit" }).click();
+  await expect(asking).toHaveCount(0);
+  await expect(page.getByRole("article", { name: "A badword in here" })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Post", exact: true }).click();
+  await asking.getByRole("button", { name: "Post anyway" }).click();
+  await expect(page.getByRole("article", { name: "A badword in here" })).toBeVisible();
+
+  await write("Please holdme for a while");
+  const held = page.getByRole("article", { name: "Please holdme for a while" });
+  await expect(held.getByTestId("held-note")).toContainText("Waiting for a moderator's approval");
+  await shot(page, testInfo.project.name, "13-held");
+
+  await page.goto(`${app}/notifications`);
+  await expect(
+    page.getByText("Sam the Mod looked at your appeal, and put your post back"),
+  ).toBeVisible();
+  await expect(page.getByText("You're right. We put it back.")).toBeVisible();
+});
+
 test("a researcher writes a moderator's decisions in the builder, and a participant gets them", async ({
   page: participant,
   browser,

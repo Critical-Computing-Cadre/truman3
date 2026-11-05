@@ -372,6 +372,8 @@ test("a researcher makes a space, and a participant joins it and chooses an orde
   await settings.getByRole("button", { name: "Save changes" }).click();
   await expect(settings.getByRole("button", { name: "Save changes" })).toBeDisabled();
   const feed = page.getByRole("region", { name: "Feed", exact: true });
+  // Spaces being on adds this above what's next, so it has to arrive before anything's clicked there.
+  await expect(feed.getByLabel("Order on a space's page")).toBeVisible();
   await feed.getByRole("checkbox", { name: /Let participants choose the order/ }).check();
   await feed.getByRole("button", { name: "Save changes" }).click();
   await expect(feed.getByRole("button", { name: "Save changes" })).toBeDisabled();

@@ -28,6 +28,12 @@ function describe(item: NotificationItem): string {
         : `${who} looked at ${item.targetName}'s ${item.targetKind}, which you flagged`;
     case "ban":
       return `${who} banned ${item.targetName}, whom you reported`;
+    case "approve":
+      return `${who} approved your ${item.targetKind}`;
+    case "uphold":
+      return `${who} looked at your appeal, and your ${item.targetKind} stays removed`;
+    case "restore":
+      return `${who} looked at your appeal, and put your ${item.targetKind} back`;
     case "warn":
       return `${who} warned you about your ${item.targetKind}`;
   }
