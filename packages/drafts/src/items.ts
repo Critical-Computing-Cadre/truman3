@@ -90,6 +90,15 @@ export const itemDataSchemas = {
     body: z.string().optional(),
     ...targeting,
   }),
+  flagAnswer: z.strictObject({
+    on: z.enum(["post", "comment"]).optional(),
+    targetId: z.uuid().optional(),
+    action: z.enum(["remove", "answer"]),
+    actorId: z.uuid(),
+    afterMs: z.number().int().nonnegative(),
+    message: z.string().min(1).optional(),
+    ...targeting,
+  }),
   removal: z.strictObject({
     on: z.enum(["post", "comment"]),
     targetId: z.uuid(),
@@ -107,6 +116,7 @@ export type PostData = z.infer<typeof itemDataSchemas.post>;
 export type CommentData = z.infer<typeof itemDataSchemas.comment>;
 export type ReactionData = z.infer<typeof itemDataSchemas.reaction>;
 export type RemovalData = z.infer<typeof itemDataSchemas.removal>;
+export type FlagAnswerData = z.infer<typeof itemDataSchemas.flagAnswer>;
 
 /**
  * Where an item came from, recorded from the start because it can't be worked out later. It belongs

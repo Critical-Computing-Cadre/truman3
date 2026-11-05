@@ -44,10 +44,12 @@ async function study({
   features = "",
   reactions = "",
   arms = "[{ key: a }, { key: b }]",
+  flagAnswers = "",
 }: {
   features?: string;
   reactions?: string;
   arms?: string;
+  flagAnswers?: string;
 } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "truman-removal-"));
   dirs.push(dir);
@@ -74,6 +76,7 @@ flow: [{ step: feed }, { step: exit }]
     "comments.csv": COMMENTS,
     "removals.csv": REMOVALS,
     ...(reactions ? { "reactions.csv": reactions } : {}),
+    ...(flagAnswers ? { "flag-answers.csv": flagAnswers } : {}),
   };
   for (const [name, text] of Object.entries(files)) {
     writeFileSync(path.join(dir, name), text);
@@ -575,5 +578,171 @@ describe("previewing removals", () => {
       by: "Sam the Mod",
       reason: "Rule 4",
     });
+  });
+});
+
+describe("answering a flag", () => {
+  const ANSWERS = `on,target,action,actor,after,message
+post,kept,remove,sam,0:00,Thanks for telling us
+,,answer,sam,0:00,No rule was broken
+`;
+  const flag = (cookie: string, id: string, active = true) => act(cookie, id, "flag", { active });
+  const notificationsOf = async (cookie: string) =>
+    (
+      (await (await call(cookie, "GET", "/notifications")).json()) as {
+        notifications: {
+          type: string;
+          reason: string | null;
+          targetIsTheirs: boolean;
+          targetBody: string;
+        }[];
+      }
+    ).notifications;
+
+  it("answers with what names it first, and otherwise what's for anything", async () => {
+    const { slug, versionId } = await study({ flagAnswers: ANSWERS });
+    const cookie = await join(slug);
+    const kept = await withId(versionId, "kept");
+    const later = await withId(versionId, "later");
+
+    expect((await flag(cookie, kept)).status).toBe(200);
+    expect((await flag(cookie, later)).status).toBe(200);
+
+    const posts = await list(cookie);
+    const removed = byId(posts, kept);
+    expect(removed.removed).toEqual({ by: "Sam the Mod", reason: "Thanks for telling us" });
+    expect(removed.body).toBe("");
+    expect(removed.flagged).toBe(false);
+    const answered = byId(posts, later);
+    expect(answered.removed).toBeUndefined();
+    expect(answered.flagged).toBe(true);
+
+    const notifications = await notificationsOf(cookie);
+    expect(notifications).toHaveLength(2);
+    const remove = notifications.find(({ type }) => type === "remove");
+    expect(remove).toMatchObject({ reason: "Thanks for telling us", targetIsTheirs: false });
+    // What was removed doesn't come back through a notification.
+    expect(remove?.targetBody).toBe("");
+    expect(notifications.find(({ type }) => type === "answer")).toMatchObject({
+      reason: "No rule was broken",
+      targetBody: "Not yet",
+    });
+  });
+
+  it("answers once, even if they unflag it and flag it again", async () => {
+    const { slug, versionId } = await study({
+      flagAnswers: "action,actor,after,message\nanswer,sam,0:00,No rule was broken\n",
+    });
+    const cookie = await join(slug);
+    const later = await withId(versionId, "later");
+    await flag(cookie, later);
+    await flag(cookie, later, false);
+    await flag(cookie, later);
+    expect(await notificationsOf(cookie)).toHaveLength(1);
+  });
+
+  it("waits for its delay", async () => {
+    const { slug, versionId } = await study({
+      flagAnswers: "action,actor,after,message\nremove,sam,1:00,Later\n",
+    });
+    const cookie = await join(slug);
+    const later = await withId(versionId, "later");
+    await flag(cookie, later);
+    expect(byId(await list(cookie), later).removed).toBeUndefined();
+    expect(await notificationsOf(cookie)).toEqual([]);
+  });
+
+  it("records it, and lists a removal in the mod log", async () => {
+    const { slug, versionId } = await study({ flagAnswers: ANSWERS });
+    const cookie = await join(slug);
+    const kept = await withId(versionId, "kept");
+    await flag(cookie, kept);
+    const events = await database.db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.targetContentId, kept));
+    expect(events.find(({ type }) => type === "reaction.scheduled")?.payload).toMatchObject({
+      reaction: "remove",
+      reason: "Thanks for telling us",
+    });
+    const log = (await (await call(cookie, "GET", "/mod-log")).json()) as {
+      entries: { id: string }[];
+    };
+    expect(log.entries.map(({ id }) => id)).toContain(kept);
+
+    const folder = mkdtempSync(path.join(tmpdir(), "truman-flag-export-"));
+    dirs.push(folder);
+    await exportStudy(database.db, slug, folder);
+    const answers = readFileSync(path.join(folder, "flag_answers.csv"), "utf8");
+    expect(answers).toContain("No rule was broken");
+    expect(answers).toContain(kept);
+  });
+
+  it("doesn't happen with the feature off, or remove with removal off", async () => {
+    const off = await study({
+      flagAnswers: ANSWERS,
+      features: ", features: { flagAnswers: false }",
+    });
+    const offCookie = await join(off.slug);
+    await flag(offCookie, await withId(off.versionId, "kept"));
+    expect(await notificationsOf(offCookie)).toEqual([]);
+
+    const noRemoval = await study({
+      flagAnswers: ANSWERS,
+      features: ", features: { removal: false }",
+    });
+    const cookie = await join(noRemoval.slug);
+    await flag(cookie, await withId(noRemoval.versionId, "kept"));
+    // The one naming it can't happen, so the one for anything answers instead.
+    expect(await notificationsOf(cookie)).toEqual([
+      expect.objectContaining({ type: "answer", reason: "No rule was broken" }),
+    ]);
+  });
+
+  it("freezes with its version, and stays through a draft", async () => {
+    const { versionId } = await study({ flagAnswers: ANSWERS });
+    await expect(
+      database.db
+        .update(schema.scriptedFlagAnswers)
+        .set({ message: "Changed" })
+        .where(eq(schema.scriptedFlagAnswers.studyVersionId, versionId)),
+    ).rejects.toThrow();
+
+    const email = `${randomUUID()}@example.edu`;
+    await setUpTeam(database.db, {
+      teamName: "Lab",
+      slug: `lab-${randomUUID().slice(0, 8)}`,
+      email,
+      name: "R",
+    });
+    const [researcher] = await database.db
+      .select({ id: schema.researchers.id })
+      .from(schema.researchers)
+      .where(eq(schema.researchers.email, email));
+    const researcherId = researcher?.id as string;
+    const opened = await openDraft(database.db, versionId, researcherId);
+    const draftId = opened?.draftId as string;
+    const loaded = await loadDraft(database.db, draftId);
+    const answers = loaded?.items.filter(({ kind }) => kind === "flagAnswer") ?? [];
+    expect(answers).toHaveLength(2);
+
+    // The one naming "kept" goes with it, and the one for anything stays.
+    const keptItem = loaded?.items.find(
+      ({ kind, data }) => kind === "post" && (data as { ref: string }).ref === "kept",
+    );
+    await deleteItem(database.db, draftId, keptItem?.id as string, researcherId);
+    const after = await loadDraft(database.db, draftId);
+    const frozen = await freezeDraft(database.db, after as NonNullable<typeof after>);
+    expect(frozen.status).toBe("frozen");
+    const rows = await database.db
+      .select()
+      .from(schema.scriptedFlagAnswers)
+      .where(
+        eq(
+          schema.scriptedFlagAnswers.studyVersionId,
+          (frozen as { studyVersionId: string }).studyVersionId,
+        ),
+      );
+    expect(rows).toEqual([expect.objectContaining({ contentId: null, action: "answer" })]);
   });
 });

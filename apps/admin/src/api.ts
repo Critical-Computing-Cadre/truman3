@@ -178,6 +178,17 @@ export interface DraftInfo {
     reason: string;
     conditions: string[];
   }[];
+  /** What a moderator does when someone flags something. No target means any flag. */
+  flagAnswers: {
+    id: string;
+    on: "post" | "comment" | null;
+    targetId: string | null;
+    action: "remove" | "answer";
+    actorId: string;
+    afterMs: number;
+    message: string;
+    conditions: string[];
+  }[];
   /** A moderator responding to what a participant writes. */
   moderatorReactions: {
     id: string;

@@ -68,8 +68,8 @@ export const eventPayloadSchemas = {
   "comments.sort_changed": z.strictObject({ sort: z.enum(COMMENT_SORTS).nullable() }),
   /** A scripted reaction was triggered by something a participant did. */
   "reaction.scheduled": z.strictObject({
-    reaction: z.enum(["read", "like", "reply", "up", "down", "remove", "warn"]),
-    /** On a removal, the reason the study wrote, if any. On a warning, what it says. */
+    reaction: z.enum(["read", "like", "reply", "up", "down", "remove", "warn", "answer"]),
+    /** On a removal, the reason the study wrote, if any. On a warning or answer, what it says. */
     reason: z.string().optional(),
     dueAt: z.iso.datetime(),
   }),

@@ -115,6 +115,10 @@ export async function openDraft(
       .select()
       .from(schema.scriptedRemovals)
       .where(eq(schema.scriptedRemovals.studyVersionId, versionId));
+    const flagAnswers = await tx
+      .select()
+      .from(schema.scriptedFlagAnswers)
+      .where(eq(schema.scriptedFlagAnswers.studyVersionId, versionId));
     const contentKinds = new Map(content.map(({ id, kind }) => [id, kind]));
 
     // New IDs up front, since items point at each other.
@@ -265,6 +269,23 @@ export async function openDraft(
           ...optional("reason", removal.reason),
           conditions: removal.conditions,
           ...optional("class", removal.class),
+        },
+      })),
+      ...flagAnswers.map((answer, position) => ({
+        draftId: created.id,
+        kind: "flagAnswer",
+        position,
+        provenance: fromFile,
+        data: {
+          ...(answer.contentId
+            ? { on: contentKinds.get(answer.contentId), targetId: asId(answer.contentId) }
+            : {}),
+          action: answer.action,
+          actorId: asId(answer.actorId),
+          afterMs: answer.afterMs,
+          ...optional("message", answer.message),
+          conditions: answer.conditions,
+          ...optional("class", answer.class),
         },
       })),
     ];
@@ -552,7 +573,7 @@ export async function createItem(
   db: Database,
   draftId: string,
   researcherId: string,
-  kind: "post" | "comment" | "actor" | "space" | "removal" | "reaction",
+  kind: "post" | "comment" | "actor" | "space" | "removal" | "reaction" | "flagAnswer",
   fields: Record<string, unknown>,
 ): Promise<{ id: string } | EditProblem> {
   return db.transaction(async (tx) => {
@@ -569,7 +590,7 @@ export async function createItem(
 
     const id = crypto.randomUUID();
     const newItem = async () => {
-      if (kind === "actor" || kind === "removal" || kind === "reaction") {
+      if (kind === "actor" || kind === "removal" || kind === "reaction" || kind === "flagAnswer") {
         return fields;
       }
       // A space's key is part of its address, so it's made from the name, and can be changed later.
@@ -1053,7 +1074,11 @@ export async function deleteItem(
     // So does a moderator's removal of anything going.
     for (const row of rows) {
       const { targetId } = row.data as { targetId?: string };
-      if (row.kind === "removal" && targetId && removingIds.has(targetId)) {
+      if (
+        (row.kind === "removal" || row.kind === "flagAnswer") &&
+        targetId &&
+        removingIds.has(targetId)
+      ) {
         removingIds.add(row.id);
         removing.push(row);
       }

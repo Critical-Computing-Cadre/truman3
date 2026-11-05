@@ -94,6 +94,39 @@ test("a moderator's removals show in place of what was removed", async ({ page }
   await expect(warning).toHaveCount(0);
 });
 
+test("a flag brings a moderator's answer, and what's named can be removed", async ({
+  page,
+}, testInfo) => {
+  const id = `FLAG-${testInfo.project.name}-${Date.now()}`;
+  const app = `http://localhost:${APP_PORT}`;
+  await page.goto(`${app}/join/moderation-e2e?PROLIFIC_PID=${id}`);
+
+  const flag = async (name: string) => {
+    const card = page.getByRole("article", { name });
+    await expect(card).toBeVisible();
+    const more = card.getByRole("button", { name: "More" });
+    if (await more.isVisible()) {
+      await more.click();
+    }
+    await card.getByRole("button", { name: "Flag" }).click();
+  };
+
+  // This answer has no delay, so the note comes straight away, with no cover in between.
+  await flag("A post someone flags");
+  await expect(page.getByText("Reason: Thanks for flagging this")).toBeVisible();
+  await expect(page.getByText("Words to flag")).toHaveCount(0);
+
+  await flag("A different post");
+  await expect(page.getByText("You've flagged this!")).toBeVisible();
+
+  await page.goto(`${app}/notifications`);
+  await expect(page.getByText("Sam the Mod removed the post you flagged")).toBeVisible();
+  await expect(page.getByText("Sam the Mod looked at the post you flagged")).toBeVisible();
+  await expect(page.getByText("We looked at this and no rule was broken")).toBeVisible();
+  await expect(page.getByText("Words to flag")).toHaveCount(0);
+  await shot(page, testInfo.project.name, "8-flag-answers");
+});
+
 test("a researcher writes a moderator's decisions in the builder, and a participant gets them", async ({
   page: participant,
   browser,

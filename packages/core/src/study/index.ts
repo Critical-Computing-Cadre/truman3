@@ -4,6 +4,8 @@ export {
   actorDefinitionSchema,
   type CommentDefinition,
   commentDefinitionSchema,
+  type FlagAnswerDefinition,
+  flagAnswerDefinitionSchema,
   MAX_TITLE_LENGTH,
   type PostDefinition,
   postDefinitionSchema,

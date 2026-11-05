@@ -81,6 +81,13 @@ export const FEATURES = {
     version: 1,
     events: ["reaction.scheduled"],
   },
+  flagAnswers: {
+    name: "Moderators answering flags",
+    description:
+      "When someone flags a post or comment, a moderator the study writes can remove it, or answer with a message, such as that no rule was broken.",
+    version: 1,
+    events: ["reaction.scheduled"],
+  },
   warnings: {
     name: "Moderators warning people",
     description:

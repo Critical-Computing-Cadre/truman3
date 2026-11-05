@@ -69,6 +69,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       shownIn(arm.key, study.comments),
       shownIn(arm.key, study.reactions),
       shownIn(arm.key, study.removals),
+      shownIn(arm.key, study.flagAnswers),
     ]);
     const same = conditionLooks.get(looks);
     if (same) {
@@ -195,6 +196,17 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
     if (!on.warnings && reactions.some(({ type }) => type === "warn")) {
       warning(`Moderators warning people is off in "${arm.key}", so its warnings won't happen.`);
+    }
+    const answers = study.flagAnswers.filter(applies);
+    if (answers.length > 0 && (!on.flagAnswers || !on.flagging)) {
+      warning(
+        `Answering flags needs flagging and the feature on in "${arm.key}", so its answers won't happen.`,
+      );
+    }
+    if (on.flagAnswers && !on.removal && answers.some(({ action }) => action === "remove")) {
+      warning(
+        `Moderators removing things is off in "${arm.key}", so flags won't lead to removals.`,
+      );
     }
     if (on.modLog && !on.removal) {
       warning(`A mod log is on in "${arm.key}", but it lists removals, which are off.`);
@@ -507,6 +519,31 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
   }
 
+  for (const answer of study.flagAnswers) {
+    const label = answer.target
+      ? `The answer to a flag on "${answer.target}"`
+      : "The answer to any flag";
+    checkActor(answer.actor, label, answer.source);
+    checkConditions(answer.conditions, label, answer.source);
+    if (answer.target) {
+      const target =
+        answer.on === "comment"
+          ? commentsByRef.get(answer.target)
+          : answer.on === "post"
+            ? posts.get(answer.target)
+            : undefined;
+      if (!target) {
+        error(
+          `${label} has to say post or comment, and point at one in this study.`,
+          answer.source,
+        );
+      }
+    }
+    if (answer.action === "answer" && !answer.message) {
+      error(`${label} has no message.`, answer.source);
+    }
+  }
+
   const steps = settings.flow.map((step) => step.step);
   if (steps.filter((step) => step === "feed").length !== 1) {
     error("The flow needs exactly one feed step.");
@@ -589,6 +626,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       ...study.comments,
       ...study.reactions,
       ...study.removals,
+      ...study.flagAnswers,
     ].flatMap((item) => item.conditions),
   );
   const hasOverrides = settings.conditions.arms.some((arm) => arm.feed);

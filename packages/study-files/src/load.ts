@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   type ActorDefinition,
   type CommentDefinition,
+  type FlagAnswerDefinition,
   type Flair,
   hasErrors,
   PIN_PLACES,
@@ -82,6 +83,10 @@ const COMMENTS: CsvSpec = {
 const REACTIONS: CsvSpec = {
   required: ["on", "nth", "type", "actor", "after"],
   optional: ["body", "condition", "class"],
+};
+const FLAG_ANSWERS: CsvSpec = {
+  required: ["action", "actor", "after"],
+  optional: ["on", "target", "message", "condition", "class"],
 };
 const REMOVALS: CsvSpec = {
   required: ["on", "target", "actor", "time"],
@@ -421,6 +426,29 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     });
   }
 
+  const flagAnswers: FlagAnswerDefinition[] = [];
+  for (const { row, cells } of readTable("flag-answers.csv", FLAG_ANSWERS, false)) {
+    const file = "flag-answers.csv";
+    const { action, on } = cells;
+    if (action !== "remove" && action !== "answer") {
+      rowError(file, row, `"${action}" in action has to be remove or answer.`);
+      continue;
+    }
+    if (on && on !== "post" && on !== "comment") {
+      rowError(file, row, `"${on}" in on has to be post or comment.`);
+      continue;
+    }
+    flagAnswers.push({
+      action,
+      actor: cells.actor || `(row ${row})`,
+      afterMs: Math.max(time(cells.after, "after", file, row), 0),
+      ...(on === "post" || on === "comment" ? { on } : {}),
+      ...optional("target", cells.target || undefined),
+      ...optional("message", cells.message || undefined),
+      ...targeting(cells, file, row),
+    });
+  }
+
   const pages: Record<string, string> = {};
   for (const step of settings.data.flow) {
     if (step.step === "consent" || step.step === "page") {
@@ -474,6 +502,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     comments,
     reactions,
     removals,
+    flagAnswers,
   });
   if (!parsed.success) {
     return {

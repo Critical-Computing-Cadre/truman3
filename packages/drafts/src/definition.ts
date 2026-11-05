@@ -5,6 +5,7 @@ import type {
   ActorData,
   CommentData,
   DraftItem,
+  FlagAnswerData,
   PostData,
   Provenance,
   ReactionData,
@@ -41,6 +42,7 @@ export function draftToDefinition(
   const comments = ofKind<CommentData>("comment");
   const reactions = ofKind<ReactionData>("reaction");
   const removals = ofKind<RemovalData>("removal");
+  const flagAnswers = ofKind<FlagAnswerData>("flagAnswer");
 
   const usernames = new Map(actors.map(({ item, data }) => [item.id, data.username]));
   const postRefs = new Map(posts.map(({ item, data }) => [item.id, data.ref]));
@@ -118,6 +120,17 @@ export function draftToDefinition(
       target:
         (removal.on === "post" ? postRefs.get(targetId) : commentRefs.get(targetId)) ??
         `(missing ${removal.on})`,
+    })),
+    flagAnswers: flagAnswers.map(({ data: { actorId, targetId, ...answer } }) => ({
+      ...answer,
+      actor: usernameOf(actorId),
+      ...(targetId
+        ? {
+            target:
+              (answer.on === "comment" ? commentRefs.get(targetId) : postRefs.get(targetId)) ??
+              "(missing)",
+          }
+        : {}),
     })),
   });
 

@@ -44,6 +44,7 @@ export const TEMPLATES = {
       crossposting: false,
       removal: false,
       warnings: false,
+      flagAnswers: false,
       modLog: false,
       saving: false,
       hiding: false,
