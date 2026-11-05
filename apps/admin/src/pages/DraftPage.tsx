@@ -53,8 +53,10 @@ export function useDraftEdits(draftId: string) {
     }),
     create: useMutation({
       mutationKey,
-      mutationFn: (body: { kind: "post" | "comment" | "actor" | "space"; fields: object }) =>
-        send("POST", base, body),
+      mutationFn: (body: {
+        kind: "post" | "comment" | "actor" | "space" | "removal" | "reaction";
+        fields: object;
+      }) => send("POST", base, body),
       onSettled: refresh,
     }),
     move: useMutation({
@@ -1056,6 +1058,20 @@ function EditableFeed({
             Only in {details.conditions.join(", ")}
           </p>
         )}
+        {info.removals
+          .filter(
+            (removal) =>
+              removal.targetId === contentId &&
+              (removal.conditions.length === 0 || removal.conditions.includes(condition)),
+          )
+          .map((removal) => (
+            <p
+              key={removal.id}
+              className="mt-1 ml-1 inline-block rounded bg-rose-100 px-2 py-0.5 text-xs text-rose-900"
+            >
+              A moderator removes this at {formatStudyTime(removal.timeMs)}
+            </p>
+          ))}
         {info.canEdit && (
           <ItemDetails
             itemId={contentId}
@@ -1463,6 +1479,15 @@ export function DraftPage() {
                 className="rounded border border-stone-300 px-3 py-1.5 text-sm"
               >
                 Spaces
+              </Link>
+            )}
+            {info.data.conditions.some(({ features }) => features.removal || features.warnings) && (
+              <Link
+                to="/drafts/$draftId/moderation"
+                params={{ draftId }}
+                className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+              >
+                Moderation
               </Link>
             )}
             {info.data.canEdit && <SavePack draftId={draftId} defaultName={info.data.title} />}

@@ -13,6 +13,7 @@ import { importStudyFolder, withdrawParticipant } from "@truman3/study-import";
 import { parse } from "csv-parse/sync";
 import { desc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { loadVersion, previewFeed } from "./admin/preview.ts";
 import { createApp } from "./app.ts";
 
 let database: Awaited<ReturnType<typeof createTestDatabase>>;
@@ -541,5 +542,38 @@ describe("the mod log", () => {
   it("is refused with the feature off", async () => {
     const { slug } = await study({ features: ", features: { modLog: false }" });
     expect((await call(await join(slug), "GET", "/mod-log")).status).toBe(403);
+  });
+});
+
+describe("previewing removals", () => {
+  it("shows a saved version's removals when they're due, as a participant would see them", async () => {
+    const { versionId } = await study();
+    const loaded = await loadVersion(database.db, versionId);
+    const version = {
+      id: versionId,
+      seed: loaded?.version.seed as number,
+      settings: loaded?.settings as NonNullable<typeof loaded>["settings"],
+    };
+    const gone = await withId(versionId, "gone");
+    const later = await withId(versionId, "later");
+
+    const { posts } = await previewFeed(database.db, "http://media.test", version, "a", 0);
+    const removed = byId(posts, gone);
+    expect(removed.removed).toEqual({ by: "Sam the Mod", reason: "Rule 2" });
+    expect(removed.body).toBe("");
+    expect(removed.title).toBeUndefined();
+    expect(byId(posts, later).removed).toBeUndefined();
+
+    const afterwards = await previewFeed(
+      database.db,
+      "http://media.test",
+      version,
+      "a",
+      51 * 3_600_000,
+    );
+    expect(byId(afterwards.posts, later).removed).toEqual({
+      by: "Sam the Mod",
+      reason: "Rule 4",
+    });
   });
 });

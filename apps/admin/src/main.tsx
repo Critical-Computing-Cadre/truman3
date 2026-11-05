@@ -14,6 +14,7 @@ import "./index.css";
 import { CastPage } from "./pages/CastPage.tsx";
 import { DraftPage } from "./pages/DraftPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
+import { ModerationPage } from "./pages/ModerationPage.tsx";
 import { MonitorPage } from "./pages/MonitorPage.tsx";
 import { NewStudyPage } from "./pages/NewStudyPage.tsx";
 import { PreviewPage } from "./pages/PreviewPage.tsx";
@@ -107,6 +108,12 @@ const spacesRoute = createRoute({
   component: SpacesPage,
 });
 
+const moderationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/drafts/$draftId/moderation",
+  component: ModerationPage,
+});
+
 const monitorRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/studies/$studyId/monitor",
@@ -130,6 +137,7 @@ const router = createRouter({
     settingsRoute,
     castRoute,
     spacesRoute,
+    moderationRoute,
     monitorRoute,
     prolificRoute,
   ]),
