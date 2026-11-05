@@ -23,6 +23,8 @@ import {
   buildFeed,
   castKarma,
   contentTimeMs,
+  hiddenByBan,
+  loadBans,
   loadRemovals,
   loadSpacesFor,
   mediaUrl,
@@ -32,7 +34,12 @@ import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { type ParticipantContext, participantFromRequest } from "../participants/session.ts";
 import { MAX_IMAGE_BYTES, storeUploadedImage } from "./images.ts";
 import { listModLog, listWarnings } from "./moderation.ts";
-import { listNotifications, scheduleFlagAnswer, scheduleReactions } from "./notifications.ts";
+import {
+  listNotifications,
+  scheduleFlagAnswer,
+  scheduleReactions,
+  scheduleReportAnswer,
+} from "./notifications.ts";
 import { actionMetaSchema } from "./request.ts";
 
 const errorSchema = z.object({ error: z.string() });
@@ -332,6 +339,14 @@ const actorRoute = createRoute({
             following: z.boolean(),
             blocked: z.boolean(),
             reported: z.boolean(),
+            /** Where a moderator has banned them. */
+            bans: z.array(
+              z.object({
+                by: z.string(),
+                reason: z.string().optional(),
+                space: z.string().optional(),
+              }),
+            ),
             posts: z.array(feedPostSchema),
           }),
         },
@@ -355,7 +370,7 @@ const notificationsRoute = createRoute({
             notifications: z.array(
               z.object({
                 key: z.string(),
-                type: z.enum(["read", "like", "reply", "remove", "warn", "answer"]),
+                type: z.enum(["read", "like", "reply", "remove", "warn", "answer", "ban"]),
                 actors: z.array(
                   z.object({
                     username: z.string(),
@@ -364,9 +379,10 @@ const notificationsRoute = createRoute({
                   }),
                 ),
                 targetIsTheirs: z.boolean(),
-                targetKind: z.enum(["post", "comment"]),
+                targetKind: z.enum(["post", "comment", "person"]),
+                targetName: z.string(),
                 /** The post this is about, for a link to its own page. */
-                postId: z.string(),
+                postId: z.string().nullable(),
                 /** The comment to go to there, if it's about one. */
                 commentId: z.string().nullable(),
                 targetBody: z.string(),
@@ -513,7 +529,27 @@ export async function findVisibleContent(
     return null;
   }
 
-  const appeared = contentTimeMs(item, context.worldStartedAt.getTime()) <= now.getTime();
+  const worldStartMs = context.worldStartedAt.getTime();
+  const appeared = contentTimeMs(item, worldStartMs) <= now.getTime();
+  // Someone banned stops appearing to post, so what they'd have written can't be reached by its ID.
+  const bans = await loadBans(db, context, now);
+  if (bans.length > 0) {
+    const chain = [item];
+    for (let above = item; above.parentId; ) {
+      const [parent] = await db
+        .select()
+        .from(schema.content)
+        .where(eq(schema.content.id, above.parentId));
+      if (!parent) {
+        break;
+      }
+      chain.push(parent);
+      above = parent;
+    }
+    if (hiddenByBan(item, new Map(chain.map((row) => [row.id, row])), bans, worldStartMs)) {
+      return null;
+    }
+  }
   // A space a condition can't see hides its posts too, as it does in the feed.
   if (item.spaceId && featureOn(context.settings, context.conditionKey, "spaces")) {
     const spaces = await loadSpacesFor(db, context);
@@ -677,6 +713,35 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
   /** Whether a moderator has taken this down, as far as this person is concerned, by now. */
   const isRemoved = async (context: ParticipantContext, id: string) =>
     (await loadRemovals(db, context, new Date())).has(id);
+
+  /** Where a moderator has banned someone, for their profile. */
+  const bansOf = async (context: ParticipantContext, actorId: string) => {
+    const mine = (await loadBans(db, context, new Date())).filter(
+      ({ bannedActorId }) => bannedActorId === actorId,
+    );
+    if (mine.length === 0) {
+      return [];
+    }
+    const spaces = new Map((await loadSpacesFor(db, context)).map((space) => [space.id, space]));
+    const moderators = await db
+      .select()
+      .from(schema.actors)
+      .where(inArray(schema.actors.id, [...new Set(mine.map((ban) => ban.actorId))]));
+    return mine.flatMap(({ actorId: moderatorId, reason, spaceId }) => {
+      const space = spaceId ? spaces.get(spaceId) : undefined;
+      if (spaceId && !space) {
+        return [];
+      }
+      const moderator = moderators.find(({ id }) => id === moderatorId);
+      return [
+        {
+          by: (moderator?.profile as ProfileFields | undefined)?.name ?? moderator?.username ?? "",
+          ...(reason ? { reason } : {}),
+          ...(space ? { space: space.name } : {}),
+        },
+      ];
+    });
+  };
 
   /** The post this acts on, if it's a post this person can see. */
   const visiblePost = async (context: ParticipantContext, id: string) => {
@@ -931,6 +996,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           nth,
           contentId,
           replyUnderId: contentId,
+          spaceId: space.id,
           now,
         });
         return contentId;
@@ -1088,6 +1154,14 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (!(await canReplyUnder(db, context, target, now))) {
       return c.json(notAvailable, 404);
     }
+    let topPost = target;
+    while (topPost.parentId) {
+      const parent = await findVisibleContent(db, context, topPost.parentId, now);
+      if (!parent) {
+        return c.json(notAvailable, 404);
+      }
+      topPost = parent;
+    }
     // Nobody can add to something a moderator took down, or to the post it's on.
     const removals = await loadRemovals(db, context, now);
     if (removals.size > 0) {
@@ -1142,6 +1216,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           contentId,
           // Without threads, a comment is always on a post, and a scripted reply goes on it too.
           replyUnderId: isOff(context, "threads") ? targetId : contentId,
+          spaceId: topPost.spaceId,
           now,
         });
         return contentId;
@@ -1311,6 +1386,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           nth,
           contentId,
           replyUnderId: contentId,
+          spaceId: space?.id ?? null,
           now,
         });
         return contentId;
@@ -1369,6 +1445,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           : await recordEvent(tx, { ...meta, type: event, payload: {} });
       if (!recorded) {
         return;
+      }
+      if (body.action === "report") {
+        await scheduleReportAnswer(tx, context, actor.id, new Date());
       }
 
       const row = {
@@ -1456,6 +1535,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
         following: has("follow"),
         blocked: has("block"),
         reported: has("report"),
+        bans: await bansOf(context, actor.id),
         posts,
       },
       200,

@@ -119,6 +119,14 @@ export async function openDraft(
       .select()
       .from(schema.scriptedFlagAnswers)
       .where(eq(schema.scriptedFlagAnswers.studyVersionId, versionId));
+    const bans = await tx
+      .select()
+      .from(schema.scriptedBans)
+      .where(eq(schema.scriptedBans.studyVersionId, versionId));
+    const reportAnswers = await tx
+      .select()
+      .from(schema.scriptedReportAnswers)
+      .where(eq(schema.scriptedReportAnswers.studyVersionId, versionId));
     const contentKinds = new Map(content.map(({ id, kind }) => [id, kind]));
 
     // New IDs up front, since items point at each other.
@@ -269,6 +277,36 @@ export async function openDraft(
           ...optional("reason", removal.reason),
           conditions: removal.conditions,
           ...optional("class", removal.class),
+        },
+      })),
+      ...bans.map((ban, position) => ({
+        draftId: created.id,
+        kind: "ban",
+        position,
+        provenance: fromFile,
+        data: {
+          bannedActorId: asId(ban.bannedActorId),
+          actorId: asId(ban.actorId),
+          timeMs: ban.offsetMs,
+          ...optional("reason", ban.reason),
+          ...(ban.spaceId ? { spaceId: asId(ban.spaceId) } : {}),
+          conditions: ban.conditions,
+          ...optional("class", ban.class),
+        },
+      })),
+      ...reportAnswers.map((answer, position) => ({
+        draftId: created.id,
+        kind: "reportAnswer",
+        position,
+        provenance: fromFile,
+        data: {
+          ...(answer.reportedActorId ? { reportedActorId: asId(answer.reportedActorId) } : {}),
+          action: answer.action,
+          actorId: asId(answer.actorId),
+          afterMs: answer.afterMs,
+          ...optional("message", answer.message),
+          conditions: answer.conditions,
+          ...optional("class", answer.class),
         },
       })),
       ...flagAnswers.map((answer, position) => ({
@@ -489,6 +527,11 @@ async function checkReferences(tx: Transaction, draftId: string, data: Record<st
   if (typeof data.spaceId === "string" && !(await itemExists(tx, draftId, "space", data.spaceId))) {
     return "That space isn't in this study.";
   }
+  for (const key of ["bannedActorId", "reportedActorId"]) {
+    if (typeof data[key] === "string" && !(await itemExists(tx, draftId, "actor", data[key]))) {
+      return "That person isn't in this study.";
+    }
+  }
   if (
     typeof data.targetId === "string" &&
     !(await itemExists(tx, draftId, data.on === "comment" ? "comment" : "post", data.targetId))
@@ -573,7 +616,16 @@ export async function createItem(
   db: Database,
   draftId: string,
   researcherId: string,
-  kind: "post" | "comment" | "actor" | "space" | "removal" | "reaction" | "flagAnswer",
+  kind:
+    | "post"
+    | "comment"
+    | "actor"
+    | "space"
+    | "removal"
+    | "reaction"
+    | "flagAnswer"
+    | "ban"
+    | "reportAnswer",
   fields: Record<string, unknown>,
 ): Promise<{ id: string } | EditProblem> {
   return db.transaction(async (tx) => {
@@ -590,7 +642,14 @@ export async function createItem(
 
     const id = crypto.randomUUID();
     const newItem = async () => {
-      if (kind === "actor" || kind === "removal" || kind === "reaction" || kind === "flagAnswer") {
+      if (
+        kind === "actor" ||
+        kind === "removal" ||
+        kind === "reaction" ||
+        kind === "flagAnswer" ||
+        kind === "ban" ||
+        kind === "reportAnswer"
+      ) {
         return fields;
       }
       // A space's key is part of its address, so it's made from the name, and can be changed later.
@@ -1043,8 +1102,10 @@ export async function deleteItem(
       return NOT_FOUND;
     }
 
-    const points = (row: ItemRow, key: "actorId" | "postId" | "spaceId" | "crosspostOfId") =>
-      (row.data as Record<string, unknown>)[key] === itemId;
+    const points = (
+      row: ItemRow,
+      key: "actorId" | "postId" | "spaceId" | "crosspostOfId" | "bannedActorId" | "reportedActorId",
+    ) => (row.data as Record<string, unknown>)[key] === itemId;
 
     if (item.kind === "space" && rows.some((row) => points(row, "spaceId"))) {
       return { problem: "in-use" as const, message: "This space still has posts in it." };
@@ -1052,7 +1113,13 @@ export async function deleteItem(
     if (item.kind === "post" && rows.some((row) => points(row, "crosspostOfId"))) {
       return { problem: "in-use" as const, message: "Another post is a crosspost of this one." };
     }
-    if (item.kind === "actor" && rows.some((row) => points(row, "actorId"))) {
+    if (
+      item.kind === "actor" &&
+      rows.some(
+        (row) =>
+          points(row, "actorId") || points(row, "bannedActorId") || points(row, "reportedActorId"),
+      )
+    ) {
       return {
         problem: "in-use" as const,
         message: "This person still has posts, comments, or decisions as a moderator.",

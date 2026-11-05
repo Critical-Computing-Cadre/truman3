@@ -68,7 +68,8 @@ test("a moderator's removals show in place of what was removed", async ({ page }
   // The mod log lists what was removed, without what it said.
   await page.goto(`http://localhost:${APP_PORT}/spaces`);
   await page.getByRole("link", { name: "Mod log" }).click();
-  await expect(page.getByTestId("mod-log-entry")).toHaveCount(3);
+  await expect(page.getByTestId("mod-log-entry")).toHaveCount(4);
+  await expect(page.getByText("Sam the Mod banned Ben")).toBeVisible();
   await expect(page.getByText("Sam the Mod removed your post")).toBeVisible();
   await expect(page.getByText("Sam the Mod removed a comment by Ann")).toBeVisible();
   await expect(page.getByText("Words nobody should read")).toHaveCount(0);
@@ -120,11 +121,53 @@ test("a flag brings a moderator's answer, and what's named can be removed", asyn
   await expect(page.getByText("You've flagged this!")).toBeVisible();
 
   await page.goto(`${app}/notifications`);
-  await expect(page.getByText("Sam the Mod removed the post you flagged")).toBeVisible();
-  await expect(page.getByText("Sam the Mod looked at the post you flagged")).toBeVisible();
+  await expect(page.getByText("Sam the Mod removed Ann's post, which you flagged")).toBeVisible();
+  await expect(page.getByText("Sam the Mod looked at Ann's post, which you flagged")).toBeVisible();
   await expect(page.getByText("We looked at this and no rule was broken")).toBeVisible();
   await expect(page.getByText("Words to flag")).toHaveCount(0);
   await shot(page, testInfo.project.name, "8-flag-answers");
+});
+
+test("someone banned stops posting, and a report brings an answer or a ban", async ({
+  page,
+}, testInfo) => {
+  const id = `BAN-${testInfo.project.name}-${Date.now()}`;
+  const app = `http://localhost:${APP_PORT}`;
+  await page.goto(`${app}/join/moderation-e2e?PROLIFIC_PID=${id}`);
+
+  // What Ben wrote before his ban stays, tagged, and what he's written to post after doesn't appear.
+  const before = page.getByRole("article", { name: "Ben before his ban" });
+  await expect(before).toBeVisible();
+  await expect(before.getByText("Banned", { exact: true })).toBeVisible();
+  await expect(page.getByText("Ben after his ban")).toHaveCount(0);
+  await shot(page, testInfo.project.name, "9-banned-tag");
+
+  await page.goto(`${app}/u/ben`);
+  await expect(page.getByTestId("banned-note")).toContainText(
+    "Banned by Sam the Mod. Reason: Rule 5: no harassment",
+  );
+  await expect(page.getByText("Ben after his ban")).toHaveCount(0);
+
+  const report = async (username: string) => {
+    await page.goto(`${app}/u/${username}`);
+    await page.getByRole("button", { name: "Report", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("radio").first().check();
+    await dialog.getByRole("button", { name: /Report|Submit|Send/ }).click();
+    await expect(page.getByRole("button", { name: "Reported" })).toBeVisible();
+  };
+  await report("ben");
+  await report("ann");
+
+  await page.goto(`${app}/notifications`);
+  await expect(page.getByText("Sam the Mod looked at your report of Ben")).toBeVisible();
+  await expect(page.getByText("We looked and no rule was broken")).toBeVisible();
+  await expect(page.getByText("Sam the Mod banned Ann, whom you reported")).toBeVisible();
+  await expect(page.getByText("Reason: Thanks for reporting this")).toBeVisible();
+  await shot(page, testInfo.project.name, "10-report-answers");
+
+  await page.goto(`${app}/u/ann`);
+  await expect(page.getByTestId("banned-note")).toContainText("Banned by Sam the Mod.");
 });
 
 test("a researcher writes a moderator's decisions in the builder, and a participant gets them", async ({

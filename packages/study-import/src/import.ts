@@ -65,6 +65,10 @@ function hashStudy(study: StudyDefinition, mediaKeys: Map<string, string>): stri
     reactions: withoutSource(study.reactions),
     ...(study.removals.length > 0 ? { removals: withoutSource(study.removals) } : {}),
     ...(study.flagAnswers.length > 0 ? { flagAnswers: withoutSource(study.flagAnswers) } : {}),
+    ...(study.bans.length > 0 ? { bans: withoutSource(study.bans) } : {}),
+    ...(study.reportAnswers.length > 0
+      ? { reportAnswers: withoutSource(study.reportAnswers) }
+      : {}),
     media: [...mediaKeys.entries()].sort(([a], [b]) => a.localeCompare(b)),
   };
   return createHash("sha256").update(stableStringify(identity)).digest("hex");
@@ -455,6 +459,36 @@ export async function freezeStudy(
           contentId: answer.target
             ? ((answer.on === "comment" ? commentIds : postIds).get(answer.target) as string)
             : null,
+          action: answer.action,
+          actorId: actorId(answer.actor),
+          afterMs: answer.afterMs,
+          message: answer.message,
+          conditions: answer.conditions,
+          class: answer.class,
+        })),
+      );
+    }
+
+    for (const batch of chunks(study.bans, INSERT_BATCH_SIZE)) {
+      await tx.insert(schema.scriptedBans).values(
+        batch.map((ban) => ({
+          studyVersionId,
+          bannedActorId: actorId(ban.user),
+          actorId: actorId(ban.actor),
+          offsetMs: ban.timeMs,
+          reason: ban.reason,
+          spaceId: ban.space ? (spaceIds.get(ban.space) as string) : null,
+          conditions: ban.conditions,
+          class: ban.class,
+        })),
+      );
+    }
+
+    for (const batch of chunks(study.reportAnswers, INSERT_BATCH_SIZE)) {
+      await tx.insert(schema.scriptedReportAnswers).values(
+        batch.map((answer) => ({
+          studyVersionId,
+          reportedActorId: answer.user ? actorId(answer.user) : null,
           action: answer.action,
           actorId: actorId(answer.actor),
           afterMs: answer.afterMs,

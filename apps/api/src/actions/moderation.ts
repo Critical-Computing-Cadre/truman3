@@ -2,7 +2,13 @@ import type { FeedWarning, ModLogEntry } from "@truman3/core";
 import { featureOn } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { and, asc, eq, inArray, isNull, lte } from "drizzle-orm";
-import { contentTimeMs, loadAuthors, loadRemovals, loadSpacesFor } from "../feed/build.ts";
+import {
+  contentTimeMs,
+  loadAuthors,
+  loadBans,
+  loadRemovals,
+  loadSpacesFor,
+} from "../feed/build.ts";
 import type { ParticipantContext } from "../participants/session.ts";
 
 const nameOf = (actor: { username: string; profile: unknown } | undefined) =>
@@ -50,19 +56,19 @@ export async function listModLog(
   now = new Date(),
 ): Promise<ModLogEntry[]> {
   const removals = await loadRemovals(db, context, now);
-  if (removals.size === 0) {
-    return [];
-  }
+  const bans = await loadBans(db, context, now);
   const worldStartMs = context.worldStartedAt.getTime();
-  const rows = await db
-    .select()
-    .from(schema.content)
-    .where(
-      and(
-        eq(schema.content.studyVersionId, context.studyVersionId),
-        inArray(schema.content.id, [...removals.keys()]),
-      ),
-    );
+  const rows = removals.size
+    ? await db
+        .select()
+        .from(schema.content)
+        .where(
+          and(
+            eq(schema.content.studyVersionId, context.studyVersionId),
+            inArray(schema.content.id, [...removals.keys()]),
+          ),
+        )
+    : [];
 
   // A comment says nothing about its space, so this climbs to the post it's on.
   const postOf = async (row: (typeof rows)[number]) => {
@@ -88,6 +94,7 @@ export async function listModLog(
     ...new Set([
       ...[...removals.values()].map(({ actorId }) => actorId),
       ...rows.map(({ authorActorId }) => authorActorId),
+      ...bans.flatMap(({ actorId, bannedActorId }) => [actorId, bannedActorId]),
     ]),
   ]);
 
@@ -119,6 +126,24 @@ export async function listModLog(
       ...(removal.reason ? { reason: removal.reason } : {}),
       postId: post.id,
       ...(row.kind === "comment" ? { commentId: row.id } : {}),
+    });
+  }
+  for (const ban of bans) {
+    const space = ban.spaceId ? spaces.get(ban.spaceId) : undefined;
+    // A ban from a space this condition can't see stays out of the log, as what's in it does.
+    if ((ban.spaceId && spacesOn && !space) || (spaceKey && space?.key !== spaceKey)) {
+      continue;
+    }
+    const banned = people.get(ban.bannedActorId);
+    entries.push({
+      id: `ban:${ban.bannedActorId}:${ban.spaceId ?? "everywhere"}`,
+      at: ban.at.toISOString(),
+      by: nameOf(people.get(ban.actorId)),
+      kind: "person",
+      authorName: nameOf(banned),
+      ...(banned ? { username: banned.username } : {}),
+      ...(space ? { space: { key: space.key, name: space.name } } : {}),
+      ...(ban.reason ? { reason: ban.reason } : {}),
     });
   }
   return entries.sort((a, b) => b.at.localeCompare(a.at));

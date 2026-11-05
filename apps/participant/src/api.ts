@@ -92,11 +92,12 @@ export interface EntryInfo {
 
 export interface NotificationItem {
   key: string;
-  type: "read" | "like" | "reply" | "remove" | "warn" | "answer";
+  type: "read" | "like" | "reply" | "remove" | "warn" | "answer" | "ban";
   actors: { username: string; name: string; pictureUrl: string | null }[];
-  targetKind: "post" | "comment";
+  targetKind: "post" | "comment" | "person";
+  targetName: string;
   targetIsTheirs: boolean;
-  postId: string;
+  postId: string | null;
   commentId: string | null;
   targetBody: string;
   targetImageUrl: string | null;

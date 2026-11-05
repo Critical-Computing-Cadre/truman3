@@ -88,6 +88,20 @@ export const FEATURES = {
     version: 1,
     events: ["reaction.scheduled"],
   },
+  reportAnswers: {
+    name: "Moderators answering reports",
+    description:
+      "When someone reports a person, a moderator the study writes can answer with a message, or ban that person.",
+    version: 1,
+    events: ["reaction.scheduled"],
+  },
+  bans: {
+    name: "Moderators banning people",
+    description:
+      "A moderator the study writes can ban someone in the cast, who then stops appearing to post. Participants are never banned themselves.",
+    version: 1,
+    events: ["reaction.scheduled"],
+  },
   warnings: {
     name: "Moderators warning people",
     description:

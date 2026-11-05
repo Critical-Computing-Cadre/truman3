@@ -16,6 +16,8 @@ interface ActorPage {
   following: boolean;
   blocked: boolean;
   reported: boolean;
+  /** Where a moderator has banned them. */
+  bans: { by: string; reason?: string; space?: string }[];
   karma?: number;
   posts: FeedPost[];
 }
@@ -106,6 +108,15 @@ export function ProfilePage() {
         <KarmaBadge author={actor} />
         {actor.bio && <p className="whitespace-pre-wrap">{actor.bio}</p>}
         {actor.location && <p className="text-sm text-stone-500">{actor.location}</p>}
+        {actor.bans.map(({ by, reason, space }) => (
+          <p
+            key={space ?? "everywhere"}
+            data-testid="banned-note"
+            className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-600"
+          >
+            Banned{space ? ` from ${space}` : ""} by {by}.{reason ? ` Reason: ${reason}` : ""}
+          </p>
+        ))}
         {actor.isViewer && (
           <Link to="/account" className={`mt-2 ${button}`}>
             Edit profile

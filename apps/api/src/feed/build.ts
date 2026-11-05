@@ -275,11 +275,117 @@ export async function loadRemovals(
     )
     .orderBy(asc(schema.notifications.dueAt));
   for (const { targetContentId, actorId, reason, dueAt } of reactions) {
-    if (!removals.has(targetContentId)) {
+    if (targetContentId && !removals.has(targetContentId)) {
       removals.set(targetContentId, { actorId, reason, at: dueAt });
     }
   }
   return removals;
+}
+
+/** Someone in the cast a moderator has banned. Without a space, it's from everywhere. */
+export interface Ban {
+  bannedActorId: string;
+  actorId: string;
+  reason: string | null;
+  spaceId: string | null;
+  at: Date;
+}
+
+/**
+ * Who a moderator has banned by this time, as this person's world has it: scripted bans, and ones
+ * from answering this person's report. As with removals, nothing has to run later.
+ */
+export async function loadBans(
+  db: Pick<Database, "select">,
+  context: ParticipantContext,
+  now: Date,
+): Promise<Ban[]> {
+  if (!featureOn(context.settings, context.conditionKey, "bans")) {
+    return [];
+  }
+  const startMs = context.worldStartedAt.getTime();
+  const scripted = await db
+    .select()
+    .from(schema.scriptedBans)
+    .where(
+      and(
+        eq(schema.scriptedBans.studyVersionId, context.studyVersionId),
+        lte(schema.scriptedBans.offsetMs, now.getTime() - startMs),
+      ),
+    );
+  const answered = await db
+    .select()
+    .from(schema.notifications)
+    .where(
+      and(
+        eq(schema.notifications.worldId, context.worldId),
+        eq(schema.notifications.type, "ban"),
+        lte(schema.notifications.dueAt, now),
+      ),
+    );
+  return [
+    ...scripted
+      .filter(
+        ({ conditions }) => conditions.length === 0 || conditions.includes(context.conditionKey),
+      )
+      .map(({ bannedActorId, actorId, reason, spaceId, offsetMs }) => ({
+        bannedActorId,
+        actorId,
+        reason,
+        spaceId,
+        at: new Date(startMs + offsetMs),
+      })),
+    ...answered.map(({ targetActorId, actorId, reason, dueAt }) => ({
+      bannedActorId: targetActorId as string,
+      actorId,
+      reason,
+      spaceId: null,
+      at: dueAt,
+    })),
+  ];
+}
+
+/** Whether a ban stops this person from doing something at this time, in this space. */
+export function bannedAt(
+  bans: readonly Ban[],
+  actorId: string,
+  spaceId: string | null | undefined,
+  atMs: number,
+): boolean {
+  return bans.some(
+    (ban) =>
+      ban.bannedActorId === actorId &&
+      ban.at.getTime() <= atMs &&
+      (ban.spaceId === null || ban.spaceId === spaceId),
+  );
+}
+
+/**
+ * Whether this was written after its author's ban, so it never appears. So does anything under it,
+ * since a reply can't show without what it replies to. What they wrote before stays.
+ */
+export function hiddenByBan<T extends FeedContent>(
+  row: T,
+  rowsById: ReadonlyMap<string, T>,
+  bans: readonly Ban[],
+  worldStartMs: number,
+): boolean {
+  if (bans.length === 0) {
+    return false;
+  }
+  const chain: T[] = [row];
+  for (let above = row; above.parentId && chain.length <= rowsById.size; ) {
+    const parent = rowsById.get(above.parentId);
+    if (!parent) {
+      break;
+    }
+    chain.push(parent);
+    above = parent;
+  }
+  const spaceId = (chain[chain.length - 1] as T).spaceId;
+  return chain.some((item) =>
+    bannedAt(bans, item.authorActorId, spaceId, contentTimeMs(item, worldStartMs)),
+  );
 }
 
 export interface FeedDependencies {
@@ -354,6 +460,7 @@ export async function shapeFeedPosts({
   pollChoices = new Map(),
   canSeeOriginal = () => true,
   removals = new Map(),
+  bans = [],
 }: {
   loadAuthors: (ids: string[]) => Promise<ReadonlyMap<string, FeedActor>>;
   mediaPublicUrl: string;
@@ -384,6 +491,8 @@ export async function shapeFeedPosts({
   canSeeOriginal?: (row: FeedContent) => boolean;
   /** What a moderator has taken down so far, by content ID. */
   removals?: ReadonlyMap<string, Removal>;
+  /** Who a moderator has banned so far. */
+  bans?: readonly Ban[];
 }): Promise<FeedPost[]> {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const shownIds = feed.posts.flatMap((post) => [post.id, ...post.commentIds]);
@@ -455,6 +564,12 @@ export async function shapeFeedPosts({
       pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
       isViewer: actor.id === viewerActorId,
       ...(profile.moderator ? { moderator: true as const } : {}),
+      ...(bans.some(
+        ({ bannedActorId, spaceId: from }) =>
+          bannedActorId === actorId && (from === null || from === spaceId),
+      )
+        ? { banned: true as const }
+        : {}),
       ...(flair ? { flair } : {}),
       ...(karma
         ? {
@@ -661,7 +776,9 @@ export async function buildFeed(
   const features = featuresFor(context.settings, context.conditionKey);
   const hiddenHere = features.hiding ? state.hiddenContentIds : new Set<string>();
   const listed = list === "saved" ? state.savedContentIds : state.hiddenContentIds;
+  const bans = await loadBans(db, context, now);
   const inScope = (row: ContentRow) =>
+    !hiddenByBan(row, rowsById, bans, worldStartMs) &&
     (!authorActorId || postOf(row).authorActorId === authorActorId) &&
     (!post || postOf(row).id === post) &&
     (list ? listed.has(postOf(row).id) : post !== undefined || !hiddenHere.has(postOf(row).id)) &&
@@ -689,7 +806,12 @@ export async function buildFeed(
       : context.seed;
 
   const dueReactions = await db
-    .select({ type: schema.notifications.type, contentId: schema.notifications.targetContentId })
+    .select({
+      type: schema.notifications.type,
+      contentId: schema.notifications.targetContentId,
+      actorId: schema.notifications.actorId,
+      dueAt: schema.notifications.dueAt,
+    })
     .from(schema.notifications)
     .where(
       and(
@@ -699,7 +821,12 @@ export async function buildFeed(
       ),
     );
   const scriptedCounts = new Map<string, number>();
-  for (const { type, contentId } of dueReactions) {
+  for (const { type, contentId, actorId, dueAt } of dueReactions) {
+    const target = rowsById.get(contentId as string);
+    // Someone banned stops reacting too, even if that was already on its way.
+    if (target && bannedAt(bans, actorId, postOf(target).spaceId, dueAt.getTime())) {
+      continue;
+    }
     const key = `${type}:${contentId}`;
     scriptedCounts.set(key, (scriptedCounts.get(key) ?? 0) + 1);
   }
@@ -764,9 +891,17 @@ export async function buildFeed(
       const removed =
         (feedSettings.removeBlocked && state.blockedActorIds.has(row.authorActorId)) ||
         (feedSettings.removeFlagged && state.flaggedContentIds.has(row.id));
-      return inCondition && appeared && inVisibleSpace && !removed && !removals.has(row.id);
+      return (
+        inCondition &&
+        appeared &&
+        inVisibleSpace &&
+        !removed &&
+        !removals.has(row.id) &&
+        !hiddenByBan(row, rowsById, bans, worldStartMs)
+      );
     },
     removals,
+    bans,
     spaces: visibleSpaces,
     commentsHere,
     karma: karmaOn

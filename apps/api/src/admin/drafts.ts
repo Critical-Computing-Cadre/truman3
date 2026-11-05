@@ -16,6 +16,7 @@ import {
 import { schema } from "@truman3/db";
 import {
   type ActorData,
+  type BanData,
   type CommentData,
   checkDraft,
   createItem,
@@ -33,6 +34,7 @@ import {
   pageSection,
   type ReactionData,
   type RemovalData,
+  type ReportAnswerData,
   recordPresence,
   SETTINGS_SECTIONS,
   type SectionName,
@@ -281,7 +283,10 @@ const fieldsSchema = z.strictObject({
   type: z.enum(["remove", "warn"]).optional(),
   afterMs: z.number().int().nonnegative().optional(),
   /** A flag's answer. It's for any flag without `targetId`, and null takes one away. */
-  action: z.enum(["remove", "answer"]).optional(),
+  action: z.enum(["remove", "answer", "ban"]).optional(),
+  bannedActorId: z.uuid().optional(),
+  /** Who a report's answer is for. Null makes it for any report. */
+  reportedActorId: z.uuid().nullable().optional(),
   message: z.string().trim().min(1).max(2000).nullable().optional(),
   // For people in the cast.
   name: z.string().trim().min(1).max(100).optional(),
@@ -339,7 +344,17 @@ const createItemRoute = createRoute({
     params: draftParams,
     ...jsonBody(
       z.object({
-        kind: z.enum(["post", "comment", "actor", "space", "removal", "reaction", "flagAnswer"]),
+        kind: z.enum([
+          "post",
+          "comment",
+          "actor",
+          "space",
+          "removal",
+          "reaction",
+          "flagAnswer",
+          "ban",
+          "reportAnswer",
+        ]),
         fields: fieldsSchema,
       }),
     ),
@@ -619,9 +634,14 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           .filter((item) => item.kind === "actor")
           .map((item) => {
             const data = item.data as ActorData;
-            const usedBy = items.filter(
-              (other) => (other.data as { actorId?: string }).actorId === item.id,
-            ).length;
+            const usedBy = items.filter((other) => {
+              const { actorId, bannedActorId, reportedActorId } = other.data as {
+                actorId?: string;
+                bannedActorId?: string;
+                reportedActorId?: string;
+              };
+              return [actorId, bannedActorId, reportedActorId].includes(item.id);
+            }).length;
             return {
               id: item.id,
               username: data.username,
@@ -703,6 +723,34 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               actorId: data.actorId,
               timeMs: data.timeMs,
               reason: data.reason ?? "",
+              conditions: data.conditions,
+            };
+          }),
+        bans: items
+          .filter((item) => item.kind === "ban")
+          .map((item) => {
+            const data = item.data as BanData;
+            return {
+              id: item.id,
+              bannedActorId: data.bannedActorId,
+              actorId: data.actorId,
+              timeMs: data.timeMs,
+              reason: data.reason ?? "",
+              spaceId: data.spaceId ?? null,
+              conditions: data.conditions,
+            };
+          }),
+        reportAnswers: items
+          .filter((item) => item.kind === "reportAnswer")
+          .map((item) => {
+            const data = item.data as ReportAnswerData;
+            return {
+              id: item.id,
+              reportedActorId: data.reportedActorId ?? null,
+              action: data.action,
+              actorId: data.actorId,
+              afterMs: data.afterMs,
+              message: data.message ?? "",
               conditions: data.conditions,
             };
           }),

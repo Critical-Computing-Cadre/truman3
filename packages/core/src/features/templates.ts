@@ -45,6 +45,8 @@ export const TEMPLATES = {
       removal: false,
       warnings: false,
       flagAnswers: false,
+      reportAnswers: false,
+      bans: false,
       modLog: false,
       saving: false,
       hiding: false,

@@ -3,3 +3,5 @@ kept,A post that stays,Still here,ann,cooking,-4:00
 gone,A post that breaks a rule,Words nobody should read,ann,cooking,-3:00
 flagme,A post someone flags,Words to flag,ann,cooking,-5:00
 flagother,A different post,More words,ann,cooking,-6:00
+before_ban,Ben before his ban,Still here,ben,cooking,-3:00
+after_ban,Ben after his ban,Should not appear,ben,cooking,-1:00

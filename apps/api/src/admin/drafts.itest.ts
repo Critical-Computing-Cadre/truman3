@@ -1183,6 +1183,84 @@ describe("a moderator's decisions in the builder", () => {
     ]);
   });
 
+  it("writes bans and answers to flags and reports, and keeps them in the study they make", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const before = await info(team, draftId);
+    const ann = before.actors[0] as { id: string };
+    const bob = before.actors[1] as { id: string };
+    const post = before.posts[0] as { id: string };
+
+    const missing = await add(team, draftId, "ban", {
+      bannedActorId: randomUUID(),
+      actorId: ann.id,
+      timeMs: 0,
+      conditions: [],
+    });
+    expect(missing.status).toBe(400);
+
+    const ban = await add(team, draftId, "ban", {
+      bannedActorId: bob.id,
+      actorId: ann.id,
+      timeMs: 1000,
+      conditions: [],
+    });
+    expect(ban.status).toBe(200);
+
+    const answer = await add(team, draftId, "reportAnswer", {
+      action: "answer",
+      actorId: ann.id,
+      afterMs: 0,
+      message: "No rule was broken",
+      conditions: [],
+    });
+    expect(answer.status).toBe(200);
+    const { id: answerId } = (await answer.json()) as { id: string };
+    expect(
+      (await change(team, draftId, answerId, { reportedActorId: bob.id, action: "ban" })).status,
+    ).toBe(200);
+    expect((await change(team, draftId, answerId, { reportedActorId: null })).status).toBe(200);
+
+    const flag = await add(team, draftId, "flagAnswer", {
+      action: "remove",
+      on: "post",
+      targetId: post.id,
+      actorId: ann.id,
+      afterMs: 0,
+      conditions: [],
+    });
+    expect(flag.status).toBe(200);
+    const { id: flagId } = (await flag.json()) as { id: string };
+    expect((await change(team, draftId, flagId, { on: null, targetId: null })).status).toBe(200);
+
+    // Someone a ban names stays in the cast until it's gone.
+    const refused = await call(team.cookie, "DELETE", `/admin/drafts/${draftId}/items/${bob.id}`);
+    expect(refused.status).toBe(409);
+
+    const saved = await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
+    expect(saved.status).toBe(200);
+    const [draft] = await database.db
+      .select({ version: schema.studyDrafts.frozenVersionId })
+      .from(schema.studyDrafts)
+      .where(eq(schema.studyDrafts.id, draftId));
+    const versionId = draft?.version as string;
+    const bans = await database.db
+      .select()
+      .from(schema.scriptedBans)
+      .where(eq(schema.scriptedBans.studyVersionId, versionId));
+    expect(bans).toHaveLength(1);
+    const reports = await database.db
+      .select()
+      .from(schema.scriptedReportAnswers)
+      .where(eq(schema.scriptedReportAnswers.studyVersionId, versionId));
+    expect(reports).toEqual([expect.objectContaining({ action: "ban", reportedActorId: null })]);
+    const flags = await database.db
+      .select()
+      .from(schema.scriptedFlagAnswers)
+      .where(eq(schema.scriptedFlagAnswers.studyVersionId, versionId));
+    expect(flags).toEqual([expect.objectContaining({ action: "remove", contentId: null })]);
+  });
+
   it("refuses someone who can only view", async () => {
     const team = await lab();
     const { draftId } = await open(team);

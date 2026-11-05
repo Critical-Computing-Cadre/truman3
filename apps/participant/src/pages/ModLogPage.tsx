@@ -5,7 +5,10 @@ import { shortTime } from "@truman3/ui";
 import { flowQuery, get } from "../api.ts";
 import { rememberOpenedFrom } from "../tracking.ts";
 
-function describe({ by, kind, authorName }: ModLogEntry) {
+function describe({ by, kind, authorName, space }: ModLogEntry) {
+  if (kind === "person") {
+    return `${by} banned ${authorName}${space ? ` from ${space.name}` : ""}`;
+  }
   return authorName === null
     ? `${by} removed your ${kind}`
     : `${by} removed a ${kind} by ${authorName}`;
@@ -32,7 +35,15 @@ export function ModLogPage() {
       <ul className="divide-y divide-stone-200">
         {entries.map((entry) => (
           <li key={entry.id} data-testid="mod-log-entry" className="p-3 text-sm">
-            {pages ? (
+            {entry.username ? (
+              <Link
+                to="/u/$username"
+                params={{ username: entry.username }}
+                className="block font-medium break-words underline-offset-2 hover:underline"
+              >
+                {describe(entry)}
+              </Link>
+            ) : pages && entry.postId ? (
               <Link
                 to="/p/$postId"
                 params={{ postId: entry.postId }}

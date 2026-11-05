@@ -335,6 +335,34 @@ export const flagAnswerDefinitionSchema = z.object({
   ...targetingFields,
 });
 
+/** A moderator banning someone in the cast. They seem to stop posting from then on. */
+export const banDefinitionSchema = z.object({
+  /** Who's banned, by username. */
+  user: z.string().min(1),
+  /** The moderator. */
+  actor: z.string().min(1),
+  /** Milliseconds relative to when a participant starts. */
+  timeMs: z.number().int(),
+  reason: z.string().min(1).optional(),
+  /** The one space they're banned from, by key. Leave out for everywhere. */
+  space: z.string().min(1).optional(),
+  ...targetingFields,
+});
+
+/** What a moderator does when someone reports a person. One naming them beats one that doesn't. */
+export const reportAnswerDefinitionSchema = z.object({
+  /** Who's reported, by username. Leave out to answer any report. */
+  user: z.string().min(1).optional(),
+  action: z.enum(["answer", "ban"]),
+  /** The moderator. */
+  actor: z.string().min(1),
+  /** Milliseconds after they report them. */
+  afterMs: z.number().int().nonnegative(),
+  /** What an answer says, or the reason given for a ban. */
+  message: z.string().min(1).optional(),
+  ...targetingFields,
+});
+
 /**
  * A complete study, however it was authored. Files, a visual builder, or an agent can all
  * produce one of these (see ADR 10).
@@ -350,6 +378,8 @@ export const studyDefinitionSchema = z.object({
   reactions: z.array(reactionDefinitionSchema).default([]),
   removals: z.array(removalDefinitionSchema).default([]),
   flagAnswers: z.array(flagAnswerDefinitionSchema).default([]),
+  bans: z.array(banDefinitionSchema).default([]),
+  reportAnswers: z.array(reportAnswerDefinitionSchema).default([]),
 });
 
 export type StudySettings = z.infer<typeof studySettingsSchema>;
@@ -361,3 +391,5 @@ export type CommentDefinition = z.infer<typeof commentDefinitionSchema>;
 export type ReactionDefinition = z.infer<typeof reactionDefinitionSchema>;
 export type RemovalDefinition = z.infer<typeof removalDefinitionSchema>;
 export type FlagAnswerDefinition = z.infer<typeof flagAnswerDefinitionSchema>;
+export type BanDefinition = z.infer<typeof banDefinitionSchema>;
+export type ReportAnswerDefinition = z.infer<typeof reportAnswerDefinitionSchema>;

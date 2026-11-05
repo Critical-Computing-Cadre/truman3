@@ -341,3 +341,30 @@ describe("flag-answers.csv", () => {
     expect(issues.map(({ message }) => message).join()).toContain("has to be remove or answer");
   });
 });
+
+describe("bans.csv and report-answers.csv", () => {
+  it("reads both", () => {
+    const { definition } = loadStudyFolder(
+      folder({
+        ...base,
+        "bans.csv": "user,actor,time,reason,space\nann,ann,1:00,Why,\n",
+        "report-answers.csv":
+          "user,action,actor,after,message\n,answer,ann,0:00,No\nann,ban,ann,0:00,\n",
+      }),
+    );
+    expect(definition?.bans).toEqual([
+      expect.objectContaining({ user: "ann", timeMs: 3_600_000, reason: "Why" }),
+    ]);
+    expect(definition?.reportAnswers).toEqual([
+      expect.objectContaining({ action: "answer", message: "No" }),
+      expect.objectContaining({ action: "ban", user: "ann" }),
+    ]);
+  });
+
+  it("refuses an action it doesn't know", () => {
+    const { issues } = loadStudyFolder(
+      folder({ ...base, "report-answers.csv": "action,actor,after\nremove,ann,0:00\n" }),
+    );
+    expect(issues.map(({ message }) => message).join()).toContain("has to be answer or ban");
+  });
+});

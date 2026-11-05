@@ -90,6 +90,22 @@ export const itemDataSchemas = {
     body: z.string().optional(),
     ...targeting,
   }),
+  ban: z.strictObject({
+    bannedActorId: z.uuid(),
+    actorId: z.uuid(),
+    timeMs: z.number().int(),
+    reason: z.string().min(1).optional(),
+    spaceId: z.uuid().optional(),
+    ...targeting,
+  }),
+  reportAnswer: z.strictObject({
+    reportedActorId: z.uuid().optional(),
+    action: z.enum(["answer", "ban"]),
+    actorId: z.uuid(),
+    afterMs: z.number().int().nonnegative(),
+    message: z.string().min(1).optional(),
+    ...targeting,
+  }),
   flagAnswer: z.strictObject({
     on: z.enum(["post", "comment"]).optional(),
     targetId: z.uuid().optional(),
@@ -117,6 +133,8 @@ export type CommentData = z.infer<typeof itemDataSchemas.comment>;
 export type ReactionData = z.infer<typeof itemDataSchemas.reaction>;
 export type RemovalData = z.infer<typeof itemDataSchemas.removal>;
 export type FlagAnswerData = z.infer<typeof itemDataSchemas.flagAnswer>;
+export type BanData = z.infer<typeof itemDataSchemas.ban>;
+export type ReportAnswerData = z.infer<typeof itemDataSchemas.reportAnswer>;
 
 /**
  * Where an item came from, recorded from the start because it can't be worked out later. It belongs
