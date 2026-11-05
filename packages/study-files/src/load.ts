@@ -36,6 +36,10 @@ const ACTORS: CsvSpec = {
     "picture",
     "moderator",
     "karma",
+    "followers",
+    "following",
+    "startsFollowed",
+    "badge",
     "flair",
     "condition",
     "class",
@@ -56,6 +60,10 @@ const POSTS: CsvSpec = {
     "pollResultsFirst",
     "flair",
     "crosspostOf",
+    "repostOf",
+    "quoteOf",
+    "reposts",
+    "quotes",
     "likes",
     "ups",
     "downs",
@@ -202,6 +210,16 @@ export function loadStudyFolder(folder: string): LoadedStudy {
   };
 
   // Someone's karma can go below zero, as it can on a real forum.
+  /** "yes" means everyone starts out following them, and anything else names conditions. */
+  const startsFollowedFrom = (value: string | undefined) => {
+    const text = value?.trim();
+    if (!text || /^(no|false)$/i.test(text)) {
+      return {};
+    }
+    return {
+      startsFollowed: /^(yes|true)$/i.test(text) ? true : text.split("|").map((key) => key.trim()),
+    };
+  };
   const signedNumber = (value: string | undefined, column: string, file: string, row: number) => {
     if (!value) {
       return undefined;
@@ -297,6 +315,10 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       ...optional("picture", cells.picture),
       ...(yesOrNo(cells.moderator, "moderator", "actors.csv", row) ? { moderator: true } : {}),
       ...optional("karma", signedNumber(cells.karma, "karma", "actors.csv", row)),
+      ...optional("followers", wholeNumber(cells.followers, "followers", "actors.csv", row)),
+      ...optional("following", wholeNumber(cells.following, "following", "actors.csv", row)),
+      ...startsFollowedFrom(cells.startsFollowed),
+      ...optional("badge", cells.badge || undefined),
       ...actorFlair(cells.flair, row),
       ...targeting(cells, "actors.csv", row),
     };
@@ -365,6 +387,10 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       ...pollFrom(cells, row),
       ...optional("flair", cells.flair),
       ...optional("crosspostOf", cells.crosspostOf),
+      ...optional("repostOf", cells.repostOf),
+      ...optional("quoteOf", cells.quoteOf),
+      ...optional("reposts", wholeNumber(cells.reposts, "reposts", "posts.csv", row)),
+      ...optional("quotes", wholeNumber(cells.quotes, "quotes", "posts.csv", row)),
       ...optional("likes", wholeNumber(cells.likes, "likes", "posts.csv", row)),
       ...optional("ups", wholeNumber(cells.ups, "ups", "posts.csv", row)),
       ...optional("downs", wholeNumber(cells.downs, "downs", "posts.csv", row)),
@@ -408,12 +434,14 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       type !== "up" &&
       type !== "down" &&
       type !== "remove" &&
-      type !== "warn"
+      type !== "warn" &&
+      type !== "repost" &&
+      type !== "follow"
     ) {
       rowError(
         file,
         row,
-        `"${type}" in type has to be read, like, reply, up, down, remove, or warn.`,
+        `"${type}" in type has to be read, like, reply, up, down, remove, warn, repost, or follow.`,
       );
       continue;
     }

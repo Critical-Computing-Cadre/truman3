@@ -265,6 +265,39 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     if (!on.appeals && study.appealAnswers.some(applies)) {
       warning(`Appeals are off in "${arm.key}", so its answers won't happen.`);
     }
+    const reposted = study.posts.filter((post) => applies(post) && post.repostOf).length;
+    if (!on.reposts && reposted > 0) {
+      warning(`Reposts are off in "${arm.key}", so ${reposted} written reposts won't show there.`);
+    }
+    const quoted = study.posts.filter((post) => applies(post) && post.quoteOf).length;
+    if (!on.quotes && quoted > 0) {
+      warning(
+        `Quote posts are off in "${arm.key}", so ${quoted} won't show what they quote there.`,
+      );
+    }
+    if (!on.reposts && reactions.some(({ type }) => type === "repost")) {
+      warning(`Reposts are off in "${arm.key}", so its scripted reposts won't happen.`);
+    }
+    if (!on.following && reactions.some(({ type }) => type === "follow")) {
+      warning(`Following is off in "${arm.key}", so its scripted follows won't happen.`);
+    }
+    if (on.followingFeed && !on.following) {
+      warning(`A following feed is on in "${arm.key}", but following, which it needs, is off.`);
+    }
+    if (!on.badges && study.actors.some((actor) => applies(actor) && actor.badge)) {
+      warning(`Badges are off in "${arm.key}", so the badges you wrote won't show there.`);
+    }
+    const limit = arm.platform?.maxPostLength ?? settings.platform.maxPostLength;
+    if (limit) {
+      const over = [...study.posts, ...study.comments].filter(
+        (item) => applies(item) && item.body.length > limit,
+      ).length;
+      if (over > 0) {
+        warning(
+          `In "${arm.key}", ${over} things you wrote are longer than what participants can write (${limit}).`,
+        );
+      }
+    }
     if (on.modLog && !on.removal) {
       warning(`A mod log is on in "${arm.key}", but it lists removals, which are off.`);
     }
@@ -438,13 +471,51 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
         }
       }
     }
+    const allPosts = new Map(study.posts.map((item) => [item.ref, item]));
+    for (const [word, ref] of [
+      ["repost", post.repostOf],
+      ["quote", post.quoteOf],
+    ] as const) {
+      if (!ref) {
+        continue;
+      }
+      const original = allPosts.get(ref);
+      if (!original) {
+        error(`${label} is a ${word} of "${ref}", which doesn't exist.`, post.source);
+      } else if (post.timeMs < original.timeMs) {
+        warning(`${label} appears before "${ref}", the post it passes along.`, post.source);
+      }
+    }
+    if (post.repostOf && post.quoteOf) {
+      error(`${label} can be a repost or a quote, not both.`, post.source);
+    }
+    if (post.repostOf && (post.body || post.title || post.pictures.length > 0)) {
+      warning(
+        `${label} is a repost, so what it says itself won't show. Make it a quote instead.`,
+        post.source,
+      );
+    }
+    // A chain has to end somewhere, or nothing could be worked out from it.
+    const seen = new Set([post.ref]);
+    for (
+      let above = allPosts.get(post.repostOf ?? post.quoteOf ?? "");
+      above;
+      above = allPosts.get(above.repostOf ?? above.quoteOf ?? "")
+    ) {
+      if (seen.has(above.ref)) {
+        error(`${label} is part of a circle of reposts or quotes.`, post.source);
+        break;
+      }
+      seen.add(above.ref);
+    }
     if (
       !post.body &&
       post.pictures.length === 0 &&
       !post.title &&
       !post.link &&
       !post.poll &&
-      !post.crosspostOf
+      !post.crosspostOf &&
+      !post.repostOf
     ) {
       error(`${label} has no text and no picture.`, post.source);
     }

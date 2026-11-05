@@ -42,6 +42,13 @@ const feedSettingsSchema = z.strictObject({
   removeBlocked: z.boolean().default(false),
   /** The order on a space's own page. Leave out to use the same one as the home feed. */
   spaceRanker: rankerSchema.optional(),
+  /** The order of the following tab. Leave out for newest first. */
+  followingRanker: rankerSchema.optional(),
+  /** What the two tabs are called. Leave out for "For you" and "Following". */
+  homeTabLabel: z.string().min(1).max(30).optional(),
+  followingTabLabel: z.string().min(1).max(30).optional(),
+  /** Which tab someone sees first. Leave out for the study's feed. */
+  startOnFollowing: z.boolean().optional(),
   /** Whether participants can choose new or top themselves. Leave out for no. */
   participantsCanSort: z.boolean().optional(),
   /** The order of comments on a post. Leave out for the template's, or else the scripted order. */
@@ -59,6 +66,10 @@ const feedOverridesSchema = z.strictObject({
   removeFlagged: z.boolean().optional(),
   removeBlocked: z.boolean().optional(),
   spaceRanker: rankerSchema.optional(),
+  followingRanker: rankerSchema.optional(),
+  homeTabLabel: feedSettingsSchema.shape.homeTabLabel,
+  followingTabLabel: feedSettingsSchema.shape.followingTabLabel,
+  startOnFollowing: z.boolean().optional(),
   participantsCanSort: z.boolean().optional(),
   commentOrder: commentOrderSchema.optional(),
   participantsCanSortComments: z.boolean().optional(),
@@ -94,6 +105,8 @@ const armSchema = z.strictObject({
       canJoinSpaces: z.boolean().optional(),
       startingKarma: z.number().int().optional(),
       recordUnpostedText: z.boolean().optional(),
+      maxPostLength: z.number().int().positive().optional(),
+      startingFollowers: z.number().int().nonnegative().optional(),
       /** Replaces the study's list for this condition. */
       karmaChanges: z.array(karmaChangeSchema).optional(),
     })
@@ -168,6 +181,10 @@ export const studySettingsSchema = z.strictObject({
        * it. Off unless a study turns it on, since it's text someone chose not to share.
        */
       recordUnpostedText: z.boolean().optional(),
+      /** The most a participant can write in a post or comment. Leave out for no limit. */
+      maxPostLength: z.number().int().positive().optional(),
+      /** How many followers a participant starts with, on a platform that shows them. */
+      startingFollowers: z.number().int().nonnegative().optional(),
       /** Scripted changes to karma during the study. */
       karmaChanges: z.array(karmaChangeSchema).optional(),
     })
@@ -220,6 +237,13 @@ export const actorDefinitionSchema = z.object({
   moderator: z.boolean().optional(),
   /** Their points, on a platform with karma. */
   karma: z.number().int().optional(),
+  /** How many follow them and they follow, on a platform that shows those. */
+  followers: z.number().int().nonnegative().optional(),
+  following: z.number().int().nonnegative().optional(),
+  /** Whether a participant starts out following them: true for everyone, or a list of conditions. */
+  startsFollowed: z.union([z.boolean(), z.array(z.string())]).optional(),
+  /** A label beside their name, on a platform with badges. */
+  badge: z.string().min(1).max(40).optional(),
   /** The flair they show in each space, by the space's key, on a platform with flair. */
   spaceFlair: z.record(z.string(), z.string()).optional(),
   ...targetingFields,
@@ -274,6 +298,13 @@ export const postDefinitionSchema = z.object({
   flair: z.string().min(1).optional(),
   /** The post this was crossposted from, by its ID in this study. */
   crosspostOf: z.string().min(1).optional(),
+  /** The post this passes along, by its ID. It can be another repost, which makes a chain. */
+  repostOf: z.string().min(1).optional(),
+  /** The post this quotes, by its ID in this study. */
+  quoteOf: z.string().min(1).optional(),
+  /** How many it says have passed it along or quoted it, before anything in the study. */
+  reposts: z.number().int().nonnegative().optional(),
+  quotes: z.number().int().nonnegative().optional(),
   actor: z.string().min(1),
   /** Milliseconds relative to when a participant starts. */
   timeMs: z.number().int(),
@@ -304,7 +335,7 @@ export const reactionDefinitionSchema = z.object({
   on: z.enum(["post", "comment"]),
   /** Which one, counting from 0. */
   nth: z.number().int().nonnegative(),
-  type: z.enum(["read", "like", "reply", "up", "down", "remove", "warn"]),
+  type: z.enum(["read", "like", "reply", "up", "down", "remove", "warn", "repost", "follow"]),
   actor: z.string().min(1),
   /** Milliseconds after the participant's post or comment. */
   afterMs: z.number().int().nonnegative(),

@@ -25,6 +25,7 @@ import {
 } from "../features/post-extras.tsx";
 import { CommentsLink } from "../features/post-pages.tsx";
 import { RemovedNote } from "../features/removal.tsx";
+import { QuoteButton, QuotedPost, RepostButton, RepostedBy } from "../features/reposts.tsx";
 import { ModeratorTag, SpaceChip } from "../features/spaces.tsx";
 import { PostTitle } from "../features/titles.tsx";
 import { VoteButtons } from "../features/votes.tsx";
@@ -108,7 +109,10 @@ export function ForumPost({
   detail = false,
 }: FeedPostViewProps) {
   const image = post.attachments.length > 0 ? <PostPhotos post={post} /> : null;
-  const more = useMoreMenu(["flagging", "saving", "hiding", "sharing", "crossposting"], PILL);
+  const more = useMoreMenu(
+    ["flagging", "saving", "hiding", "sharing", "crossposting", "quotes"],
+    PILL,
+  );
   const lessUsed = (
     <>
       <div className={PILL}>
@@ -126,6 +130,9 @@ export function ForumPost({
       <div className={PILL}>
         <CrosspostButton post={post} actions={actions} />
       </div>
+      <div className={PILL}>
+        <QuoteButton post={post} actions={actions} />
+      </div>
     </>
   );
   const author = (className: string, children: ReactNode) =>
@@ -141,6 +148,7 @@ export function ForumPost({
       aria-label={post.title ?? `Post by ${post.author.name}`}
       className="overflow-hidden border-b border-stone-200 bg-white sm:rounded-2xl sm:border"
     >
+      <RepostedBy post={post} />
       <div className="relative">
         <FlaggedPostCover post={post} {...(actions ? { actions } : {})} />
         <header className="flex flex-wrap items-center gap-x-1.5 gap-y-1 px-4 pt-3 text-xs text-stone-500">
@@ -184,6 +192,7 @@ export function ForumPost({
             {...(renderPostLink ? { renderPostLink } : {})}
             {...(renderSpace ? { renderSpace } : {})}
           />
+          <QuotedPost post={post} {...(renderPostLink ? { renderPostLink } : {})} />
           <div className="mx-4 mt-2.5 overflow-hidden rounded-xl empty:hidden">
             {wrapImage ? wrapImage(image) : image}
           </div>
@@ -195,6 +204,9 @@ export function ForumPost({
           </div>
           <div className={PILL}>
             <PostLikeButton post={post} {...(actions ? { actions } : {})} />
+          </div>
+          <div className={PILL}>
+            <RepostButton post={post} actions={actions} />
           </div>
           {detail ? (
             <div className={PILL}>

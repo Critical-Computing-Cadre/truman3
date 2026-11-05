@@ -61,6 +61,11 @@ export function ModeratorTag({ author }: { author: FeedAuthor }) {
   return (
     <>
       {author.moderator && <span className={`${tag} bg-stone-200 text-stone-700`}>Moderator</span>}
+      {author.badge && (
+        <span data-testid="author-badge" className={`${tag} bg-sky-100 text-sky-900`}>
+          {author.badge}
+        </span>
+      )}
       {author.banned && <span className={`${tag} bg-rose-100 text-rose-800`}>Banned</span>}
     </>
   );

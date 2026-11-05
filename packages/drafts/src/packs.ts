@@ -434,23 +434,31 @@ export async function startStudy(
         provenance: fromPack(null),
         data: space,
       })),
-      ...posts.map(({ actor, likes, space, crosspostOf, ...post }, position) => ({
-        id: postIds.get(post.ref) as string,
-        draftId: draft.id,
-        kind: "post",
-        position,
-        provenance: fromPack(`post:${post.ref}`),
-        data: {
-          ...post,
-          actorId: actorId(actor),
-          ...(space && spaceIds.has(space) ? { spaceId: spaceIds.get(space) as string } : {}),
-          // A crosspost whose original was left out of this study is an ordinary post.
-          ...(crosspostOf && postIds.has(crosspostOf)
-            ? { crosspostOfId: postIds.get(crosspostOf) as string }
-            : {}),
-          likes: drawLikes(likes, settings.likes.posts),
-        },
-      })),
+      ...posts.map(
+        ({ actor, likes, space, crosspostOf, repostOf, quoteOf, ...post }, position) => ({
+          id: postIds.get(post.ref) as string,
+          draftId: draft.id,
+          kind: "post",
+          position,
+          provenance: fromPack(`post:${post.ref}`),
+          data: {
+            ...post,
+            actorId: actorId(actor),
+            ...(space && spaceIds.has(space) ? { spaceId: spaceIds.get(space) as string } : {}),
+            // A crosspost whose original was left out of this study is an ordinary post.
+            ...(repostOf && postIds.has(repostOf)
+              ? { repostOfId: postIds.get(repostOf) as string }
+              : {}),
+            ...(quoteOf && postIds.has(quoteOf)
+              ? { quoteOfId: postIds.get(quoteOf) as string }
+              : {}),
+            ...(crosspostOf && postIds.has(crosspostOf)
+              ? { crosspostOfId: postIds.get(crosspostOf) as string }
+              : {}),
+            likes: drawLikes(likes, settings.likes.posts),
+          },
+        }),
+      ),
       ...comments.map(({ actor, post, likes, replyTo, ...comment }, position) => ({
         id: commentIds.get(comment.ref) as string,
         draftId: draft.id,

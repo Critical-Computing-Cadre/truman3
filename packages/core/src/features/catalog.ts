@@ -116,6 +116,39 @@ export const FEATURES = {
     version: 1,
     events: ["moderation.appealed", "reaction.scheduled"],
   },
+  followingFeed: {
+    name: "A following feed",
+    description:
+      "Two tabs: the study's feed, and one with only those someone follows, each with its own order. Following someone changes what they see.",
+    version: 1,
+    events: ["actor.followed", "actor.unfollowed"],
+  },
+  followCounts: {
+    name: "Follower counts",
+    description:
+      "Profiles show how many people follow someone, and how many they follow. The study writes everyone's.",
+    version: 1,
+    events: [],
+  },
+  reposts: {
+    name: "Reposts",
+    description:
+      "Someone can pass along a post as it is, and it shows under their name. The study can write these, including chains of them.",
+    version: 1,
+    events: ["content.reposted", "content.unreposted"],
+  },
+  quotes: {
+    name: "Quote posts",
+    description: "Someone can post with their own words, showing another post inside theirs.",
+    version: 1,
+    events: ["content.created"],
+  },
+  badges: {
+    name: "Badges",
+    description: "Someone in the cast can show a badge beside their name, with a label you write.",
+    version: 1,
+    events: [],
+  },
   warnings: {
     name: "Moderators warning people",
     description:

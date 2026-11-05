@@ -85,6 +85,8 @@ export async function previewContent(
     spaceId: string | null;
     conditions: string[];
   }[] = [],
+  /** Shows a repost as its own card, so a researcher can edit it. */
+  repostsAsThemselves = false,
 ) {
   const worldStartMs = now.getTime() - elapsedMs;
   const features = featuresFor(version.settings, conditionKey);
@@ -129,7 +131,23 @@ export async function previewContent(
   const rowsById = new Map(rows.map((row) => [row.id, row]));
   const shownRows = (
     spacesOn ? rows.filter(({ spaceId }) => spaceId === null || visible.has(spaceId)) : rows
-  ).filter((row) => !hiddenByBan(row, rowsById, bans, worldStartMs));
+  ).filter((row) => {
+    if (hiddenByBan(row, rowsById, bans, worldStartMs)) {
+      return false;
+    }
+    if (!row.repostOf || repostsAsThemselves) {
+      return true;
+    }
+    let root = row;
+    for (let step = 0; root.repostOf && step < rows.length; step++) {
+      root = rowsById.get(root.repostOf) ?? root;
+    }
+    return (
+      features.reposts &&
+      (root.conditions.length === 0 || root.conditions.includes(conditionKey)) &&
+      contentTimeMs(root, worldStartMs) <= now.getTime()
+    );
+  });
 
   const feed = assembleFeed(
     shownOnThisPlatform(shownRows, version.settings, conditionKey).map((row) => ({
@@ -165,6 +183,11 @@ export async function previewContent(
     features,
     removals,
     bans,
+    repostsAsThemselves,
+    countable: (row) =>
+      (row.conditions.length === 0 || row.conditions.includes(conditionKey)) &&
+      contentTimeMs(row, worldStartMs) <= now.getTime() &&
+      !hiddenByBan(row, rowsById, bans, worldStartMs),
     canSeeOriginal: (row) =>
       !removals.has(row.id) &&
       !hiddenByBan(row, rowsById, bans, worldStartMs) &&

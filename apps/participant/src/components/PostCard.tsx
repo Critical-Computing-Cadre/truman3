@@ -8,6 +8,7 @@ import { createDwellTimer } from "../dwell.ts";
 import { rememberOpenedFrom, track } from "../tracking.ts";
 import { AreYouSure } from "./AreYouSure.tsx";
 import { CrosspostDialog } from "./CrosspostDialog.tsx";
+import { QuoteDialog } from "./QuoteDialog.tsx";
 
 /** Counts as being looked at once half of it is on screen. */
 const IN_VIEW_THRESHOLD = 0.5;
@@ -69,6 +70,18 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
   const [replyTo, setReplyTo] = useState<FeedComment | null>(null);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [quoting, setQuoting] = useState(false);
+  const quoteDialog = useRef<HTMLDialogElement>(null);
+  const repost = useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) =>
+      send(`/content/${id}/repost`, { active }),
+    onSettled: () => client.invalidateQueries(),
+  });
+  useEffect(() => {
+    if (quoting) {
+      quoteDialog.current?.showModal();
+    }
+  }, [quoting]);
   const crosspostDialog = useRef<HTMLDialogElement>(null);
   const [crossposting, setCrossposting] = useState(false);
   /** Whether comments are here, or wait on the post's own page. */
@@ -132,6 +145,9 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
 
   return (
     <>
+      {quoting && (
+        <QuoteDialog post={post} dialogRef={quoteDialog} onClose={() => setQuoting(false)} />
+      )}
       {crossposting && (
         <CrosspostDialog
           post={post}
@@ -187,6 +203,8 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
           },
           onPollVote: (id, option) => pollVote.mutate({ id, option }),
           onCrosspost: () => setCrossposting(true),
+          onRepost: (id, active) => repost.mutate({ id, active }),
+          onQuote: () => setQuoting(true),
           onReply: () => {
             if (pages && !detail) {
               openPost();
@@ -241,6 +259,7 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
                   value={draft}
                   onChange={setDraft}
                   onSubmit={() => comment.mutate({ body: draft })}
+                  {...(flow.data?.maxPostLength ? { maxLength: flow.data.maxPostLength } : {})}
                   sending={comment.isPending}
                   inputRef={inputRef}
                 />

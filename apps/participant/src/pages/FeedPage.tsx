@@ -38,7 +38,7 @@ export function SortPicker({
   surface,
   sort,
 }: {
-  surface: "home" | "space";
+  surface: "home" | "space" | "following";
   /** The order the server is using, which is the last one recorded. */
   sort: FeedSort;
 }) {
@@ -135,6 +135,8 @@ export function NewPostDialog({
   }, [image]);
 
   const close = () => dialogRef.current?.close();
+  const limit = flow.data?.maxPostLength ?? null;
+  const tooLong = limit !== null && body.trim().length > limit;
   const where = space ?? chosenSpace;
   const whereSpace = spaces.data?.spaces.find(({ key }) => key === where);
   const flairChoices = whereSpace?.postFlair ?? [];
@@ -267,6 +269,14 @@ export function NewPostDialog({
           placeholder={placeholder}
           className="w-full rounded border border-stone-300 px-3 py-2 text-base"
         />
+        {limit !== null && (
+          <p
+            data-testid="length-left"
+            className={`text-xs ${tooLong ? "text-rose-700" : "text-stone-500"}`}
+          >
+            {limit - body.trim().length} characters left
+          </p>
+        )}
         {links && (
           <div className="flex flex-col gap-1 text-sm">
             <label className="flex flex-col gap-1 font-medium">
@@ -405,6 +415,7 @@ export function NewPostDialog({
           type="submit"
           disabled={
             create.isPending ||
+            tooLong ||
             badLink ||
             pollProblem !== null ||
             checkNewPost(style, body.trim().length > 0, images.length > 0, {
@@ -424,11 +435,17 @@ export function NewPostDialog({
 }
 
 export function FeedPage() {
-  const feed = useQuery({
-    queryKey: ["feed", "home"],
-    queryFn: () => get<FeedResponse>(`/feed?visit=${VISIT}`),
-  });
   const flow = useQuery(flowQuery);
+  const tabs = flow.data?.features.followingFeed ? flow.data.feedTabs : null;
+  /** Which tab they chose. Until they choose, it's the one the study starts on. */
+  const [chosenTab, setChosenTab] = useState<"home" | "following" | null>(null);
+  const tab = chosenTab ?? (tabs?.startOnFollowing ? "following" : "home");
+  const feed = useQuery({
+    queryKey: ["feed", tab],
+    enabled: flow.isSuccess,
+    queryFn: () =>
+      get<FeedResponse>(tab === "following" ? `/feed?surface=following` : `/feed?visit=${VISIT}`),
+  });
   const me = useQuery(meQuery);
   const newPost = useRef<HTMLDialogElement>(null);
 
@@ -472,12 +489,30 @@ export function FeedPage() {
           />
         </>
       )}
-      {feed.data && <SortPicker surface="home" sort={feed.data.sort ?? null} />}
+      {tabs && (
+        <div role="tablist" aria-label="Feeds" className="flex border-b border-stone-200 bg-white">
+          {(["home", "following"] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setChosenTab(key)}
+              className={`flex-1 py-3 text-sm font-medium ${
+                tab === key ? "border-b-2 border-stone-900" : "text-stone-500"
+              }`}
+            >
+              {key === "home" ? tabs.home : tabs.following}
+            </button>
+          ))}
+        </div>
+      )}
+      {feed.data && <SortPicker surface={tab} sort={feed.data.sort ?? null} />}
       {feed.data?.posts.length === 0 && (
         <p className="p-6 text-center text-stone-500">No posts to show.</p>
       )}
       {feed.data?.posts.map((post) => (
-        <PostCard key={post.id} post={post} />
+        <PostCard key={post.repostedBy?.id ?? post.id} post={post} />
       ))}
     </FeedFrame>
   );

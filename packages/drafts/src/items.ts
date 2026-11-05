@@ -28,6 +28,10 @@ export const itemDataSchemas = {
     picture: z.string().optional(),
     moderator: z.boolean().optional(),
     karma: z.number().int().optional(),
+    followers: z.number().int().nonnegative().optional(),
+    following: z.number().int().nonnegative().optional(),
+    startsFollowed: z.union([z.boolean(), z.array(z.string())]).optional(),
+    badge: z.string().min(1).max(40).optional(),
     /** The flair they show in each space, by the space's item ID. */
     spaceFlair: z.record(z.uuid(), z.string()).optional(),
     ...targeting,
@@ -63,6 +67,11 @@ export const itemDataSchemas = {
     flair: z.string().min(1).optional(),
     /** The post this was crossposted from. */
     crosspostOfId: z.uuid().optional(),
+    /** The post this passes along, or quotes. */
+    repostOfId: z.uuid().optional(),
+    quoteOfId: z.uuid().optional(),
+    reposts: z.number().int().nonnegative().optional(),
+    quotes: z.number().int().nonnegative().optional(),
     timeMs: z.number().int(),
     likes: z.number().int().nonnegative(),
     ups: z.number().int().nonnegative().optional(),
@@ -85,7 +94,7 @@ export const itemDataSchemas = {
   reaction: z.strictObject({
     on: z.enum(["post", "comment"]),
     nth: z.number().int().nonnegative(),
-    type: z.enum(["read", "like", "reply", "up", "down", "remove", "warn"]),
+    type: z.enum(["read", "like", "reply", "up", "down", "remove", "warn", "repost", "follow"]),
     actorId: z.uuid(),
     afterMs: z.number().int().nonnegative(),
     body: z.string().optional(),

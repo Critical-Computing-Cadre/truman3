@@ -45,6 +45,10 @@ export type FeedContent = Pick<
   | "poll"
   | "flair"
   | "crosspostOf"
+  | "repostOf"
+  | "quoteOf"
+  | "baseReposts"
+  | "baseQuotes"
   | "body"
   | "attachments"
   | "offsetMs"
@@ -76,6 +80,9 @@ interface ActorProfile {
   moderator?: boolean;
   karma?: number;
   spaceFlair?: Record<string, string>;
+  followers?: number;
+  following?: number;
+  badge?: string;
 }
 
 /** What the feed needs to name a space on a post. */
@@ -450,16 +457,20 @@ async function loadViewerState(db: Database, context: ParticipantContext) {
         eq(schema.contentInteractions.actorId, context.actorId),
       ),
     );
-  const blocks = await db
-    .select({ targetActorId: schema.actorRelations.targetActorId })
+  const relations = await db
+    .select({
+      targetActorId: schema.actorRelations.targetActorId,
+      kind: schema.actorRelations.kind,
+    })
     .from(schema.actorRelations)
     .where(
       and(
         eq(schema.actorRelations.worldId, context.worldId),
         eq(schema.actorRelations.actorId, context.actorId),
-        eq(schema.actorRelations.kind, "block"),
       ),
     );
+  const related = (kind: string) =>
+    new Set(relations.filter((row) => row.kind === kind).map((row) => row.targetActorId));
 
   const idsOfKind = (kind: string) =>
     new Set(interactions.filter((row) => row.kind === kind).map((row) => row.contentId));
@@ -480,7 +491,8 @@ async function loadViewerState(db: Database, context: ParticipantContext) {
     savedContentIds: idsOfKind("save"),
     hiddenContentIds: idsOfKind("hide"),
     viewedContentIds: idsOfKind("view"),
-    blockedActorIds: new Set(blocks.map((row) => row.targetActorId)),
+    blockedActorIds: related("block"),
+    followedActorIds: related("follow"),
   };
 }
 
@@ -509,6 +521,8 @@ export async function shapeFeedPosts({
   bans = [],
   heldIds = new Set(),
   appealedIds = new Set(),
+  countable = () => true,
+  repostsAsThemselves = false,
 }: {
   loadAuthors: (ids: string[]) => Promise<ReadonlyMap<string, FeedActor>>;
   mediaPublicUrl: string;
@@ -545,18 +559,44 @@ export async function shapeFeedPosts({
   heldIds?: ReadonlySet<string>;
   /** What this viewer has appealed. */
   appealedIds?: ReadonlySet<string>;
+  /** Whether a repost, quote, or comment is there to be counted for this viewer by now. */
+  countable?: (row: FeedContent) => boolean;
+  /** Shows a repost as its own card, so a researcher can edit it, rather than as the post it passes on. */
+  repostsAsThemselves?: boolean;
 }): Promise<FeedPost[]> {
   const byId = new Map(rows.map((row) => [row.id, row]));
+  /** The first post in a chain of reposts. */
+  const rootOf = (row: FeedContent) => {
+    let current = row;
+    for (let step = 0; current.repostOf && step < rows.length; step++) {
+      current = byId.get(current.repostOf) ?? current;
+    }
+    return current;
+  };
+  const passesAlong = (row: FeedContent) =>
+    Boolean(row.repostOf && features.reposts && !repostsAsThemselves);
+  const shownAs = (row: FeedContent) => (passesAlong(row) ? rootOf(row) : row);
+  /** What this shows inside itself: what it was crossposted from, or quotes. */
+  const insideOf = (item: FeedContent) => [
+    ...(features.crossposting && item.crosspostOf ? [item.crosspostOf] : []),
+    ...(features.quotes && item.quoteOf ? [item.quoteOf] : []),
+    ...(repostsAsThemselves && item.repostOf ? [item.repostOf] : []),
+  ];
   const shownIds = feed.posts.flatMap((post) => [post.id, ...post.commentIds]);
-  const shownOriginals = features.crossposting
-    ? feed.posts.flatMap((post) => {
-        const original = byId.get(byId.get(post.id)?.crosspostOf ?? "");
-        return original && canSeeOriginal(original) ? [original] : [];
-      })
-    : [];
+  const shownOriginals = feed.posts.flatMap((post) =>
+    insideOf(shownAs(byId.get(post.id) as FeedContent)).flatMap((id) => {
+      const original = byId.get(id);
+      return original && canSeeOriginal(original) ? [original] : [];
+    }),
+  );
   const authorIds = [
     ...new Set([
       ...shownIds.map((id) => (byId.get(id) as FeedContent).authorActorId),
+      ...feed.posts.flatMap((post) => {
+        const listed = byId.get(post.id) as FeedContent;
+        const above = listed.repostOf ? byId.get(listed.repostOf) : undefined;
+        return [shownAs(listed).authorActorId, ...(above ? [above.authorActorId] : [])];
+      }),
       ...shownOriginals.map(({ authorActorId }) => authorActorId),
       ...shownIds.flatMap((id) => {
         const removal = removals.get(id);
@@ -581,8 +621,8 @@ export async function shapeFeedPosts({
     };
   };
 
-  const originalOf = (item: FeedContent): FeedOriginal | null => {
-    const original = byId.get(item.crosspostOf ?? "");
+  const originalOf = (id: string | null): FeedOriginal | null => {
+    const original = byId.get(id ?? "");
     if (!original || !canSeeOriginal(original)) {
       return null;
     }
@@ -616,6 +656,7 @@ export async function shapeFeedPosts({
       pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
       isViewer: actor.id === viewerActorId,
       ...(profile.moderator ? { moderator: true as const } : {}),
+      ...(profile.badge && features.badges ? { badge: profile.badge } : {}),
       ...(bans.some(
         ({ bannedActorId, spaceId: from }) =>
           bannedActorId === actorId && (from === null || from === spaceId),
@@ -671,8 +712,67 @@ export async function shapeFeedPosts({
     };
   };
 
+  // What's been passed along or quoted, counted once for each first post.
+  const reposters = new Map<string, number>();
+  const quoters = new Map<string, number>();
+  const commentCounts = new Map<string, number>();
+  let viewerReposted = new Set<string>();
+  if (features.reposts || features.quotes) {
+    const mine = new Set<string>();
+    for (const row of rows) {
+      if (!countable(row)) {
+        continue;
+      }
+      if (row.repostOf) {
+        const root = rootOf(row).id;
+        reposters.set(root, (reposters.get(root) ?? 0) + 1);
+        if (row.authorActorId === viewerActorId) {
+          mine.add(root);
+        }
+      }
+      if (row.quoteOf) {
+        quoters.set(row.quoteOf, (quoters.get(row.quoteOf) ?? 0) + 1);
+      }
+      if (row.parentId) {
+        let top = row;
+        for (let step = 0; top.parentId && step < rows.length; step++) {
+          top = byId.get(top.parentId) ?? top;
+        }
+        commentCounts.set(top.id, (commentCounts.get(top.id) ?? 0) + 1);
+      }
+    }
+    viewerReposted = mine;
+  }
+
   return feed.posts.map((post) => {
-    const item = byId.get(post.id) as FeedContent;
+    const listed = byId.get(post.id) as FeedContent;
+    const item = shownAs(listed);
+    const repostedBy = passesAlong(listed)
+      ? (() => {
+          const person = authorById.get(listed.authorActorId) as FeedActor;
+          const above = byId.get(listed.repostOf as string);
+          const from = above?.repostOf ? authorById.get(above.authorActorId) : undefined;
+          return {
+            repostedBy: {
+              id: listed.id,
+              name: (person.profile as ActorProfile).name ?? person.username,
+              username: person.username,
+              isViewer: person.id === viewerActorId,
+              ...(from ? { via: (from.profile as ActorProfile).name ?? from.username } : {}),
+            },
+          };
+        })()
+      : {};
+    const passing = {
+      ...repostedBy,
+      ...(features.reposts
+        ? {
+            repostCount: item.baseReposts + (reposters.get(item.id) ?? 0),
+            ...(viewerReposted.has(item.id) ? { reposted: true as const } : {}),
+          }
+        : {}),
+      ...(features.quotes ? { quoteCount: item.baseQuotes + (quoters.get(item.id) ?? 0) } : {}),
+    };
     const space = item.spaceId ? spaces.get(item.spaceId) : undefined;
     const { withheld } = removalOf(item);
     const comments = (commentsHere ? post.commentIds : []).map((id) => ({
@@ -700,15 +800,24 @@ export async function shapeFeedPosts({
       return {
         ...common(item, item.spaceId),
         ...place,
+        ...passing,
         attachments: [],
         comments,
-        commentCount: post.commentIds.length,
+        commentCount: passesAlong(listed)
+          ? (commentCounts.get(item.id) ?? 0)
+          : post.commentIds.length,
       };
     }
-    const original = features.crossposting ? originalOf(item) : null;
+    const original = features.crossposting ? originalOf(item.crosspostOf) : null;
+    const quotedId = item.quoteOf ?? (repostsAsThemselves ? item.repostOf : null);
+    const quoted = features.quotes || repostsAsThemselves ? originalOf(quotedId) : null;
     // A crosspost shows its original, so whatever covers that has to cover this too.
     const tags = [
-      ...new Set([...item.tags, ...(original ? (byId.get(original.id)?.tags ?? []) : [])]),
+      ...new Set([
+        ...item.tags,
+        ...(original ? (byId.get(original.id)?.tags ?? []) : []),
+        ...(quoted ? (byId.get(quoted.id)?.tags ?? []) : []),
+      ]),
     ].filter(
       (tag) => (tag === "spoiler" && features.spoilers) || (tag === "adult" && features.adultTags),
     ) as PostTag[];
@@ -722,6 +831,10 @@ export async function shapeFeedPosts({
       ...(poll ? { poll } : {}),
       ...(flair ? { flair } : {}),
       ...(item.crosspostOf && features.crossposting ? { crosspost: { original } } : {}),
+      ...(quotedId && (features.quotes || repostsAsThemselves)
+        ? { quote: { original: quoted } }
+        : {}),
+      ...passing,
       ...(item.title ? { title: item.title } : {}),
       ...(item.linkUrl && features.links
         ? { link: { url: item.linkUrl, domain: linkDomain(item.linkUrl) } }
@@ -733,7 +846,9 @@ export async function shapeFeedPosts({
         url: mediaUrl(key, mediaPublicUrl),
       })),
       comments,
-      commentCount: post.commentIds.length,
+      commentCount: passesAlong(listed)
+        ? (commentCounts.get(item.id) ?? 0)
+        : post.commentIds.length,
     };
   });
 }
@@ -758,6 +873,8 @@ export interface BuildFeedOptions {
   commentSort?: CommentSort | undefined;
   /** Only what this person has saved or hidden, as on their profile. */
   list?: "saved" | "hidden" | undefined;
+  /** Only those this person follows, and themselves, on that tab. */
+  following?: boolean | undefined;
 }
 
 /** Works out what a participant sees now, and records that it was shown. */
@@ -775,6 +892,7 @@ export async function buildFeed(
     post,
     commentSort,
     list,
+    following,
   }: BuildFeedOptions = {},
 ): Promise<FeedPost[]> {
   const worldStartMs = context.worldStartedAt.getTime();
@@ -830,11 +948,47 @@ export async function buildFeed(
     );
   };
   const features = featuresFor(context.settings, context.conditionKey);
+  const conditionSettings = settings ?? feedSettingsFor(context.settings, context.conditionKey);
+  const featureSettings = conditionSettings;
   const hiddenHere = features.hiding ? state.hiddenContentIds : new Set<string>();
   const listed = list === "saved" ? state.savedContentIds : state.hiddenContentIds;
   const bans = await loadBans(db, context, now);
+  const rootOf = (row: ContentRow) => {
+    let current = row;
+    for (let step = 0; current.repostOf && step < rows.length; step++) {
+      current = rowsById.get(current.repostOf) ?? current;
+    }
+    return current;
+  };
+  const inCondition = (row: ContentRow) =>
+    row.conditions.length === 0 || row.conditions.includes(context.conditionKey);
+  const appeared = (row: ContentRow) => contentTimeMs(row, worldStartMs) <= now.getTime();
+  const notTakenAway = (row: ContentRow) =>
+    !hiddenByBan(row, rowsById, bans, worldStartMs) &&
+    !(featureSettings.removeBlocked && state.blockedActorIds.has(row.authorActorId)) &&
+    !(featureSettings.removeFlagged && state.flaggedContentIds.has(row.id));
+  /** A repost only shows if the post it passes along could. */
+  const repostShows = (row: ContentRow) => {
+    if (!row.repostOf) {
+      return true;
+    }
+    const root = rootOf(row);
+    return (
+      features.reposts &&
+      inCondition(root) &&
+      appeared(root) &&
+      notTakenAway(root) &&
+      !state.flaggedContentIds.has(root.id) &&
+      !state.blockedActorIds.has(root.authorActorId) &&
+      !hiddenHere.has(root.id)
+    );
+  };
   const inScope = (row: ContentRow) =>
     !hiddenByBan(row, rowsById, bans, worldStartMs) &&
+    repostShows(row) &&
+    (!following ||
+      postOf(row).authorActorId === context.actorId ||
+      state.followedActorIds.has(postOf(row).authorActorId)) &&
     (!authorActorId || postOf(row).authorActorId === authorActorId) &&
     (!post || postOf(row).id === post) &&
     (list ? listed.has(postOf(row).id) : post !== undefined || !hiddenHere.has(postOf(row).id)) &&
@@ -843,13 +997,13 @@ export async function buildFeed(
   const pinPlace =
     features.pinning && !post && !authorActorId && !list ? (space ? "space" : "home") : null;
 
-  const conditionSettings = settings ?? feedSettingsFor(context.settings, context.conditionKey);
   const feedSettings: FeedSettings = {
     ...conditionSettings,
     ranker:
       sort ??
       (list ? "new" : undefined) ??
       (space ? conditionSettings.spaceRanker : undefined) ??
+      (following ? (conditionSettings.followingRanker ?? "new") : undefined) ??
       conditionSettings.ranker,
     commentOrder: commentSort ?? conditionSettings.commentOrder,
   };
@@ -888,7 +1042,9 @@ export async function buildFeed(
   }
 
   /** Scripted votes so far and this person's own, on top of what the study wrote. */
-  const votesOf = (row: ContentRow) => {
+  const votesOf = (written: ContentRow) => {
+    // A repost ranks by the post it passes along.
+    const row = rootOf(written);
     const vote = state.viewerVotes.get(row.id);
     const ups = row.baseUps + (scriptedCounts.get(`up:${row.id}`) ?? 0) + (vote === "up" ? 1 : 0);
     const downs =
@@ -940,16 +1096,13 @@ export async function buildFeed(
     pollChoices: state.pollChoices,
     viewerFlair: new Map(spaces.flatMap(({ id, flair }) => (flair ? [[id, flair]] : []))),
     canSeeOriginal: (row) => {
-      const inCondition =
-        row.conditions.length === 0 || row.conditions.includes(context.conditionKey);
-      const appeared = contentTimeMs(row, worldStartMs) <= now.getTime();
       const inVisibleSpace = !spacesOn || !row.spaceId || visibleSpaces.has(row.spaceId);
       const removed =
         (feedSettings.removeBlocked && state.blockedActorIds.has(row.authorActorId)) ||
         (feedSettings.removeFlagged && state.flaggedContentIds.has(row.id));
       return (
-        inCondition &&
-        appeared &&
+        inCondition(row as ContentRow) &&
+        appeared(row as ContentRow) &&
         inVisibleSpace &&
         !removed &&
         !removals.has(row.id) &&
@@ -958,6 +1111,10 @@ export async function buildFeed(
     },
     removals,
     bans,
+    countable: (row) =>
+      inCondition(row as ContentRow) &&
+      appeared(row as ContentRow) &&
+      !hiddenByBan(row as ContentRow, rowsById, bans, worldStartMs),
     heldIds: await loadHeldIds(db, context, now),
     appealedIds: await loadAppealedIds(db, context),
     spaces: visibleSpaces,

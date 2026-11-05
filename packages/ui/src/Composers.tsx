@@ -60,7 +60,10 @@ export function CommentBox({
   onSubmit,
   sending = false,
   inputRef,
+  maxLength,
 }: {
+  /** The most they can write, where a study sets a limit. */
+  maxLength?: number;
   seed: string;
   pictureUrl: string | null;
   value?: string;
@@ -94,6 +97,7 @@ export function CommentBox({
           ref={inputRef}
           aria-label="Write a comment"
           rows={1}
+          {...(maxLength ? { maxLength } : {})}
           disabled={!onChange}
           value={value}
           onChange={(event) => onChange?.(event.target.value)}

@@ -333,6 +333,47 @@ function StudyForm({
           <Hint>Off means everyone keeps the spaces they start in.</Hint>
         </label>
       )}
+      <label className={labelClass}>
+        The most a participant can write in a post or comment
+        <input
+          type="number"
+          min="1"
+          step="1"
+          value={value.platform.maxPostLength ?? ""}
+          onChange={(event) => {
+            const limit = Math.trunc(Number(event.target.value));
+            const { maxPostLength: _old, ...others } = value.platform;
+            set({
+              ...value,
+              platform: limit > 0 ? { ...others, maxPostLength: limit } : others,
+            });
+          }}
+          className={`${input} w-24`}
+        />
+        <Hint>Leave empty for no limit. A short posts platform might use 280.</Hint>
+      </label>
+      {(value.platform.features?.followCounts ??
+        TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features.followCounts) && (
+        <label className={labelClass}>
+          How many followers a participant starts with
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={value.platform.startingFollowers ?? 0}
+            onChange={(event) =>
+              set({
+                ...value,
+                platform: {
+                  ...value.platform,
+                  startingFollowers: Math.max(0, Math.trunc(Number(event.target.value))),
+                },
+              })
+            }
+            className={`${input} w-24`}
+          />
+        </label>
+      )}
       {(value.platform.features?.autoRules ??
         TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features.autoRules) && (
         <label className="flex items-center gap-2 text-sm">
@@ -948,11 +989,14 @@ function FeedForm({
   set,
   spacesOn,
   defaultCommentOrder,
+  followingFeedOn,
 }: {
   value: DraftSections["feed"];
   set: (value: DraftSections["feed"]) => void;
   /** Whether any condition has spaces, so whether a space's own order means anything. */
   spacesOn: boolean;
+  /** Whether any condition has a following feed. */
+  followingFeedOn: boolean;
   /** The comment order a study has until it chooses one, from its template. */
   defaultCommentOrder: (typeof COMMENT_ORDERS)[number]["value"];
 }) {
@@ -990,6 +1034,58 @@ function FeedForm({
             } as Partial<typeof feed>)
           }
         />
+      )}
+      {followingFeedOn && (
+        <>
+          <SelectField
+            label="Order on the following tab"
+            value={feed.followingRanker ?? ""}
+            options={FEED_ORDERS.map(({ value: order, label }) => ({ value: order, label }))}
+            onChange={(order) =>
+              setFeed({
+                followingRanker: (order || undefined) as typeof feed.followingRanker,
+              } as Partial<typeof feed>)
+            }
+          />
+          <label className={labelClass}>
+            What the main tab is called
+            <input
+              value={feed.homeTabLabel ?? ""}
+              maxLength={30}
+              placeholder="For you"
+              onChange={(event) =>
+                setFeed({ homeTabLabel: event.target.value || undefined } as Partial<typeof feed>)
+              }
+              className={`${input} w-48`}
+            />
+          </label>
+          <label className={labelClass}>
+            What the following tab is called
+            <input
+              value={feed.followingTabLabel ?? ""}
+              maxLength={30}
+              placeholder="Following"
+              onChange={(event) =>
+                setFeed({
+                  followingTabLabel: event.target.value || undefined,
+                } as Partial<typeof feed>)
+              }
+              className={`${input} w-48`}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={feed.startOnFollowing ?? false}
+              onChange={(event) =>
+                setFeed({ startOnFollowing: event.target.checked || undefined } as Partial<
+                  typeof feed
+                >)
+              }
+            />
+            People start on the following tab
+          </label>
+        </>
       )}
       <Choice
         legend="What order are comments in?"
@@ -1522,6 +1618,14 @@ export function SettingsPage() {
                 ] as TemplateDefinition
               ).feed?.commentOrder ?? "scripted"
             }
+            followingFeedOn={[
+              data.sections.study.value.platform.features?.followingFeed ??
+                TEMPLATES[data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE].features
+                  .followingFeed,
+              ...data.sections.conditions.value.conditions.arms.map(
+                (arm) => arm.platform?.features?.followingFeed,
+              ),
+            ].includes(true)}
             spacesOn={[
               data.sections.study.value.platform.features?.spaces ??
                 TEMPLATES[data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE].features

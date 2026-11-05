@@ -19,6 +19,10 @@ export interface PostActions {
   onPollVote?: (contentId: string, option: number) => void;
   /** Appeals a moderator's removal of what they wrote. */
   onAppeal?: (contentId: string, text: string) => void;
+  /** Passes a post along, or takes that back. */
+  onRepost?: (contentId: string, active: boolean) => void;
+  /** Starts a post quoting this one. */
+  onQuote?: (post: FeedPost) => void;
   /** Starts sharing this post into another community. */
   onCrosspost?: (post: FeedPost) => void;
 }

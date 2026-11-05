@@ -799,3 +799,77 @@ describe("a held post, and an appeal", () => {
     expect(screen.queryByRole("button", { name: "Appeal" })).toBeNull();
   });
 });
+
+describe("short posts", () => {
+  afterEach(cleanup);
+  const features = { ...TEMPLATES.shortPosts.features };
+  const draw = (
+    layout: "classic" | "forum" | "short-posts",
+    post: FeedPost,
+    on: typeof features = features,
+    extra = {},
+  ) =>
+    render(
+      <PlatformProvider platform={{ layout, features: on }}>
+        <FeedPostView
+          post={post}
+          actions={{
+            onLike: vi.fn(),
+            onVote: vi.fn(),
+            onFlag: vi.fn(),
+            onReply: vi.fn(),
+            ...extra,
+          }}
+        />
+      </PlatformProvider>,
+    );
+
+  it.each(["classic", "forum", "short-posts"] as const)(
+    "says who reposted it, and through whom, in %s",
+    (layout) => {
+      draw(layout, {
+        ...POST,
+        comments: [],
+        repostedBy: { id: "r1", name: "Cleo", username: "cleo", isViewer: false, via: "Ann" },
+      });
+      expect(screen.getByTestId("reposted-by").textContent).toContain("Cleo reposted, via Ann");
+    },
+  );
+
+  it.each(["classic", "forum", "short-posts"] as const)(
+    "shows what's quoted, or says it can't, in %s",
+    (layout) => {
+      const original = { id: "o1", authorName: "Bob", body: "Quoted words" };
+      draw(layout, { ...POST, comments: [], quote: { original } });
+      expect(screen.getByTestId("quoted-post").textContent).toContain("Quoted words");
+      cleanup();
+      draw(layout, { ...POST, comments: [], quote: { original: null } });
+      expect(screen.getByTestId("quoted-post").textContent).toContain("isn't available");
+    },
+  );
+
+  it("passes a post along and quotes it, with counts", () => {
+    const onRepost = vi.fn();
+    const onQuote = vi.fn();
+    const post = { ...POST, comments: [], repostCount: 4, quoteCount: 2 };
+    draw("short-posts", post, features, { onRepost, onQuote });
+    fireEvent.click(screen.getByRole("button", { name: /Repost \(4\)/ }));
+    expect(onRepost).toHaveBeenCalledWith("p1", true);
+    fireEvent.click(screen.getByRole("button", { name: /Quote \(2\)/ }));
+    expect(onQuote).toHaveBeenCalled();
+  });
+
+  it("has no buttons with the features off, and none on something removed", () => {
+    draw("short-posts", { ...POST, comments: [] }, { ...features, reposts: false, quotes: false });
+    expect(screen.queryByRole("button", { name: /Repost/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Quote/ })).toBeNull();
+    cleanup();
+    draw("short-posts", { ...POST, comments: [], removed: { by: "Sam" } });
+    expect(screen.queryByRole("button", { name: /Repost/ })).toBeNull();
+  });
+
+  it("shows a badge the server sent", () => {
+    draw("short-posts", { ...POST, comments: [], author: { ...author, badge: "Expert" } });
+    expect(screen.getByTestId("author-badge").textContent).toBe("Expert");
+  });
+});

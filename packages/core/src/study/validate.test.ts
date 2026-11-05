@@ -838,3 +838,58 @@ describe("automatic rules and answers to appeals", () => {
     expect(errors({ appealAnswers: [{ ...answer, action: "restore" }] })).toBe(false);
   });
 });
+
+describe("reposts, quotes, and what short posts add", () => {
+  const short = settings({ platform: { style: "text", template: "shortPosts" } });
+  const post = { ref: "1", body: "hello", actor: "ann", timeMs: 0 };
+  const errors = (posts: object[], extra: object = {}) =>
+    hasErrors(validateStudy(study({ settings: short, posts, ...extra })));
+
+  it("needs what it points at to exist, and can't be both or a circle", () => {
+    expect(errors([post, { ref: "2", body: "", actor: "ann", timeMs: 1, repostOf: "1" }])).toBe(
+      false,
+    );
+    expect(errors([post, { ref: "2", body: "", actor: "ann", timeMs: 1, repostOf: "nope" }])).toBe(
+      true,
+    );
+    expect(errors([post, { ref: "2", body: "x", actor: "ann", timeMs: 1, quoteOf: "nope" }])).toBe(
+      true,
+    );
+    expect(
+      errors([post, { ref: "2", body: "x", actor: "ann", timeMs: 1, repostOf: "1", quoteOf: "1" }]),
+    ).toBe(true);
+    expect(
+      errors([
+        { ref: "a", body: "", actor: "ann", timeMs: 0, repostOf: "b" },
+        { ref: "b", body: "", actor: "ann", timeMs: 0, repostOf: "a" },
+      ]),
+    ).toBe(true);
+  });
+
+  it("warns about what won't show, or appears too early", () => {
+    const early = messages(
+      study({
+        settings: short,
+        posts: [
+          { ...post, timeMs: 100 },
+          { ref: "2", body: "words", actor: "ann", timeMs: 1, repostOf: "1" },
+        ],
+      }),
+    );
+    expect(early).toContainEqual(expect.stringContaining("appears before"));
+    expect(early).toContainEqual(expect.stringContaining("is a repost, so what it says"));
+    const classic = messages(
+      study({ posts: [post, { ref: "2", body: "x", actor: "ann", timeMs: 1, quoteOf: "1" }] }),
+    );
+    expect(classic).toContainEqual(expect.stringContaining('Quote posts are off in "a"'));
+  });
+
+  it("warns about what's longer than participants can write", () => {
+    const limited = settings({
+      platform: { style: "text", template: "shortPosts", maxPostLength: 3 },
+    });
+    expect(messages(study({ settings: limited, posts: [post] }))).toContainEqual(
+      expect.stringContaining("longer than what participants can write (3)"),
+    );
+  });
+});

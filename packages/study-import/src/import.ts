@@ -307,6 +307,10 @@ export async function freezeStudy(
               bio: actor.bio,
               moderator: actor.moderator,
               karma: actor.karma,
+              followers: actor.followers,
+              following: actor.following,
+              startsFollowed: actor.startsFollowed,
+              badge: actor.badge,
               spaceFlair: actor.spaceFlair,
               picture:
                 actor.picture && mediaKeys.get(path.join(MEDIA_FOLDERS.actors, actor.picture)),
@@ -355,11 +359,22 @@ export async function freezeStudy(
 
     const positions = new Map(study.posts.map((post, index) => [post.ref, index]));
     const postIds = new Map(study.posts.map(({ ref }) => [ref, crypto.randomUUID()]));
-    // A crosspost points at its original, so that has to go in first. Originals can't be crossposts.
-    const originalsFirst = [
-      ...study.posts.filter((post) => !post.crosspostOf),
-      ...study.posts.filter((post) => post.crosspostOf),
-    ];
+    // What a post points at has to go in first, and reposts and quotes can make a chain of any length.
+    const byRef = new Map(study.posts.map((post) => [post.ref, post]));
+    const pointedAt = (post: (typeof study.posts)[number]) =>
+      post.crosspostOf ?? post.repostOf ?? post.quoteOf;
+    const links = (post: (typeof study.posts)[number]) => {
+      let total = 0;
+      for (
+        let above = byRef.get(pointedAt(post) ?? "");
+        above;
+        above = byRef.get(pointedAt(above) ?? "")
+      ) {
+        total++;
+      }
+      return total;
+    };
+    const originalsFirst = [...study.posts].sort((a, b) => links(a) - links(b));
     for (const batch of chunks(originalsFirst, INSERT_BATCH_SIZE)) {
       await tx.insert(schema.content).values(
         batch.map((post) => ({
@@ -376,6 +391,10 @@ export async function freezeStudy(
           poll: post.poll,
           flair: post.flair,
           crosspostOf: post.crosspostOf ? postIds.get(post.crosspostOf) : undefined,
+          repostOf: post.repostOf ? postIds.get(post.repostOf) : undefined,
+          quoteOf: post.quoteOf ? postIds.get(post.quoteOf) : undefined,
+          baseReposts: post.reposts ?? 0,
+          baseQuotes: post.quotes ?? 0,
           body: post.body,
           attachments: post.pictures.map((picture) => ({
             type: "image" as const,

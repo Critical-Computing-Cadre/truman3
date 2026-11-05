@@ -5,9 +5,11 @@ import {
   eventPayloadSchemas,
   fillLinkTemplate,
   LAYOUT_KEYS,
+  maxPostLengthFor,
   platformFor,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
+import { feedSettingsFor } from "@truman3/feed";
 import { deleteParticipant } from "@truman3/study-import";
 import { eq } from "drizzle-orm";
 import { deleteCookie } from "hono/cookie";
@@ -40,6 +42,10 @@ const flowStateSchema = z.object({
   layout: z.enum(LAYOUT_KEYS),
   /** Which building blocks this platform has in their condition. */
   features: z.record(z.string(), z.boolean()),
+  /** The most they can write in a post or comment, or null for no limit. */
+  maxPostLength: z.number().nullable(),
+  /** The tabs on the feed, on a platform with a following feed. */
+  feedTabs: z.object({ home: z.string(), following: z.string(), startOnFollowing: z.boolean() }),
   /** Whether they can join and leave spaces, or the study has decided for them. */
   canJoinSpaces: z.boolean(),
   /** Whether they can choose a feed's order, or the study has decided for them. */
@@ -291,6 +297,7 @@ export function createFlowRoutes({ db, storage, mediaPublicUrl }: ParticipantRou
     const elapsedMs = Date.now() - context.worldStartedAt.getTime();
     const { step, position } = currentFlowStep(context.settings, context.flowPosition, elapsedMs);
     const { site } = context.settings;
+    const feedSettings = feedSettingsFor(context.settings, context.conditionKey);
 
     return c.json(
       {
@@ -299,6 +306,12 @@ export function createFlowRoutes({ db, storage, mediaPublicUrl }: ParticipantRou
         pageText: step && "page" in step ? (pages[step.page] ?? "") : null,
         canFinish: step ? canLeaveFeed(step, elapsedMs) : false,
         ...platformFor(context.settings, context.conditionKey),
+        maxPostLength: maxPostLengthFor(context.settings, context.conditionKey),
+        feedTabs: {
+          home: feedSettings.homeTabLabel ?? "For you",
+          following: feedSettings.followingTabLabel ?? "Following",
+          startOnFollowing: feedSettings.startOnFollowing ?? false,
+        },
         site: {
           name: site.name,
           logoUrl: site.logo ? mediaUrl(site.logo, mediaPublicUrl) : null,

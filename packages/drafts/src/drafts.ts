@@ -191,6 +191,10 @@ export async function openDraft(
             ...optional("picture", profile.picture),
             ...optional("moderator", profile.moderator),
             ...optional("karma", profile.karma),
+            ...optional("followers", profile.followers),
+            ...optional("following", profile.following),
+            ...optional("startsFollowed", profile.startsFollowed),
+            ...optional("badge", profile.badge),
             ...actorFlair(profile.spaceFlair as Record<string, string> | undefined),
             conditions: actor.conditions,
             ...optional("class", actor.class),
@@ -252,6 +256,10 @@ export async function openDraft(
                   ...(item.poll ? { poll: item.poll } : {}),
                   ...optional("flair", item.flair),
                   ...(item.crosspostOf ? { crosspostOfId: asId(item.crosspostOf) } : {}),
+                  ...(item.repostOf ? { repostOfId: asId(item.repostOf) } : {}),
+                  ...(item.quoteOf ? { quoteOfId: asId(item.quoteOf) } : {}),
+                  ...(item.baseReposts ? { reposts: item.baseReposts } : {}),
+                  ...(item.baseQuotes ? { quotes: item.baseQuotes } : {}),
                   pictures: item.attachments.map(({ key }) => key),
                   ...(item.spaceId ? { spaceId: asId(item.spaceId) } : {}),
                 }
@@ -579,6 +587,11 @@ async function checkReferences(tx: Transaction, draftId: string, data: Record<st
     !(await itemExists(tx, draftId, data.on === "comment" ? "comment" : "post", data.targetId))
   ) {
     return "What this removes isn't in this study.";
+  }
+  for (const key of ["repostOfId", "quoteOfId"]) {
+    if (typeof data[key] === "string" && !(await itemExists(tx, draftId, "post", data[key]))) {
+      return "That post isn't in this study.";
+    }
   }
   if (
     typeof data.crosspostOfId === "string" &&
@@ -1152,11 +1165,25 @@ export async function deleteItem(
 
     const points = (
       row: ItemRow,
-      key: "actorId" | "postId" | "spaceId" | "crosspostOfId" | "bannedActorId" | "reportedActorId",
+      key:
+        | "actorId"
+        | "postId"
+        | "spaceId"
+        | "crosspostOfId"
+        | "bannedActorId"
+        | "reportedActorId"
+        | "repostOfId"
+        | "quoteOfId",
     ) => (row.data as Record<string, unknown>)[key] === itemId;
 
     if (item.kind === "space" && rows.some((row) => points(row, "spaceId"))) {
       return { problem: "in-use" as const, message: "This space still has posts in it." };
+    }
+    if (
+      item.kind === "post" &&
+      rows.some((row) => points(row, "repostOfId") || points(row, "quoteOfId"))
+    ) {
+      return { problem: "in-use" as const, message: "Another post reposts or quotes this one." };
     }
     if (item.kind === "post" && rows.some((row) => points(row, "crosspostOfId"))) {
       return { problem: "in-use" as const, message: "Another post is a crosspost of this one." };
