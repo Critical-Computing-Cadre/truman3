@@ -1,7 +1,11 @@
 export { hasPlaceholderConsent, STARTING_CONSENT } from "./consent.ts";
 export {
   type ActorDefinition,
+  type AppealAnswerDefinition,
+  type AutoRuleDefinition,
   actorDefinitionSchema,
+  appealAnswerDefinitionSchema,
+  autoRuleDefinitionSchema,
   type BanDefinition,
   banDefinitionSchema,
   type CommentDefinition,
@@ -39,6 +43,7 @@ export {
   type PlatformView,
   platformFor,
   platformStyleFor,
+  recordsUnpostedText,
   scriptedKarmaChange,
   startingKarmaFor,
 } from "./platform.ts";

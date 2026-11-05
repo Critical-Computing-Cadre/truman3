@@ -54,6 +54,22 @@ export const eventPayloadSchemas = {
   "notifications.viewed": empty,
   /** They pressed the button on a moderator's warning. `targetContentId` is what it was about. */
   "moderation.warning_acknowledged": empty,
+  /**
+   * An automatic rule caught what they wrote. `rule` is its ID in the study. `unpostedText` is only
+   * here if a study records what someone hasn't posted (ADR 36). Without a target, it isn't posted yet.
+   */
+  "moderation.rule_fired": z.strictObject({
+    rule: z.string(),
+    action: z.enum(["confirm", "remove", "warn", "hold"]),
+    unpostedText: z.string().optional(),
+  }),
+  /** What they did when a rule asked if they were sure. */
+  "moderation.confirm_answered": z.strictObject({
+    rule: z.string(),
+    choice: z.enum(["posted", "went_back"]),
+  }),
+  /** They appealed a moderator's removal of what they wrote. */
+  "moderation.appealed": z.strictObject({ text: z.string() }),
   /** Which space, by its key in the study. */
   "space.joined": z.strictObject({ space: z.string() }),
   "space.left": z.strictObject({ space: z.string() }),
@@ -68,7 +84,21 @@ export const eventPayloadSchemas = {
   "comments.sort_changed": z.strictObject({ sort: z.enum(COMMENT_SORTS).nullable() }),
   /** A scripted reaction was triggered by something a participant did. */
   "reaction.scheduled": z.strictObject({
-    reaction: z.enum(["read", "like", "reply", "up", "down", "remove", "warn", "answer", "ban"]),
+    reaction: z.enum([
+      "read",
+      "like",
+      "reply",
+      "up",
+      "down",
+      "remove",
+      "warn",
+      "answer",
+      "ban",
+      "hold",
+      "approve",
+      "uphold",
+      "restore",
+    ]),
     /** On a removal, the reason the study wrote, if any. On a warning or answer, what it says. */
     reason: z.string().optional(),
     dueAt: z.iso.datetime(),

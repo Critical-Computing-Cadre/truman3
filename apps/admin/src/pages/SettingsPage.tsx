@@ -333,6 +333,25 @@ function StudyForm({
           <Hint>Off means everyone keeps the spaces they start in.</Hint>
         </label>
       )}
+      {(value.platform.features?.autoRules ??
+        TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features.autoRules) && (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={value.platform.recordUnpostedText ?? false}
+            onChange={(event) =>
+              set({
+                ...value,
+                platform: { ...value.platform, recordUnpostedText: event.target.checked },
+              })
+            }
+          />
+          Record what someone wrote when a rule asks if they're sure, even if they never post it
+          <Hint>
+            Off by default. It's text someone may choose not to share, so raise it with your IRB.
+          </Hint>
+        </label>
+      )}
       {(value.platform.features?.karma ??
         TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features.karma) && (
         <label className={labelClass}>

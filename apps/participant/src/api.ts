@@ -92,7 +92,17 @@ export interface EntryInfo {
 
 export interface NotificationItem {
   key: string;
-  type: "read" | "like" | "reply" | "remove" | "warn" | "answer" | "ban";
+  type:
+    | "read"
+    | "like"
+    | "reply"
+    | "remove"
+    | "warn"
+    | "answer"
+    | "ban"
+    | "approve"
+    | "uphold"
+    | "restore";
   actors: { username: string; name: string; pictureUrl: string | null }[];
   targetKind: "post" | "comment" | "person";
   targetName: string;
@@ -106,3 +116,8 @@ export interface NotificationItem {
   at: string;
   unread: boolean;
 }
+
+/** A post or comment that went up, or a rule asking if they're sure before it does. */
+export type Written =
+  | { id: string; confirm?: undefined }
+  | { id?: undefined; confirm: { rule: string; message: string; by: string } };

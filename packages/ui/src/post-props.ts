@@ -17,6 +17,8 @@ export interface PostActions {
   onReveal?: (contentId: string) => void;
   /** Chooses an option in a poll, by its place in the list. */
   onPollVote?: (contentId: string, option: number) => void;
+  /** Appeals a moderator's removal of what they wrote. */
+  onAppeal?: (contentId: string, text: string) => void;
   /** Starts sharing this post into another community. */
   onCrosspost?: (post: FeedPost) => void;
 }

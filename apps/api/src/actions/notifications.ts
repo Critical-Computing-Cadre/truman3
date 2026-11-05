@@ -26,6 +26,8 @@ export async function scheduleReactions(
     /** The space it's in, if any, since a ban can be from one space. */
     spaceId: string | null;
     now: Date;
+    /** When delays count from, if not now, as after a hold. */
+    startAt?: Date;
   },
 ) {
   const reactions = await tx
@@ -57,7 +59,7 @@ export async function scheduleReactions(
       continue;
     }
 
-    const dueAt = new Date(trigger.now.getTime() + reaction.afterMs);
+    const dueAt = new Date((trigger.startAt ?? trigger.now).getTime() + reaction.afterMs);
     // Someone already banned by then can't do this, so it isn't recorded as about to happen.
     const banned = await loadBans(tx, context, dueAt);
     if (bannedAt(banned, reaction.actorId, trigger.spaceId, dueAt.getTime())) {
@@ -299,7 +301,17 @@ export async function countUnreadNotifications(
 
 export interface NotificationItem {
   key: string;
-  type: "read" | "like" | "reply" | "remove" | "warn" | "answer" | "ban";
+  type:
+    | "read"
+    | "like"
+    | "reply"
+    | "remove"
+    | "warn"
+    | "answer"
+    | "ban"
+    | "approve"
+    | "uphold"
+    | "restore";
   actors: { username: string; name: string; pictureUrl: string | null }[];
   /** Whether this is about a post, a comment, or a person someone reported. */
   targetKind: "post" | "comment" | "person";
@@ -319,9 +331,20 @@ export interface NotificationItem {
 }
 
 /** Votes change a score without telling anyone who voted, as on the platforms that have them. */
-const SHOWN_TO_PARTICIPANTS = ["read", "like", "reply", "remove", "warn", "answer", "ban"];
+const SHOWN_TO_PARTICIPANTS = [
+  "read",
+  "like",
+  "reply",
+  "remove",
+  "warn",
+  "answer",
+  "ban",
+  "approve",
+  "uphold",
+  "restore",
+];
 /** What's kept separate in a list, rather than grouped as "Ann and 3 others." */
-const SHOWN_ALONE = ["reply", "remove", "warn", "answer", "ban"];
+const SHOWN_ALONE = ["reply", "remove", "warn", "answer", "ban", "approve", "uphold", "restore"];
 
 /**
  * Notifications that have come due, newest first. Reads and likes on the same content get grouped

@@ -32,6 +32,8 @@ type Reaction = StudyDefinition["reactions"][number];
 type Removal = StudyDefinition["removals"][number];
 type FlagAnswer = StudyDefinition["flagAnswers"][number];
 type Ban = StudyDefinition["bans"][number];
+type AutoRule = StudyDefinition["autoRules"][number];
+type AppealAnswer = StudyDefinition["appealAnswers"][number];
 type ReportAnswer = StudyDefinition["reportAnswers"][number];
 
 /**
@@ -54,6 +56,9 @@ export interface PackContents {
   /** Packs saved before bans don't have these. */
   bans?: Ban[];
   reportAnswers?: ReportAnswer[];
+  /** Packs saved before automatic rules don't have these. */
+  autoRules?: AutoRule[];
+  appealAnswers?: AppealAnswer[];
   /** Each post and comment's history before the pack, by kind and reference. */
   provenance: Record<string, Provenance>;
 }
@@ -89,6 +94,8 @@ export function packContents(
     flagAnswers,
     bans,
     reportAnswers,
+    autoRules,
+    appealAnswers,
   }: StudyDefinition,
   mediaKeys: Map<string, string>,
   provenance: Map<string, Provenance> = new Map(),
@@ -143,6 +150,8 @@ export function packContents(
     ...(flagAnswers.length > 0 ? { flagAnswers: flagAnswers.map(withoutSource) } : {}),
     ...(bans.length > 0 ? { bans: bans.map(withoutSource) } : {}),
     ...(reportAnswers.length > 0 ? { reportAnswers: reportAnswers.map(withoutSource) } : {}),
+    ...(autoRules.length > 0 ? { autoRules: autoRules.map(withoutSource) } : {}),
+    ...(appealAnswers.length > 0 ? { appealAnswers: appealAnswers.map(withoutSource) } : {}),
     provenance: Object.fromEntries(provenance),
   };
 }
@@ -157,6 +166,8 @@ function summarize(contents: PackContents): PackSummary {
     ...(contents.flagAnswers ?? []),
     ...(contents.bans ?? []),
     ...(contents.reportAnswers ?? []),
+    ...(contents.autoRules ?? []),
+    ...(contents.appealAnswers ?? []),
   ];
   return {
     actors: contents.actors.length,
@@ -339,6 +350,8 @@ export async function startStudy(
     ({ space }) => !space || keptSpaces.has(space),
   );
   const reportAnswers = everywhere(contents?.reportAnswers ?? []);
+  const autoRules = everywhere(contents?.autoRules ?? []);
+  const appealAnswers = everywhere(contents?.appealAnswers ?? []);
   const flagAnswers = everywhere(contents?.flagAnswers ?? []).filter(
     ({ on, target }) => !target || (on === "comment" ? keptComments : keptPosts).has(target),
   );
@@ -472,6 +485,20 @@ export async function startStudy(
           actorId: actorId(actor),
           targetId: (removal.on === "post" ? postIds : commentIds).get(target) as string,
         },
+      })),
+      ...autoRules.map(({ actor, ...rule }, position) => ({
+        draftId: draft.id,
+        kind: "autoRule",
+        position,
+        provenance: fromPack(null),
+        data: { ...rule, actorId: actorId(actor) },
+      })),
+      ...appealAnswers.map(({ actor, ...answer }, position) => ({
+        draftId: draft.id,
+        kind: "appealAnswer",
+        position,
+        provenance: fromPack(null),
+        data: { ...answer, actorId: actorId(actor) },
       })),
       ...bans.map(({ actor, user, space, ...ban }, position) => ({
         draftId: draft.id,

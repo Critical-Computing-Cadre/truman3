@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import {
   type Attachment,
@@ -33,7 +34,15 @@ import {
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { type ParticipantContext, participantFromRequest } from "../participants/session.ts";
 import { MAX_IMAGE_BYTES, storeUploadedImage } from "./images.ts";
-import { listModLog, listWarnings } from "./moderation.ts";
+import {
+  applyAutoRule,
+  findAutoRules,
+  listModLog,
+  listWarnings,
+  reactionsAfterRule,
+  recordRuleAsked,
+  scheduleAppealAnswer,
+} from "./moderation.ts";
 import {
   listNotifications,
   scheduleFlagAnswer,
@@ -60,6 +69,41 @@ const jsonBody = <T extends z.ZodType>(schema: T) => ({
 
 const toggleBodySchema = actionMetaSchema.extend({ active: z.boolean() });
 const contentParams = z.object({ id: z.uuid() });
+
+/** A post or comment that went up, or a rule asking if they're sure before it does. */
+const writtenSchema = z.union([
+  z.object({ id: z.uuid() }),
+  z.object({ confirm: z.object({ rule: z.string(), message: z.string(), by: z.string() }) }),
+]);
+
+const confirmAnsweredRoute = createRoute({
+  method: "post",
+  path: "/moderation/confirm-answered",
+  summary: "They chose not to post when a rule asked if they were sure",
+  request: jsonBody(actionMetaSchema.extend({ rule: z.string() })),
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+  },
+});
+
+const appealRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/appeal",
+  summary: "Appeal a moderator's removal of what they wrote",
+  request: {
+    params: contentParams,
+    ...jsonBody(actionMetaSchema.extend({ text: z.string().trim().min(1).max(2000) })),
+  },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Nothing of theirs that a moderator removed"),
+    409: errorResponse("They've already appealed this"),
+  },
+});
 
 const likeRoute = createRoute({
   method: "post",
@@ -109,12 +153,19 @@ const commentRoute = createRoute({
   summary: "Comment on a post, or with threads, reply to a comment",
   request: {
     params: contentParams,
-    ...jsonBody(actionMetaSchema.extend({ body: z.string().trim().min(1).max(5000) })),
+    ...jsonBody(
+      actionMetaSchema.extend({
+        body: z.string().trim().min(1).max(5000),
+        /** They've answered a rule's "are you sure?" and want to go ahead. */
+        confirmedRule: z.string().optional(),
+      }),
+    ),
   },
   responses: {
     200: {
-      description: "Recorded. On a repeat of the same action, it returns the earlier comment",
-      content: { "application/json": { schema: z.object({ id: z.uuid() }) } },
+      description:
+        "Recorded, with its ID. Or a rule asks if they're sure, which means it isn't posted yet",
+      content: { "application/json": { schema: writtenSchema } },
     },
     401: notSignedIn,
     403: errorResponse("That feature is off in this condition"),
@@ -259,6 +310,8 @@ const postRoute = createRoute({
             pollOption: z.union([z.string(), z.array(z.string())]).optional(),
             /** A label from its space's list, on a platform with flair. */
             flair: z.string().optional(),
+            /** They've answered a rule's "are you sure?" and want to go ahead. */
+            confirmedRule: z.string().optional(),
             /** Repeat this field for several photos, on a platform with galleries. */
             image: z
               .union([z.instanceof(File), z.array(z.instanceof(File))])
@@ -271,8 +324,9 @@ const postRoute = createRoute({
   },
   responses: {
     200: {
-      description: "Recorded. On a repeat of the same action, it returns the earlier post",
-      content: { "application/json": { schema: z.object({ id: z.uuid() }) } },
+      description:
+        "Recorded, with its ID. Or a rule asks if they're sure, which means it isn't posted yet",
+      content: { "application/json": { schema: writtenSchema } },
     },
     400: errorResponse("It doesn't fit this platform's style, or the image can't be used"),
     404: errorResponse("No such space for this participant"),
@@ -370,7 +424,18 @@ const notificationsRoute = createRoute({
             notifications: z.array(
               z.object({
                 key: z.string(),
-                type: z.enum(["read", "like", "reply", "remove", "warn", "answer", "ban"]),
+                type: z.enum([
+                  "read",
+                  "like",
+                  "reply",
+                  "remove",
+                  "warn",
+                  "answer",
+                  "ban",
+                  "approve",
+                  "uphold",
+                  "restore",
+                ]),
                 actors: z.array(
                   z.object({
                     username: z.string(),
@@ -713,6 +778,24 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
   /** Whether a moderator has taken this down, as far as this person is concerned, by now. */
   const isRemoved = async (context: ParticipantContext, id: string) =>
     (await loadRemovals(db, context, new Date())).has(id);
+
+  /** What a browser gets when a rule asks someone if they're sure. */
+  const askedBy = async ({
+    ref,
+    message,
+    actorId,
+  }: {
+    ref: string;
+    message: string | null;
+    actorId: string;
+  }) => {
+    const [moderator] = await db.select().from(schema.actors).where(eq(schema.actors.id, actorId));
+    return {
+      rule: ref,
+      message: message ?? "",
+      by: (moderator?.profile as ProfileFields | undefined)?.name ?? moderator?.username ?? "",
+    };
+  };
 
   /** Where a moderator has banned someone, for their profile. */
   const bansOf = async (context: ParticipantContext, actorId: string) => {
@@ -1183,6 +1266,13 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       }
     }
 
+    const rules = await findAutoRules(db, context, "comment", body.body);
+    if (rules.confirm && rules.confirm.ref !== body.confirmedRule) {
+      await recordRuleAsked(db, context, rules.confirm, body.body, now);
+      return c.json({ confirm: await askedBy(rules.confirm) }, 200);
+    }
+    const afterRule = reactionsAfterRule(rules.act, now);
+
     try {
       const id = await db.transaction(async (tx) => {
         const nth = await countOwnContent(tx, context, "comment");
@@ -1210,15 +1300,29 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           throw new RepeatedAction();
         }
 
-        await scheduleReactions(tx, context, {
-          on: "comment",
-          nth,
-          contentId,
-          // Without threads, a comment is always on a post, and a scripted reply goes on it too.
-          replyUnderId: isOff(context, "threads") ? targetId : contentId,
-          spaceId: topPost.spaceId,
-          now,
-        });
+        if (!afterRule.skip) {
+          await scheduleReactions(tx, context, {
+            on: "comment",
+            nth,
+            contentId,
+            // Without threads, a comment is always on a post, and a scripted reply goes on it too.
+            replyUnderId: isOff(context, "threads") ? targetId : contentId,
+            spaceId: topPost.spaceId,
+            now,
+            startAt: afterRule.startAt,
+          });
+        }
+        if (rules.confirm && rules.confirm.ref === body.confirmedRule) {
+          await recordEvent(tx, {
+            ...participantEvent(context, body.occurredAt, randomUUID()),
+            type: "moderation.confirm_answered",
+            payload: { rule: rules.confirm.ref, choice: "posted" },
+            targetContentId: contentId,
+          });
+        }
+        if (rules.act) {
+          await applyAutoRule(tx, context, rules.act, contentId, now);
+        }
         return contentId;
       });
       return c.json({ id }, 200);
@@ -1327,6 +1431,14 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json({ error: flairTrouble }, 400);
     }
 
+    const written = [title, text].filter(Boolean).join("\n");
+    const rules = await findAutoRules(db, context, "post", written);
+    if (rules.confirm && rules.confirm.ref !== form.confirmedRule) {
+      await recordRuleAsked(db, context, rules.confirm, written, now);
+      return c.json({ confirm: await askedBy(rules.confirm) }, 200);
+    }
+    const afterRule = reactionsAfterRule(rules.act, now);
+
     const attachments: Attachment[] = [];
     for (const image of images) {
       const key = await storeUploadedImage(storage, context.worldId, context.participantId, image);
@@ -1381,14 +1493,28 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           throw new RepeatedAction();
         }
 
-        await scheduleReactions(tx, context, {
-          on: "post",
-          nth,
-          contentId,
-          replyUnderId: contentId,
-          spaceId: space?.id ?? null,
-          now,
-        });
+        if (!afterRule.skip) {
+          await scheduleReactions(tx, context, {
+            on: "post",
+            nth,
+            contentId,
+            replyUnderId: contentId,
+            spaceId: space?.id ?? null,
+            now,
+            startAt: afterRule.startAt,
+          });
+        }
+        if (rules.confirm && rules.confirm.ref === form.confirmedRule) {
+          await recordEvent(tx, {
+            ...participantEvent(context, form.occurredAt, randomUUID()),
+            type: "moderation.confirm_answered",
+            payload: { rule: rules.confirm.ref, choice: "posted" },
+            targetContentId: contentId,
+          });
+        }
+        if (rules.act) {
+          await applyAutoRule(tx, context, rules.act, contentId, now);
+        }
         return contentId;
       });
       return c.json({ id }, 200);
@@ -1551,6 +1677,66 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json(featureOff, 403);
     }
     return c.json({ notifications: await listNotifications(db, context, mediaPublicUrl) }, 200);
+  });
+
+  app.openapi(confirmAnsweredRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "autoRules")) {
+      return c.json(featureOff, 403);
+    }
+    const body = c.req.valid("json");
+    await recordEvent(db, {
+      ...participantEvent(context, body.occurredAt, body.clientEventId),
+      type: "moderation.confirm_answered",
+      payload: { rule: body.rule, choice: "went_back" },
+    });
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(appealRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "appeals")) {
+      return c.json(featureOff, 403);
+    }
+    const now = new Date();
+    const { id } = c.req.valid("param");
+    const item = await findVisibleContent(db, context, id, now);
+    if (!item || item.authorActorId !== context.actorId || !(await isRemoved(context, id))) {
+      return c.json(notAvailable, 404);
+    }
+    const body = c.req.valid("json");
+    const already = await db
+      .select({ id: schema.events.id })
+      .from(schema.events)
+      .where(
+        and(
+          eq(schema.events.worldId, context.worldId),
+          eq(schema.events.type, "moderation.appealed"),
+          eq(schema.events.targetContentId, id),
+        ),
+      )
+      .limit(1);
+    if (already.length > 0) {
+      return c.json({ error: "You've already appealed this." }, 409);
+    }
+    await db.transaction(async (tx) => {
+      const recorded = await recordEvent(tx, {
+        ...participantEvent(context, body.occurredAt, body.clientEventId),
+        type: "moderation.appealed",
+        payload: { text: body.text },
+        targetContentId: id,
+      });
+      if (recorded) {
+        await scheduleAppealAnswer(tx, context, id, now);
+      }
+    });
+    return c.json({ ok: true as const }, 200);
   });
 
   app.openapi(warningsRoute, async (c) => {

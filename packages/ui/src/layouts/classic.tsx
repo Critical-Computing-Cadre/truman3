@@ -76,7 +76,7 @@ function Comment({
             <KarmaBadge author={comment.author} /> {comment.body}
           </p>
         )}
-        <RemovedNote item={comment} className="mt-1" />
+        <RemovedNote item={comment} actions={actions} className="mt-1" />
         <p className="mt-0.5 flex gap-3 text-xs text-stone-500">
           <span>{shortTime(comment.at)}</span>
           <CommentLikeButton comment={comment} actions={actions} />
@@ -167,7 +167,7 @@ export function ClassicPost({
           {...(renderPostLink && !detail ? { renderPostLink } : {})}
         />
         <PostFlair post={post} className="px-3 pb-2" />
-        <RemovedNote item={post} className="mx-3 mb-2" />
+        <RemovedNote item={post} actions={actions} className="mx-3 mb-2" />
         <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
           {wrapImage ? wrapImage(image) : image}
           {renderBody ? (

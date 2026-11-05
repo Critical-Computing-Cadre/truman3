@@ -29,6 +29,8 @@ export const feedRemovedSchema = z.object({
   /** The moderator's name. */
   by: z.string(),
   reason: z.string().optional(),
+  /** On a platform with appeals, whether its author can still appeal, or already has. */
+  appeal: z.enum(["open", "sent"]).optional(),
 });
 export type FeedRemoved = z.infer<typeof feedRemovedSchema>;
 
@@ -82,6 +84,8 @@ export const feedCommentSchema = z.object({
   vote: z.enum(["up", "down"]).nullable(),
   flagged: z.boolean(),
   removed: feedRemovedSchema.optional(),
+  /** Waiting for a moderator's approval. Only its author sees this. Only ever true. */
+  held: z.literal(true).optional(),
 });
 
 /** The most photos one post can have. */
@@ -155,6 +159,8 @@ export const feedPostSchema = z.object({
   vote: z.enum(["up", "down"]).nullable(),
   flagged: z.boolean(),
   removed: feedRemovedSchema.optional(),
+  /** Waiting for a moderator's approval. Only its author sees this. Only ever true. */
+  held: z.literal(true).optional(),
   comments: z.array(feedCommentSchema),
   /** How many comments it has, even in a list that leaves them for the post's own page. */
   commentCount: z.number(),

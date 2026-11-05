@@ -3,6 +3,8 @@ import { type StudyDefinition, type StudySettings, studyDefinitionSchema } from 
 import { MEDIA_FOLDERS } from "@truman3/study-files";
 import type {
   ActorData,
+  AppealAnswerData,
+  AutoRuleData,
   BanData,
   CommentData,
   DraftItem,
@@ -46,6 +48,8 @@ export function draftToDefinition(
   const removals = ofKind<RemovalData>("removal");
   const flagAnswers = ofKind<FlagAnswerData>("flagAnswer");
   const bans = ofKind<BanData>("ban");
+  const autoRules = ofKind<AutoRuleData>("autoRule");
+  const appealAnswers = ofKind<AppealAnswerData>("appealAnswer");
   const reportAnswers = ofKind<ReportAnswerData>("reportAnswer");
 
   const usernames = new Map(actors.map(({ item, data }) => [item.id, data.username]));
@@ -124,6 +128,14 @@ export function draftToDefinition(
       target:
         (removal.on === "post" ? postRefs.get(targetId) : commentRefs.get(targetId)) ??
         `(missing ${removal.on})`,
+    })),
+    autoRules: autoRules.map(({ data: { actorId, ...rule } }) => ({
+      ...rule,
+      actor: usernameOf(actorId),
+    })),
+    appealAnswers: appealAnswers.map(({ data: { actorId, ...answer } }) => ({
+      ...answer,
+      actor: usernameOf(actorId),
     })),
     bans: bans.map(({ data: { actorId, bannedActorId, spaceId, ...ban } }) => ({
       ...ban,

@@ -19,6 +19,8 @@ export {
 } from "./drafts.ts";
 export {
   type ActorData,
+  type AppealAnswerData,
+  type AutoRuleData,
   type BanData,
   type CommentData,
   type DraftItem,

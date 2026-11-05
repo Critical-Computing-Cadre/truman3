@@ -17,7 +17,8 @@ import {
 } from "@truman3/core";
 import { CreatePostBar, FeedFrame, PhotoIcon, ProfileCard } from "@truman3/ui";
 import { type FormEvent, type RefObject, useEffect, useRef, useState } from "react";
-import { type FlowState, flowQuery, get, meQuery, post, postForm } from "../api.ts";
+import { type FlowState, flowQuery, get, meQuery, post, postForm, type Written } from "../api.ts";
+import { AreYouSure } from "../components/AreYouSure.tsx";
 import { CommunitiesCard } from "../components/Community.tsx";
 import { PostCard } from "../components/PostCard.tsx";
 
@@ -140,9 +141,12 @@ export function NewPostDialog({
   const writtenOptions = pollOpen ? pollOptions.map((option) => option.trim()).filter(Boolean) : [];
   const pollProblem = pollOpen ? pollOptionsProblem(writtenOptions) : null;
 
+  /** What a rule is asking, when one's asked if they're sure. */
+  const [asked, setAsked] = useState<NonNullable<Written["confirm"]> | null>(null);
   const create = useMutation({
-    mutationFn: () => {
-      return postForm("/posts", {
+    mutationFn: (confirmedRule?: string) => {
+      return postForm<Written>("/posts", {
+        ...(confirmedRule ? { confirmedRule } : {}),
         ...(titles ? { title } : {}),
         ...(links && goodLink ? { link: goodLink } : {}),
         ...(spoilers && spoiler ? { spoiler: "true" } : {}),
@@ -154,7 +158,12 @@ export function NewPostDialog({
         ...(where ? { space: where } : {}),
       });
     },
-    onSuccess: () => {
+    onSuccess: (written) => {
+      if (written.confirm) {
+        setAsked(written.confirm);
+        return;
+      }
+      setAsked(null);
       setTitle("");
       setLink("");
       setSpoiler(false);
@@ -175,7 +184,7 @@ export function NewPostDialog({
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    create.mutate();
+    create.mutate(undefined);
   };
 
   return (
@@ -193,6 +202,14 @@ export function NewPostDialog({
             ×
           </button>
         </div>
+        {asked && (
+          <AreYouSure
+            asked={asked}
+            sending={create.isPending}
+            onPost={() => create.mutate(asked.rule)}
+            onBack={() => setAsked(null)}
+          />
+        )}
         {chooseSpace && (
           <label className="flex flex-col gap-1 text-sm font-medium">
             Community

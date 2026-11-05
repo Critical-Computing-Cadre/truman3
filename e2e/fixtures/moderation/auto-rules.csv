@@ -1,0 +1,3 @@
+id,on,match,action,actor,after,message,holdOutcome
+ask,both,badword,confirm,sam,0:00,This might break a rule. Are you sure?,
+wait,post,holdme,hold,sam,5:00,,approve

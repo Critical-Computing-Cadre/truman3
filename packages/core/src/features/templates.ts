@@ -47,6 +47,8 @@ export const TEMPLATES = {
       flagAnswers: false,
       reportAnswers: false,
       bans: false,
+      autoRules: false,
+      appeals: false,
       modLog: false,
       saving: false,
       hiding: false,

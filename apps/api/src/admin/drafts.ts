@@ -6,6 +6,7 @@ import {
   flairSchema,
   linkSchema,
   MAX_ATTACHMENTS,
+  MAX_RULE_MATCH_LENGTH,
   MAX_TITLE_LENGTH,
   PIN_PLACES,
   POST_TAGS,
@@ -16,6 +17,8 @@ import {
 import { schema } from "@truman3/db";
 import {
   type ActorData,
+  type AppealAnswerData,
+  type AutoRuleData,
   type BanData,
   type CommentData,
   checkDraft,
@@ -275,7 +278,7 @@ const fieldsSchema = z.strictObject({
   downs: z.number().int().nonnegative().optional(),
   conditions: z.array(z.string()).optional(),
   // For a moderator's decisions, as well as actorId, timeMs, body, and conditions above.
-  on: z.enum(["post", "comment"]).nullable().optional(),
+  on: z.enum(["post", "comment", "both"]).nullable().optional(),
   targetId: z.uuid().nullable().optional(),
   /** Null gives no reason. */
   reason: z.string().trim().min(1).max(2000).nullable().optional(),
@@ -283,7 +286,13 @@ const fieldsSchema = z.strictObject({
   type: z.enum(["remove", "warn"]).optional(),
   afterMs: z.number().int().nonnegative().optional(),
   /** A flag's answer. It's for any flag without `targetId`, and null takes one away. */
-  action: z.enum(["remove", "answer", "ban"]).optional(),
+  action: z
+    .enum(["remove", "answer", "ban", "confirm", "warn", "hold", "uphold", "restore"])
+    .optional(),
+  /** What an automatic rule looks for. */
+  match: z.string().trim().min(1).max(MAX_RULE_MATCH_LENGTH).optional(),
+  /** How a hold ends. Null is approved. */
+  holdOutcome: z.enum(["approve", "remove"]).nullable().optional(),
   bannedActorId: z.uuid().optional(),
   /** Who a report's answer is for. Null makes it for any report. */
   reportedActorId: z.uuid().nullable().optional(),
@@ -354,6 +363,8 @@ const createItemRoute = createRoute({
           "flagAnswer",
           "ban",
           "reportAnswer",
+          "autoRule",
+          "appealAnswer",
         ]),
         fields: fieldsSchema,
       }),
@@ -723,6 +734,37 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               actorId: data.actorId,
               timeMs: data.timeMs,
               reason: data.reason ?? "",
+              conditions: data.conditions,
+            };
+          }),
+        autoRules: items
+          .filter((item) => item.kind === "autoRule")
+          .sort((a, b) => a.position - b.position)
+          .map((item) => {
+            const data = item.data as AutoRuleData;
+            return {
+              id: item.id,
+              on: data.on,
+              match: data.match,
+              action: data.action,
+              actorId: data.actorId,
+              afterMs: data.afterMs,
+              message: data.message ?? "",
+              holdOutcome: data.holdOutcome ?? "approve",
+              conditions: data.conditions,
+            };
+          }),
+        appealAnswers: items
+          .filter((item) => item.kind === "appealAnswer")
+          .sort((a, b) => a.position - b.position)
+          .map((item) => {
+            const data = item.data as AppealAnswerData;
+            return {
+              id: item.id,
+              action: data.action,
+              actorId: data.actorId,
+              afterMs: data.afterMs,
+              message: data.message ?? "",
               conditions: data.conditions,
             };
           }),

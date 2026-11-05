@@ -506,6 +506,64 @@ export const scriptedReportAnswers = pgTable(
   ],
 );
 
+/** Words in what a participant writes bringing a moderator's response. */
+export const scriptedAutoRules = pgTable(
+  "scripted_auto_rules",
+  {
+    id: id(),
+    studyVersionId: uuid("study_version_id")
+      .notNull()
+      .references(() => studyVersions.id),
+    /** Its ID in the study, which records use. */
+    ref: text().notNull(),
+    on: text().notNull(),
+    match: text().notNull(),
+    action: text().notNull(),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => actors.id),
+    afterMs: bigint("after_ms", { mode: "number" }).notNull(),
+    message: text(),
+    holdOutcome: text("hold_outcome"),
+    /** Its order in the study. The first that matches applies. */
+    position: integer().notNull(),
+    conditions: text().array().notNull().default(sql`'{}'`),
+    class: text(),
+  },
+  (table) => [
+    index("scripted_auto_rules_version").on(table.studyVersionId),
+    check("scripted_auto_rules_on", inList(table.on, ["post", "comment", "both"])),
+    check(
+      "scripted_auto_rules_action",
+      inList(table.action, ["confirm", "remove", "warn", "hold"]),
+    ),
+  ],
+);
+
+/** What a moderator says to an appeal. */
+export const scriptedAppealAnswers = pgTable(
+  "scripted_appeal_answers",
+  {
+    id: id(),
+    studyVersionId: uuid("study_version_id")
+      .notNull()
+      .references(() => studyVersions.id),
+    action: text().notNull(),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => actors.id),
+    afterMs: bigint("after_ms", { mode: "number" }).notNull(),
+    message: text(),
+    position: integer().notNull(),
+    conditions: text().array().notNull().default(sql`'{}'`),
+    class: text(),
+  },
+  (table) => [
+    index("scripted_appeal_answers_version").on(table.studyVersionId),
+    check("scripted_appeal_answers_action", inList(table.action, ["uphold", "restore"])),
+  ],
+);
+
 /** Append-only. See docs/adr/0006-append-only-event-log.md. */
 export const events = pgTable(
   "events",
@@ -640,6 +698,10 @@ export const notifications = pgTable(
         "warn",
         "answer",
         "ban",
+        "hold",
+        "approve",
+        "uphold",
+        "restore",
       ]),
     ),
     check(
@@ -837,6 +899,8 @@ export const draftItems = pgTable(
         "flagAnswer",
         "ban",
         "reportAnswer",
+        "autoRule",
+        "appealAnswer",
         "setting",
         "space",
       ]),

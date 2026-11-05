@@ -795,3 +795,46 @@ describe("bans and answers to reports", () => {
     expect(errors({ ...answer, message: "No", user: "nobody" })).toBe(true);
   });
 });
+
+describe("automatic rules and answers to appeals", () => {
+  const forum = settings({ platform: { style: "mixed", template: "forum" } });
+  const rule = {
+    ref: "r",
+    on: "post",
+    match: "word",
+    action: "remove",
+    actor: "ann",
+    afterMs: 0,
+  };
+  const errors = (fields: object) =>
+    hasErrors(validateStudy(study({ settings: forum, ...fields })));
+
+  it("needs words, someone, and something to say when it speaks", () => {
+    expect(errors({ autoRules: [rule] })).toBe(false);
+    expect(errors({ autoRules: [{ ...rule, match: " | * " }] })).toBe(true);
+    expect(errors({ autoRules: [{ ...rule, actor: "nobody" }] })).toBe(true);
+    expect(errors({ autoRules: [{ ...rule, action: "confirm" }] })).toBe(true);
+    expect(errors({ autoRules: [{ ...rule, action: "confirm", message: "Sure?" }] })).toBe(false);
+    expect(errors({ autoRules: [{ ...rule, holdOutcome: "remove" }] })).toBe(true);
+    expect(errors({ autoRules: [rule, rule] })).toBe(true);
+  });
+
+  it("warns when it can't happen", () => {
+    expect(messages(study({ autoRules: [rule] }))).toContainEqual(
+      expect.stringContaining('Automatic rules are off in "a"'),
+    );
+    expect(
+      messages(
+        study({
+          appealAnswers: [{ action: "uphold", actor: "ann", afterMs: 0, message: "No" }],
+        }),
+      ),
+    ).toContainEqual(expect.stringContaining('Appeals are off in "a"'));
+  });
+
+  it("needs a removal that stands to say something", () => {
+    const answer = { action: "uphold", actor: "ann", afterMs: 0 };
+    expect(errors({ appealAnswers: [answer] })).toBe(true);
+    expect(errors({ appealAnswers: [{ ...answer, action: "restore" }] })).toBe(false);
+  });
+});

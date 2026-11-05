@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_RULE_MATCH_LENGTH } from "../auto-rules.ts";
 import { ACCENT_PATTERN } from "../color.ts";
 import { FEATURE_KEYS } from "../features/catalog.ts";
 import { LAYOUT_KEYS, TEMPLATE_KEYS } from "../features/templates.ts";
@@ -92,6 +93,7 @@ const armSchema = z.strictObject({
       features: featureChangesSchema.optional(),
       canJoinSpaces: z.boolean().optional(),
       startingKarma: z.number().int().optional(),
+      recordUnpostedText: z.boolean().optional(),
       /** Replaces the study's list for this condition. */
       karmaChanges: z.array(karmaChangeSchema).optional(),
     })
@@ -161,6 +163,11 @@ export const studySettingsSchema = z.strictObject({
       canJoinSpaces: z.boolean().optional(),
       /** A participant's karma before any votes on what they post. Leave out for zero. */
       startingKarma: z.number().int().optional(),
+      /**
+       * Whether to keep what someone wrote when a rule asks if they're sure, even if they never post
+       * it. Off unless a study turns it on, since it's text someone chose not to share.
+       */
+      recordUnpostedText: z.boolean().optional(),
       /** Scripted changes to karma during the study. */
       karmaChanges: z.array(karmaChangeSchema).optional(),
     })
@@ -363,6 +370,35 @@ export const reportAnswerDefinitionSchema = z.object({
   ...targetingFields,
 });
 
+/** Words in what a participant writes bringing a moderator's response. The first that matches applies. */
+export const autoRuleDefinitionSchema = z.object({
+  /** What records call it. */
+  ref: z.string().min(1),
+  on: z.enum(["post", "comment", "both"]),
+  /** Words and phrases, separated by |. One ending in * matches the start of a word. */
+  match: z.string().min(1).max(MAX_RULE_MATCH_LENGTH),
+  action: z.enum(["confirm", "remove", "warn", "hold"]),
+  /** The moderator, who can be an account named as automatic. */
+  actor: z.string().min(1),
+  /** Milliseconds after they write it. For a hold, how long until it's decided. */
+  afterMs: z.number().int().nonnegative(),
+  /** What it says when it asks, warns, or removes. */
+  message: z.string().min(1).optional(),
+  /** How a hold ends. Leave out for approved. */
+  holdOutcome: z.enum(["approve", "remove"]).optional(),
+  ...targetingFields,
+});
+
+/** What a moderator says to an appeal. The first that applies to someone's condition is used. */
+export const appealAnswerDefinitionSchema = z.object({
+  /** Whether the removal stands, or what was removed goes back. */
+  action: z.enum(["uphold", "restore"]),
+  actor: z.string().min(1),
+  afterMs: z.number().int().nonnegative(),
+  message: z.string().min(1).optional(),
+  ...targetingFields,
+});
+
 /**
  * A complete study, however it was authored. Files, a visual builder, or an agent can all
  * produce one of these (see ADR 10).
@@ -380,6 +416,8 @@ export const studyDefinitionSchema = z.object({
   flagAnswers: z.array(flagAnswerDefinitionSchema).default([]),
   bans: z.array(banDefinitionSchema).default([]),
   reportAnswers: z.array(reportAnswerDefinitionSchema).default([]),
+  autoRules: z.array(autoRuleDefinitionSchema).default([]),
+  appealAnswers: z.array(appealAnswerDefinitionSchema).default([]),
 });
 
 export type StudySettings = z.infer<typeof studySettingsSchema>;
@@ -393,3 +431,5 @@ export type RemovalDefinition = z.infer<typeof removalDefinitionSchema>;
 export type FlagAnswerDefinition = z.infer<typeof flagAnswerDefinitionSchema>;
 export type BanDefinition = z.infer<typeof banDefinitionSchema>;
 export type ReportAnswerDefinition = z.infer<typeof reportAnswerDefinitionSchema>;
+export type AutoRuleDefinition = z.infer<typeof autoRuleDefinitionSchema>;
+export type AppealAnswerDefinition = z.infer<typeof appealAnswerDefinitionSchema>;

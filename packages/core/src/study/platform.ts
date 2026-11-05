@@ -69,6 +69,12 @@ export function canSortCommentsFor(settings: StudySettings, conditionKey: string
   );
 }
 
+/** Whether to keep what someone wrote when a rule asks if they're sure. Off unless a study says. */
+export function recordsUnpostedText(settings: StudySettings, conditionKey: string): boolean {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  return arm?.platform?.recordUnpostedText ?? settings.platform.recordUnpostedText ?? false;
+}
+
 /** A participant's karma before any votes on what they post. */
 export function startingKarmaFor(settings: StudySettings, conditionKey: string): number {
   const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);

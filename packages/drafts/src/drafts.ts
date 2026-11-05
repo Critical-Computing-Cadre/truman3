@@ -127,6 +127,16 @@ export async function openDraft(
       .select()
       .from(schema.scriptedReportAnswers)
       .where(eq(schema.scriptedReportAnswers.studyVersionId, versionId));
+    const autoRules = await tx
+      .select()
+      .from(schema.scriptedAutoRules)
+      .where(eq(schema.scriptedAutoRules.studyVersionId, versionId))
+      .orderBy(asc(schema.scriptedAutoRules.position));
+    const appealAnswers = await tx
+      .select()
+      .from(schema.scriptedAppealAnswers)
+      .where(eq(schema.scriptedAppealAnswers.studyVersionId, versionId))
+      .orderBy(asc(schema.scriptedAppealAnswers.position));
     const contentKinds = new Map(content.map(({ id, kind }) => [id, kind]));
 
     // New IDs up front, since items point at each other.
@@ -277,6 +287,38 @@ export async function openDraft(
           ...optional("reason", removal.reason),
           conditions: removal.conditions,
           ...optional("class", removal.class),
+        },
+      })),
+      ...autoRules.map((rule, position) => ({
+        draftId: created.id,
+        kind: "autoRule",
+        position,
+        provenance: fromFile,
+        data: {
+          ref: rule.ref,
+          on: rule.on,
+          match: rule.match,
+          action: rule.action,
+          actorId: asId(rule.actorId),
+          afterMs: rule.afterMs,
+          ...optional("message", rule.message),
+          ...optional("holdOutcome", rule.holdOutcome),
+          conditions: rule.conditions,
+          ...optional("class", rule.class),
+        },
+      })),
+      ...appealAnswers.map((answer, position) => ({
+        draftId: created.id,
+        kind: "appealAnswer",
+        position,
+        provenance: fromFile,
+        data: {
+          action: answer.action,
+          actorId: asId(answer.actorId),
+          afterMs: answer.afterMs,
+          ...optional("message", answer.message),
+          conditions: answer.conditions,
+          ...optional("class", answer.class),
         },
       })),
       ...bans.map((ban, position) => ({
@@ -625,7 +667,9 @@ export async function createItem(
     | "reaction"
     | "flagAnswer"
     | "ban"
-    | "reportAnswer",
+    | "reportAnswer"
+    | "autoRule"
+    | "appealAnswer",
   fields: Record<string, unknown>,
 ): Promise<{ id: string } | EditProblem> {
   return db.transaction(async (tx) => {
@@ -648,9 +692,13 @@ export async function createItem(
         kind === "reaction" ||
         kind === "flagAnswer" ||
         kind === "ban" ||
-        kind === "reportAnswer"
+        kind === "reportAnswer" ||
+        kind === "appealAnswer"
       ) {
         return fields;
+      }
+      if (kind === "autoRule") {
+        return { ...fields, ref: newRef("rule", id) };
       }
       // A space's key is part of its address, so it's made from the name, and can be changed later.
       return kind === "space"
