@@ -32,6 +32,7 @@ type Reaction = StudyDefinition["reactions"][number];
 type Removal = StudyDefinition["removals"][number];
 type FlagAnswer = StudyDefinition["flagAnswers"][number];
 type Ban = StudyDefinition["bans"][number];
+type ContextNote = StudyDefinition["contextNotes"][number];
 type AutoRule = StudyDefinition["autoRules"][number];
 type AppealAnswer = StudyDefinition["appealAnswers"][number];
 type ReportAnswer = StudyDefinition["reportAnswers"][number];
@@ -59,6 +60,8 @@ export interface PackContents {
   /** Packs saved before automatic rules don't have these. */
   autoRules?: AutoRule[];
   appealAnswers?: AppealAnswer[];
+  /** Packs saved before context notes don't have this. */
+  contextNotes?: ContextNote[];
   /** Each post and comment's history before the pack, by kind and reference. */
   provenance: Record<string, Provenance>;
 }
@@ -96,6 +99,7 @@ export function packContents(
     reportAnswers,
     autoRules,
     appealAnswers,
+    contextNotes,
   }: StudyDefinition,
   mediaKeys: Map<string, string>,
   provenance: Map<string, Provenance> = new Map(),
@@ -152,6 +156,7 @@ export function packContents(
     ...(reportAnswers.length > 0 ? { reportAnswers: reportAnswers.map(withoutSource) } : {}),
     ...(autoRules.length > 0 ? { autoRules: autoRules.map(withoutSource) } : {}),
     ...(appealAnswers.length > 0 ? { appealAnswers: appealAnswers.map(withoutSource) } : {}),
+    ...(contextNotes.length > 0 ? { contextNotes: contextNotes.map(withoutSource) } : {}),
     provenance: Object.fromEntries(provenance),
   };
 }
@@ -168,6 +173,7 @@ function summarize(contents: PackContents): PackSummary {
     ...(contents.reportAnswers ?? []),
     ...(contents.autoRules ?? []),
     ...(contents.appealAnswers ?? []),
+    ...(contents.contextNotes ?? []),
   ];
   return {
     actors: contents.actors.length,
@@ -352,6 +358,9 @@ export async function startStudy(
   const reportAnswers = everywhere(contents?.reportAnswers ?? []);
   const autoRules = everywhere(contents?.autoRules ?? []);
   const appealAnswers = everywhere(contents?.appealAnswers ?? []);
+  const contextNotes = everywhere(contents?.contextNotes ?? []).filter(({ post }) =>
+    keptPosts.has(post),
+  );
   const flagAnswers = everywhere(contents?.flagAnswers ?? []).filter(
     ({ on, target }) => !target || (on === "comment" ? keptComments : keptPosts).has(target),
   );
@@ -493,6 +502,13 @@ export async function startStudy(
           actorId: actorId(actor),
           targetId: (removal.on === "post" ? postIds : commentIds).get(target) as string,
         },
+      })),
+      ...contextNotes.map(({ post, ...note }, position) => ({
+        draftId: draft.id,
+        kind: "contextNote",
+        position,
+        provenance: fromPack(null),
+        data: { ...note, targetId: postIds.get(post) as string },
       })),
       ...autoRules.map(({ actor, ...rule }, position) => ({
         draftId: draft.id,

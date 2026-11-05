@@ -5,13 +5,23 @@ import type { PostActions } from "../post-props.ts";
 
 /** Says a study keeps this post on top, or has stopped comments on it. */
 export function PostBadges({ post, className = "" }: { post: FeedPost; className?: string }) {
-  if (!post.pinned && !post.locked) {
+  if (!post.pinned && !post.locked && !post.ad && post.viewCount === undefined) {
     return null;
   }
   return (
     <span className={`flex items-center gap-1 text-xs font-medium text-stone-600 ${className}`}>
       {post.pinned && <span className="rounded bg-stone-100 px-1.5 py-0.5">Pinned</span>}
       {post.locked && <span className="rounded bg-stone-100 px-1.5 py-0.5">Locked</span>}
+      {post.ad && (
+        <span data-testid="ad-label" className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-900">
+          {post.ad}
+        </span>
+      )}
+      {post.viewCount !== undefined && (
+        <span data-testid="view-count" className="font-normal text-stone-500">
+          {post.viewCount.toLocaleString("en-US")} {post.viewCount === 1 ? "view" : "views"}
+        </span>
+      )}
     </span>
   );
 }

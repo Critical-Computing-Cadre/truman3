@@ -21,6 +21,7 @@ import { type FlowState, flowQuery, get, meQuery, post, postForm, type Written }
 import { AreYouSure } from "../components/AreYouSure.tsx";
 import { CommunitiesCard } from "../components/Community.tsx";
 import { PostCard } from "../components/PostCard.tsx";
+import { ExploreCards } from "./ExplorePage.tsx";
 
 /** Picked once per page load, for studies that reshuffle the feed on each visit. */
 const VISIT = Math.floor(Math.random() * 2 ** 31);
@@ -472,7 +473,12 @@ export function FeedPage() {
           />
         )
       }
-      side={flow.data?.features.spaces ? <CommunitiesCard /> : undefined}
+      side={
+        <>
+          {flow.data?.features.spaces && <CommunitiesCard />}
+          {(flow.data?.features.trending || flow.data?.features.whoToFollow) && <ExploreCards />}
+        </>
+      }
     >
       {flow.data?.features.posting && me.data && (
         <>

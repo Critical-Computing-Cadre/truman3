@@ -66,6 +66,7 @@ function Person({
   followCountsOn,
   followingOn,
   badgesOn,
+  whoToFollowOn,
   flairSpaces,
   edits,
 }: {
@@ -79,6 +80,8 @@ function Person({
   followCountsOn: boolean;
   followingOn: boolean;
   badgesOn: boolean;
+  /** Whether anyone in this study sees suggestions for who to follow. */
+  whoToFollowOn: boolean;
   edits: DraftEdits;
 }) {
   const file = useRef<HTMLInputElement>(null);
@@ -210,6 +213,16 @@ function Person({
             canEdit={canEdit}
             onSave={(badge) => save({ badge: badge || null })}
           />
+        )}
+        {whoToFollowOn && (
+          <SavedCheckbox
+            checked={actor.suggested}
+            disabled={!canEdit}
+            className="flex items-center gap-2 text-sm"
+            onChange={(suggested) => save({ suggested })}
+          >
+            Suggest following them
+          </SavedCheckbox>
         )}
         {followingOn && (
           <SavedCheckbox
@@ -352,6 +365,7 @@ export function CastPage() {
             followCountsOn={info.data.conditions.some(({ features }) => features.followCounts)}
             followingOn={info.data.conditions.some(({ features }) => features.following)}
             badgesOn={info.data.conditions.some(({ features }) => features.badges)}
+            whoToFollowOn={info.data.conditions.some(({ features }) => features.whoToFollow)}
             flairSpaces={
               info.data.conditions.some(({ features }) => features.flair)
                 ? info.data.spaces.filter(({ userFlair }) => userFlair.length > 0)

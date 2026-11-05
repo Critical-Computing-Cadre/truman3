@@ -2,6 +2,7 @@ import type { FeedComment } from "@truman3/core";
 import type { ReactNode } from "react";
 import { Avatar } from "../Avatar.tsx";
 import { CommentReplyButton, ReplyButton, replyIndent } from "../features/comments.tsx";
+import { ContextNoteBox } from "../features/context-notes.tsx";
 import { CrosspostButton, CrosspostOriginal } from "../features/crossposting.tsx";
 import {
   CommentFlagButton,
@@ -24,6 +25,7 @@ import {
   TagCover,
 } from "../features/post-extras.tsx";
 import { CommentsLink } from "../features/post-pages.tsx";
+import { PostText } from "../features/post-text.tsx";
 import { RemovedNote } from "../features/removal.tsx";
 import { QuoteButton, QuotedPost, RepostButton, RepostedBy } from "../features/reposts.tsx";
 import { ModeratorTag, SpaceChip } from "../features/spaces.tsx";
@@ -75,7 +77,7 @@ function ForumComment({
         <span>· {shortTime(comment.at)}</span>
       </p>
       <div className="mt-1 text-sm break-words whitespace-pre-wrap">
-        {renderBody ? renderBody(comment.id, comment.body) : comment.body}
+        {renderBody ? renderBody(comment.id, comment.body) : <PostText text={comment.body} />}
       </div>
       <RemovedNote item={comment} actions={actions} className="mt-1" />
       <p className="mt-1 flex flex-wrap items-center gap-3 text-xs font-medium text-stone-500">
@@ -181,12 +183,13 @@ export function ForumPost({
               <p
                 className={`px-4 pt-1.5 text-sm break-words whitespace-pre-wrap text-stone-700 ${detail ? "" : "line-clamp-4"}`}
               >
-                {post.body}
+                <PostText text={post.body} />
               </p>
             )
           )}
           <PostLink post={post} actions={actions} />
           <PostPoll post={post} actions={actions} />
+          <ContextNoteBox post={post} actions={actions} />
           <CrosspostOriginal
             post={post}
             {...(renderPostLink ? { renderPostLink } : {})}

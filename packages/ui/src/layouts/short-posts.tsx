@@ -2,6 +2,7 @@ import type { FeedComment } from "@truman3/core";
 import type { ReactNode } from "react";
 import { Avatar } from "../Avatar.tsx";
 import { CommentReplyButton, ReplyButton, replyIndent } from "../features/comments.tsx";
+import { ContextNoteBox } from "../features/context-notes.tsx";
 import { CrosspostButton, CrosspostOriginal } from "../features/crossposting.tsx";
 import {
   CommentFlagButton,
@@ -24,6 +25,7 @@ import {
   TagCover,
 } from "../features/post-extras.tsx";
 import { CommentsLink } from "../features/post-pages.tsx";
+import { PostText } from "../features/post-text.tsx";
 import { RemovedNote } from "../features/removal.tsx";
 import { QuoteButton, QuotedPost, RepostButton, RepostedBy } from "../features/reposts.tsx";
 import { ModeratorTag, SpaceChip } from "../features/spaces.tsx";
@@ -72,7 +74,7 @@ function ShortComment({
           </span>
         </p>
         <div className="text-sm break-words whitespace-pre-wrap">
-          {renderBody ? renderBody(comment.id, comment.body) : comment.body}
+          {renderBody ? renderBody(comment.id, comment.body) : <PostText text={comment.body} />}
         </div>
         <RemovedNote item={comment} actions={actions} className="mt-1" />
         <p className="mt-1 flex gap-4 text-xs text-stone-500">
@@ -165,19 +167,15 @@ export function ShortPost({
             {renderBody ? (
               <div className="text-sm">{renderBody(post.id, post.body)}</div>
             ) : (
-              post.body &&
-              (renderPostLink && !detail ? (
-                renderPostLink(
-                  post.id,
-                  "block",
-                  <p className="break-words whitespace-pre-wrap">{post.body}</p>,
-                )
-              ) : (
-                <p className="break-words whitespace-pre-wrap">{post.body}</p>
-              ))
+              post.body && (
+                <p className="break-words whitespace-pre-wrap">
+                  <PostText text={post.body} />
+                </p>
+              )
             )}
             <PostLink post={post} actions={actions} />
             <PostPoll post={post} actions={actions} />
+            <ContextNoteBox post={post} actions={actions} />
             <QuotedPost post={post} {...(renderPostLink ? { renderPostLink } : {})} />
             <CrosspostOriginal
               post={post}

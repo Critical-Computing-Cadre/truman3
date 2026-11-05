@@ -870,6 +870,104 @@ function AppealAnswerCard({
   );
 }
 
+function ContextNoteCard({
+  note,
+  info,
+  edits,
+}: {
+  note: DraftInfo["contextNotes"][number];
+  info: DraftInfo;
+  edits: DraftEdits;
+}) {
+  const [problem, setProblem] = useState<string | null>(null);
+  const save = (changes: object) => {
+    setProblem(null);
+    edits.update.mutate(
+      { itemId: note.id, changes },
+      { onError: (error) => setProblem(error.message) },
+    );
+  };
+  const whole = (text: string, key: "helpful" | "notHelpful") => {
+    const number = Number(text);
+    if (Number.isInteger(number) && number >= 0) {
+      save({ [key]: number });
+    } else {
+      setProblem("That has to be a whole number.");
+    }
+  };
+  return (
+    <li aria-label="Context note" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className={`${LABEL} sm:col-span-2`}>
+          On this post
+          <select
+            disabled={!info.canEdit}
+            value={note.targetId}
+            onChange={(event) => save({ targetId: event.target.value })}
+            className={INPUT}
+          >
+            {info.posts.map((post) => (
+              <option key={post.id} value={post.id}>
+                {post.authorName}: {shorten(post.title ?? post.body) || "(no text)"}
+              </option>
+            ))}
+          </select>
+        </label>
+        <TimeField
+          label="When"
+          help="hours:minutes from when they start"
+          valueMs={note.timeMs}
+          canEdit={info.canEdit}
+          allowBefore
+          onSave={(timeMs) => save({ timeMs })}
+        />
+        <CastField
+          label="Helpful ratings it starts with"
+          value={String(note.helpful)}
+          canEdit={info.canEdit}
+          onSave={(text) => whole(text, "helpful")}
+        />
+        <CastField
+          label="Not helpful ratings it starts with"
+          value={String(note.notHelpful)}
+          canEdit={info.canEdit}
+          onSave={(text) => whole(text, "notHelpful")}
+        />
+      </div>
+      <CastField
+        label="What the note says"
+        value={note.body}
+        canEdit={info.canEdit}
+        required
+        multiline
+        onSave={(body) => save({ body })}
+      />
+      <ConditionChoices
+        all={info.conditions.map(({ key }) => key)}
+        chosen={note.conditions}
+        canEdit={info.canEdit}
+        onChange={(conditions) => save({ conditions })}
+      />
+      {problem && (
+        <p role="alert" className="text-sm text-rose-700">
+          {problem}
+        </p>
+      )}
+      {info.canEdit && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => edits.remove.mutate(note.id)}
+            className="rounded border border-stone-300 px-2 py-1 text-xs"
+          >
+            Delete this note
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
 /** What a moderator does in a study. It's written here, and freezes with a version (ADR 31, 32). */
 export function ModerationPage() {
   const { draftId } = useParams({ from: "/drafts/$draftId/moderation" });
@@ -899,7 +997,8 @@ export function ModerationPage() {
       | "ban"
       | "reportAnswer"
       | "autoRule"
-      | "appealAnswer",
+      | "appealAnswer"
+      | "contextNote",
     fields: object,
   ) => {
     setProblem(null);
@@ -998,6 +1097,40 @@ export function ModerationPage() {
         <ul className="space-y-3">
           {data.flagAnswers.map((answer) => (
             <FlagAnswerCard key={answer.id} answer={answer} info={data} edits={edits} />
+          ))}
+        </ul>
+      </section>
+
+      <section aria-label="Context notes" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-semibold">Context notes</h2>
+            <p className="text-sm text-stone-500">
+              A note on a post, as if readers had added context. People can rate whether it helps.
+            </p>
+          </div>
+          {data.canEdit && (
+            <button
+              type="button"
+              disabled={!firstPost || edits.create.isPending}
+              title={!firstPost ? "Write a post first." : undefined}
+              onClick={() =>
+                add("contextNote", {
+                  targetId: firstPost?.id,
+                  body: "Readers added context here.",
+                  timeMs: firstPost?.offsetMs,
+                  conditions: [],
+                })
+              }
+              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+            >
+              Add a note
+            </button>
+          )}
+        </div>
+        <ul className="space-y-3">
+          {data.contextNotes.map((note) => (
+            <ContextNoteCard key={note.id} note={note} info={data} edits={edits} />
           ))}
         </ul>
       </section>

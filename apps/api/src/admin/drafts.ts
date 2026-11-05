@@ -21,6 +21,7 @@ import {
   type AutoRuleData,
   type BanData,
   type CommentData,
+  type ContextNoteData,
   checkDraft,
   createItem,
   deleteItem,
@@ -265,6 +266,11 @@ const fieldsSchema = z.strictObject({
   quoteOfId: z.uuid().nullable().optional(),
   reposts: z.number().int().nonnegative().optional(),
   quotes: z.number().int().nonnegative().optional(),
+  /** Marks it as an ad, with this label. Null makes it an ordinary post. */
+  ad: z.string().trim().min(1).max(40).nullable().optional(),
+  views: z.number().int().nonnegative().optional(),
+  helpful: z.number().int().nonnegative().optional(),
+  notHelpful: z.number().int().nonnegative().optional(),
   /** Someone in the cast's flair in each space, by the space's ID. */
   spaceFlair: z.record(z.uuid(), z.string()).optional(),
   postFlair: z.array(flairSchema).optional(),
@@ -314,6 +320,7 @@ const fieldsSchema = z.strictObject({
   startsFollowed: z.union([z.boolean(), z.array(z.string())]).optional(),
   /** Null takes it away. */
   badge: z.string().trim().min(1).max(40).nullable().optional(),
+  suggested: z.boolean().optional(),
   // For spaces, as well as name and conditions above. Null removes a post from its space.
   spaceId: z.uuid().nullable().optional(),
   description: z.string().max(2000).nullable().optional(),
@@ -375,6 +382,7 @@ const createItemRoute = createRoute({
           "reportAnswer",
           "autoRule",
           "appealAnswer",
+          "contextNote",
         ]),
         fields: fieldsSchema,
       }),
@@ -559,6 +567,8 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
         quoteOf: data.quoteOfId ?? null,
         baseReposts: data.reposts ?? 0,
         baseQuotes: data.quotes ?? 0,
+        adLabel: data.ad ?? null,
+        baseViews: data.views ?? 0,
         body: data.body,
         attachments: (data.pictures ?? []).map((key) => ({ type: "image" as const, key })),
         offsetMs: data.timeMs,
@@ -680,6 +690,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               following: data.following ?? 0,
               startsFollowed: data.startsFollowed ?? false,
               badge: data.badge ?? "",
+              suggested: data.suggested ?? false,
               spaceFlair: data.spaceFlair ?? {},
               usedBy,
             };
@@ -754,6 +765,20 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               actorId: data.actorId,
               timeMs: data.timeMs,
               reason: data.reason ?? "",
+              conditions: data.conditions,
+            };
+          }),
+        contextNotes: items
+          .filter((item) => item.kind === "contextNote")
+          .map((item) => {
+            const data = item.data as ContextNoteData;
+            return {
+              id: item.id,
+              targetId: data.targetId,
+              body: data.body,
+              timeMs: data.timeMs,
+              helpful: data.helpful ?? 0,
+              notHelpful: data.notHelpful ?? 0,
               conditions: data.conditions,
             };
           }),
@@ -1006,6 +1031,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
         quoteOfId: string | null;
         reposts: number;
         quotes: number;
+        ad: string | null;
+        views: number;
         origin: string;
       }
     > = {};
@@ -1032,6 +1059,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           quoteOfId: data.quoteOfId ?? null,
           reposts: data.reposts ?? 0,
           quotes: data.quotes ?? 0,
+          ad: data.ad ?? null,
+          views: data.views ?? 0,
           origin: (item.provenance as Provenance).origin,
         };
       }

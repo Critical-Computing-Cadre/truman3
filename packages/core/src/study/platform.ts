@@ -87,6 +87,14 @@ export function startingFollowersFor(settings: StudySettings, conditionKey: stri
   return arm?.platform?.startingFollowers ?? settings.platform.startingFollowers ?? 0;
 }
 
+/** What's said to be trending by now, on a platform with that. */
+export function trendingFor(settings: StudySettings, conditionKey: string, elapsedMs: number) {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  return (arm?.platform?.trending ?? settings.platform.trending ?? []).filter(
+    ({ afterMinutes }) => (afterMinutes ?? 0) * 60_000 <= elapsedMs,
+  );
+}
+
 /** A participant's karma before any votes on what they post. */
 export function startingKarmaFor(settings: StudySettings, conditionKey: string): number {
   const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);

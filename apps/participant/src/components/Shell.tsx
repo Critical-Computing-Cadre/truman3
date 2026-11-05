@@ -1,11 +1,32 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet } from "@tanstack/react-router";
 import type { FeedWarning } from "@truman3/core";
-import { PageHeader, type PageLink, PlatformProvider, WarningNotice } from "@truman3/ui";
+import {
+  PageHeader,
+  type PageLink,
+  PlatformProvider,
+  type TextLinks,
+  TextLinksContext,
+  WarningNotice,
+} from "@truman3/ui";
 import { type FlowState, get, meQuery, post } from "../api.ts";
 import { flushTracking } from "../tracking.ts";
 
 const POLL_EVERY_MS = 30_000;
+
+const LINK = "font-medium text-sky-800 underline-offset-2 hover:underline";
+const TEXT_LINKS: TextLinks = {
+  renderTag: (tag, children) => (
+    <Link to="/tags/$tag" params={{ tag }} className={LINK}>
+      {children}
+    </Link>
+  ),
+  renderMention: (username, children) => (
+    <Link to="/u/$username" params={{ username }} className={LINK}>
+      {children}
+    </Link>
+  ),
+};
 
 /** The header and page around everything once someone's in the feed. */
 export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () => void }) {
@@ -40,6 +61,19 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
             render: (className: string) => (
               <Link to="/spaces" className={className}>
                 Communities
+              </Link>
+            ),
+          },
+        ]
+      : []),
+    ...(flow.features.trending || flow.features.whoToFollow
+      ? [
+          {
+            key: "explore",
+            label: "Explore",
+            render: (className: string) => (
+              <Link to="/explore" className={className}>
+                Explore
               </Link>
             ),
           },
@@ -142,7 +176,9 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
               <WarningNotice warning={warning} onAcknowledge={(id) => acknowledge.mutate(id)} />
             </div>
           ))}
-          <Outlet />
+          <TextLinksContext.Provider value={TEXT_LINKS}>
+            <Outlet />
+          </TextLinksContext.Provider>
         </main>
       </div>
     </PlatformProvider>

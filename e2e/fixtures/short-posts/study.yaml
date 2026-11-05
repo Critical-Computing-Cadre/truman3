@@ -7,7 +7,11 @@ entry: { idParam: PROLIFIC_PID, idLabel: ID, source: test }
 conditions:
   assignment: { method: uniform }
   arms: [{ key: main }]
-platform: { style: text, template: shortPosts, maxPostLength: 40 }
-feed: { ranker: chronological, homeTabLabel: Everything }
+platform:
+  style: text
+  template: shortPosts
+  maxPostLength: 40
+  trending: [{ tag: news, note: 12K posts }, { tag: local }]
+feed: { ranker: chronological, homeTabLabel: Everything, adEvery: 2 }
 media: { baseUrl: "https://cdn.example.com/m" }
 flow: [{ step: feed }, { step: exit }]

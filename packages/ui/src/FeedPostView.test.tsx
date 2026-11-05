@@ -3,6 +3,7 @@ import { type FeatureKey, type FeedPost, TEMPLATES } from "@truman3/core";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FeedPostView } from "./FeedPostView.tsx";
+import { TextLinksContext } from "./features/post-text.tsx";
 import { WarningNotice } from "./features/warnings.tsx";
 import { PlatformProvider } from "./platform.tsx";
 import type { FeedPostViewProps } from "./post-props.ts";
@@ -871,5 +872,95 @@ describe("short posts", () => {
   it("shows a badge the server sent", () => {
     draw("short-posts", { ...POST, comments: [], author: { ...author, badge: "Expert" } });
     expect(screen.getByTestId("author-badge").textContent).toBe("Expert");
+  });
+});
+
+describe("short posts, part 2", () => {
+  afterEach(cleanup);
+  const features = { ...TEMPLATES.shortPosts.features, contextNotes: true };
+  const draw = (
+    layout: "classic" | "forum" | "short-posts",
+    post: FeedPost,
+    on: typeof features = features,
+    extra = {},
+  ) =>
+    render(
+      <PlatformProvider platform={{ layout, features: on }}>
+        <FeedPostView
+          post={post}
+          actions={{
+            onLike: vi.fn(),
+            onVote: vi.fn(),
+            onFlag: vi.fn(),
+            onReply: vi.fn(),
+            ...extra,
+          }}
+        />
+      </PlatformProvider>,
+    );
+  const note = { body: "Context", helpful: 3, notHelpful: 1, rating: null };
+
+  it.each(["classic", "forum", "short-posts"] as const)(
+    "shows a note, an ad's label, and views, in %s",
+    (layout) => {
+      const onRateNote = vi.fn();
+      draw(
+        layout,
+        { ...POST, comments: [], contextNote: note, ad: "Sponsored", viewCount: 1200 },
+        features,
+        { onRateNote },
+      );
+      expect(screen.getByTestId("context-note").textContent).toContain("Context");
+      expect(screen.getByTestId("ad-label").textContent).toBe("Sponsored");
+      expect(screen.getByTestId("view-count").textContent).toBe("1,200 views");
+      fireEvent.click(screen.getByRole("button", { name: "Helpful (3)" }));
+      expect(onRateNote).toHaveBeenCalledWith("p1", "helpful");
+    },
+  );
+
+  it("takes back a rating when it's pressed again", () => {
+    const onRateNote = vi.fn();
+    draw(
+      "short-posts",
+      { ...POST, comments: [], contextNote: { ...note, rating: "helpful" } },
+      features,
+      {
+        onRateNote,
+      },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Helpful (3)" }));
+    expect(onRateNote).toHaveBeenCalledWith("p1", null);
+  });
+
+  it("shows no note with the feature off", () => {
+    draw(
+      "short-posts",
+      { ...POST, comments: [], contextNote: note },
+      {
+        ...features,
+        contextNotes: false,
+      },
+    );
+    expect(screen.queryByTestId("context-note")).toBeNull();
+  });
+
+  it("links hashtags and mentions, only where a page gives them somewhere to go", () => {
+    const links = {
+      renderTag: (tag: string, children: ReactNode) => <a href={`/tags/${tag}`}>{children}</a>,
+      renderMention: (name: string, children: ReactNode) => <a href={`/u/${name}`}>{children}</a>,
+    };
+    const post = { ...POST, comments: [], body: "See #News from @ann" };
+    render(
+      <TextLinksContext.Provider value={links}>
+        <PlatformProvider platform={{ layout: "short-posts", features }}>
+          <FeedPostView post={post} />
+        </PlatformProvider>
+      </TextLinksContext.Provider>,
+    );
+    expect(screen.getByRole("link", { name: "#News" }).getAttribute("href")).toBe("/tags/news");
+    expect(screen.getByRole("link", { name: "@ann" }).getAttribute("href")).toBe("/u/ann");
+    cleanup();
+    draw("short-posts", post);
+    expect(screen.queryByRole("link", { name: "#News" })).toBeNull();
   });
 });

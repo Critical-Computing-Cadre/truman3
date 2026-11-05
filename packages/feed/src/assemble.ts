@@ -25,6 +25,7 @@ export function feedSettingsFor(settings: StudySettings, conditionKey: string): 
     removeBlocked: changes?.removeBlocked ?? base.removeBlocked,
     spaceRanker: changes?.spaceRanker ?? base.spaceRanker,
     followingRanker: changes?.followingRanker ?? base.followingRanker,
+    adEvery: changes?.adEvery ?? base.adEvery,
     homeTabLabel: changes?.homeTabLabel ?? base.homeTabLabel,
     followingTabLabel: changes?.followingTabLabel ?? base.followingTabLabel,
     startOnFollowing: changes?.startOnFollowing ?? base.startOnFollowing,
@@ -214,4 +215,28 @@ export function assembleFeed(
     commentOrder: commentOrder.name,
     commentOrderVersion: commentOrder.version,
   };
+}
+
+/**
+ * Keeps ads apart: one after every `every` other posts, in their own order, and any left over at the
+ * end. What's pinned stays on top, and doesn't count. It only moves things, so nothing goes missing.
+ */
+export function placeAds<T extends { id: string; pinned: boolean }>(
+  posts: readonly T[],
+  isAd: (post: T) => boolean,
+  every: number,
+): T[] {
+  const pinned = posts.filter((post) => post.pinned);
+  const rest = posts.filter((post) => !post.pinned);
+  const ads = rest.filter(isAd);
+  const others = rest.filter((post) => !isAd(post));
+  const placed: T[] = [...pinned];
+  others.forEach((post, index) => {
+    placed.push(post);
+    const ad = (index + 1) % every === 0 ? ads.shift() : undefined;
+    if (ad) {
+      placed.push(ad);
+    }
+  });
+  return [...placed, ...ads];
 }

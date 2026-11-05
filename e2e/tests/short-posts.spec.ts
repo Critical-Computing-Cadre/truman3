@@ -88,6 +88,54 @@ test("tabs, following, reposts, quotes, a limit, and badges", async ({ page }, t
   await shot(page, project, "3-notifications");
 });
 
+test("context notes, hashtags, trending, who to follow, views, muting, and ads", async ({
+  page,
+}, testInfo) => {
+  const project = testInfo.project.name;
+  const app = `http://localhost:${APP_PORT}`;
+  await page.goto(`${app}/join/short-posts-e2e?PROLIFIC_PID=EXTRAS-${project}-${Date.now()}`);
+
+  // An ad says it's one, and a context note can be rated.
+  await expect(page.getByTestId("ad-label").first()).toHaveText("Sponsored");
+  const noted = page
+    .getByRole("article")
+    .filter({ has: page.getByTestId("context-note") })
+    .first();
+  const note = noted.getByTestId("context-note");
+  await expect(note).toContainText("This story leaves out an important fact.");
+  await expect(noted.getByTestId("view-count")).toContainText("views");
+  await shot(page, project, "4-note-and-ad");
+  await note.getByRole("button", { name: /^Helpful/ }).click();
+  await expect(note.getByRole("button", { name: /^Helpful/ })).toHaveText("Helpful (11)");
+
+  // A mention goes to a profile, and a hashtag to its page.
+  const tagged = page.getByRole("article").filter({ hasText: "Big #News about" }).first();
+  await expect(tagged.getByRole("link", { name: "@ann" })).toHaveAttribute("href", "/u/ann");
+  await tagged.getByRole("link", { name: "#News" }).click();
+  await expect(page.getByRole("heading", { name: "#news" })).toBeVisible();
+  await expect(page.getByRole("article")).toHaveCount(1);
+
+  // Explore has what's trending, and who to follow, until they're followed.
+  await page.goto(`${app}/explore`);
+  const trending = page.getByRole("region", { name: "Trending" });
+  await expect(trending.getByRole("link", { name: "#news" })).toBeVisible();
+  await expect(trending.getByText("12K posts")).toBeVisible();
+  const suggested = page.getByRole("region", { name: "Who to follow" });
+  await expect(suggested.getByRole("link", { name: "Bob" })).toBeVisible();
+  await shot(page, project, "5-explore");
+  await suggested.getByRole("button", { name: "Follow" }).click();
+  await expect(page.getByRole("region", { name: "Who to follow" })).toHaveCount(0);
+
+  // Muting someone takes what they write out of the feed, but not off their own page.
+  await page.goto(`${app}/u/cleo`);
+  await expect(page.getByText("Big #News about").first()).toBeVisible();
+  await page.getByRole("button", { name: "Mute", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Unmute" })).toBeVisible();
+  await page.goto(app);
+  await expect(page.getByText("My own take on it")).toBeVisible();
+  await expect(page.getByText("Big #News about")).toHaveCount(0);
+});
+
 test("a researcher builds a short posts study, with a repost and a badge", async ({
   page: participant,
   browser,

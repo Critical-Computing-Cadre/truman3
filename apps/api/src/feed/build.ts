@@ -10,6 +10,7 @@ import {
   type Flair,
   featureOn,
   featuresFor,
+  hasHashtag,
   linkDomain,
   type PostTag,
   type StudySettings,
@@ -23,6 +24,7 @@ import {
   type FeedCandidate,
   type FeedSettings,
   feedSettingsFor,
+  placeAds,
 } from "@truman3/feed";
 import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { ParticipantContext } from "../participants/session.ts";
@@ -49,6 +51,8 @@ export type FeedContent = Pick<
   | "quoteOf"
   | "baseReposts"
   | "baseQuotes"
+  | "adLabel"
+  | "baseViews"
   | "body"
   | "attachments"
   | "offsetMs"
@@ -83,6 +87,7 @@ interface ActorProfile {
   followers?: number;
   following?: number;
   badge?: string;
+  suggested?: boolean;
 }
 
 /** What the feed needs to name a space on a post. */
@@ -441,6 +446,52 @@ export async function loadAppealedIds(
   return new Set(rows.flatMap(({ contentId }) => (contentId ? [contentId] : [])));
 }
 
+/** A context note, as written, with what's known about it for this person. */
+export interface ShownNote {
+  ref: string;
+  body: string;
+  helpful: number;
+  notHelpful: number;
+  rating: "helpful" | "not_helpful" | null;
+}
+
+/** The note showing on each post by now. If a post has several, the first to come due stands. */
+export async function loadContextNotes(
+  db: Pick<Database, "select">,
+  context: ParticipantContext,
+  now: Date,
+  ratings: ReadonlyMap<string, "helpful" | "not_helpful">,
+): Promise<Map<string, ShownNote>> {
+  const notes = new Map<string, ShownNote>();
+  if (!featureOn(context.settings, context.conditionKey, "contextNotes")) {
+    return notes;
+  }
+  const rows = await db
+    .select()
+    .from(schema.scriptedContextNotes)
+    .where(
+      and(
+        eq(schema.scriptedContextNotes.studyVersionId, context.studyVersionId),
+        lte(schema.scriptedContextNotes.offsetMs, now.getTime() - context.worldStartedAt.getTime()),
+      ),
+    )
+    .orderBy(asc(schema.scriptedContextNotes.offsetMs));
+  for (const row of rows) {
+    const applies = row.conditions.length === 0 || row.conditions.includes(context.conditionKey);
+    if (applies && !notes.has(row.contentId)) {
+      const rating = ratings.get(row.contentId) ?? null;
+      notes.set(row.contentId, {
+        ref: row.ref,
+        body: row.body,
+        helpful: row.baseHelpful + (rating === "helpful" ? 1 : 0),
+        notHelpful: row.baseNotHelpful + (rating === "not_helpful" ? 1 : 0),
+        rating,
+      });
+    }
+  }
+  return notes;
+}
+
 export interface FeedDependencies {
   db: Database;
   mediaPublicUrl: string;
@@ -493,6 +544,16 @@ async function loadViewerState(db: Database, context: ParticipantContext) {
     viewedContentIds: idsOfKind("view"),
     blockedActorIds: related("block"),
     followedActorIds: related("follow"),
+    mutedActorIds: related("mute"),
+    noteRatings: new Map<string, "helpful" | "not_helpful">(
+      interactions.flatMap(({ kind, contentId }): [string, "helpful" | "not_helpful"][] =>
+        kind === "note_helpful"
+          ? [[contentId, "helpful"]]
+          : kind === "note_not_helpful"
+            ? [[contentId, "not_helpful"]]
+            : [],
+      ),
+    ),
   };
 }
 
@@ -523,6 +584,8 @@ export async function shapeFeedPosts({
   appealedIds = new Set(),
   countable = () => true,
   repostsAsThemselves = false,
+  contextNotes = new Map(),
+  viewedContentIds = new Set(),
 }: {
   loadAuthors: (ids: string[]) => Promise<ReadonlyMap<string, FeedActor>>;
   mediaPublicUrl: string;
@@ -563,6 +626,10 @@ export async function shapeFeedPosts({
   countable?: (row: FeedContent) => boolean;
   /** Shows a repost as its own card, so a researcher can edit it, rather than as the post it passes on. */
   repostsAsThemselves?: boolean;
+  /** The note showing on each post by now. */
+  contextNotes?: ReadonlyMap<string, ShownNote>;
+  /** What this viewer has seen, which counts toward what a post says it has. */
+  viewedContentIds?: ReadonlySet<string>;
 }): Promise<FeedPost[]> {
   const byId = new Map(rows.map((row) => [row.id, row]));
   /** The first post in a chain of reposts. */
@@ -763,8 +830,23 @@ export async function shapeFeedPosts({
           };
         })()
       : {};
+    const note = contextNotes.get(item.id);
     const passing = {
       ...repostedBy,
+      ...(item.adLabel && features.ads ? { ad: item.adLabel } : {}),
+      ...(features.viewCounts
+        ? { viewCount: item.baseViews + (viewedContentIds.has(item.id) ? 1 : 0) }
+        : {}),
+      ...(note && !removals.has(item.id)
+        ? {
+            contextNote: {
+              body: note.body,
+              helpful: note.helpful,
+              notHelpful: note.notHelpful,
+              rating: note.rating,
+            },
+          }
+        : {}),
       ...(features.reposts
         ? {
             repostCount: item.baseReposts + (reposters.get(item.id) ?? 0),
@@ -875,6 +957,8 @@ export interface BuildFeedOptions {
   list?: "saved" | "hidden" | undefined;
   /** Only those this person follows, and themselves, on that tab. */
   following?: boolean | undefined;
+  /** Only posts with this hashtag, on its page. */
+  tag?: string | undefined;
 }
 
 /** Works out what a participant sees now, and records that it was shown. */
@@ -893,6 +977,7 @@ export async function buildFeed(
     commentSort,
     list,
     following,
+    tag,
   }: BuildFeedOptions = {},
 ): Promise<FeedPost[]> {
   const worldStartMs = context.worldStartedAt.getTime();
@@ -983,9 +1068,26 @@ export async function buildFeed(
       !hiddenHere.has(root.id)
     );
   };
+  /** Someone muted is left out of lists and threads, though their own page and posts still open. */
+  const mutedAway = (row: ContentRow) => {
+    if (state.mutedActorIds.size === 0 || authorActorId) {
+      return false;
+    }
+    for (let current: ContentRow | undefined = row; current; ) {
+      const isTheOpenPost = post !== undefined && current.id === post;
+      if (!isTheOpenPost && state.mutedActorIds.has(current.authorActorId)) {
+        return true;
+      }
+      current = current.parentId ? rowsById.get(current.parentId) : undefined;
+    }
+    return !post && row.repostOf ? state.mutedActorIds.has(rootOf(row).authorActorId) : false;
+  };
   const inScope = (row: ContentRow) =>
     !hiddenByBan(row, rowsById, bans, worldStartMs) &&
     repostShows(row) &&
+    !mutedAway(row) &&
+    (!row.adLabel || features.ads) &&
+    (!tag || hasHashtag(postOf(row).body, tag)) &&
     (!following ||
       postOf(row).authorActorId === context.actorId ||
       state.followedActorIds.has(postOf(row).authorActorId)) &&
@@ -1075,10 +1177,20 @@ export async function buildFeed(
     },
   );
 
+  // Ads go every so many posts in a list, not on someone's page or a post's own page.
+  if (features.ads && feedSettings.adEvery && !post && !authorActorId && !list) {
+    feed.posts = placeAds(
+      feed.posts,
+      ({ id }) => Boolean(rowsById.get(id)?.adLabel),
+      feedSettings.adEvery,
+    );
+  }
+
   const karmaOn = featureOn(context.settings, context.conditionKey, "karma");
   const elapsedMs = now.getTime() - worldStartMs;
   const removals = await loadRemovals(db, context, now);
 
+  const contextNotes = await loadContextNotes(db, context, now, state.noteRatings);
   const shaped = await shapeFeedPosts({
     loadAuthors: (ids) => loadAuthors(db, ids),
     mediaPublicUrl,
@@ -1111,6 +1223,8 @@ export async function buildFeed(
     },
     removals,
     bans,
+    contextNotes,
+    viewedContentIds: state.viewedContentIds,
     countable: (row) =>
       inCondition(row as ContentRow) &&
       appeared(row as ContentRow) &&
@@ -1151,6 +1265,10 @@ export async function buildFeed(
       ...(post.score === undefined ? {} : { score: post.score }),
       // What was on screen in place of it, since a removal depends on the moment and the person.
       ...(removals.has(post.id) ? { removed: true } : {}),
+      ...(contextNotes.has(rootOf(rowsById.get(post.id) as ContentRow).id) &&
+      !removals.has(rootOf(rowsById.get(post.id) as ContentRow).id)
+        ? { contextNote: contextNotes.get(rootOf(rowsById.get(post.id) as ContentRow).id)?.ref }
+        : {}),
       ...(commentsHere && post.commentIds.some((id) => removals.has(id))
         ? { removedCommentIds: post.commentIds.filter((id) => removals.has(id)) }
         : {}),

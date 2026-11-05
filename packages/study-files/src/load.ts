@@ -6,6 +6,7 @@ import {
   type AutoRuleDefinition,
   type BanDefinition,
   type CommentDefinition,
+  type ContextNoteDefinition,
   type FlagAnswerDefinition,
   type Flair,
   hasErrors,
@@ -40,6 +41,7 @@ const ACTORS: CsvSpec = {
     "following",
     "startsFollowed",
     "badge",
+    "suggested",
     "flair",
     "condition",
     "class",
@@ -64,6 +66,8 @@ const POSTS: CsvSpec = {
     "quoteOf",
     "reposts",
     "quotes",
+    "ad",
+    "views",
     "likes",
     "ups",
     "downs",
@@ -115,6 +119,10 @@ const AUTO_RULES: CsvSpec = {
 const APPEAL_ANSWERS: CsvSpec = {
   required: ["action", "actor", "after"],
   optional: ["message", "condition", "class"],
+};
+const CONTEXT_NOTES: CsvSpec = {
+  required: ["id", "postID", "body", "time"],
+  optional: ["helpful", "notHelpful", "condition", "class"],
 };
 const REMOVALS: CsvSpec = {
   required: ["on", "target", "actor", "time"],
@@ -319,6 +327,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       ...optional("following", wholeNumber(cells.following, "following", "actors.csv", row)),
       ...startsFollowedFrom(cells.startsFollowed),
       ...optional("badge", cells.badge || undefined),
+      ...(/^(yes|true)$/i.test(cells.suggested ?? "") ? { suggested: true } : {}),
       ...actorFlair(cells.flair, row),
       ...targeting(cells, "actors.csv", row),
     };
@@ -391,6 +400,9 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       ...optional("quoteOf", cells.quoteOf),
       ...optional("reposts", wholeNumber(cells.reposts, "reposts", "posts.csv", row)),
       ...optional("quotes", wholeNumber(cells.quotes, "quotes", "posts.csv", row)),
+      // "yes" is the usual label, and anything else is the label a study wants.
+      ...optional("ad", /^(yes|true)$/i.test(cells.ad ?? "") ? "Sponsored" : cells.ad || undefined),
+      ...optional("views", wholeNumber(cells.views, "views", "posts.csv", row)),
       ...optional("likes", wholeNumber(cells.likes, "likes", "posts.csv", row)),
       ...optional("ups", wholeNumber(cells.ups, "ups", "posts.csv", row)),
       ...optional("downs", wholeNumber(cells.downs, "downs", "posts.csv", row)),
@@ -574,6 +586,23 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     });
   }
 
+  const contextNotes: ContextNoteDefinition[] = readTable(
+    "context-notes.csv",
+    CONTEXT_NOTES,
+    false,
+  ).map(({ row, cells }) => {
+    const file = "context-notes.csv";
+    return {
+      ref: cells.id || `(row ${row})`,
+      post: cells.postID || `(row ${row})`,
+      body: cells.body ?? "",
+      timeMs: time(cells.time, "time", file, row),
+      ...optional("helpful", wholeNumber(cells.helpful, "helpful", file, row)),
+      ...optional("notHelpful", wholeNumber(cells.notHelpful, "notHelpful", file, row)),
+      ...targeting(cells, file, row),
+    };
+  });
+
   const pages: Record<string, string> = {};
   for (const step of settings.data.flow) {
     if (step.step === "consent" || step.step === "page") {
@@ -632,6 +661,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     reportAnswers,
     autoRules,
     appealAnswers,
+    contextNotes,
   });
   if (!parsed.success) {
     return {

@@ -200,6 +200,13 @@ export async function exportStudy(
         .orderBy(asc(schema.spaces.position))
     : [];
   const spaceById = new Map(spaces.map((space) => [space.id, space]));
+  const contextNotes = versionIds.length
+    ? await db
+        .select()
+        .from(schema.scriptedContextNotes)
+        .where(inArray(schema.scriptedContextNotes.studyVersionId, versionIds))
+        .orderBy(asc(schema.scriptedContextNotes.offsetMs))
+    : [];
   const autoRules = versionIds.length
     ? await db
         .select()
@@ -260,6 +267,37 @@ export async function exportStudy(
 
   mkdirSync(folder, { recursive: true });
   const files: string[] = [];
+
+  if (contextNotes.length > 0) {
+    files.push(
+      writeCsv(
+        folder,
+        "context_notes.csv",
+        [
+          "study_version",
+          "note",
+          "content_id",
+          "body",
+          "offset_ms",
+          "base_helpful",
+          "base_not_helpful",
+          "conditions",
+          "class",
+        ],
+        contextNotes.map((note) => ({
+          study_version: versionNumber.get(note.studyVersionId),
+          note: safeText(note.ref),
+          content_id: note.contentId,
+          body: safeText(note.body),
+          offset_ms: note.offsetMs,
+          base_helpful: note.baseHelpful,
+          base_not_helpful: note.baseNotHelpful,
+          conditions: note.conditions.join("|"),
+          class: safeText(note.class),
+        })),
+      ),
+    );
+  }
 
   if (autoRules.length > 0) {
     files.push(
@@ -652,6 +690,7 @@ export async function exportStudy(
         "comment_ids",
         "removed",
         "removed_comment_ids",
+        "context_note",
       ],
       impressions.flatMap((impression) =>
         (
@@ -662,6 +701,7 @@ export async function exportStudy(
             commentIds?: string[];
             removed?: boolean;
             removedCommentIds?: string[];
+            contextNote?: string;
           }[]
         ).map((item) => ({
           impression_id: impression.id,
@@ -686,6 +726,7 @@ export async function exportStudy(
           comment_ids: (item.commentIds ?? []).join("|"),
           removed: item.removed ?? false,
           removed_comment_ids: (item.removedCommentIds ?? []).join("|"),
+          context_note: item.contextNote ?? "",
         })),
       ),
     ),
@@ -718,6 +759,8 @@ export async function exportStudy(
         "quote_of",
         "base_reposts",
         "base_quotes",
+        "ad",
+        "base_views",
         "media",
         "provenance",
         "offset_ms",
@@ -751,6 +794,8 @@ export async function exportStudy(
         quote_of: item.quoteOf ?? "",
         base_reposts: item.baseReposts,
         base_quotes: item.baseQuotes,
+        ad: safeText(item.adLabel),
+        base_views: item.baseViews,
         media: item.attachments.map(({ key }) => key).join("|"),
         provenance: provenanceLabel(item.provenance),
         offset_ms: item.offsetMs ?? "",
@@ -878,6 +923,15 @@ const FILE_DOCS: Record<string, [string, string][]> = {
       "1 if a moderator had removed this post by then, so a note was shown in its place. Its author still saw what they wrote",
     ],
     ["removed_comment_ids", "Which of comment_ids a moderator had removed by then"],
+    ["context_note", "The context note showing on it by then, by its ID in context_notes.csv"],
+  ],
+  "context_notes.csv": [
+    [
+      "note",
+      "A note on a post, as if readers had added context. What it says, and its starting ratings, are what the study wrote. Whether each was on screen is in impressions.csv, and ratings are content.note_rated in events.csv. Only present if a version has some",
+    ],
+    ["content_id", "The post it's on"],
+    ["offset_ms", "When it appears, relative to the start"],
   ],
   "auto_rules.csv": [
     [
@@ -988,6 +1042,11 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ],
     ["quote_of", "The content_id of the post this quotes"],
     [
+      "ad",
+      "If it's an ad, the label it shows. How often someone saw one is in impressions.csv, and clicks are content.link_opened",
+    ],
+    ["base_views", "How many it says have seen it, before this person"],
+    [
       "base_reposts, base_quotes",
       "How many it says passed it along or quoted it, before anything during the study",
     ],
@@ -1025,6 +1084,10 @@ const ORDER_NOTES: [string, string][] = [
 const EVENT_NOTES: Record<string, string> = {
   "content.reposted":
     "They passed a post along. It names the first post, even if they saw it through someone else's repost. content.unreposted is taking that back.",
+  "content.note_rated":
+    "They rated a context note. `note` is its ID in context_notes.csv. Null takes their rating back, and they have one rating at a time.",
+  "actor.muted":
+    "They stopped seeing what this person writes, though not on that person's own page. Those posts then aren't in impressions.csv for them, until actor.unmuted.",
   "moderation.rule_fired":
     "An automatic rule caught what they wrote. `rule` names it, in auto_rules.csv. With no target it hasn't been posted. `unpostedText` is what they wrote, and is only present if the study turned on recording it, so it may be text they chose never to share.",
   "moderation.confirm_answered":

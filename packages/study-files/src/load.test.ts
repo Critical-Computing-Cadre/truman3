@@ -425,3 +425,22 @@ describe("what short posts add to study files", () => {
     expect(definition?.posts[2]?.quoteOf).toBe("1");
   });
 });
+
+describe("what's added for short posts, part 2", () => {
+  it("reads notes, ads, views, and who's suggested", () => {
+    const { definition } = loadStudyFolder(
+      folder({
+        ...base,
+        "actors.csv": "username,name,suggested\nann,Ann,yes\n",
+        "posts.csv": "id,body,actor,time,ad,views\n1,hi,ann,0:00,yes,50\n2,yo,ann,0:10,Promoted,\n",
+        "context-notes.csv": "id,postID,body,time,helpful\nn,1,Context,1:00,4\n",
+      }),
+    );
+    expect(definition?.actors[0]?.suggested).toBe(true);
+    expect(definition?.posts[0]).toMatchObject({ ad: "Sponsored", views: 50 });
+    expect(definition?.posts[1]?.ad).toBe("Promoted");
+    expect(definition?.contextNotes).toEqual([
+      expect.objectContaining({ ref: "n", post: "1", body: "Context", helpful: 4 }),
+    ]);
+  });
+});

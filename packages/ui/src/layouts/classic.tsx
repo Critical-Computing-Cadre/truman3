@@ -2,6 +2,7 @@ import type { FeedComment } from "@truman3/core";
 import type { ReactNode } from "react";
 import { Avatar } from "../Avatar.tsx";
 import { CommentReplyButton, ReplyButton, replyIndent } from "../features/comments.tsx";
+import { ContextNoteBox } from "../features/context-notes.tsx";
 import { CrosspostButton, CrosspostOriginal } from "../features/crossposting.tsx";
 import {
   CommentFlagButton,
@@ -24,6 +25,7 @@ import {
   TagCover,
 } from "../features/post-extras.tsx";
 import { CommentsLink } from "../features/post-pages.tsx";
+import { PostText } from "../features/post-text.tsx";
 import { RemovedNote } from "../features/removal.tsx";
 import { QuoteButton, QuotedPost, RepostButton, RepostedBy } from "../features/reposts.tsx";
 import { ModeratorTag, SpaceLine } from "../features/spaces.tsx";
@@ -74,7 +76,7 @@ function Comment({
             {author("mr-1 font-semibold", comment.author.name)}
             <ModeratorTag author={comment.author} />
             <AuthorFlair author={comment.author} />
-            <KarmaBadge author={comment.author} /> {comment.body}
+            <KarmaBadge author={comment.author} /> <PostText text={comment.body} />
           </p>
         )}
         <RemovedNote item={comment} actions={actions} className="mt-1" />
@@ -178,10 +180,15 @@ export function ClassicPost({
           {renderBody ? (
             <div className="p-3">{renderBody(post.id, post.body)}</div>
           ) : (
-            post.body && <p className="p-3 break-words whitespace-pre-wrap">{post.body}</p>
+            post.body && (
+              <p className="p-3 break-words whitespace-pre-wrap">
+                <PostText text={post.body} />
+              </p>
+            )
           )}
           <PostLink post={post} actions={actions} />
           <PostPoll post={post} actions={actions} />
+          <ContextNoteBox post={post} actions={actions} />
           <CrosspostOriginal
             post={post}
             {...(renderPostLink ? { renderPostLink } : {})}

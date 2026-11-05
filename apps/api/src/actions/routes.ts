@@ -19,6 +19,7 @@ import {
   pollOptionsProblem,
   safeLink,
   startingFollowersFor,
+  trendingFor,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, inArray, isNull, lte, or } from "drizzle-orm";
@@ -28,6 +29,7 @@ import {
   contentTimeMs,
   hiddenByBan,
   loadBans,
+  loadContextNotes,
   loadRemovals,
   loadSpacesFor,
   mediaUrl,
@@ -77,6 +79,50 @@ const writtenSchema = z.union([
   z.object({ id: z.uuid() }),
   z.object({ confirm: z.object({ rule: z.string(), message: z.string(), by: z.string() }) }),
 ]);
+
+const noteRatingRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/note-rating",
+  summary: "Rate the context note on a post",
+  request: {
+    params: contentParams,
+    ...jsonBody(actionMetaSchema.extend({ value: z.enum(["helpful", "not_helpful"]).nullable() })),
+  },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("No note on anything this participant can see"),
+  },
+});
+
+const exploreRoute = createRoute({
+  method: "get",
+  path: "/explore",
+  summary: "What's said to be trending, and who's suggested for following",
+  responses: {
+    200: {
+      description: "Whatever this platform has, which may be nothing",
+      content: {
+        "application/json": {
+          schema: z.object({
+            trending: z.array(z.object({ tag: z.string(), note: z.string().optional() })),
+            suggested: z.array(
+              z.object({
+                username: z.string(),
+                name: z.string(),
+                pictureUrl: z.string().nullable(),
+                badge: z.string().optional(),
+                followerCount: z.number().optional(),
+              }),
+            ),
+          }),
+        },
+      },
+    },
+    401: notSignedIn,
+  },
+});
 
 const repostRoute = createRoute({
   method: "post",
@@ -358,10 +404,17 @@ const relationActions = {
   unfollow: { kind: "follow", active: false, event: "actor.unfollowed" },
   block: { kind: "block", active: true, event: "actor.blocked" },
   unblock: { kind: "block", active: false, event: "actor.unblocked" },
+  mute: { kind: "mute", active: true, event: "actor.muted" },
+  unmute: { kind: "mute", active: false, event: "actor.unmuted" },
   report: { kind: "report", active: true, event: "actor.reported" },
 } as const;
 
-const RELATION_FEATURES = { follow: "following", block: "blocking", report: "reporting" } as const;
+const RELATION_FEATURES = {
+  follow: "following",
+  block: "blocking",
+  report: "reporting",
+  mute: "muting",
+} as const;
 
 const featureOff = { error: "This isn't part of this platform." };
 
@@ -377,7 +430,7 @@ const relationRoute = createRoute({
     params: z.object({ username: z.string() }),
     ...jsonBody(
       actionMetaSchema.extend({
-        action: z.enum(["follow", "unfollow", "block", "unblock", "report"]),
+        action: z.enum(["follow", "unfollow", "block", "unblock", "report", "mute", "unmute"]),
         reason: z.string().max(500).optional(),
       }),
     ),
@@ -411,6 +464,7 @@ const actorRoute = createRoute({
             following: z.boolean(),
             blocked: z.boolean(),
             reported: z.boolean(),
+            muted: z.boolean(),
             /** On a platform that shows these. */
             followerCount: z.number().optional(),
             followingCount: z.number().optional(),
@@ -1763,6 +1817,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
         following: has("follow"),
         blocked: has("block"),
         reported: has("report"),
+        muted: has("mute"),
         bans: await bansOf(context, actor.id),
         posts,
       },
@@ -1779,6 +1834,110 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json(featureOff, 403);
     }
     return c.json({ notifications: await listNotifications(db, context, mediaPublicUrl) }, 200);
+  });
+
+  app.openapi(noteRatingRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "contextNotes")) {
+      return c.json(featureOff, 403);
+    }
+    const now = new Date();
+    const { id } = c.req.valid("param");
+    const note = (await loadContextNotes(db, context, now, new Map())).get(id);
+    if (!note || !(await visiblePost(context, id)) || (await isRemoved(context, id))) {
+      return c.json(notAvailable, 404);
+    }
+    const body = c.req.valid("json");
+    await db.transaction(async (tx) => {
+      const recorded = await recordEvent(tx, {
+        ...participantEvent(context, body.occurredAt, body.clientEventId),
+        type: "content.note_rated",
+        payload: { note: note.ref, value: body.value },
+        targetContentId: id,
+      });
+      if (!recorded) {
+        return;
+      }
+      await tx
+        .delete(schema.contentInteractions)
+        .where(
+          and(
+            eq(schema.contentInteractions.worldId, context.worldId),
+            eq(schema.contentInteractions.actorId, context.actorId),
+            eq(schema.contentInteractions.contentId, id),
+            inArray(schema.contentInteractions.kind, ["note_helpful", "note_not_helpful"]),
+          ),
+        );
+      if (body.value) {
+        await tx.insert(schema.contentInteractions).values({
+          worldId: context.worldId,
+          actorId: context.actorId,
+          contentId: id,
+          kind: body.value === "helpful" ? "note_helpful" : "note_not_helpful",
+        });
+      }
+    });
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(exploreRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const trending = isOff(context, "trending")
+      ? []
+      : trendingFor(
+          context.settings,
+          context.conditionKey,
+          Date.now() - context.worldStartedAt.getTime(),
+        ).map(({ tag, note }) => ({ tag, ...(note ? { note } : {}) }));
+    if (isOff(context, "whoToFollow") || isOff(context, "following")) {
+      return c.json({ trending, suggested: [] }, 200);
+    }
+    const cast = await db
+      .select()
+      .from(schema.actors)
+      .where(
+        and(
+          eq(schema.actors.studyVersionId, context.studyVersionId),
+          isNull(schema.actors.worldId),
+        ),
+      );
+    const relations = await db
+      .select({
+        target: schema.actorRelations.targetActorId,
+        kind: schema.actorRelations.kind,
+      })
+      .from(schema.actorRelations)
+      .where(
+        and(
+          eq(schema.actorRelations.worldId, context.worldId),
+          eq(schema.actorRelations.actorId, context.actorId),
+        ),
+      );
+    const already = new Set(relations.map(({ target }) => target));
+    const suggested = cast.flatMap((actor) => {
+      const profile = actor.profile as ProfileFields & { suggested?: boolean };
+      const inCondition =
+        actor.conditions.length === 0 || actor.conditions.includes(context.conditionKey);
+      if (!profile.suggested || !inCondition || already.has(actor.id)) {
+        return [];
+      }
+      return [
+        {
+          username: actor.username,
+          name: profile.name ?? actor.username,
+          pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+          ...(profile.badge && !isOff(context, "badges") ? { badge: profile.badge } : {}),
+          ...(isOff(context, "followCounts") ? {} : { followerCount: profile.followers ?? 0 }),
+        },
+      ];
+    });
+    return c.json({ trending, suggested }, 200);
   });
 
   app.openapi(repostRoute, async (c) => {

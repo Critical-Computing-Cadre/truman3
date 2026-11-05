@@ -65,7 +65,8 @@ export function useDraftEdits(draftId: string) {
           | "ban"
           | "reportAnswer"
           | "autoRule"
-          | "appealAnswer";
+          | "appealAnswer"
+          | "contextNote";
         fields: object;
       }) => send("POST", base, body),
       onSettled: refresh,
@@ -803,6 +804,31 @@ function PostExtras({
             </label>
           )}
         </div>
+      )}
+      {on("ads") && (
+        <label className="flex items-center gap-2">
+          Ad label
+          <input
+            aria-label="Ad label"
+            defaultValue={details.ad ?? ""}
+            maxLength={40}
+            placeholder="Empty means it's not an ad"
+            onBlur={(event) => change({ ad: event.target.value.trim() || null })}
+            className={`${field} min-w-0 flex-1`}
+          />
+        </label>
+      )}
+      {on("viewCounts") && (
+        <label className="flex items-center gap-2">
+          Views it says it has
+          <input
+            type="number"
+            min="0"
+            defaultValue={details.views}
+            onBlur={(event) => change({ views: Number(event.target.value) || 0 })}
+            className={`${field} w-24`}
+          />
+        </label>
       )}
       {on("pinning") && (
         <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -1568,7 +1594,8 @@ export function DraftPage() {
                 features.reportAnswers ||
                 features.bans ||
                 features.autoRules ||
-                features.appeals,
+                features.appeals ||
+                features.contextNotes,
             ) && (
               <Link
                 to="/drafts/$draftId/moderation"

@@ -154,6 +154,20 @@ export const feedPostSchema = z.object({
       via: z.string().optional(),
     })
     .optional(),
+  /** A note on it, on a platform with context notes. */
+  contextNote: z
+    .object({
+      body: z.string(),
+      helpful: z.number(),
+      notHelpful: z.number(),
+      /** How this viewer rated it. */
+      rating: z.enum(["helpful", "not_helpful"]).nullable(),
+    })
+    .optional(),
+  /** Marks this as an ad, with the label the study wrote. */
+  ad: z.string().optional(),
+  /** How many it says have seen it, on a platform with view counts. */
+  viewCount: z.number().optional(),
   /** How many have passed it along, on a platform with reposts. */
   repostCount: z.number().optional(),
   /** How many have quoted it, on a platform with quote posts. */

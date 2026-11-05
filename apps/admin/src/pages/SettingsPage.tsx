@@ -352,6 +352,29 @@ function StudyForm({
         />
         <Hint>Leave empty for no limit. A short posts platform might use 280.</Hint>
       </label>
+      {(value.platform.features?.trending ??
+        TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features.trending) && (
+        <label className={labelClass}>
+          What's trending, one on each line, as a hashtag and what it says beside it
+          <textarea
+            rows={3}
+            aria-label="What's trending"
+            defaultValue={(value.platform.trending ?? [])
+              .map(({ tag, note }) => (note ? `${tag} | ${note}` : tag))
+              .join("\n")}
+            onChange={(event) => {
+              const trending = event.target.value.split("\n").flatMap((line) => {
+                const [tag = "", note = ""] = line.split("|").map((part) => part.trim());
+                const name = tag.replace(/^#/, "");
+                return name ? [{ tag: name, ...(note ? { note } : {}) }] : [];
+              });
+              set({ ...value, platform: { ...value.platform, trending } });
+            }}
+            placeholder={"news | 12K posts\nlocal"}
+            className={input}
+          />
+        </label>
+      )}
       {(value.platform.features?.followCounts ??
         TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features.followCounts) && (
         <label className={labelClass}>
@@ -990,6 +1013,7 @@ function FeedForm({
   spacesOn,
   defaultCommentOrder,
   followingFeedOn,
+  adsOn,
 }: {
   value: DraftSections["feed"];
   set: (value: DraftSections["feed"]) => void;
@@ -997,6 +1021,8 @@ function FeedForm({
   spacesOn: boolean;
   /** Whether any condition has a following feed. */
   followingFeedOn: boolean;
+  /** Whether any condition has ads. */
+  adsOn: boolean;
   /** The comment order a study has until it chooses one, from its template. */
   defaultCommentOrder: (typeof COMMENT_ORDERS)[number]["value"];
 }) {
@@ -1086,6 +1112,23 @@ function FeedForm({
             People start on the following tab
           </label>
         </>
+      )}
+      {adsOn && (
+        <label className={labelClass}>
+          Show an ad after every this many posts
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={feed.adEvery ?? ""}
+            onChange={(event) => {
+              const every = Math.trunc(Number(event.target.value));
+              setFeed({ adEvery: every > 0 ? every : undefined } as Partial<typeof feed>);
+            }}
+            className={`${input} w-24`}
+          />
+          <Hint>Leave empty to order ads like any other post.</Hint>
+        </label>
       )}
       <Choice
         legend="What order are comments in?"
@@ -1618,6 +1661,14 @@ export function SettingsPage() {
                 ] as TemplateDefinition
               ).feed?.commentOrder ?? "scripted"
             }
+            adsOn={[
+              data.sections.study.value.platform.features?.ads ??
+                TEMPLATES[data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE].features
+                  .ads,
+              ...data.sections.conditions.value.conditions.arms.map(
+                (arm) => arm.platform?.features?.ads,
+              ),
+            ].includes(true)}
             followingFeedOn={[
               data.sections.study.value.platform.features?.followingFeed ??
                 TEMPLATES[data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE].features

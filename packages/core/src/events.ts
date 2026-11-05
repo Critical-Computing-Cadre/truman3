@@ -52,6 +52,13 @@ export const eventPayloadSchemas = {
   "content.viewed": z.strictObject({ dwellMs: z.number().nonnegative(), surface: z.string() }),
   "actor.followed": empty,
   "actor.unfollowed": empty,
+  "actor.muted": empty,
+  "actor.unmuted": empty,
+  /** They rated a context note on a post. Null takes their rating back. `note` is its ID in the study. */
+  "content.note_rated": z.strictObject({
+    note: z.string(),
+    value: z.enum(["helpful", "not_helpful"]).nullable(),
+  }),
   "actor.blocked": empty,
   "actor.unblocked": empty,
   "actor.reported": z.strictObject({ reason: z.string() }),
