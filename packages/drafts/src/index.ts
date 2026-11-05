@@ -19,6 +19,7 @@ export {
 } from "./drafts.ts";
 export {
   type ActorData,
+  type BanData,
   type CommentData,
   type DraftItem,
   type FlagAnswerData,
@@ -28,6 +29,7 @@ export {
   type Provenance,
   type ReactionData,
   type RemovalData,
+  type ReportAnswerData,
   type SpaceData,
 } from "./items.ts";
 export {

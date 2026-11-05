@@ -21,9 +21,13 @@ function describe(item: NotificationItem): string {
     case "remove":
       return item.targetIsTheirs
         ? `${who} removed your ${item.targetKind}`
-        : `${who} removed the ${item.targetKind} you flagged`;
+        : `${who} removed ${item.targetName}'s ${item.targetKind}, which you flagged`;
     case "answer":
-      return `${who} looked at the ${item.targetKind} you flagged`;
+      return item.targetKind === "person"
+        ? `${who} looked at your report of ${item.targetName}`
+        : `${who} looked at ${item.targetName}'s ${item.targetKind}, which you flagged`;
+    case "ban":
+      return `${who} banned ${item.targetName}, whom you reported`;
     case "warn":
       return `${who} warned you about your ${item.targetKind}`;
   }
@@ -71,7 +75,7 @@ export function NotificationsPage() {
               url={item.actors[0]?.pictureUrl ?? null}
             />
             <div className="min-w-0 flex-1">
-              {pages ? (
+              {pages && item.postId ? (
                 <Link
                   to="/p/$postId"
                   params={{ postId: item.postId }}
@@ -89,7 +93,9 @@ export function NotificationsPage() {
               )}
               {item.reason && (
                 <p className="break-words text-sm">
-                  {item.type === "remove" ? `Reason: ${item.reason}` : item.reason}
+                  {item.type === "remove" || item.type === "ban"
+                    ? `Reason: ${item.reason}`
+                    : item.reason}
                 </p>
               )}
               <p className="text-xs text-stone-500">{shortTime(item.at)}</p>

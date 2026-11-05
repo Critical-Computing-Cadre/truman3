@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
   type ActorDefinition,
+  type BanDefinition,
   type CommentDefinition,
   type FlagAnswerDefinition,
   type Flair,
@@ -12,6 +13,7 @@ import {
   parseStudyTime,
   type ReactionDefinition,
   type RemovalDefinition,
+  type ReportAnswerDefinition,
   type SpaceDefinition,
   type StudyDefinition,
   type StudyIssue,
@@ -87,6 +89,14 @@ const REACTIONS: CsvSpec = {
 const FLAG_ANSWERS: CsvSpec = {
   required: ["action", "actor", "after"],
   optional: ["on", "target", "message", "condition", "class"],
+};
+const BANS: CsvSpec = {
+  required: ["user", "actor", "time"],
+  optional: ["reason", "space", "condition", "class"],
+};
+const REPORT_ANSWERS: CsvSpec = {
+  required: ["action", "actor", "after"],
+  optional: ["user", "message", "condition", "class"],
 };
 const REMOVALS: CsvSpec = {
   required: ["on", "target", "actor", "time"],
@@ -449,6 +459,37 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     });
   }
 
+  const bans: BanDefinition[] = [];
+  for (const { row, cells } of readTable("bans.csv", BANS, false)) {
+    const file = "bans.csv";
+    bans.push({
+      user: cells.user || `(row ${row})`,
+      actor: cells.actor || `(row ${row})`,
+      timeMs: time(cells.time, "time", file, row),
+      ...optional("reason", cells.reason || undefined),
+      ...optional("space", cells.space || undefined),
+      ...targeting(cells, file, row),
+    });
+  }
+
+  const reportAnswers: ReportAnswerDefinition[] = [];
+  for (const { row, cells } of readTable("report-answers.csv", REPORT_ANSWERS, false)) {
+    const file = "report-answers.csv";
+    const { action } = cells;
+    if (action !== "answer" && action !== "ban") {
+      rowError(file, row, `"${action}" in action has to be answer or ban.`);
+      continue;
+    }
+    reportAnswers.push({
+      action,
+      actor: cells.actor || `(row ${row})`,
+      afterMs: Math.max(time(cells.after, "after", file, row), 0),
+      ...optional("user", cells.user || undefined),
+      ...optional("message", cells.message || undefined),
+      ...targeting(cells, file, row),
+    });
+  }
+
   const pages: Record<string, string> = {};
   for (const step of settings.data.flow) {
     if (step.step === "consent" || step.step === "page") {
@@ -503,6 +544,8 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     reactions,
     removals,
     flagAnswers,
+    bans,
+    reportAnswers,
   });
   if (!parsed.success) {
     return {

@@ -31,6 +31,8 @@ type Comment = StudyDefinition["comments"][number];
 type Reaction = StudyDefinition["reactions"][number];
 type Removal = StudyDefinition["removals"][number];
 type FlagAnswer = StudyDefinition["flagAnswers"][number];
+type Ban = StudyDefinition["bans"][number];
+type ReportAnswer = StudyDefinition["reportAnswers"][number];
 
 /**
  * What a pack holds. Consent text and the study's flow aren't in it: those belong to one study and
@@ -49,6 +51,9 @@ export interface PackContents {
   removals?: Removal[];
   /** Packs saved before answers to flags don't have this. */
   flagAnswers?: FlagAnswer[];
+  /** Packs saved before bans don't have these. */
+  bans?: Ban[];
+  reportAnswers?: ReportAnswer[];
   /** Each post and comment's history before the pack, by kind and reference. */
   provenance: Record<string, Provenance>;
 }
@@ -73,7 +78,18 @@ function withoutSource<T extends { source?: unknown }>(item: T) {
 
 /** Turns a study into what a pack stores, with images pointing at where they're stored. */
 export function packContents(
-  { settings, actors, spaces, posts, comments, reactions, removals, flagAnswers }: StudyDefinition,
+  {
+    settings,
+    actors,
+    spaces,
+    posts,
+    comments,
+    reactions,
+    removals,
+    flagAnswers,
+    bans,
+    reportAnswers,
+  }: StudyDefinition,
   mediaKeys: Map<string, string>,
   provenance: Map<string, Provenance> = new Map(),
 ): PackContents {
@@ -125,6 +141,8 @@ export function packContents(
     reactions: reactions.map(withoutSource),
     ...(removals.length > 0 ? { removals: removals.map(withoutSource) } : {}),
     ...(flagAnswers.length > 0 ? { flagAnswers: flagAnswers.map(withoutSource) } : {}),
+    ...(bans.length > 0 ? { bans: bans.map(withoutSource) } : {}),
+    ...(reportAnswers.length > 0 ? { reportAnswers: reportAnswers.map(withoutSource) } : {}),
     provenance: Object.fromEntries(provenance),
   };
 }
@@ -137,6 +155,8 @@ function summarize(contents: PackContents): PackSummary {
     ...contents.reactions,
     ...(contents.removals ?? []),
     ...(contents.flagAnswers ?? []),
+    ...(contents.bans ?? []),
+    ...(contents.reportAnswers ?? []),
   ];
   return {
     actors: contents.actors.length,
@@ -315,6 +335,10 @@ export async function startStudy(
   const removals = everywhere(contents?.removals ?? []).filter(({ on, target }) =>
     (on === "post" ? keptPosts : keptComments).has(target),
   );
+  const bans = everywhere(contents?.bans ?? []).filter(
+    ({ space }) => !space || keptSpaces.has(space),
+  );
+  const reportAnswers = everywhere(contents?.reportAnswers ?? []);
   const flagAnswers = everywhere(contents?.flagAnswers ?? []).filter(
     ({ on, target }) => !target || (on === "comment" ? keptComments : keptPosts).has(target),
   );
@@ -447,6 +471,29 @@ export async function startStudy(
           ...removal,
           actorId: actorId(actor),
           targetId: (removal.on === "post" ? postIds : commentIds).get(target) as string,
+        },
+      })),
+      ...bans.map(({ actor, user, space, ...ban }, position) => ({
+        draftId: draft.id,
+        kind: "ban",
+        position,
+        provenance: fromPack(null),
+        data: {
+          ...ban,
+          actorId: actorId(actor),
+          bannedActorId: actorId(user),
+          ...(space ? { spaceId: spaceIds.get(space) as string } : {}),
+        },
+      })),
+      ...reportAnswers.map(({ actor, user, ...answer }, position) => ({
+        draftId: draft.id,
+        kind: "reportAnswer",
+        position,
+        provenance: fromPack(null),
+        data: {
+          ...answer,
+          actorId: actorId(actor),
+          ...(user ? { reportedActorId: actorId(user) } : {}),
         },
       })),
       ...flagAnswers.map(({ actor, target, ...answer }, position) => ({

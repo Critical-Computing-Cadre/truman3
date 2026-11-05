@@ -70,6 +70,8 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       shownIn(arm.key, study.reactions),
       shownIn(arm.key, study.removals),
       shownIn(arm.key, study.flagAnswers),
+      shownIn(arm.key, study.bans),
+      shownIn(arm.key, study.reportAnswers),
     ]);
     const same = conditionLooks.get(looks);
     if (same) {
@@ -207,6 +209,43 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       warning(
         `Moderators removing things is off in "${arm.key}", so flags won't lead to removals.`,
       );
+    }
+    const bans = study.bans.filter(applies);
+    const reportAnswers = study.reportAnswers.filter(applies);
+    if (!on.bans && (bans.length > 0 || reportAnswers.some(({ action }) => action === "ban"))) {
+      warning(`Moderators banning people is off in "${arm.key}", so its bans won't happen.`);
+    }
+    if (reportAnswers.length > 0 && (!on.reportAnswers || !on.reporting)) {
+      warning(
+        `Answering reports needs reporting and the feature on in "${arm.key}", so its answers won't happen.`,
+      );
+    }
+    if (on.bans) {
+      // Writing past a ban is easy to do by accident, since the feed being edited shows it all.
+      const postsByRef = new Map(study.posts.map((post) => [post.ref, post]));
+      for (const ban of bans) {
+        const hidden = [
+          ...study.posts.filter(
+            (post) =>
+              applies(post) &&
+              post.actor === ban.user &&
+              post.timeMs >= ban.timeMs &&
+              (!ban.space || post.space === ban.space),
+          ),
+          ...study.comments.filter(
+            (comment) =>
+              applies(comment) &&
+              comment.actor === ban.user &&
+              comment.timeMs >= ban.timeMs &&
+              (!ban.space || postsByRef.get(comment.post)?.space === ban.space),
+          ),
+        ].length;
+        if (hidden > 0) {
+          warning(
+            `In "${arm.key}", ${hidden} things written by ${ban.user} come after their ban, so they won't show.`,
+          );
+        }
+      }
     }
     if (on.modLog && !on.removal) {
       warning(`A mod log is on in "${arm.key}", but it lists removals, which are off.`);
@@ -544,6 +583,30 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
   }
 
+  for (const ban of study.bans) {
+    const label = `The ban of "${ban.user}"`;
+    checkActor(ban.user, label, ban.source);
+    checkActor(ban.actor, label, ban.source);
+    checkConditions(ban.conditions, label, ban.source);
+    if (ban.space && !spacesByKey.has(ban.space)) {
+      error(`${label} names the space "${ban.space}", which isn't in this study.`, ban.source);
+    }
+  }
+
+  for (const answer of study.reportAnswers) {
+    const label = answer.user
+      ? `The answer to a report of "${answer.user}"`
+      : "The answer to any report";
+    if (answer.user) {
+      checkActor(answer.user, label, answer.source);
+    }
+    checkActor(answer.actor, label, answer.source);
+    checkConditions(answer.conditions, label, answer.source);
+    if (answer.action === "answer" && !answer.message) {
+      error(`${label} has no message.`, answer.source);
+    }
+  }
+
   const steps = settings.flow.map((step) => step.step);
   if (steps.filter((step) => step === "feed").length !== 1) {
     error("The flow needs exactly one feed step.");
@@ -627,6 +690,8 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       ...study.reactions,
       ...study.removals,
       ...study.flagAnswers,
+      ...study.bans,
+      ...study.reportAnswers,
     ].flatMap((item) => item.conditions),
   );
   const hasOverrides = settings.conditions.arms.some((arm) => arm.feed);

@@ -189,6 +189,26 @@ export interface DraftInfo {
     message: string;
     conditions: string[];
   }[];
+  /** A moderator banning someone in the cast. Without a space, it's from everywhere. */
+  bans: {
+    id: string;
+    bannedActorId: string;
+    actorId: string;
+    timeMs: number;
+    reason: string;
+    spaceId: string | null;
+    conditions: string[];
+  }[];
+  /** What a moderator does when someone reports a person. Nobody named means any report. */
+  reportAnswers: {
+    id: string;
+    reportedActorId: string | null;
+    action: "answer" | "ban";
+    actorId: string;
+    afterMs: number;
+    message: string;
+    conditions: string[];
+  }[];
   /** A moderator responding to what a participant writes. */
   moderatorReactions: {
     id: string;

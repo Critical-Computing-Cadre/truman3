@@ -57,12 +57,11 @@ export function SpaceChip({
  * scripted account couldn't. It isn't tied to spaces, since a study without them can have moderators.
  */
 export function ModeratorTag({ author }: { author: FeedAuthor }) {
-  if (!author.moderator) {
-    return null;
-  }
+  const tag = "ml-1 rounded px-1 py-0.5 text-[0.65rem] font-medium align-middle";
   return (
-    <span className="ml-1 rounded bg-stone-200 px-1 py-0.5 text-[0.65rem] font-medium text-stone-700 align-middle">
-      Moderator
-    </span>
+    <>
+      {author.moderator && <span className={`${tag} bg-stone-200 text-stone-700`}>Moderator</span>}
+      {author.banned && <span className={`${tag} bg-rose-100 text-rose-800`}>Banned</span>}
+    </>
   );
 }

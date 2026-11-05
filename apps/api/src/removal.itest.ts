@@ -45,11 +45,17 @@ async function study({
   reactions = "",
   arms = "[{ key: a }, { key: b }]",
   flagAnswers = "",
+  bans = "",
+  reportAnswers = "",
+  extraPosts = "",
 }: {
   features?: string;
   reactions?: string;
   arms?: string;
   flagAnswers?: string;
+  bans?: string;
+  reportAnswers?: string;
+  extraPosts?: string;
 } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "truman-removal-"));
   dirs.push(dir);
@@ -70,13 +76,15 @@ feed: { ranker: chronological }
 media: { baseUrl: "https://cdn.example.com/m" }
 flow: [{ step: feed }, { step: exit }]
 `,
-    "actors.csv": "username,name,moderator\nann,Ann,\nsam,Sam the Mod,yes\n",
+    "actors.csv": "username,name,moderator\nann,Ann,\nsam,Sam the Mod,yes\nben,Ben,\n",
     "spaces.csv": "key,name\ncooking,Cooking\nother,Other\n",
-    "posts.csv": POSTS,
+    "posts.csv": POSTS + extraPosts,
     "comments.csv": COMMENTS,
     "removals.csv": REMOVALS,
     ...(reactions ? { "reactions.csv": reactions } : {}),
     ...(flagAnswers ? { "flag-answers.csv": flagAnswers } : {}),
+    ...(bans ? { "bans.csv": bans } : {}),
+    ...(reportAnswers ? { "report-answers.csv": reportAnswers } : {}),
   };
   for (const [name, text] of Object.entries(files)) {
     writeFileSync(path.join(dir, name), text);
@@ -744,5 +752,274 @@ post,kept,remove,sam,0:00,Thanks for telling us
         ),
       );
     expect(rows).toEqual([expect.objectContaining({ contentId: null, action: "answer" })]);
+  });
+});
+
+describe("a moderator banning someone in the cast", () => {
+  const BEN = `before,Before,Ben before,ben,cooking,,,,-5:00
+after,After,Ben after,ben,cooking,,,,-1:00
+elsewhere,Elsewhere,Ben elsewhere,ben,other,,,,-1:00
+ann_later,Ann later,Ann after,ann,cooking,,,,-1:00
+`;
+  const EVERYWHERE = "user,actor,time,reason\nben,sam,-3:00,Rule 5\n";
+
+  it("keeps what they wrote before, hides what comes after, and tags them", async () => {
+    const { slug, versionId } = await study({ extraPosts: BEN, bans: EVERYWHERE });
+    const cookie = await join(slug);
+    const posts = await list(cookie);
+    const ids = posts.map(({ id }) => id);
+
+    const before = byId(posts, await withId(versionId, "before"));
+    expect(before.author.banned).toBe(true);
+    expect(before.body).toBe("Ben before");
+    const after = await withId(versionId, "after");
+    expect(ids).not.toContain(after);
+    expect(ids).not.toContain(await withId(versionId, "elsewhere"));
+    expect(byId(posts, await withId(versionId, "ann_later")).author.banned).toBeUndefined();
+
+    // It can't be reached by its address, or acted on either.
+    const page = await call(cookie, "GET", `/feed?surface=post&post=${after}`);
+    expect(page.status).toBe(404);
+    expect((await act(cookie, after, "vote", { value: "up" })).status).toBe(404);
+  });
+
+  it("can be from one community, which leaves the rest alone", async () => {
+    const { slug, versionId } = await study({
+      extraPosts: BEN,
+      bans: "user,actor,time,space\nben,sam,-3:00,cooking\n",
+    });
+    const posts = await list(await join(slug));
+    const ids = posts.map(({ id }) => id);
+    expect(ids).not.toContain(await withId(versionId, "after"));
+    const elsewhere = byId(posts, await withId(versionId, "elsewhere"));
+    expect(elsewhere.body).toBe("Ben elsewhere");
+    expect(elsewhere.author.banned).toBeUndefined();
+    expect(byId(posts, await withId(versionId, "before")).author.banned).toBe(true);
+  });
+
+  it("waits for its time, and applies only to its condition", async () => {
+    const later = await study({
+      extraPosts: BEN,
+      bans: "user,actor,time\nben,sam,50:00\n",
+    });
+    const posts = await list(await join(later.slug));
+    expect(byId(posts, await withId(later.versionId, "after")).body).toBe("Ben after");
+    expect(byId(posts, await withId(later.versionId, "after")).author.banned).toBeUndefined();
+
+    const inOne = await study({
+      extraPosts: BEN,
+      bans: "user,actor,time,condition\nben,sam,-3:00,b\n",
+    });
+    const cookie = await join(inOne.slug);
+    const [assigned] = await database.db
+      .select({ key: schema.conditions.key })
+      .from(schema.assignments)
+      .innerJoin(schema.conditions, eq(schema.conditions.id, schema.assignments.conditionId))
+      .where(eq(schema.assignments.studyVersionId, inOne.versionId));
+    const ids = (await list(cookie)).map(({ id }) => id);
+    expect(ids.includes(await withId(inOne.versionId, "after"))).toBe(assigned?.key !== "b");
+  });
+
+  it("stops their scripted reactions, and nobody else's", async () => {
+    const { slug } = await study({
+      extraPosts: BEN,
+      bans: EVERYWHERE,
+      reactions:
+        "on,nth,type,actor,after,body\npost,0,reply,ben,0:00,From Ben\npost,0,reply,ann,0:00,From Ann\n",
+    });
+    const cookie = await join(slug);
+    const made = await postForm(cookie, { title: "Mine", body: "Text", space: "cooking" });
+    const { id } = (await made.json()) as { id: string };
+    const [post] = await list(cookie, `?surface=post&post=${id}`);
+    expect(post?.comments.map(({ body }) => body)).toEqual(["From Ann"]);
+  });
+
+  it("is in the mod log and on their profile, and is off with the feature off", async () => {
+    const { slug } = await study({ extraPosts: BEN, bans: EVERYWHERE });
+    const cookie = await join(slug);
+    const log = (await (await call(cookie, "GET", "/mod-log")).json()) as {
+      entries: { kind: string; authorName: string; by: string; reason?: string }[];
+    };
+    expect(log.entries.find(({ kind }) => kind === "person")).toMatchObject({
+      authorName: "Ben",
+      by: "Sam the Mod",
+      reason: "Rule 5",
+    });
+    const profile = (await (await call(cookie, "GET", "/actors/ben")).json()) as {
+      bans: unknown[];
+      posts: FeedPost[];
+    };
+    expect(profile.bans).toEqual([{ by: "Sam the Mod", reason: "Rule 5" }]);
+    expect(profile.posts.map(({ body }) => body)).toEqual(["Ben before"]);
+
+    const off = await study({
+      extraPosts: BEN,
+      bans: EVERYWHERE,
+      features: ", features: { bans: false }",
+    });
+    const offPosts = await list(await join(off.slug));
+    expect(byId(offPosts, await withId(off.versionId, "after")).body).toBe("Ben after");
+  });
+
+  it("freezes, shows in a version's preview, stays through a draft, and is exported", async () => {
+    const { slug, versionId } = await study({ extraPosts: BEN, bans: EVERYWHERE });
+    await expect(
+      database.db
+        .update(schema.scriptedBans)
+        .set({ reason: "Changed" })
+        .where(eq(schema.scriptedBans.studyVersionId, versionId)),
+    ).rejects.toThrow();
+
+    const loaded = await loadVersion(database.db, versionId);
+    const { posts } = await previewFeed(
+      database.db,
+      "http://media.test",
+      {
+        id: versionId,
+        seed: loaded?.version.seed as number,
+        settings: loaded?.settings as NonNullable<typeof loaded>["settings"],
+      },
+      "a",
+      0,
+    );
+    expect(posts.map(({ id }) => id)).not.toContain(await withId(versionId, "after"));
+
+    const email = `${randomUUID()}@example.edu`;
+    await setUpTeam(database.db, {
+      teamName: "Lab",
+      slug: `lab-${randomUUID().slice(0, 8)}`,
+      email,
+      name: "R",
+    });
+    const [researcher] = await database.db
+      .select({ id: schema.researchers.id })
+      .from(schema.researchers)
+      .where(eq(schema.researchers.email, email));
+    const researcherId = researcher?.id as string;
+    const opened = await openDraft(database.db, versionId, researcherId);
+    const draftId = opened?.draftId as string;
+    const draft = await loadDraft(database.db, draftId);
+    expect(draft?.items.filter(({ kind }) => kind === "ban")).toHaveLength(1);
+
+    // Someone banned can't be taken out of the cast while the ban names them.
+    const ben = draft?.items.find(
+      ({ kind, data }) => kind === "actor" && (data as { username: string }).username === "ben",
+    );
+    const refused = await deleteItem(database.db, draftId, ben?.id as string, researcherId);
+    expect(refused).toMatchObject({ problem: "in-use" });
+
+    const folder = mkdtempSync(path.join(tmpdir(), "truman-ban-export-"));
+    dirs.push(folder);
+    await exportStudy(database.db, slug, folder);
+    const exported = readFileSync(path.join(folder, "bans.csv"), "utf8");
+    expect(exported).toContain("ben");
+    expect(exported).toContain("Rule 5");
+  });
+});
+
+describe("answering a report of a person", () => {
+  const ANSWERS = `user,action,actor,after,message
+ann,ban,sam,0:00,Thanks for telling us
+,answer,sam,0:00,No rule was broken
+`;
+  const report = (cookie: string, username: string) =>
+    call(cookie, "POST", `/actors/${username}/relation`, {
+      ...meta(),
+      action: "report",
+      reason: "spam",
+    });
+  const notificationsOf = async (cookie: string) =>
+    (
+      (await (await call(cookie, "GET", "/notifications")).json()) as {
+        notifications: {
+          type: string;
+          reason: string | null;
+          targetKind: string;
+          targetName: string;
+          postId: string | null;
+        }[];
+      }
+    ).notifications;
+
+  it("answers with what names them first, and a ban is only for this person", async () => {
+    const { slug, versionId } = await study({ reportAnswers: ANSWERS });
+    const cookie = await join(slug);
+    expect((await report(cookie, "ann")).status).toBe(200);
+    expect((await report(cookie, "ben")).status).toBe(200);
+
+    const notifications = await notificationsOf(cookie);
+    expect(notifications).toHaveLength(2);
+    expect(notifications.find(({ type }) => type === "ban")).toMatchObject({
+      targetKind: "person",
+      targetName: "Ann",
+      reason: "Thanks for telling us",
+      postId: null,
+    });
+    expect(notifications.find(({ type }) => type === "answer")).toMatchObject({
+      targetName: "Ben",
+      reason: "No rule was broken",
+    });
+
+    const profile = (await (await call(cookie, "GET", "/actors/ann")).json()) as {
+      bans: unknown[];
+    };
+    expect(profile.bans).toEqual([{ by: "Sam the Mod", reason: "Thanks for telling us" }]);
+    const kept = await withId(versionId, "kept");
+    expect(byId(await list(cookie), kept).author.banned).toBe(true);
+
+    const someoneElse = await join(slug);
+    expect(byId(await list(someoneElse), kept).author.banned).toBeUndefined();
+
+    const [event] = await database.db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.type, "reaction.scheduled"))
+      .orderBy(desc(schema.events.id))
+      .limit(1);
+    expect(event?.targetActorId).toBeDefined();
+  });
+
+  it("answers once for each person, and not with the feature off", async () => {
+    const { slug } = await study({
+      reportAnswers: "action,actor,after,message\nanswer,sam,0:00,No rule was broken\n",
+    });
+    const cookie = await join(slug);
+    await report(cookie, "ben");
+    await report(cookie, "ben");
+    expect(await notificationsOf(cookie)).toHaveLength(1);
+
+    const off = await study({
+      reportAnswers: ANSWERS,
+      features: ", features: { reportAnswers: false }",
+    });
+    const offCookie = await join(off.slug);
+    await report(offCookie, "ben");
+    expect(await notificationsOf(offCookie)).toEqual([]);
+  });
+
+  it("falls back to the answer for anyone when a ban can't happen", async () => {
+    const { slug } = await study({
+      reportAnswers: ANSWERS,
+      features: ", features: { bans: false }",
+    });
+    const cookie = await join(slug);
+    await report(cookie, "ann");
+    expect(await notificationsOf(cookie)).toEqual([
+      expect.objectContaining({ type: "answer", targetName: "Ann" }),
+    ]);
+  });
+
+  it("goes with a withdrawal", async () => {
+    const { slug } = await study({ reportAnswers: ANSWERS });
+    const externalId = randomUUID();
+    const cookie = await join(slug, externalId);
+    await report(cookie, "ann");
+    const result = await withdrawParticipant(database.db, storage, {
+      slug,
+      externalId,
+      reason: "withdrew",
+      requestedBy: "tester",
+    });
+    expect(result.status).toBe("withdrawn");
   });
 });

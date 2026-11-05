@@ -3,6 +3,7 @@ import { type StudyDefinition, type StudySettings, studyDefinitionSchema } from 
 import { MEDIA_FOLDERS } from "@truman3/study-files";
 import type {
   ActorData,
+  BanData,
   CommentData,
   DraftItem,
   FlagAnswerData,
@@ -10,6 +11,7 @@ import type {
   Provenance,
   ReactionData,
   RemovalData,
+  ReportAnswerData,
   SpaceData,
 } from "./items.ts";
 
@@ -43,6 +45,8 @@ export function draftToDefinition(
   const reactions = ofKind<ReactionData>("reaction");
   const removals = ofKind<RemovalData>("removal");
   const flagAnswers = ofKind<FlagAnswerData>("flagAnswer");
+  const bans = ofKind<BanData>("ban");
+  const reportAnswers = ofKind<ReportAnswerData>("reportAnswer");
 
   const usernames = new Map(actors.map(({ item, data }) => [item.id, data.username]));
   const postRefs = new Map(posts.map(({ item, data }) => [item.id, data.ref]));
@@ -120,6 +124,17 @@ export function draftToDefinition(
       target:
         (removal.on === "post" ? postRefs.get(targetId) : commentRefs.get(targetId)) ??
         `(missing ${removal.on})`,
+    })),
+    bans: bans.map(({ data: { actorId, bannedActorId, spaceId, ...ban } }) => ({
+      ...ban,
+      actor: usernameOf(actorId),
+      user: usernameOf(bannedActorId),
+      ...(spaceId ? { space: spaceKeys.get(spaceId) ?? "(missing space)" } : {}),
+    })),
+    reportAnswers: reportAnswers.map(({ data: { actorId, reportedActorId, ...answer } }) => ({
+      ...answer,
+      actor: usernameOf(actorId),
+      ...(reportedActorId ? { user: usernameOf(reportedActorId) } : {}),
     })),
     flagAnswers: flagAnswers.map(({ data: { actorId, targetId, ...answer } }) => ({
       ...answer,

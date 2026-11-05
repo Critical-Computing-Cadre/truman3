@@ -752,3 +752,46 @@ describe("answers to flags", () => {
     ).toContainEqual(expect.stringContaining("flags won't lead to removals"));
   });
 });
+
+describe("bans and answers to reports", () => {
+  const forum = settings({ platform: { style: "mixed", template: "forum" } });
+  const actors = [
+    { username: "ann", name: "Ann" },
+    { username: "sam", name: "Sam" },
+  ];
+  const ban = { user: "ann", actor: "sam", timeMs: 1000 };
+
+  it("needs people and a space that exist", () => {
+    const errors = (item: object) =>
+      hasErrors(validateStudy(study({ settings: forum, actors, bans: [item] })));
+    expect(errors(ban)).toBe(false);
+    expect(errors({ ...ban, user: "nobody" })).toBe(true);
+    expect(errors({ ...ban, actor: "nobody" })).toBe(true);
+    expect(errors({ ...ban, space: "nope" })).toBe(true);
+  });
+
+  it("warns about what's written after a ban, and when it can't happen", () => {
+    const found = messages(
+      study({
+        settings: forum,
+        actors,
+        bans: [ban],
+        posts: [{ ref: "1", body: "hello", actor: "ann", timeMs: 2000 }],
+      }),
+    );
+    expect(found).toContainEqual(expect.stringContaining("come after their ban"));
+    expect(messages(study({ actors, bans: [ban] }))).toContainEqual(
+      expect.stringContaining('Moderators banning people is off in "a"'),
+    );
+  });
+
+  it("needs an answer to a report to say something", () => {
+    const answer = { action: "answer", actor: "sam", afterMs: 0 };
+    const errors = (item: object) =>
+      hasErrors(validateStudy(study({ settings: forum, actors, reportAnswers: [item] })));
+    expect(errors(answer)).toBe(true);
+    expect(errors({ ...answer, message: "No" })).toBe(false);
+    expect(errors({ action: "ban", actor: "sam", afterMs: 0 })).toBe(false);
+    expect(errors({ ...answer, message: "No", user: "nobody" })).toBe(true);
+  });
+});

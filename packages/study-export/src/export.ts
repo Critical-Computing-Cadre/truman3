@@ -200,6 +200,19 @@ export async function exportStudy(
         .orderBy(asc(schema.spaces.position))
     : [];
   const spaceById = new Map(spaces.map((space) => [space.id, space]));
+  const bans = versionIds.length
+    ? await db
+        .select()
+        .from(schema.scriptedBans)
+        .where(inArray(schema.scriptedBans.studyVersionId, versionIds))
+        .orderBy(asc(schema.scriptedBans.offsetMs))
+    : [];
+  const reportAnswers = versionIds.length
+    ? await db
+        .select()
+        .from(schema.scriptedReportAnswers)
+        .where(inArray(schema.scriptedReportAnswers.studyVersionId, versionIds))
+    : [];
   const flagAnswers = versionIds.length
     ? await db
         .select()
@@ -233,6 +246,66 @@ export async function exportStudy(
 
   mkdirSync(folder, { recursive: true });
   const files: string[] = [];
+
+  if (bans.length > 0) {
+    files.push(
+      writeCsv(
+        folder,
+        "bans.csv",
+        [
+          "study_version",
+          "user",
+          "moderator",
+          "offset_ms",
+          "reason",
+          "space",
+          "conditions",
+          "class",
+        ],
+        bans.map((ban) => ({
+          study_version: versionNumber.get(ban.studyVersionId),
+          user: safeText(actorById.get(ban.bannedActorId)?.username),
+          moderator: safeText(actorById.get(ban.actorId)?.username),
+          offset_ms: ban.offsetMs,
+          reason: safeText(ban.reason),
+          space: ban.spaceId ? safeText(spaceById.get(ban.spaceId)?.key) : "",
+          conditions: ban.conditions.join("|"),
+          class: safeText(ban.class),
+        })),
+      ),
+    );
+  }
+
+  if (reportAnswers.length > 0) {
+    files.push(
+      writeCsv(
+        folder,
+        "report_answers.csv",
+        [
+          "study_version",
+          "user",
+          "action",
+          "moderator",
+          "after_ms",
+          "message",
+          "conditions",
+          "class",
+        ],
+        reportAnswers.map((answer) => ({
+          study_version: versionNumber.get(answer.studyVersionId),
+          user: answer.reportedActorId
+            ? safeText(actorById.get(answer.reportedActorId)?.username)
+            : "",
+          action: answer.action,
+          moderator: safeText(actorById.get(answer.actorId)?.username),
+          after_ms: answer.afterMs,
+          message: safeText(answer.message),
+          conditions: answer.conditions.join("|"),
+          class: safeText(answer.class),
+        })),
+      ),
+    );
+  }
 
   if (flagAnswers.length > 0) {
     files.push(
@@ -728,6 +801,26 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ],
     ["removed_comment_ids", "Which of comment_ids a moderator had removed by then"],
   ],
+  "bans.csv": [
+    [
+      "user",
+      "Who a moderator bans at a set time. What they were written to post from then on doesn't appear, so it isn't in impressions.csv. A ban from answering a report is reaction.scheduled in events.csv instead. Only present if a version has some",
+    ],
+    ["moderator", "Who bans them, by username"],
+    ["offset_ms", "When, relative to the start"],
+    ["reason", "What the moderator says about why"],
+    ["space", "The one space they're banned from, by key. Empty means everywhere"],
+  ],
+  "report_answers.csv": [
+    [
+      "user",
+      "Who this is for reports of, by username. Empty means any report, unless one names who was reported. What happened for each person is reaction.scheduled in events.csv. Only present if a version has some",
+    ],
+    ["action", "answer sends a message. ban bans them, for this participant only"],
+    ["moderator", "Who does it, by username"],
+    ["after_ms", "How long after the report"],
+    ["message", "What an answer says, or the reason for a ban"],
+  ],
   "flag_answers.csv": [
     [
       "content_id",
@@ -821,7 +914,7 @@ const ORDER_NOTES: [string, string][] = [
 /** What an event means, where its name doesn't say enough. */
 const EVENT_NOTES: Record<string, string> = {
   "reaction.scheduled":
-    "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator. `warn` means a moderator warned them, and `reason` is what it said. `answer` means a moderator answered their flag, and `reason` is what it said. A `remove` following a flag is about what they flagged, not something they wrote.",
+    "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator. `warn` means a moderator warned them, and `reason` is what it said. `answer` means a moderator answered their flag, and `reason` is what it said. A `remove` following a flag is about what they flagged, not something they wrote. An `answer` or `ban` following a report has `target_actor` instead of a post or comment.",
   "moderation.warning_acknowledged":
     "They pressed the button on a moderator's warning, which stays on every page until they do. It names what the warning was about, and doesn't say they read it.",
   "space.joined": "They joined a space, so its posts show in their home feed. Names it by key.",

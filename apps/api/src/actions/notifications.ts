@@ -1,7 +1,7 @@
 import { featuresFor } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, gt, inArray, lte } from "drizzle-orm";
-import { loadRemovals, mediaUrl } from "../feed/build.ts";
+import { bannedAt, loadBans, loadRemovals, mediaUrl } from "../feed/build.ts";
 import type { ParticipantContext } from "../participants/session.ts";
 
 interface ActorProfile {
@@ -23,6 +23,8 @@ export async function scheduleReactions(
     contentId: string;
     /** What a scripted reply should appear under: the post, or with threads, the comment. */
     replyUnderId: string;
+    /** The space it's in, if any, since a ban can be from one space. */
+    spaceId: string | null;
     now: Date;
   },
 ) {
@@ -56,6 +58,11 @@ export async function scheduleReactions(
     }
 
     const dueAt = new Date(trigger.now.getTime() + reaction.afterMs);
+    // Someone already banned by then can't do this, so it isn't recorded as about to happen.
+    const banned = await loadBans(tx, context, dueAt);
+    if (bannedAt(banned, reaction.actorId, trigger.spaceId, dueAt.getTime())) {
+      continue;
+    }
     let replyContentId: string | null = null;
 
     if (reaction.type === "reply") {
@@ -182,6 +189,80 @@ export async function scheduleFlagAnswer(
   });
 }
 
+/**
+ * What a moderator does about a report of a person, the first time this person reports them. An
+ * answer naming them comes before one for any report. A ban only applies in this person's world.
+ */
+export async function scheduleReportAnswer(
+  tx: Transaction,
+  context: ParticipantContext,
+  reportedActorId: string,
+  now: Date,
+) {
+  const features = featuresFor(context.settings, context.conditionKey);
+  if (!features.reportAnswers) {
+    return;
+  }
+  const answers = await tx
+    .select()
+    .from(schema.scriptedReportAnswers)
+    .where(eq(schema.scriptedReportAnswers.studyVersionId, context.studyVersionId));
+  const applicable = answers.filter(
+    ({ conditions, action, reportedActorId: named }) =>
+      (conditions.length === 0 || conditions.includes(context.conditionKey)) &&
+      (action !== "ban" || features.bans) &&
+      (named === null || named === reportedActorId),
+  );
+  const answer =
+    applicable.find(({ reportedActorId: named }) => named === reportedActorId) ??
+    applicable.find(({ reportedActorId: named }) => named === null);
+  if (!answer) {
+    return;
+  }
+
+  const [already] = await tx
+    .select({ id: schema.notifications.id })
+    .from(schema.notifications)
+    .where(
+      and(
+        eq(schema.notifications.worldId, context.worldId),
+        eq(schema.notifications.recipientActorId, context.actorId),
+        eq(schema.notifications.targetActorId, reportedActorId),
+      ),
+    )
+    .limit(1);
+  if (already) {
+    return;
+  }
+
+  const dueAt = new Date(now.getTime() + answer.afterMs);
+  await tx.insert(schema.notifications).values({
+    worldId: context.worldId,
+    recipientActorId: context.actorId,
+    actorId: answer.actorId,
+    type: answer.action,
+    targetActorId: reportedActorId,
+    reason: answer.message,
+    dueAt,
+  });
+  await recordEvent(tx, {
+    type: "reaction.scheduled",
+    payload: {
+      reaction: answer.action as "answer" | "ban",
+      dueAt: dueAt.toISOString(),
+      ...(answer.message ? { reason: answer.message } : {}),
+    },
+    worldId: context.worldId,
+    studyVersionId: context.studyVersionId,
+    participantId: context.participantId,
+    conditionId: context.conditionId,
+    actorId: answer.actorId,
+    targetActorId: reportedActorId,
+    source: "script",
+    occurredAt: now,
+  });
+}
+
 async function lastViewedAt(db: Database, context: ParticipantContext): Promise<Date | null> {
   const [membership] = await db
     .select({ viewedAt: schema.worldMemberships.notificationsViewedAt })
@@ -218,14 +299,16 @@ export async function countUnreadNotifications(
 
 export interface NotificationItem {
   key: string;
-  type: "read" | "like" | "reply" | "remove" | "warn" | "answer";
+  type: "read" | "like" | "reply" | "remove" | "warn" | "answer" | "ban";
   actors: { username: string; name: string; pictureUrl: string | null }[];
-  /** Whether this reacts to a post or a comment. */
-  targetKind: "post" | "comment";
+  /** Whether this is about a post, a comment, or a person someone reported. */
+  targetKind: "post" | "comment" | "person";
+  /** Who wrote it, or who was reported. */
+  targetName: string;
   /** Whether they wrote it. If not, this answers their flag. */
   targetIsTheirs: boolean;
   targetBody: string;
-  postId: string;
+  postId: string | null;
   commentId: string | null;
   targetImageUrl: string | null;
   replyBody: string | null;
@@ -236,7 +319,9 @@ export interface NotificationItem {
 }
 
 /** Votes change a score without telling anyone who voted, as on the platforms that have them. */
-const SHOWN_TO_PARTICIPANTS = ["read", "like", "reply", "remove", "warn", "answer"];
+const SHOWN_TO_PARTICIPANTS = ["read", "like", "reply", "remove", "warn", "answer", "ban"];
+/** What's kept separate in a list, rather than grouped as "Ann and 3 others." */
+const SHOWN_ALONE = ["reply", "remove", "warn", "answer", "ban"];
 
 /**
  * Notifications that have come due, newest first. Reads and likes on the same content get grouped
@@ -264,22 +349,29 @@ export async function listNotifications(
     return [];
   }
 
-  const actorRows = await db
-    .select()
-    .from(schema.actors)
-    .where(inArray(schema.actors.id, [...new Set(rows.map((row) => row.actorId))]));
   const contentIds = [
     ...new Set(
       rows.flatMap((row) => [
-        row.targetContentId,
+        ...(row.targetContentId ? [row.targetContentId] : []),
         ...(row.replyContentId ? [row.replyContentId] : []),
       ]),
     ),
   ];
-  const contentRows = await db
+  const contentRows = contentIds.length
+    ? await db.select().from(schema.content).where(inArray(schema.content.id, contentIds))
+    : [];
+  const actorRows = await db
     .select()
-    .from(schema.content)
-    .where(inArray(schema.content.id, contentIds));
+    .from(schema.actors)
+    .where(
+      inArray(schema.actors.id, [
+        ...new Set([
+          ...rows.map((row) => row.actorId),
+          ...rows.flatMap((row) => (row.targetActorId ? [row.targetActorId] : [])),
+          ...contentRows.map((row) => row.authorActorId),
+        ]),
+      ]),
+    );
 
   const removals = await loadRemovals(db, context, now);
   const actorById = new Map(actorRows.map((actor) => [actor.id, actor]));
@@ -318,12 +410,19 @@ export async function listNotifications(
     };
   };
 
+  const bans = await loadBans(db, context, now);
   const groups = new Map<string, NotificationItem>();
   for (const row of rows) {
-    const key =
-      row.type === "reply" || row.type === "remove" || row.type === "warn" || row.type === "answer"
-        ? row.id
-        : `${row.type}:${row.targetContentId}`;
+    // Someone banned stops reacting, even if that was already on its way. A moderator's decisions
+    // stay, since they're not banned for those.
+    const top = row.targetContentId ? contentById.get(postOf(row.targetContentId)) : undefined;
+    if (
+      ["read", "like", "reply"].includes(row.type) &&
+      bannedAt(bans, row.actorId, top?.spaceId, row.dueAt.getTime())
+    ) {
+      continue;
+    }
+    const key = SHOWN_ALONE.includes(row.type) ? row.id : `${row.type}:${row.targetContentId}`;
     const at = row.dueAt.toISOString();
     const unread = !viewedAt || row.dueAt > viewedAt;
     const existing = groups.get(key);
@@ -337,16 +436,17 @@ export async function listNotifications(
       continue;
     }
 
-    const target = contentById.get(row.targetContentId);
+    const target = row.targetContentId ? contentById.get(row.targetContentId) : undefined;
     const targetIsTheirs = target?.authorActorId === context.actorId;
     // What a moderator took down stays out of responses, unless it's this person's own.
-    const withheld = removals.has(row.targetContentId) && !targetIsTheirs;
+    const withheld = !targetIsTheirs && removals.has(row.targetContentId ?? "");
     groups.set(key, {
       key,
       type: row.type as NotificationItem["type"],
       actors: [toActor(row.actorId)],
-      targetKind: target?.kind === "comment" ? "comment" : "post",
-      postId: postOf(row.targetContentId),
+      targetKind: !target ? "person" : target.kind === "comment" ? "comment" : "post",
+      targetName: toActor(row.targetActorId ?? target?.authorActorId ?? "").name,
+      postId: row.targetContentId ? postOf(row.targetContentId) : null,
       commentId: row.replyContentId ?? (target?.kind === "comment" ? target.id : null),
       targetIsTheirs,
       targetBody: withheld ? "" : (target?.body ?? ""),

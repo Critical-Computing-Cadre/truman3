@@ -11,10 +11,12 @@ import { type Database, schema } from "@truman3/db";
 import { assembleFeed, feedSettingsFor } from "@truman3/feed";
 import { and, eq, isNull } from "drizzle-orm";
 import {
+  type Ban,
   castKarma,
   contentTimeMs,
   type FeedActor,
   type FeedContent,
+  hiddenByBan,
   loadAuthors,
   type Removal,
   shapeFeedPosts,
@@ -75,6 +77,14 @@ export async function previewContent(
     reason: string | null;
     conditions: string[];
   }[] = [],
+  scriptedBans: readonly {
+    bannedActorId: string;
+    actorId: string;
+    offsetMs: number;
+    reason: string | null;
+    spaceId: string | null;
+    conditions: string[];
+  }[] = [],
 ) {
   const worldStartMs = now.getTime() - elapsedMs;
   const features = featuresFor(version.settings, conditionKey);
@@ -102,9 +112,24 @@ export async function previewContent(
         { key, name, picture, postFlair, userFlair },
       ]),
   );
-  const shownRows = spacesOn
-    ? rows.filter(({ spaceId }) => spaceId === null || visible.has(spaceId))
-    : rows;
+  const bans: Ban[] = features.bans
+    ? scriptedBans
+        .filter(
+          ({ conditions, offsetMs }) =>
+            offsetMs <= elapsedMs && (conditions.length === 0 || conditions.includes(conditionKey)),
+        )
+        .map(({ bannedActorId, actorId, reason, spaceId, offsetMs }) => ({
+          bannedActorId,
+          actorId,
+          reason,
+          spaceId,
+          at: new Date(worldStartMs + offsetMs),
+        }))
+    : [];
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
+  const shownRows = (
+    spacesOn ? rows.filter(({ spaceId }) => spaceId === null || visible.has(spaceId)) : rows
+  ).filter((row) => !hiddenByBan(row, rowsById, bans, worldStartMs));
 
   const feed = assembleFeed(
     shownOnThisPlatform(shownRows, version.settings, conditionKey).map((row) => ({
@@ -139,8 +164,10 @@ export async function previewContent(
     viewerVotes: new Map(),
     features,
     removals,
+    bans,
     canSeeOriginal: (row) =>
       !removals.has(row.id) &&
+      !hiddenByBan(row, rowsById, bans, worldStartMs) &&
       (row.conditions.length === 0 || row.conditions.includes(conditionKey)) &&
       contentTimeMs(row, worldStartMs) <= now.getTime() &&
       (!spacesOn || !row.spaceId || visible.has(row.spaceId)),
@@ -196,5 +223,9 @@ export async function previewFeed(
       .select()
       .from(schema.scriptedRemovals)
       .where(eq(schema.scriptedRemovals.studyVersionId, version.id)),
+    await db
+      .select()
+      .from(schema.scriptedBans)
+      .where(eq(schema.scriptedBans.studyVersionId, version.id)),
   );
 }

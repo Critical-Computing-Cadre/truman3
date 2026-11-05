@@ -54,7 +54,16 @@ export function useDraftEdits(draftId: string) {
     create: useMutation({
       mutationKey,
       mutationFn: (body: {
-        kind: "post" | "comment" | "actor" | "space" | "removal" | "reaction" | "flagAnswer";
+        kind:
+          | "post"
+          | "comment"
+          | "actor"
+          | "space"
+          | "removal"
+          | "reaction"
+          | "flagAnswer"
+          | "ban"
+          | "reportAnswer";
         fields: object;
       }) => send("POST", base, body),
       onSettled: refresh,
@@ -1482,7 +1491,12 @@ export function DraftPage() {
               </Link>
             )}
             {info.data.conditions.some(
-              ({ features }) => features.removal || features.warnings || features.flagAnswers,
+              ({ features }) =>
+                features.removal ||
+                features.warnings ||
+                features.flagAnswers ||
+                features.reportAnswers ||
+                features.bans,
             ) && (
               <Link
                 to="/drafts/$draftId/moderation"

@@ -13,6 +13,8 @@ export const feedAuthorSchema = z.object({
   isViewer: z.boolean(),
   /** Marked as a moderator in the study. Only ever true, so it's absent for everyone else. */
   moderator: z.literal(true).optional(),
+  /** A moderator has banned them, everywhere or from this post's community. Only ever true. */
+  banned: z.literal(true).optional(),
   /** Their points, on a platform with karma. */
   karma: z.number().optional(),
   /** Their flair in the community this post is in. */
@@ -48,13 +50,16 @@ export const modLogEntrySchema = z.object({
   at: z.iso.datetime(),
   /** The moderator's name. */
   by: z.string(),
-  kind: z.enum(["post", "comment"]),
-  /** Whose it was. Null if it's the viewer's own. */
+  /** A post or comment was removed, or a person was banned. */
+  kind: z.enum(["post", "comment", "person"]),
+  /** Whose it was, or who was banned. Null if it's the viewer's own. */
   authorName: z.string().nullable(),
+  /** Who was banned, for a link to their page. */
+  username: z.string().optional(),
   space: z.object({ key: z.string(), name: z.string() }).optional(),
   reason: z.string().optional(),
-  /** The post it's on, for a link to its page. */
-  postId: z.string(),
+  /** The post it's on, for a link to its page. A ban has none. */
+  postId: z.string().optional(),
   commentId: z.string().optional(),
 });
 export type ModLogEntry = z.infer<typeof modLogEntrySchema>;

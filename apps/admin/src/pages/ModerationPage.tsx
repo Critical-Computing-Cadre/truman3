@@ -447,6 +447,204 @@ function FlagAnswerCard({
   );
 }
 
+function BanCard({
+  ban,
+  info,
+  edits,
+}: {
+  ban: DraftInfo["bans"][number];
+  info: DraftInfo;
+  edits: DraftEdits;
+}) {
+  const [problem, setProblem] = useState<string | null>(null);
+  const save = (changes: object) => {
+    setProblem(null);
+    edits.update.mutate(
+      { itemId: ban.id, changes },
+      { onError: (error) => setProblem(error.message) },
+    );
+  };
+  return (
+    <li aria-label="Ban" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className={LABEL}>
+          Who's banned
+          <select
+            disabled={!info.canEdit}
+            value={ban.bannedActorId}
+            onChange={(event) => save({ bannedActorId: event.target.value })}
+            className={INPUT}
+          >
+            {info.actors.map((actor) => (
+              <option key={actor.id} value={actor.id}>
+                {actor.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <ModeratorPicker
+          actors={info.actors}
+          value={ban.actorId}
+          canEdit={info.canEdit}
+          onChange={(actorId) => save({ actorId })}
+        />
+        <TimeField
+          label="When"
+          help="hours:minutes from when they start"
+          valueMs={ban.timeMs}
+          canEdit={info.canEdit}
+          allowBefore
+          onSave={(timeMs) => save({ timeMs })}
+        />
+        {info.spaces.length > 0 && (
+          <label className={LABEL}>
+            From
+            <select
+              disabled={!info.canEdit}
+              value={ban.spaceId ?? ""}
+              onChange={(event) => save({ spaceId: event.target.value || null })}
+              className={INPUT}
+            >
+              <option value="">Everywhere</option>
+              {info.spaces.map((space) => (
+                <option key={space.id} value={space.id}>
+                  {space.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+      <CastField
+        label="Reason shown (optional)"
+        value={ban.reason}
+        canEdit={info.canEdit}
+        multiline
+        onSave={(reason) => save({ reason: reason || null })}
+      />
+      <ConditionChoices
+        all={info.conditions.map(({ key }) => key)}
+        chosen={ban.conditions}
+        canEdit={info.canEdit}
+        onChange={(conditions) => save({ conditions })}
+      />
+      {problem && (
+        <p role="alert" className="text-sm text-rose-700">
+          {problem}
+        </p>
+      )}
+      {info.canEdit && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => edits.remove.mutate(ban.id)}
+            className="rounded border border-stone-300 px-2 py-1 text-xs"
+          >
+            Delete this ban
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function ReportAnswerCard({
+  answer,
+  info,
+  edits,
+}: {
+  answer: DraftInfo["reportAnswers"][number];
+  info: DraftInfo;
+  edits: DraftEdits;
+}) {
+  const [problem, setProblem] = useState<string | null>(null);
+  const save = (changes: object) => {
+    setProblem(null);
+    edits.update.mutate(
+      { itemId: answer.id, changes },
+      { onError: (error) => setProblem(error.message) },
+    );
+  };
+  return (
+    <li aria-label="Answer to a report" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className={LABEL}>
+          When someone reports
+          <select
+            disabled={!info.canEdit}
+            value={answer.reportedActorId ?? ""}
+            onChange={(event) => save({ reportedActorId: event.target.value || null })}
+            className={INPUT}
+          >
+            <option value="">Anyone without their own answer here</option>
+            {info.actors.map((actor) => (
+              <option key={actor.id} value={actor.id}>
+                {actor.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={LABEL}>
+          What happens
+          <select
+            disabled={!info.canEdit}
+            value={answer.action}
+            onChange={(event) => save({ action: event.target.value })}
+            className={INPUT}
+          >
+            <option value="answer">Answer with a message</option>
+            <option value="ban">Ban them</option>
+          </select>
+        </label>
+        <ModeratorPicker
+          actors={info.actors}
+          value={answer.actorId}
+          canEdit={info.canEdit}
+          onChange={(actorId) => save({ actorId })}
+        />
+        <TimeField
+          label="How long after"
+          help="hours:minutes after they report"
+          valueMs={answer.afterMs}
+          canEdit={info.canEdit}
+          allowBefore={false}
+          onSave={(afterMs) => save({ afterMs })}
+        />
+      </div>
+      <CastField
+        label={answer.action === "answer" ? "What the answer says" : "Reason shown (optional)"}
+        value={answer.message}
+        canEdit={info.canEdit}
+        required={answer.action === "answer"}
+        multiline
+        onSave={(message) => save({ message: message || null })}
+      />
+      <ConditionChoices
+        all={info.conditions.map(({ key }) => key)}
+        chosen={answer.conditions}
+        canEdit={info.canEdit}
+        onChange={(conditions) => save({ conditions })}
+      />
+      {problem && (
+        <p role="alert" className="text-sm text-rose-700">
+          {problem}
+        </p>
+      )}
+      {info.canEdit && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => edits.remove.mutate(answer.id)}
+            className="rounded border border-stone-300 px-2 py-1 text-xs"
+          >
+            Delete this answer
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
 /** What a moderator does in a study. It's written here, and freezes with a version (ADR 31, 32). */
 export function ModerationPage() {
   const { draftId } = useParams({ from: "/drafts/$draftId/moderation" });
@@ -468,7 +666,10 @@ export function ModerationPage() {
   const warningsOn = data.conditions.some(({ features }) => features.warnings);
   const firstPost = [...data.posts].sort((a, b) => a.offsetMs - b.offsetMs)[0];
 
-  const add = (kind: "removal" | "reaction" | "flagAnswer", fields: object) => {
+  const add = (
+    kind: "removal" | "reaction" | "flagAnswer" | "ban" | "reportAnswer",
+    fields: object,
+  ) => {
     setProblem(null);
     edits.create.mutate({ kind, fields }, { onError: (error) => setProblem(error.message) });
   };
@@ -565,6 +766,76 @@ export function ModerationPage() {
         <ul className="space-y-3">
           {data.flagAnswers.map((answer) => (
             <FlagAnswerCard key={answer.id} answer={answer} info={data} edits={edits} />
+          ))}
+        </ul>
+      </section>
+
+      <section aria-label="Who's banned" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-semibold">Banning someone in the cast</h2>
+            <p className="text-sm text-stone-500">
+              What they wrote before stays. What they're written to post after doesn't appear, and
+              their scripted reactions stop. Participants are never banned themselves.
+            </p>
+          </div>
+          {data.canEdit && (
+            <button
+              type="button"
+              disabled={!moderator || edits.create.isPending}
+              onClick={() =>
+                add("ban", {
+                  bannedActorId:
+                    data.actors.find((actor) => !actor.moderator)?.id ?? data.actors[0]?.id,
+                  actorId: moderator,
+                  timeMs: 0,
+                  conditions: [],
+                })
+              }
+              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+            >
+              Add a ban
+            </button>
+          )}
+        </div>
+        <ul className="space-y-3">
+          {data.bans.map((ban) => (
+            <BanCard key={ban.id} ban={ban} info={data} edits={edits} />
+          ))}
+        </ul>
+      </section>
+
+      <section aria-label="Who someone reports" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-semibold">Answering when someone reports a person</h2>
+            <p className="text-sm text-stone-500">
+              One naming a person comes before one for anyone else. A ban from a report only applies
+              for the person who reported them.
+            </p>
+          </div>
+          {data.canEdit && (
+            <button
+              type="button"
+              disabled={!moderator || edits.create.isPending}
+              onClick={() =>
+                add("reportAnswer", {
+                  action: "answer",
+                  actorId: moderator,
+                  afterMs: 0,
+                  message: "We looked at your report, and no rule was broken.",
+                  conditions: [],
+                })
+              }
+              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+            >
+              Add an answer
+            </button>
+          )}
+        </div>
+        <ul className="space-y-3">
+          {data.reportAnswers.map((answer) => (
+            <ReportAnswerCard key={answer.id} answer={answer} info={data} edits={edits} />
           ))}
         </ul>
       </section>

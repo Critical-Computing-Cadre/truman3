@@ -458,6 +458,54 @@ export const scriptedFlagAnswers = pgTable(
   ],
 );
 
+/** A moderator banning someone in the cast, at a set time after someone starts. */
+export const scriptedBans = pgTable(
+  "scripted_bans",
+  {
+    id: id(),
+    studyVersionId: uuid("study_version_id")
+      .notNull()
+      .references(() => studyVersions.id),
+    bannedActorId: uuid("banned_actor_id")
+      .notNull()
+      .references(() => actors.id),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => actors.id),
+    offsetMs: bigint("offset_ms", { mode: "number" }).notNull(),
+    reason: text(),
+    /** The one space they're banned from. Without it, everywhere. */
+    spaceId: uuid("space_id").references(() => spaces.id),
+    conditions: text().array().notNull().default(sql`'{}'`),
+    class: text(),
+  },
+  (table) => [index("scripted_bans_version").on(table.studyVersionId)],
+);
+
+/** What a moderator does when someone reports a person. Without someone named, it's for any report. */
+export const scriptedReportAnswers = pgTable(
+  "scripted_report_answers",
+  {
+    id: id(),
+    studyVersionId: uuid("study_version_id")
+      .notNull()
+      .references(() => studyVersions.id),
+    reportedActorId: uuid("reported_actor_id").references(() => actors.id),
+    action: text().notNull(),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => actors.id),
+    afterMs: bigint("after_ms", { mode: "number" }).notNull(),
+    message: text(),
+    conditions: text().array().notNull().default(sql`'{}'`),
+    class: text(),
+  },
+  (table) => [
+    index("scripted_report_answers_version").on(table.studyVersionId),
+    check("scripted_report_answers_action", inList(table.action, ["answer", "ban"])),
+  ],
+);
+
 /** Append-only. See docs/adr/0006-append-only-event-log.md. */
 export const events = pgTable(
   "events",
@@ -564,10 +612,12 @@ export const notifications = pgTable(
       .notNull()
       .references(() => actors.id),
     type: text().notNull(),
-    /** The participant's post or comment this reacts to. */
-    targetContentId: uuid("target_content_id")
-      .notNull()
-      .references(() => content.id, { onDelete: "cascade" }),
+    /** The post or comment this is about. Without it, it's about a person someone reported. */
+    targetContentId: uuid("target_content_id").references(() => content.id, {
+      onDelete: "cascade",
+    }),
+    /** The person someone reported, who this answers about. */
+    targetActorId: uuid("target_actor_id").references(() => actors.id, { onDelete: "cascade" }),
     /** For a reply, the comment that holds its text. */
     replyContentId: uuid("reply_content_id").references(() => content.id, { onDelete: "cascade" }),
     /** For a removal, the reason the moderator gave, if any. For a warning, what it says. */
@@ -580,7 +630,21 @@ export const notifications = pgTable(
     index("notifications_recipient").on(table.worldId, table.recipientActorId, table.dueAt),
     check(
       "notifications_type",
-      inList(table.type, ["read", "like", "reply", "up", "down", "remove", "warn", "answer"]),
+      inList(table.type, [
+        "read",
+        "like",
+        "reply",
+        "up",
+        "down",
+        "remove",
+        "warn",
+        "answer",
+        "ban",
+      ]),
+    ),
+    check(
+      "notifications_about_something",
+      sql`${table.targetContentId} is not null or ${table.targetActorId} is not null`,
     ),
   ],
 );
@@ -771,6 +835,8 @@ export const draftItems = pgTable(
         "reaction",
         "removal",
         "flagAnswer",
+        "ban",
+        "reportAnswer",
         "setting",
         "space",
       ]),

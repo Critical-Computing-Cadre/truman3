@@ -72,7 +72,7 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
               >
                 Notifications
                 {unread > 0 && (
-                  <span className="ml-1 rounded-full bg-rose-600 px-1.5 py-0.5 text-xs text-white">
+                  <span className="absolute top-0 right-0 rounded-full bg-rose-600 px-1 text-[0.65rem] leading-4 text-white">
                     {unread}
                   </span>
                 )}
