@@ -1190,7 +1190,10 @@ describe("a labeled post", () => {
   });
 
   it("covers a comment, and leaves the post alone", () => {
-    draw("classic", { ...POST, comments: [{ ...(POST.comments[0] as never), labels: [spam] }] });
+    draw("classic", {
+      ...POST,
+      comments: POST.comments.map((comment) => ({ ...comment, labels: [spam] })),
+    });
     expect(screen.getByText("A post")).toBeTruthy();
     expect(screen.queryByText("A comment")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Show" }));
