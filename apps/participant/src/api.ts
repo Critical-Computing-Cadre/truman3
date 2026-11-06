@@ -77,6 +77,7 @@ export interface Me {
   bio: string;
   location: string;
   pictureUrl: string | null;
+  bannerUrl: string | null;
   siteName: string;
   unreadNotifications: number;
 }

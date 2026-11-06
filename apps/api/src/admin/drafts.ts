@@ -711,6 +711,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               bio: data.bio ?? "",
               location: data.location ?? "",
               pictureUrl: data.picture ? mediaUrl(data.picture, mediaPublicUrl) : null,
+              bannerUrl: data.banner ? mediaUrl(data.banner, mediaPublicUrl) : null,
               moderator: data.moderator ?? false,
               karma: data.karma ?? 0,
               followers: data.followers ?? 0,

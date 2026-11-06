@@ -47,6 +47,7 @@ const feedRoute = createRoute({
           "tag",
           "place",
           "tagged",
+          "replies",
           "explore",
         ])
         .default("home"),
@@ -54,7 +55,7 @@ const feedRoute = createRoute({
       tag: z.string().max(100).optional(),
       /** On surface=place, which place. */
       place: z.string().max(MAX_PLACE_LENGTH).optional(),
-      /** On surface=tagged, whose Tagged tab, by username. */
+      /** On surface=tagged or replies, whose tab, by username. */
       username: z.string().max(100).optional(),
       /** On a space's page, which space, by its key. */
       space: z.string().optional(),
@@ -268,8 +269,8 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
       const posts = await buildFeed({ db, mediaPublicUrl }, context, { surface: "place", place });
       return c.json({ posts, sort: null, commentSort: null }, 200);
     }
-    if (surface === "tagged") {
-      if (!on("photoTags")) {
+    if (surface === "tagged" || surface === "replies") {
+      if (surface === "tagged" ? !on("photoTags") : !on("comments")) {
         return c.json(featureOff, 403);
       }
       const [actor] = username
@@ -288,8 +289,8 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
         return c.json(notAvailable, 404);
       }
       const posts = await buildFeed({ db, mediaPublicUrl }, context, {
-        surface: "tagged",
-        taggedActorId: actor.id,
+        surface,
+        ...(surface === "tagged" ? { taggedActorId: actor.id } : { repliedBy: actor.id }),
       });
       return c.json({ posts, sort: null, commentSort: null }, 200);
     }

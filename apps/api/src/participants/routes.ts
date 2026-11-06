@@ -88,6 +88,7 @@ const meRoute = createRoute({
             bio: z.string(),
             location: z.string(),
             pictureUrl: z.string().nullable(),
+            bannerUrl: z.string().nullable(),
             siteName: z.string(),
             unreadNotifications: z.number(),
             /** Their points, on a platform with karma. */
@@ -108,6 +109,7 @@ interface ProfileFields {
   bio?: string;
   location?: string;
   picture?: string;
+  banner?: string;
 }
 
 export interface ParticipantRouteDependencies {
@@ -209,6 +211,7 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
         bio: profile.bio ?? "",
         location: profile.location ?? "",
         pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+        bannerUrl: profile.banner ? mediaUrl(profile.banner, mediaPublicUrl) : null,
         siteName: context.settings.site.name,
         ...(featureOn(context.settings, context.conditionKey, "karma")
           ? { karma: await participantKarma(db, context) }

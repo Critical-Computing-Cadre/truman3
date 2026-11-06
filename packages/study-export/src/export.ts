@@ -959,7 +959,10 @@ const FILE_DOCS: Record<string, [string, string][]> = {
   ],
   "impressions.csv": [
     ["impression_id", "One showing of a feed or profile. It has one row per post"],
-    ["surface", "Where it was shown: feed (the home feed), space, post (its own page), or profile"],
+    [
+      "surface",
+      "Where it was shown: feed (the home feed), following, space, post (its own page), profile, saved, hidden, tag (a hashtag's page), place, tagged (someone's Tagged tab), replies (someone's Replies tab, with only their replies), or explore",
+    ],
     ["space", "On a space's page, which space"],
     ["sort", "An order the participant chose. Empty means the study's own order"],
     ["ranker, ranker_version", "What ordered it. See how orders are worked out, below"],
