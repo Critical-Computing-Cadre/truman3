@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { LinkIcon } from "../icons.tsx";
 import { ForumPostFrame, ForumSpaceFrame } from "./forum-page.tsx";
 import type { FeedFrameProps, PageHeaderProps } from "./page-props.ts";
@@ -19,7 +20,10 @@ export function PhotoHeader({ renderBrand, home, links, action }: PageHeaderProp
         {renderBrand("mb-6 flex min-w-0 items-center gap-2 px-3 text-xl font-bold")}
         {tabs.map(({ key, label, render }) => (
           <span key={key} className="contents">
-            {render("flex items-center gap-4 rounded-lg px-3 py-3 font-medium hover:bg-stone-100")}
+            {/* Words only where the rail is wide enough for them, so they never spill onto posts. */}
+            {render(
+              "flex min-h-12 items-center gap-4 rounded-lg px-3 py-3 text-[0px] font-medium hover:bg-stone-100 xl:text-base",
+            )}
             <span className="sr-only">{label}</span>
           </span>
         ))}
@@ -44,6 +48,14 @@ export function PhotoHeader({ renderBrand, home, links, action }: PageHeaderProp
   );
 }
 
+/**
+ * Every page, with room for the rail down the left, so nothing slides under it. A feed, a post,
+ * and a profile all get the same.
+ */
+export function RailBody({ children }: { children: ReactNode }) {
+  return <div className="md:pl-20 xl:pl-60">{children}</div>;
+}
+
 function RailFeedFrame({
   renderProfile,
   side,
@@ -52,7 +64,7 @@ function RailFeedFrame({
   width,
 }: FeedFrameProps & { width: string }) {
   return (
-    <div className="md:pl-20 xl:pl-60">
+    <div>
       <div className="mx-auto flex max-w-[64rem] justify-center gap-10">
         <div className={`w-full ${width} min-w-0 space-y-3`}>
           {top}

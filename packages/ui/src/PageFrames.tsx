@@ -1,5 +1,5 @@
 import type { LayoutKey } from "@truman3/core";
-import type { ComponentType } from "react";
+import { type ComponentType, Fragment, type ReactNode } from "react";
 import {
   ClassicFeedFrame,
   ClassicHeader,
@@ -24,6 +24,7 @@ import {
   PhotoHeader,
   PhotoPostFrame,
   PhotoSpaceFrame,
+  RailBody,
   ShortFeedFrame,
 } from "./layouts/photo-page.tsx";
 import {
@@ -42,6 +43,8 @@ const FRAMES: Record<
     Space: ComponentType<SpaceFrameProps>;
     Post: ComponentType<PostFrameProps>;
     Profile: ComponentType<ProfileHeaderProps>;
+    /** What every page sits in, such as room for a menu down the left. */
+    Body: ComponentType<{ children: ReactNode }>;
   }
 > = {
   classic: {
@@ -50,6 +53,7 @@ const FRAMES: Record<
     Space: ClassicSpaceFrame,
     Post: ClassicPostFrame,
     Profile: CenteredProfileHeader,
+    Body: Fragment,
   },
   forum: {
     Header: ForumHeader,
@@ -57,6 +61,7 @@ const FRAMES: Record<
     Space: ForumSpaceFrame,
     Post: ForumPostFrame,
     Profile: CenteredProfileHeader,
+    Body: Fragment,
   },
   // A menu of icons and words down the left, as Photo has, with a wider column of posts.
   "short-posts": {
@@ -65,6 +70,7 @@ const FRAMES: Record<
     Space: ForumSpaceFrame,
     Post: ForumPostFrame,
     Profile: BannerProfileHeader,
+    Body: RailBody,
   },
   photo: {
     Header: PhotoHeader,
@@ -72,12 +78,19 @@ const FRAMES: Record<
     Space: PhotoSpaceFrame,
     Post: PhotoPostFrame,
     Profile: PhotoProfileHeader,
+    Body: RailBody,
   },
 };
 
 export function PageHeader(props: PageHeaderProps) {
   const { Header } = FRAMES[usePlatform().layout];
   return <Header {...props} />;
+}
+
+/** What every page sits in, under the header. */
+export function PageBody({ children }: { children: ReactNode }) {
+  const { Body } = FRAMES[usePlatform().layout];
+  return <Body>{children}</Body>;
 }
 
 export function FeedFrame(props: FeedFrameProps) {

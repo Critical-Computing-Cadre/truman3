@@ -49,7 +49,13 @@ test("stories, square photos, who liked them, and a profile grid", async ({ page
   const ann = page.getByRole("dialog", { name: "Stories from Ann" });
   await expect(ann.getByText("Morning coffee")).toBeVisible();
   await shot(page, project, "2-story");
-  await ann.getByRole("button", { name: "Next" }).click();
+  // It's a dark window over the page, in dark mode too, which swaps the theme's black and white.
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
+  await expect(ann.getByTestId("story-card")).toHaveCSS("background-color", "rgb(0, 0, 0)");
+  // Paused, it stays put. The arrow keys move on, as the arrows do.
+  await ann.getByRole("button", { name: "Pause" }).click();
+  await expect(ann.getByRole("button", { name: "Play" })).toBeVisible();
+  await page.keyboard.press("ArrowRight");
   await ann.getByRole("button", { name: "Next" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(row.getByRole("button", { name: "Stories from Ann, seen" })).toBeVisible();

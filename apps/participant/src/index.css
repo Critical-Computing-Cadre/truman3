@@ -46,3 +46,13 @@ body {
 .prose-page ul {
   @apply mb-3 list-disc pl-5;
 }
+
+/* A story's bar fills over the time it shows. The viewer moves on when it's full. */
+@keyframes story-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
