@@ -2,7 +2,7 @@
 
 ## Context
 
-Phase 3 of the design plan brings in LLM actors, directed by Christof, from the vault note `Agent runtime design`, as planned in `Christof design`. The study decides *whether* something happens, the director decides *when*, and a model only ever fills in *what's said*. Part 1 is the director with no model: beats a study writes, and a record of every decision. Dominic chose YAML for beats, since they'll get more complicated, and a tool to help write them can come later.
+Phase 3 of the design plan brings in LLM actors, directed by Christof, from the vault note `Agent runtime design`, as planned in `Christof design`. The study decides _whether_ something happens, the director decides _when_, and a model only ever fills in _what's said_. Part 1 is the director with no model: beats a study writes, and a record of every decision. Dominic chose YAML for beats, since they'll get more complicated, and a tool to help write them can come later.
 
 ## Decision
 
