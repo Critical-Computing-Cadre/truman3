@@ -193,3 +193,35 @@ test("a study starts from a pack, and can be saved as a new pack", async ({ page
   await page.goto(`${ADMIN}/admin/studies/new`);
   await expect(page.getByRole("radio", { name: new RegExp(name) })).toBeVisible();
 });
+
+test("choosing a kind of platform, with a look at each and help deciding", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "The page is the same on a phone.");
+  await signIn(page);
+  await page.getByRole("link", { name: "New study" }).click();
+
+  // A card for each, Classic unless someone chooses another.
+  for (const name of ["Classic", "Forum", "Short posts", "Photo"]) {
+    await expect(page.getByRole("radio", { name, exact: true })).toBeVisible();
+  }
+  await expect(page.getByRole("radio", { name: "Classic", exact: true })).toBeChecked();
+  if (process.env.FORUM_SHOTS) {
+    await page.screenshot({
+      path: path.join(process.env.FORUM_SHOTS, "new-study-cards.png"),
+      fullPage: true,
+    });
+  }
+
+  // More about one, about how it looks and works.
+  await page.getByText("Read more about Photo").click();
+  await expect(page.getByText(/Looks like a photo app in a browser/)).toBeVisible();
+
+  // Help deciding asks how the platform works, and only picks a card.
+  await page.getByText("Help me decide").click();
+  const communities = page.getByRole("group", { name: /Do people belong to communities/ });
+  await communities.getByRole("radio", { name: "Yes" }).check();
+  await expect(page.getByText("Forum sounds closest.")).toBeVisible();
+  await page.getByRole("button", { name: "Use Forum" }).click();
+  await expect(page.getByRole("radio", { name: "Forum", exact: true })).toBeChecked();
+});

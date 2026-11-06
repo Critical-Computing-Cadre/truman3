@@ -1,8 +1,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { TEMPLATE_KEYS, TEMPLATES, type TemplateKey } from "@truman3/core";
+import type { TemplateKey } from "@truman3/core";
 import { type FormEvent, useState } from "react";
 import { type ContentPack, get, post } from "../api.ts";
+import { TemplateCards } from "../components/TemplateCards.tsx";
 
 const input = "rounded border border-stone-300 px-2 py-1.5 text-sm";
 const labelClass = "flex flex-col gap-1 text-sm font-medium";
@@ -155,21 +156,9 @@ export function NewStudyPage() {
           </label>
         )}
 
-        <fieldset className="space-y-1">
+        <fieldset className="space-y-2">
           <legend className="text-sm font-medium">What kind of platform is it?</legend>
-          {TEMPLATE_KEYS.map((key) => (
-            <label key={key} className="flex items-baseline gap-2 text-sm">
-              <input
-                type="radio"
-                name="template"
-                checked={(template ?? "classic") === key}
-                onChange={() => setTemplate(key)}
-              />
-              <span>
-                {TEMPLATES[key].name} <span className={hint}>{TEMPLATES[key].description}</span>
-              </span>
-            </label>
-          ))}
+          <TemplateCards chosen={template ?? "classic"} onChoose={setTemplate} />
           <p className={hint}>
             This can't change once the study starts. What's on it can, in Settings.
             {pack && !template ? " Left alone, a pack keeps the platform it came with." : ""}
