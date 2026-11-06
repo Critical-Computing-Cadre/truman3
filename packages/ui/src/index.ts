@@ -6,7 +6,14 @@ export { type TextLinks, TextLinksContext } from "./features/post-text.tsx";
 export { WarningNotice } from "./features/warnings.tsx";
 export { LinkIcon, PlusIcon } from "./icons.tsx";
 export type { PageLink } from "./layouts/page-props.ts";
-export { FeedFrame, PageHeader, PostFrame, SpaceFrame } from "./PageFrames.tsx";
+export {
+  FeedFrame,
+  PageHeader,
+  PostFrame,
+  ProfileHeader,
+  SpaceFrame,
+  useStoryLook,
+} from "./PageFrames.tsx";
 export { type PlatformChoices, PlatformProvider, useFeature, usePlatform } from "./platform.tsx";
 export type { FeedPostViewProps, PostActions } from "./post-props.ts";
 export { shortTime } from "./time.ts";

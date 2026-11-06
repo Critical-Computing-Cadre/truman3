@@ -693,6 +693,7 @@ export const contentInteractions = pgTable(
         "poll",
         "note_helpful",
         "note_not_helpful",
+        "mute_thread",
       ]),
     ),
   ],

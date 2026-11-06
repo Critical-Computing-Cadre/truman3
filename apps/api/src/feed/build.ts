@@ -544,6 +544,7 @@ async function loadViewerState(db: Database, context: ParticipantContext) {
     ),
     flaggedContentIds: idsOfKind("flag"),
     savedContentIds: idsOfKind("save"),
+    mutedThreadIds: idsOfKind("mute_thread"),
     hiddenContentIds: idsOfKind("hide"),
     viewedContentIds: idsOfKind("view"),
     blockedActorIds: related("block"),
@@ -579,6 +580,7 @@ export async function shapeFeedPosts({
   features,
   savedContentIds = new Set(),
   hiddenContentIds = new Set(),
+  mutedThreadIds = new Set(),
   viewerFlair = new Map(),
   pollChoices = new Map(),
   canSeeOriginal = () => true,
@@ -612,6 +614,8 @@ export async function shapeFeedPosts({
   features: FeatureSet;
   savedContentIds?: ReadonlySet<string>;
   hiddenContentIds?: ReadonlySet<string>;
+  /** Posts this person stopped notifications about. */
+  mutedThreadIds?: ReadonlySet<string>;
   /** The flair this viewer chose, by space. */
   viewerFlair?: ReadonlyMap<string, string>;
   /** Which option this viewer chose in each poll. */
@@ -919,6 +923,7 @@ export async function shapeFeedPosts({
       ...(post.studyPinned ? { pinned: true as const } : {}),
       ...(item.locked && features.locking ? { locked: true as const } : {}),
       ...(savedContentIds.has(item.id) ? { saved: true as const } : {}),
+      ...(mutedThreadIds.has(item.id) ? { threadMuted: true as const } : {}),
       ...(hiddenContentIds.has(item.id) ? { hidden: true as const } : {}),
     };
     // Nothing of what it said reaches someone who isn't its author, including what covered it.
@@ -1277,6 +1282,7 @@ export async function buildFeed(
     features,
     savedContentIds: features.saving ? state.savedContentIds : new Set(),
     hiddenContentIds: features.hiding ? state.hiddenContentIds : new Set(),
+    mutedThreadIds: features.threadMuting ? state.mutedThreadIds : new Set(),
     pollChoices: state.pollChoices,
     viewerFlair: new Map(spaces.flatMap(({ id, flair }) => (flair ? [[id, flair]] : []))),
     canSeeOriginal: (row) => {

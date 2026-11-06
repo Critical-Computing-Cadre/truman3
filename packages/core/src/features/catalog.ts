@@ -325,6 +325,13 @@ export const FEATURES = {
     version: 1,
     events: ["content.created"],
   },
+  threadMuting: {
+    name: "Muting a thread",
+    description:
+      "Participants can stop notifications about a post and everything under it, from a post's menu.",
+    version: 1,
+    events: ["content.thread_muted", "content.thread_unmuted"],
+  },
   saving: {
     name: "Saving posts",
     description: "Participants can save posts to a list on their profile.",

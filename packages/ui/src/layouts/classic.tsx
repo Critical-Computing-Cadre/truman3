@@ -19,6 +19,7 @@ import { WhoAndWhere } from "../features/places-tags.tsx";
 import { PostPoll } from "../features/polls.tsx";
 import {
   HideButton,
+  MuteThreadButton,
   PostBadges,
   PostLink,
   SaveButton,
@@ -122,11 +123,12 @@ export function ClassicPost({
   const crosspostingOn = useFeature("crossposting");
   const repostsOn = useFeature("reposts");
   const quotesOn = useFeature("quotes");
-  const more = useMoreMenu(["saving", "hiding", "crossposting", "quotes"], "py-2");
+  const more = useMoreMenu(["saving", "hiding", "threadMuting", "crossposting", "quotes"], "py-2");
   const lessUsed = (className: string) => (
     <>
       <SaveButton post={post} actions={actions} className={className} />
       <HideButton post={post} actions={actions} className={className} />
+      <MuteThreadButton post={post} actions={actions} className={className} />
       <CrosspostButton post={post} actions={actions} className={className} />
       <QuoteButton post={post} actions={actions} className={className} />
     </>

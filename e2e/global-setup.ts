@@ -171,6 +171,15 @@ export default async function globalSetup() {
   if (photo.status === "failed") {
     throw new Error(photo.issues.map((issue) => issue.message).join("\n"));
   }
+  const classicStories = await importStudyFolder(
+    database.db,
+    storage,
+    path.join(import.meta.dirname, "fixtures/classic-stories"),
+    { launch: true },
+  );
+  if (classicStories.status === "failed") {
+    throw new Error(classicStories.issues.map((issue) => issue.message).join("\n"));
+  }
   writeFileSync(
     STATE_FILE,
     JSON.stringify({

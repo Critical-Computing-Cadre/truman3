@@ -466,6 +466,18 @@ describe("stories.csv", () => {
     expect(definition?.posts[0]?.likedBy).toBe("ann");
   });
 
+  it("reads a banner for someone in the cast", () => {
+    const { definition } = loadStudyFolder(
+      folder({
+        ...base,
+        "actors.csv": "username,name,banner\nann,Ann,wide.png\nbob,Bob,\n",
+        "posts.csv": "id,body,actor,time\n1,hello,ann,0:00\n",
+      }),
+    );
+    expect(definition?.actors[0]?.banner).toBe("wide.png");
+    expect(definition?.actors[1]?.banner).toBeUndefined();
+  });
+
   it("reads places, who's tagged, highlights, and close friends", () => {
     const { definition } = loadStudyFolder(
       folder({

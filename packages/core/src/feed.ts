@@ -197,6 +197,8 @@ export const feedPostSchema = z.object({
   tags: z.array(z.enum(POST_TAGS)).optional(),
   /** This viewer saved it. Only ever true. */
   saved: z.literal(true).optional(),
+  /** Whether this person muted notifications about it, on a platform with that. */
+  threadMuted: z.literal(true).optional(),
   /** This viewer hid it. It only reaches them on their list of hidden posts, or its own page. */
   hidden: z.literal(true).optional(),
   /** The space it belongs to, on a platform with spaces. */

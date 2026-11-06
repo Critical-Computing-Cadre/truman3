@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { StoryGroup } from "@truman3/core";
-import { Avatar, PlusIcon, useFeature } from "@truman3/ui";
+import { Avatar, PlusIcon, useFeature, useStoryLook } from "@truman3/ui";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { get, post, postForm } from "../api.ts";
 
@@ -277,12 +277,85 @@ export function StoriesRow({
   me?: { username: string; pictureUrl: string | null };
 }) {
   const stories = useQuery(storiesQuery);
+  const look = useStoryLook();
   const [open, setOpen] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const groups = stories.data?.stories ?? [];
   const hasOwn = groups[0]?.author.isViewer ?? false;
   if (groups.length === 0 && !canPost) {
     return null;
+  }
+  const label = (group: StoryGroup) =>
+    group.author.isViewer
+      ? "Your story"
+      : `Stories from ${group.author.name}${group.closeFriends ? ", close friends" : ""}${group.allSeen ? ", seen" : ""}`;
+  const ring = (group: StoryGroup) =>
+    group.allSeen
+      ? "bg-stone-300"
+      : group.closeFriends
+        ? "bg-green-500"
+        : "bg-gradient-to-tr from-amber-400 to-fuchsia-600";
+  if (look === "cards") {
+    return (
+      <section aria-label="Stories" className="overflow-x-auto">
+        <ul className="flex gap-2 px-3 sm:px-0">
+          {canPost && me && !hasOwn && (
+            <li className="shrink-0">
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                aria-label="Add to your story"
+                className="flex h-48 w-28 flex-col overflow-hidden rounded-xl bg-white text-xs font-semibold shadow-sm"
+              >
+                <span className="flex flex-1 items-center justify-center bg-stone-100">
+                  <Avatar seed={me.username} url={me.pictureUrl} size="h-16 w-16" />
+                </span>
+                <span className="relative pt-5 pb-2">
+                  <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full border-4 border-white bg-white text-sky-600">
+                    <PlusIcon className="h-6 w-6" />
+                  </span>
+                  Create story
+                </span>
+              </button>
+            </li>
+          )}
+          {groups.map((group, index) => {
+            const latest = group.stories.at(-1);
+            return (
+              <li key={group.author.username} className="shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setOpen(index)}
+                  aria-label={label(group)}
+                  className="relative block h-48 w-28 overflow-hidden rounded-xl bg-stone-300 text-left shadow-sm"
+                >
+                  {latest && (
+                    <img src={latest.imageUrl} alt="" className="h-full w-full object-cover" />
+                  )}
+                  <span className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
+                  <span className={`absolute top-2 left-2 rounded-full p-[2px] ${ring(group)}`}>
+                    <span className="block rounded-full bg-white p-[1px]">
+                      <Avatar
+                        seed={group.author.username}
+                        url={group.author.pictureUrl}
+                        size="h-8 w-8"
+                      />
+                    </span>
+                  </span>
+                  <span className="absolute inset-x-2 bottom-2 truncate text-xs font-semibold text-white">
+                    {group.author.isViewer ? "Your story" : group.author.name}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {open !== null && (
+          <StoryViewer groups={groups} start={open} onClose={() => setOpen(null)} />
+        )}
+        {adding && <NewStory onDone={() => setAdding(false)} />}
+      </section>
+    );
   }
   return (
     <section aria-label="Stories" className="overflow-x-auto bg-white py-3 sm:rounded-lg">
@@ -310,16 +383,10 @@ export function StoriesRow({
             <button
               type="button"
               onClick={() => setOpen(index)}
-              aria-label={
-                group.author.isViewer
-                  ? "Your story"
-                  : `Stories from ${group.author.name}${group.closeFriends ? ", close friends" : ""}${group.allSeen ? ", seen" : ""}`
-              }
+              aria-label={label(group)}
               className="flex w-full flex-col items-center gap-1 text-xs"
             >
-              <span
-                className={`rounded-full p-[2px] ${group.allSeen ? "bg-stone-300" : group.closeFriends ? "bg-green-500" : "bg-gradient-to-tr from-amber-400 to-fuchsia-600"}`}
-              >
+              <span className={`rounded-full p-[2px] ${ring(group)}`}>
                 <span className="block rounded-full bg-white p-[2px]">
                   <Avatar
                     seed={group.author.username}

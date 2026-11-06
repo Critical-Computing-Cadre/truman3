@@ -348,6 +348,19 @@ const saveRoute = createRoute({
   },
 });
 
+const muteThreadRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/mute-thread",
+  summary: "Stop notifications about a post and everything under it, or start them again",
+  request: { params: contentParams, ...jsonBody(toggleBodySchema) },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Not a post this participant can see"),
+  },
+});
+
 const hideRoute = createRoute({
   method: "post",
   path: "/content/{id}/hide",
@@ -606,6 +619,8 @@ const actorRoute = createRoute({
             bio: z.string(),
             location: z.string(),
             pictureUrl: z.string().nullable(),
+            /** A wide picture across the top, if the study gave them one. */
+            bannerUrl: z.string().nullable(),
             isViewer: z.boolean(),
             following: z.boolean(),
             blocked: z.boolean(),
@@ -949,6 +964,7 @@ interface ProfileFields {
   bio?: string;
   location?: string;
   picture?: string;
+  banner?: string;
   karma?: number;
   followers?: number;
   following?: number;
@@ -963,9 +979,19 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
 
   /** Likes and flags work the same way: an event, plus the current state, together. */
   const toggle = (
-    kind: "like" | "flag" | "save" | "hide",
-    onEvent: "content.liked" | "content.flagged" | "content.saved" | "content.hidden",
-    offEvent: "content.unliked" | "content.unflagged" | "content.unsaved" | "content.unhidden",
+    kind: "like" | "flag" | "save" | "hide" | "mute_thread",
+    onEvent:
+      | "content.liked"
+      | "content.flagged"
+      | "content.saved"
+      | "content.hidden"
+      | "content.thread_muted",
+    offEvent:
+      | "content.unliked"
+      | "content.unflagged"
+      | "content.unsaved"
+      | "content.unhidden"
+      | "content.thread_unmuted",
   ) => {
     return async (
       context: ParticipantContext,
@@ -1008,6 +1034,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
   const applyFlag = toggle("flag", "content.flagged", "content.unflagged");
   const applySave = toggle("save", "content.saved", "content.unsaved");
   const applyHide = toggle("hide", "content.hidden", "content.unhidden");
+  const applyThreadMute = toggle("mute_thread", "content.thread_muted", "content.thread_unmuted");
 
   const wasRemoved = { error: "A moderator removed this." };
   /** Whether a moderator has taken this down, as far as this person is concerned, by now. */
@@ -1123,6 +1150,22 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json(notAvailable, 404);
     }
     await applySave(context, id, c.req.valid("json"));
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(muteThreadRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "threadMuting")) {
+      return c.json(featureOff, 403);
+    }
+    const { id } = c.req.valid("param");
+    if (!(await visiblePost(context, id))) {
+      return c.json(notAvailable, 404);
+    }
+    await applyThreadMute(context, id, c.req.valid("json"));
     return c.json({ ok: true as const }, 200);
   });
 
@@ -2034,6 +2077,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
         bio: profile.bio ?? "",
         location: profile.location ?? "",
         pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+        bannerUrl: profile.banner ? mediaUrl(profile.banner, mediaPublicUrl) : null,
         isViewer: actor.id === context.actorId,
         following: has("follow"),
         blocked: has("block"),

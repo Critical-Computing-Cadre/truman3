@@ -49,3 +49,19 @@ export interface PostFrameProps {
   side?: ReactNode;
   children: ReactNode;
 }
+
+export interface ProfileHeaderProps {
+  username: string;
+  name: string;
+  pictureUrl: string | null;
+  /** A wide picture across the top, for a layout that has one. */
+  bannerUrl: string | null;
+  bio: string;
+  location: string;
+  /** Counts the platform shows. Any left out aren't shown. */
+  counts: { posts?: number; followers?: number; following?: number };
+  /** Labels and notes under the name, such as a badge, karma, or a ban. */
+  extras: ReactNode;
+  /** Follow, mute, and the rest, or a link to edit their own. */
+  actions: ReactNode;
+}

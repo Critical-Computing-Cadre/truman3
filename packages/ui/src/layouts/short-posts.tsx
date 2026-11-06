@@ -19,6 +19,7 @@ import { WhoAndWhere } from "../features/places-tags.tsx";
 import { PostPoll } from "../features/polls.tsx";
 import {
   HideButton,
+  MuteThreadButton,
   PostBadges,
   PostLink,
   SaveButton,
@@ -111,7 +112,7 @@ export function ShortPost({
 }: FeedPostViewProps) {
   const image = post.attachments.length > 0 ? <PostPhotos post={post} /> : null;
   const more = useMoreMenu(
-    ["flagging", "saving", "hiding", "sharing", "crossposting", "quotes"],
+    ["flagging", "saving", "hiding", "threadMuting", "sharing", "crossposting", "quotes"],
     "text-sm text-stone-600",
     true,
   );
@@ -120,6 +121,7 @@ export function ShortPost({
       <QuoteButton post={post} actions={actions} />
       <SaveButton post={post} actions={actions} />
       <HideButton post={post} actions={actions} />
+      <MuteThreadButton post={post} actions={actions} />
       <ShareButton post={post} actions={actions} />
       <PostFlagButton post={post} {...(actions ? { actions } : {})} />
       <CrosspostButton post={post} actions={actions} />

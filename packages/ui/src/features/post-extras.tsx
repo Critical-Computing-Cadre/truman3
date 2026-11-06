@@ -108,6 +108,32 @@ export function SaveButton({
   );
 }
 
+/** Stops notifications about a post and everything under it, or starts them again. */
+export function MuteThreadButton({
+  post,
+  actions,
+  className = "",
+}: {
+  post: FeedPost;
+  actions?: PostActions | undefined;
+  className?: string;
+}) {
+  if (!useFeature("threadMuting")) {
+    return null;
+  }
+  return (
+    <button
+      type="button"
+      disabled={!actions}
+      aria-pressed={Boolean(post.threadMuted)}
+      className={className}
+      onClick={() => actions?.onMuteThread?.(post.id, !post.threadMuted)}
+    >
+      {post.threadMuted ? "Unmute thread" : "Mute thread"}
+    </button>
+  );
+}
+
 /** Takes a post out of this person's feeds, or brings it back from their list. */
 export function HideButton({
   post,

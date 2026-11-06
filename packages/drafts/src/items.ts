@@ -27,6 +27,7 @@ export const itemDataSchemas = {
     location: z.string().optional(),
     bio: z.string().optional(),
     picture: z.string().optional(),
+    banner: z.string().optional(),
     moderator: z.boolean().optional(),
     karma: z.number().int().optional(),
     followers: z.number().int().nonnegative().optional(),

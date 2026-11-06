@@ -56,6 +56,9 @@ export const eventPayloadSchemas = {
   "content.revealed": z.strictObject({ tags: z.array(z.enum(["spoiler", "adult"])) }),
   "content.saved": empty,
   "content.unsaved": empty,
+  /** They stopped notifications about a thread, or started them again. The target is its post. */
+  "content.thread_muted": empty,
+  "content.thread_unmuted": empty,
   "content.hidden": empty,
   "content.unhidden": empty,
   /** They chose an option in a poll, by its place in the list, from 0. They can't change it. */

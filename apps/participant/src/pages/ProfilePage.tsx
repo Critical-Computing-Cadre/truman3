@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import type { FeedPost, FeedResponse, Highlight } from "@truman3/core";
-import { Avatar, KarmaBadge, useFeature } from "@truman3/ui";
+import { KarmaBadge, ProfileHeader, useFeature } from "@truman3/ui";
 import { useRef, useState } from "react";
 import { get, post as send } from "../api.ts";
 import { PostCard } from "../components/PostCard.tsx";
@@ -26,6 +26,7 @@ interface ActorPage {
   badge?: string;
   /** Where a moderator has banned them. */
   bans: { by: string; reason?: string; space?: string }[];
+  bannerUrl: string | null;
   karma?: number;
   posts: FeedPost[];
 }
@@ -153,7 +154,13 @@ export function ProfilePage() {
   const grid = gridOn && pagesOn;
   const [reason, setReason] = useState<string | null>(null);
   const [openList, setOpenList] = useState<"saved" | "hidden" | null>(null);
-  const [tab, setTab] = useState<"posts" | "tagged">("posts");
+  const [tab, setTab] = useState<"posts" | "media" | "tagged">("posts");
+  // A grid of photos is already their media, so only a list gets a tab of it.
+  const tabs = [
+    ["posts", "Posts"] as const,
+    ...(grid ? [] : [["media", "Media"] as const]),
+    ...(tagsOn ? [["tagged", "Tagged"] as const] : []),
+  ];
   const tagged = useQuery({
     queryKey: ["feed", "tagged", username],
     queryFn: () =>
@@ -180,98 +187,106 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-3 sm:space-y-4">
-      <section className="flex flex-col items-center gap-2 bg-white p-6 text-center shadow-sm sm:rounded-lg">
-        <Avatar seed={actor.username} url={actor.pictureUrl} size="h-24 w-24" />
-        <h1 className="text-xl font-semibold">{actor.name}</h1>
-        <p className="text-sm text-stone-500">@{actor.username}</p>
-        <KarmaBadge author={actor} />
-        {actor.badge && (
-          <p
-            data-testid="author-badge"
-            className="rounded bg-sky-100 px-2 py-0.5 text-xs text-sky-900"
-          >
-            {actor.badge}
-          </p>
-        )}
-        {actor.followerCount !== undefined && (
-          <p data-testid="follow-counts" className="text-sm text-stone-600">
-            <strong>{actor.followingCount ?? 0}</strong> following ·{" "}
-            <strong>{actor.followerCount}</strong>{" "}
-            {actor.followerCount === 1 ? "follower" : "followers"}
-          </p>
-        )}
-        {actor.bio && <p className="whitespace-pre-wrap">{actor.bio}</p>}
-        {actor.location && <p className="text-sm text-stone-500">{actor.location}</p>}
-        {actor.bans.map(({ by, reason, space }) => (
-          <p
-            key={space ?? "everywhere"}
-            data-testid="banned-note"
-            className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-600"
-          >
-            Banned{space ? ` from ${space}` : ""} by {by}.{reason ? ` Reason: ${reason}` : ""}
-          </p>
-        ))}
-        {actor.isViewer && (
-          <Link to="/account" className={`mt-2 ${button}`}>
-            Edit profile
-          </Link>
-        )}
-        {!actor.isViewer && (
-          <div className="mt-2 flex flex-wrap justify-center gap-2">
-            {following && (
-              <button
-                type="button"
-                className={button}
-                onClick={() => relate.mutate({ action: actor.following ? "unfollow" : "follow" })}
+      <ProfileHeader
+        username={actor.username}
+        name={actor.name}
+        pictureUrl={actor.pictureUrl}
+        bannerUrl={actor.bannerUrl}
+        bio={actor.bio}
+        location={actor.location}
+        counts={
+          actor.followerCount === undefined
+            ? {}
+            : {
+                posts: actor.posts.filter((post) => !post.repostedBy).length,
+                followers: actor.followerCount,
+                following: actor.followingCount ?? 0,
+              }
+        }
+        extras={
+          <>
+            <KarmaBadge author={actor} />
+            {actor.badge && (
+              <p
+                data-testid="author-badge"
+                className="rounded bg-sky-100 px-2 py-0.5 text-xs text-sky-900"
               >
-                {actor.following ? "Following" : "Follow"}
-              </button>
+                {actor.badge}
+              </p>
             )}
-            {closeFriends && (
-              <button
-                type="button"
-                aria-pressed={actor.closeFriend}
-                className={`${button} ${actor.closeFriend ? "border-green-600 text-green-700" : ""}`}
-                onClick={() =>
-                  relate.mutate({
-                    action: actor.closeFriend ? "removeCloseFriend" : "addCloseFriend",
-                  })
-                }
+            {actor.bans.map(({ by, reason, space }) => (
+              <p
+                key={space ?? "everywhere"}
+                data-testid="banned-note"
+                className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-600"
               >
-                {actor.closeFriend ? "Close friend ✓" : "Add to close friends"}
-              </button>
-            )}
-            {muting && (
-              <button
-                type="button"
-                className={button}
-                onClick={() => relate.mutate({ action: actor.muted ? "unmute" : "mute" })}
-              >
-                {actor.muted ? "Unmute" : "Mute"}
-              </button>
-            )}
-            {blocking && (
-              <button
-                type="button"
-                className={button}
-                onClick={() => relate.mutate({ action: actor.blocked ? "unblock" : "block" })}
-              >
-                {actor.blocked ? "Unblock" : "Block"}
-              </button>
-            )}
-            {reporting && (
-              <button
-                type="button"
-                className={button}
-                disabled={actor.reported}
-                onClick={() => reportDialog.current?.showModal()}
-              >
-                {actor.reported ? "Reported" : "Report"}
-              </button>
-            )}
-          </div>
-        )}
-      </section>
+                Banned{space ? ` from ${space}` : ""} by {by}.{reason ? ` Reason: ${reason}` : ""}
+              </p>
+            ))}
+          </>
+        }
+        actions={
+          actor.isViewer ? (
+            <Link to="/account" className={button}>
+              Edit profile
+            </Link>
+          ) : (
+            <>
+              {following && (
+                <button
+                  type="button"
+                  className={button}
+                  onClick={() => relate.mutate({ action: actor.following ? "unfollow" : "follow" })}
+                >
+                  {actor.following ? "Following" : "Follow"}
+                </button>
+              )}
+              {closeFriends && (
+                <button
+                  type="button"
+                  aria-pressed={actor.closeFriend}
+                  className={`${button} ${actor.closeFriend ? "border-green-600 text-green-700" : ""}`}
+                  onClick={() =>
+                    relate.mutate({
+                      action: actor.closeFriend ? "removeCloseFriend" : "addCloseFriend",
+                    })
+                  }
+                >
+                  {actor.closeFriend ? "Close friend ✓" : "Add to close friends"}
+                </button>
+              )}
+              {muting && (
+                <button
+                  type="button"
+                  className={button}
+                  onClick={() => relate.mutate({ action: actor.muted ? "unmute" : "mute" })}
+                >
+                  {actor.muted ? "Unmute" : "Mute"}
+                </button>
+              )}
+              {blocking && (
+                <button
+                  type="button"
+                  className={button}
+                  onClick={() => relate.mutate({ action: actor.blocked ? "unblock" : "block" })}
+                >
+                  {actor.blocked ? "Unblock" : "Block"}
+                </button>
+              )}
+              {reporting && (
+                <button
+                  type="button"
+                  className={button}
+                  disabled={actor.reported}
+                  onClick={() => reportDialog.current?.showModal()}
+                >
+                  {actor.reported ? "Reported" : "Report"}
+                </button>
+              )}
+            </>
+          )
+        }
+      />
 
       <dialog
         ref={reportDialog}
@@ -313,14 +328,9 @@ export function ProfilePage() {
 
       {actor.isViewer && <OwnLists open={openList} setOpen={setOpenList} />}
 
-      {!openList && tagsOn && (
+      {!openList && tabs.length > 1 && (
         <div role="tablist" aria-label="Profile" className="flex justify-center gap-8 text-sm">
-          {(
-            [
-              ["posts", "Posts"],
-              ["tagged", "Tagged"],
-            ] as const
-          ).map(([key, label]) => (
+          {tabs.map(([key, label]) => (
             <button
               key={key}
               type="button"
@@ -338,11 +348,17 @@ export function ProfilePage() {
       {/* An open list takes the place of their posts, so what's on screen is one list at a time. */}
       {!openList && (
         <ProfilePosts
-          posts={tagsOn && tab === "tagged" ? (tagged.data?.posts ?? []) : actor.posts}
-          loading={tagsOn && tab === "tagged" && !tagged.data}
+          posts={
+            tab === "tagged"
+              ? (tagged.data?.posts ?? [])
+              : tab === "media"
+                ? actor.posts.filter((post) => post.attachments.length > 0)
+                : actor.posts
+          }
+          loading={tab === "tagged" && !tagged.data}
           grid={grid}
-          label={tagsOn && tab === "tagged" ? "Tagged" : "Posts"}
-          surface={tagsOn && tab === "tagged" ? "tagged" : "profile"}
+          label={tabs.find(([key]) => key === tab)?.[1] ?? "Posts"}
+          surface={tab === "tagged" ? "tagged" : "profile"}
         />
       )}
     </div>

@@ -1,0 +1,2 @@
+ALTER TABLE "content_interactions" DROP CONSTRAINT "content_interactions_kind";--> statement-breakpoint
+ALTER TABLE "content_interactions" ADD CONSTRAINT "content_interactions_kind" CHECK ("content_interactions"."kind" in ('like', 'up', 'down', 'flag', 'view', 'save', 'hide', 'poll', 'note_helpful', 'note_not_helpful', 'mute_thread'));
