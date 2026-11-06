@@ -168,6 +168,10 @@ export const feedPostSchema = z.object({
   ad: z.string().optional(),
   /** Someone in the cast who liked it, for "Liked by Ann and 41 others." */
   likedBy: z.string().optional(),
+  /** Where it says it was, on a platform with places. */
+  place: z.string().optional(),
+  /** People in it, on a platform with tagging. */
+  tagged: z.array(z.object({ username: z.string(), name: z.string() })).optional(),
   /** How many it says have seen it, on a platform with view counts. */
   viewCount: z.number().optional(),
   /** How many have passed it along, on a platform with reposts. */
@@ -250,7 +254,11 @@ export const feedStorySchema = z.object({
   caption: z.string().optional(),
   at: z.iso.datetime(),
   seen: z.boolean(),
+  /** Only for the poster's close friends. */
+  closeFriends: z.boolean().optional(),
 });
+
+export type FeedStory = z.infer<typeof feedStorySchema>;
 
 /** Someone's stories that are up now, in the order they were posted. */
 export const storyGroupSchema = z.object({
@@ -263,5 +271,14 @@ export const storyGroupSchema = z.object({
   stories: z.array(feedStorySchema),
   /** Whether this viewer has seen every one. */
   allSeen: z.boolean(),
+  /** Whether any is only for the poster's close friends, which gets a green ring. */
+  closeFriends: z.boolean(),
 });
 export type StoryGroup = z.infer<typeof storyGroupSchema>;
+
+/** Stories kept on someone's profile under one name. */
+export const highlightSchema = z.object({
+  title: z.string(),
+  stories: z.array(feedStorySchema),
+});
+export type Highlight = z.infer<typeof highlightSchema>;

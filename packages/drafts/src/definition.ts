@@ -117,11 +117,21 @@ export function draftToDefinition(
     spaces: spaces.map(({ data }) => data),
     posts: posts.map(
       ({
-        data: { actorId, spaceId, crosspostOfId, repostOfId, quoteOfId, likedById, ...post },
+        data: {
+          actorId,
+          spaceId,
+          crosspostOfId,
+          repostOfId,
+          quoteOfId,
+          likedById,
+          taggedIds,
+          ...post
+        },
       }) => ({
         ...post,
         actor: usernameOf(actorId),
         ...(likedById ? { likedBy: usernameOf(likedById) } : {}),
+        ...(taggedIds?.length ? { tagged: taggedIds.map(usernameOf) } : {}),
         ...(repostOfId ? { repostOf: postRefs.get(repostOfId) ?? "(missing post)" } : {}),
         ...(quoteOfId ? { quoteOf: postRefs.get(quoteOfId) ?? "(missing post)" } : {}),
         ...(crosspostOfId ? { crosspostOf: postRefs.get(crosspostOfId) ?? "(missing post)" } : {}),

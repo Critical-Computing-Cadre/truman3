@@ -7,8 +7,10 @@ import {
   featureOn,
   feedPostSchema,
   feedWarningSchema,
+  highlightSchema,
   MAX_ATTACHMENTS,
   MAX_LINK_LENGTH,
+  MAX_PLACE_LENGTH,
   MAX_REPLY_DEPTH,
   MAX_TITLE_LENGTH,
   maxPostLengthFor,
@@ -55,7 +57,7 @@ import {
   scheduleReportAnswer,
 } from "./notifications.ts";
 import { actionMetaSchema } from "./request.ts";
-import { findLiveStory, listStories, storyViewers } from "./stories.ts";
+import { findLiveStory, highlightsOf, listStories, storyViewers } from "./stories.ts";
 
 const errorSchema = z.object({ error: z.string() });
 const errorResponse = (description: string) => ({
@@ -107,6 +109,8 @@ const newStoryRoute = createRoute({
           schema: actionMetaSchema.extend({
             caption: z.string().max(500).default(""),
             image: z.instanceof(File).openapi({ type: "string", format: "binary" }),
+            /** Everyone, or only their close friends, on a platform with close friends. */
+            audience: z.enum(["everyone", "closeFriends"]).default("everyone"),
           }),
         },
       },
@@ -136,6 +140,8 @@ const storyViewedRoute = createRoute({
           .nonnegative()
           .max(24 * 60 * 60 * 1000),
         ended: z.enum(["next", "previous", "closed", "timer"]),
+        /** Where they opened it. A highlight can show a story after it's left the row. */
+        from: z.enum(["row", "highlight"]).default("row"),
       }),
     ),
   },
@@ -466,6 +472,8 @@ const postRoute = createRoute({
             pollOption: z.union([z.string(), z.array(z.string())]).optional(),
             /** A label from its space's list, on a platform with flair. */
             flair: z.string().optional(),
+            /** Where it was, on a platform with places. */
+            place: z.string().max(MAX_PLACE_LENGTH).optional(),
             /** They've answered a rule's "are you sure?" and want to go ahead. */
             confirmedRule: z.string().optional(),
             /** The post this quotes, on a platform with quote posts. */
@@ -501,6 +509,8 @@ const relationActions = {
   mute: { kind: "mute", active: true, event: "actor.muted" },
   unmute: { kind: "mute", active: false, event: "actor.unmuted" },
   report: { kind: "report", active: true, event: "actor.reported" },
+  addCloseFriend: { kind: "closeFriend", active: true, event: "actor.close_friend_added" },
+  removeCloseFriend: { kind: "closeFriend", active: false, event: "actor.close_friend_removed" },
 } as const;
 
 const RELATION_FEATURES = {
@@ -508,6 +518,7 @@ const RELATION_FEATURES = {
   block: "blocking",
   report: "reporting",
   mute: "muting",
+  closeFriend: "closeFriends",
 } as const;
 
 const featureOff = { error: "This isn't part of this platform." };
@@ -524,7 +535,17 @@ const relationRoute = createRoute({
     params: z.object({ username: z.string() }),
     ...jsonBody(
       actionMetaSchema.extend({
-        action: z.enum(["follow", "unfollow", "block", "unblock", "report", "mute", "unmute"]),
+        action: z.enum([
+          "follow",
+          "unfollow",
+          "block",
+          "unblock",
+          "report",
+          "mute",
+          "unmute",
+          "addCloseFriend",
+          "removeCloseFriend",
+        ]),
         reason: z.string().max(500).optional(),
       }),
     ),
@@ -572,6 +593,10 @@ const actorRoute = createRoute({
                 space: z.string().optional(),
               }),
             ),
+            /** Whether this participant has them on their close friends list. */
+            closeFriend: z.boolean(),
+            /** Stories kept on their profile, on a platform with highlights. */
+            highlights: z.array(highlightSchema),
             posts: z.array(feedPostSchema),
           }),
         },
@@ -1611,6 +1636,10 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (flair && isOff(context, "flair")) {
       return c.json(featureOff, 403);
     }
+    const place = form.place?.trim() ?? "";
+    if (place && isOff(context, "places")) {
+      return c.json(featureOff, 403);
+    }
 
     const limit = maxPostLengthFor(context.settings, context.conditionKey);
     if (limit && text.length > limit) {
@@ -1710,6 +1739,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
             ...(quoted ? { quoteOf: quoted.id } : {}),
             ...(title ? { title } : {}),
             ...(link ? { linkUrl: link } : {}),
+            ...(place ? { place } : {}),
             tags,
             ...(pollOptions.length > 0
               ? {
@@ -1912,7 +1942,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
         blocked: has("block"),
         reported: has("report"),
         muted: has("mute"),
+        closeFriend: has("closeFriend"),
         bans: await bansOf(context, actor.id),
+        highlights: await highlightsOf(db, context, actor.id, mediaPublicUrl),
         posts,
       },
       200,
@@ -1948,6 +1980,10 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     }
     const now = new Date();
     const form = c.req.valid("form");
+    const closeFriends = form.audience === "closeFriends";
+    if (closeFriends && isOff(context, "closeFriends")) {
+      return c.json(featureOff, 403);
+    }
     const repeat = await findRepeat(db, context.worldId, form.clientEventId);
     if (repeat?.contentId) {
       return c.json({ id: repeat.contentId }, 200);
@@ -1977,6 +2013,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           kind: "story",
           body: form.caption.trim(),
           attachments: [{ type: "image", key }],
+          closeFriends,
           visibleAt: now,
         })
         .returning({ id: schema.content.id });
@@ -1984,7 +2021,10 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       await recordEvent(tx, {
         ...participantEvent(context, form.occurredAt, form.clientEventId),
         type: "content.created",
-        payload: { kind: "story" },
+        payload: {
+          kind: "story",
+          ...(isOff(context, "closeFriends") ? {} : { audience: form.audience }),
+        },
         targetContentId: storyId,
       });
       await scheduleReactions(tx, context, {
@@ -2009,15 +2049,23 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json(featureOff, 403);
     }
     const { id } = c.req.valid("param");
-    if (!(await findLiveStory(db, context, id))) {
+    const body = c.req.valid("json");
+    const fromHighlight = body.from === "highlight";
+    if (fromHighlight && isOff(context, "highlights")) {
+      return c.json(featureOff, 403);
+    }
+    if (!(await findLiveStory(db, context, id, new Date(), fromHighlight))) {
       return c.json(notAvailable, 404);
     }
-    const body = c.req.valid("json");
     await db.transaction(async (tx) => {
       const recorded = await recordEvent(tx, {
         ...participantEvent(context, body.occurredAt, body.clientEventId),
         type: "story.viewed",
-        payload: { dwellMs: body.dwellMs, ended: body.ended },
+        payload: {
+          dwellMs: body.dwellMs,
+          ended: body.ended,
+          ...(fromHighlight ? { from: "highlight" as const } : {}),
+        },
         targetContentId: id,
       });
       if (recorded) {
@@ -2045,7 +2093,13 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (!story || story.authorActorId !== context.actorId) {
       return c.json(notAvailable, 404);
     }
-    return c.json({ viewers: await storyViewers(db, context, id, mediaPublicUrl) }, 200);
+    const closeFriendsOnly = story.closeFriends && !isOff(context, "closeFriends");
+    return c.json(
+      {
+        viewers: await storyViewers(db, context, id, mediaPublicUrl, new Date(), closeFriendsOnly),
+      },
+      200,
+    );
   });
 
   app.openapi(noteRatingRoute, async (c) => {

@@ -5,6 +5,8 @@ import { useFeature } from "../platform.tsx";
 export interface TextLinks {
   renderTag: (tag: string, children: ReactNode) => ReactNode;
   renderMention: (username: string, children: ReactNode) => ReactNode;
+  /** A place on a post, linked to every post there. */
+  renderPlace?: (place: string, children: ReactNode) => ReactNode;
 }
 
 /** How to link a hashtag or mention. Without this, as in a preview, they're plain text. */

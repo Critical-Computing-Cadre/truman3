@@ -24,6 +24,8 @@ export const eventPayloadSchemas = {
     crosspostOf: z.string().optional(),
     /** The post this quotes. */
     quoteOf: z.string().optional(),
+    /** For a story, who it's for: everyone, or only their close friends. */
+    audience: z.enum(["everyone", "closeFriends"]).optional(),
   }),
   /**
    * They saw one story, for this long. `ended` is how it ended: they went on, went back, closed the
@@ -32,6 +34,8 @@ export const eventPayloadSchemas = {
   "story.viewed": z.strictObject({
     dwellMs: z.number().nonnegative(),
     ended: z.enum(["next", "previous", "closed", "timer"]),
+    /** Where they opened it: the row of stories, or a highlight on someone's profile. */
+    from: z.enum(["row", "highlight"]).optional(),
   }),
   /** They passed a post along, or took that back. It names the first post, not a repost of it. */
   "content.reposted": empty,
@@ -62,6 +66,9 @@ export const eventPayloadSchemas = {
   "actor.unfollowed": empty,
   "actor.muted": empty,
   "actor.unmuted": empty,
+  /** They put someone on their close friends list, for stories, or took them off. */
+  "actor.close_friend_added": empty,
+  "actor.close_friend_removed": empty,
   /** They rated a context note on a post. Null takes their rating back. `note` is its ID in the study. */
   "content.note_rated": z.strictObject({
     note: z.string(),

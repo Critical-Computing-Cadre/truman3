@@ -208,6 +208,41 @@ export const FEATURES = {
     version: 1,
     events: ["story.viewed", "content.created"],
   },
+  places: {
+    name: "Places",
+    description:
+      "A post can say where it was, under who posted it. Tapping a place shows every post there. Participants can add one to their own posts.",
+    version: 1,
+    events: ["content.created"],
+  },
+  photoTags: {
+    name: "Tagging people",
+    description:
+      "A post can tag people from the cast, shown on its photo, and a profile has a tab of posts they're tagged in.",
+    version: 1,
+    events: [],
+  },
+  exploreGrid: {
+    name: "An Explore grid",
+    description:
+      "Explore shows a grid of photos from people someone doesn't follow, in the condition's feed order. What it showed is in impressions.",
+    version: 1,
+    events: [],
+  },
+  highlights: {
+    name: "Highlights",
+    description:
+      "Stories kept on a profile under a name, which still open after they've left the row.",
+    version: 1,
+    events: ["story.viewed"],
+  },
+  closeFriends: {
+    name: "Close friends",
+    description:
+      "A story can be for close friends only, with a green ring. Participants choose their own close friends and can post a story to just them.",
+    version: 1,
+    events: ["actor.close_friend_added", "actor.close_friend_removed", "content.created"],
+  },
   profileGrid: {
     name: "A profile grid",
     description: "A profile shows someone's posts as a grid of photos.",

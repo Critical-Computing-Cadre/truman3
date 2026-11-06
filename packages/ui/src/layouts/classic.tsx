@@ -15,6 +15,7 @@ import { PostPhotos } from "../features/galleries.tsx";
 import { KarmaBadge } from "../features/karma.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
 import { useMoreMenu } from "../features/more-menu.tsx";
+import { WhoAndWhere } from "../features/places-tags.tsx";
 import { PostPoll } from "../features/polls.tsx";
 import {
   HideButton,
@@ -163,6 +164,7 @@ export function ClassicPost({
           {shortTime(post.at)}
         </time>
       </header>
+      <WhoAndWhere post={post} className="-mt-1 px-3 pb-2 text-sm text-stone-600" />
 
       <div className="relative">
         <FlaggedPostCover post={post} {...(actions ? { actions } : {})} />

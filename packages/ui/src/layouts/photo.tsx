@@ -12,6 +12,7 @@ import {
 import { PostPhotos } from "../features/galleries.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
 import { useMoreMenu } from "../features/more-menu.tsx";
+import { PhotoTags, PostPlace } from "../features/places-tags.tsx";
 import {
   HideButton,
   PostBadges,
@@ -114,17 +115,25 @@ export function PhotoPost({
             </span>
           </span>,
         )}
-        {author("font-semibold underline-offset-2 hover:underline", post.author.username)}
-        <ModeratorTag author={post.author} />
-        <time className="text-stone-500" dateTime={post.at}>
-          · {shortTime(post.at)}
-        </time>
+        <span className="flex min-w-0 flex-col leading-tight">
+          <span className="flex items-center gap-1">
+            {author("font-semibold underline-offset-2 hover:underline", post.author.username)}
+            <ModeratorTag author={post.author} />
+            <time className="text-stone-500" dateTime={post.at}>
+              · {shortTime(post.at)}
+            </time>
+          </span>
+          <PostPlace post={post} className="truncate text-xs" />
+        </span>
         <PostBadges post={post} className="ml-auto" />
         {more.collapsed ? more.toggle : null}
       </header>
       <RemovedNote item={post} actions={actions} className="mx-3 mb-2" />
       <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
-        <div className="bg-stone-100 empty:hidden">{wrapImage ? wrapImage(image) : image}</div>
+        <div className="relative bg-stone-100 empty:hidden">
+          {wrapImage ? wrapImage(image) : image}
+          {image && <PhotoTags post={post} />}
+        </div>
         <QuotedPost post={post} {...(renderPostLink ? { renderPostLink } : {})} />
       </TagCover>
       {more.open && (

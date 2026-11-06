@@ -126,6 +126,20 @@ function StoryCard({
           canEdit={info.canEdit}
           onSave={(caption) => save({ caption: caption || null })}
         />
+        <CastField
+          label="Highlight (optional): keeps it on their profile under this name"
+          value={story.highlight ?? ""}
+          canEdit={info.canEdit}
+          onSave={(highlight) => save({ highlight: highlight.trim() || null })}
+        />
+        <SavedCheckbox
+          checked={story.closeFriends}
+          disabled={!info.canEdit}
+          className="flex items-center gap-1 text-xs"
+          onChange={(closeFriends) => save({ closeFriends })}
+        >
+          Close friends only, with a green ring. Participants see they're on this person's list.
+        </SavedCheckbox>
         {conditions.length > 1 && (
           <fieldset className="text-xs">
             <legend className="font-medium text-stone-600">

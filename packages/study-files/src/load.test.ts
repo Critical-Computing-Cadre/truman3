@@ -465,4 +465,25 @@ describe("stories.csv", () => {
     ]);
     expect(definition?.posts[0]?.likedBy).toBe("ann");
   });
+
+  it("reads places, who's tagged, highlights, and close friends", () => {
+    const { definition } = loadStudyFolder(
+      folder({
+        ...base,
+        "posts.csv":
+          'id,body,actor,time,place,tagged\n1,hello,ann,0:00,"Ithaca, New York",ann | bob\n2,bye,ann,0:00,,\n',
+        "stories.csv":
+          "id,actor,picture,time,highlight,closeFriends\ns,ann,a.jpg,1:00,Trips,yes\nt,ann,b.jpg,1:00,,\n",
+      }),
+    );
+    expect(definition?.posts[0]).toMatchObject({
+      place: "Ithaca, New York",
+      tagged: ["ann", "bob"],
+    });
+    expect(definition?.posts[1]?.place).toBeUndefined();
+    expect(definition?.posts[1]?.tagged).toBeUndefined();
+    expect(definition?.stories[0]).toMatchObject({ highlight: "Trips", closeFriends: true });
+    expect(definition?.stories[1]?.highlight).toBeUndefined();
+    expect(definition?.stories[1]?.closeFriends).toBeUndefined();
+  });
 });

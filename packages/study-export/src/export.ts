@@ -763,6 +763,10 @@ export async function exportStudy(
         "base_views",
         "lasts_ms",
         "liked_by",
+        "place",
+        "tagged",
+        "highlight",
+        "close_friends",
         "media",
         "provenance",
         "offset_ms",
@@ -800,6 +804,10 @@ export async function exportStudy(
         base_views: item.baseViews,
         lasts_ms: item.lastsMs ?? "",
         liked_by: item.likedByActorId ? actorLabel(item.likedByActorId) : "",
+        place: safeText(item.place),
+        tagged: item.taggedActorIds.map(actorLabel).join("|"),
+        highlight: safeText(item.highlight),
+        close_friends: item.closeFriends ? "true" : "",
         media: item.attachments.map(({ key }) => key).join("|"),
         provenance: provenanceLabel(item.provenance),
         offset_ms: item.offsetMs ?? "",
@@ -1052,6 +1060,13 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ["base_views", "How many it says have seen it, before this person"],
     ["lasts_ms", "For a story, how long it lasts. Empty is a day"],
     ["liked_by", 'Someone in the cast a post says liked it, as in "Liked by ... and others"'],
+    ["place", "Where a post says it was, written by the study or by a participant"],
+    ["tagged", "People in the cast tagged in a post, separated by |"],
+    ["highlight", "For a story, the highlight that keeps it on its poster's profile"],
+    [
+      "close_friends",
+      "true if a story was only for its poster's close friends. On a participant's own, it's who they chose",
+    ],
     [
       "base_reposts, base_quotes",
       "How many it says passed it along or quoted it, before anything during the study",
@@ -1091,7 +1106,9 @@ const EVENT_NOTES: Record<string, string> = {
   "content.reposted":
     "They passed a post along. It names the first post, even if they saw it through someone else's repost. content.unreposted is taking that back.",
   "story.viewed":
-    "They saw one story, for dwell_ms. `ended` says how: next, previous, closed, or timer, when it moved on by itself. A story is a row in content.csv with kind story.",
+    "They saw one story, for dwell_ms. `ended` says how: next, previous, closed, or timer, when it moved on by itself. `from` is highlight if they opened it from a highlight on someone's profile, and missing if from the row of stories. A story is a row in content.csv with kind story.",
+  "actor.close_friend_added":
+    "They put someone in the cast on their close friends list, for stories. actor.close_friend_removed takes them off. Who viewed a close-friends story of theirs only includes people on the list.",
   "content.note_rated":
     "They rated a context note. `note` is its ID in context_notes.csv. Null takes their rating back, and they have one rating at a time.",
   "actor.muted":

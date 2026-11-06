@@ -202,6 +202,8 @@ export interface DraftInfo {
     caption: string;
     timeMs: number;
     lastsHours: number | null;
+    highlight: string | null;
+    closeFriends: boolean;
     conditions: string[];
   }[];
   /** A note on a post, as if readers had added context. */
@@ -305,6 +307,8 @@ export interface DraftItemDetails {
   ad: string | null;
   views: number;
   likedById: string | null;
+  place: string | null;
+  taggedIds: string[];
   origin: string;
 }
 

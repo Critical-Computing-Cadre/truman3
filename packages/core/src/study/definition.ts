@@ -7,6 +7,9 @@ import { COMMENT_SORTS, FEED_SORTS } from "../orders.ts";
 import { flairSchema, pollSchema } from "../polls-flair.ts";
 import { linkSchema, PIN_PLACES, POST_TAGS } from "../post-extras.ts";
 
+/** How long a place on a post can be. */
+export const MAX_PLACE_LENGTH = 80;
+
 const keySchema = z
   .string()
   .regex(/^[a-z0-9][a-z0-9_-]*$/, "Use lowercase letters, numbers, dashes, and underscores");
@@ -330,6 +333,10 @@ export const postDefinitionSchema = z.object({
   quoteOf: z.string().min(1).optional(),
   /** Someone in the cast who liked it, by username, for "Liked by ... and others." */
   likedBy: z.string().min(1).optional(),
+  /** Where it says it was, such as "Ithaca, New York". */
+  place: z.string().min(1).max(MAX_PLACE_LENGTH).optional(),
+  /** People in the cast tagged in it, by username. */
+  tagged: z.array(z.string().min(1)).optional(),
   /** Marks it as an ad, with this label, such as "Sponsored". */
   ad: z.string().min(1).max(40).optional(),
   /** How many it says have seen it. */
@@ -474,6 +481,10 @@ export const storyDefinitionSchema = z.object({
   timeMs: z.number().int(),
   /** How long it lasts. Leave out for a day. */
   lastsHours: z.number().positive().optional(),
+  /** Keeps it on its poster's profile, in a highlight with this name, after it's gone from the row. */
+  highlight: z.string().min(1).max(40).optional(),
+  /** Only for the poster's close friends, which the participant is shown to be one of. */
+  closeFriends: z.boolean().optional(),
   ...targetingFields,
 });
 

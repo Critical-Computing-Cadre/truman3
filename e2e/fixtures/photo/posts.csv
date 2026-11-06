@@ -1,4 +1,5 @@
-id,body,picture,actor,likes,likedBy,time
-p1,Halloween warm-up #autumn,a.jpg,ann,108,bob,-6:00
-p2,A walk by the lake,b.jpg|c.jpg,bob,12,,-4:00
-p3,Another from Ann,d.jpg,ann,3,,-2:00
+id,body,picture,actor,likes,likedBy,place,tagged,time
+p1,Halloween warm-up #autumn,a.jpg,ann,108,bob,"Ithaca, New York",bob,-6:00
+p2,A walk by the lake,b.jpg|c.jpg,bob,12,,,,-4:00
+p3,Another from Ann,d.jpg,ann,3,,,,-2:00
+p4,Cleo's view,e.jpg,cleo,40,,"Ithaca, New York",ann,-8:00

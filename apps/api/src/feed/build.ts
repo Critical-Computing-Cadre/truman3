@@ -53,6 +53,8 @@ export type FeedContent = Pick<
   | "baseQuotes"
   | "adLabel"
   | "likedByActorId"
+  | "place"
+  | "taggedActorIds"
   | "baseViews"
   | "body"
   | "attachments"
@@ -664,6 +666,9 @@ export async function shapeFeedPosts({
         const shown = shownAs(byId.get(post.id) as FeedContent);
         return shown.likedByActorId && features.likes ? [shown.likedByActorId] : [];
       }),
+      ...(features.photoTags
+        ? feed.posts.flatMap((post) => shownAs(byId.get(post.id) as FeedContent).taggedActorIds)
+        : []),
       ...feed.posts.flatMap((post) => {
         const listed = byId.get(post.id) as FeedContent;
         const above = listed.repostOf ? byId.get(listed.repostOf) : undefined;
@@ -846,6 +851,22 @@ export async function shapeFeedPosts({
               (authorById.get(item.likedByActorId) as FeedActor).username,
           }
         : {}),
+      ...(item.place && features.places && !removals.has(item.id) ? { place: item.place } : {}),
+      ...(features.photoTags && item.taggedActorIds.length > 0 && !removals.has(item.id)
+        ? {
+            tagged: item.taggedActorIds.flatMap((id) => {
+              const person = authorById.get(id);
+              return person
+                ? [
+                    {
+                      username: person.username,
+                      name: (person.profile as ActorProfile).name ?? person.username,
+                    },
+                  ]
+                : [];
+            }),
+          }
+        : {}),
       ...(features.viewCounts
         ? { viewCount: item.baseViews + (viewedContentIds.has(item.id) ? 1 : 0) }
         : {}),
@@ -971,6 +992,12 @@ export interface BuildFeedOptions {
   following?: boolean | undefined;
   /** Only posts with this hashtag, on its page. */
   tag?: string | undefined;
+  /** Only posts at this place, on its page. */
+  place?: string | undefined;
+  /** Only posts this actor is tagged in, on their profile's Tagged tab. */
+  taggedActorId?: string | undefined;
+  /** Only photo posts from people this person doesn't follow, for the Explore grid. */
+  explore?: boolean | undefined;
 }
 
 /** Works out what a participant sees now, and records that it was shown. */
@@ -990,6 +1017,9 @@ export async function buildFeed(
     list,
     following,
     tag,
+    place,
+    taggedActorId,
+    explore,
   }: BuildFeedOptions = {},
 ): Promise<FeedPost[]> {
   const worldStartMs = context.worldStartedAt.getTime();
@@ -1083,6 +1113,13 @@ export async function buildFeed(
       !hiddenHere.has(root.id)
     );
   };
+  /** On Explore: someone else's photo, not an ad or a repost, from someone they don't follow. */
+  const discoverable = (row: ContentRow) =>
+    row.attachments.length > 0 &&
+    !row.adLabel &&
+    !row.repostOf &&
+    row.authorActorId !== context.actorId &&
+    !state.followedActorIds.has(row.authorActorId);
   /** Someone muted is left out of lists and threads, though their own page and posts still open. */
   const mutedAway = (row: ContentRow) => {
     if (state.mutedActorIds.size === 0 || authorActorId) {
@@ -1103,6 +1140,9 @@ export async function buildFeed(
     !mutedAway(row) &&
     (!row.adLabel || features.ads) &&
     (!tag || hasHashtag(postOf(row).body, tag)) &&
+    (!place || postOf(row).place === place) &&
+    (!taggedActorId || postOf(row).taggedActorIds.includes(taggedActorId)) &&
+    (!explore || discoverable(postOf(row))) &&
     (!following ||
       postOf(row).authorActorId === context.actorId ||
       state.followedActorIds.has(postOf(row).authorActorId)) &&
@@ -1112,7 +1152,11 @@ export async function buildFeed(
     inSpaces(row);
   // A pin belongs to a list, so a post pinned in its community isn't also on top at home.
   const pinPlace =
-    features.pinning && !post && !authorActorId && !list ? (space ? "space" : "home") : null;
+    features.pinning && !post && !authorActorId && !list && !place && !taggedActorId && !explore
+      ? space
+        ? "space"
+        : "home"
+      : null;
 
   const feedSettings: FeedSettings = {
     ...conditionSettings,

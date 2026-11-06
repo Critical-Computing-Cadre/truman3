@@ -6,12 +6,14 @@ import {
   canSortCommentsFor,
   canSortFor,
   FEED_SORTS,
+  type FeatureKey,
   featureOn,
   feedResponseSchema,
+  MAX_PLACE_LENGTH,
   spaceViewSchema,
 } from "@truman3/core";
 import { type Database, recordEvent, schema } from "@truman3/db";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { actionMetaSchema } from "../actions/request.ts";
 import { participantEvent } from "../actions/routes.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
@@ -35,10 +37,25 @@ const feedRoute = createRoute({
       visit: z.coerce.number().int().nonnegative().optional(),
       /** Which list of posts: the home feed, one space's page, or one post's own page. */
       surface: z
-        .enum(["home", "space", "post", "saved", "hidden", "following", "tag"])
+        .enum([
+          "home",
+          "space",
+          "post",
+          "saved",
+          "hidden",
+          "following",
+          "tag",
+          "place",
+          "tagged",
+          "explore",
+        ])
         .default("home"),
       /** On surface=tag, which hashtag. */
       tag: z.string().max(100).optional(),
+      /** On surface=place, which place. */
+      place: z.string().max(MAX_PLACE_LENGTH).optional(),
+      /** On surface=tagged, whose Tagged tab, by username. */
+      username: z.string().max(100).optional(),
       /** On a space's page, which space, by its key. */
       space: z.string().optional(),
       /** On a post's own page, which post. */
@@ -239,7 +256,54 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
       return c.json(pleaseSignIn, 401);
     }
 
-    const { visit, surface, space: spaceKey, post, tag } = c.req.valid("query");
+    const { visit, surface, space: spaceKey, post, tag, place, username } = c.req.valid("query");
+    const on = (feature: FeatureKey) => featureOn(context.settings, context.conditionKey, feature);
+    if (surface === "place") {
+      if (!on("places")) {
+        return c.json(featureOff, 403);
+      }
+      if (!place) {
+        return c.json(notAvailable, 404);
+      }
+      const posts = await buildFeed({ db, mediaPublicUrl }, context, { surface: "place", place });
+      return c.json({ posts, sort: null, commentSort: null }, 200);
+    }
+    if (surface === "tagged") {
+      if (!on("photoTags")) {
+        return c.json(featureOff, 403);
+      }
+      const [actor] = username
+        ? await db
+            .select({ id: schema.actors.id })
+            .from(schema.actors)
+            .where(
+              and(
+                eq(schema.actors.studyVersionId, context.studyVersionId),
+                eq(schema.actors.username, username),
+                or(isNull(schema.actors.worldId), eq(schema.actors.worldId, context.worldId)),
+              ),
+            )
+        : [];
+      if (!actor) {
+        return c.json(notAvailable, 404);
+      }
+      const posts = await buildFeed({ db, mediaPublicUrl }, context, {
+        surface: "tagged",
+        taggedActorId: actor.id,
+      });
+      return c.json({ posts, sort: null, commentSort: null }, 200);
+    }
+    if (surface === "explore") {
+      if (!on("exploreGrid")) {
+        return c.json(featureOff, 403);
+      }
+      const posts = await buildFeed({ db, mediaPublicUrl }, context, {
+        visit,
+        surface: "explore",
+        explore: true,
+      });
+      return c.json({ posts, sort: null, commentSort: null }, 200);
+    }
     if (surface === "tag") {
       if (!featureOn(context.settings, context.conditionKey, "hashtags")) {
         return c.json(featureOff, 403);

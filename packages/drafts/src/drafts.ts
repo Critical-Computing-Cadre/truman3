@@ -269,6 +269,10 @@ export async function openDraft(
                     ...(item.baseQuotes ? { quotes: item.baseQuotes } : {}),
                     ...optional("ad", item.adLabel),
                     ...(item.likedByActorId ? { likedById: asId(item.likedByActorId) } : {}),
+                    ...optional("place", item.place),
+                    ...(item.taggedActorIds.length > 0
+                      ? { taggedIds: item.taggedActorIds.map(asId) }
+                      : {}),
                     ...(item.baseViews ? { views: item.baseViews } : {}),
                     pictures: item.attachments.map(({ key }) => key),
                     ...(item.spaceId ? { spaceId: asId(item.spaceId) } : {}),
@@ -322,6 +326,8 @@ export async function openDraft(
             ...optional("caption", story.body || undefined),
             timeMs: story.offsetMs ?? 0,
             ...(story.lastsMs ? { lastsHours: story.lastsMs / 3_600_000 } : {}),
+            ...optional("highlight", story.highlight),
+            ...(story.closeFriends ? { closeFriends: true } : {}),
             conditions: story.conditions,
             ...optional("class", story.class),
           },

@@ -3,6 +3,7 @@ import {
   flairSchema,
   linkSchema,
   MAX_ATTACHMENTS,
+  MAX_PLACE_LENGTH,
   MAX_RULE_MATCH_LENGTH,
   MAX_TITLE_LENGTH,
   PIN_PLACES,
@@ -75,6 +76,9 @@ export const itemDataSchemas = {
     quotes: z.number().int().nonnegative().optional(),
     ad: z.string().min(1).max(40).optional(),
     likedById: z.uuid().optional(),
+    place: z.string().min(1).max(MAX_PLACE_LENGTH).optional(),
+    /** People in the cast tagged in it. */
+    taggedIds: z.array(z.uuid()).optional(),
     views: z.number().int().nonnegative().optional(),
     timeMs: z.number().int(),
     likes: z.number().int().nonnegative(),
@@ -146,6 +150,8 @@ export const itemDataSchemas = {
     caption: z.string().max(500).optional(),
     timeMs: z.number().int(),
     lastsHours: z.number().positive().optional(),
+    highlight: z.string().min(1).max(40).optional(),
+    closeFriends: z.boolean().optional(),
     ...targeting,
   }),
   contextNote: z.strictObject({

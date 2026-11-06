@@ -403,6 +403,8 @@ export async function freezeStudy(
           baseQuotes: post.quotes ?? 0,
           adLabel: post.ad,
           likedByActorId: post.likedBy ? actorId(post.likedBy) : null,
+          place: post.place ?? null,
+          taggedActorIds: (post.tagged ?? []).map(actorId),
           baseViews: post.views ?? 0,
           body: post.body,
           attachments: post.pictures.map((picture) => ({
@@ -586,6 +588,8 @@ export async function freezeStudy(
           ],
           offsetMs: story.timeMs,
           lastsMs: story.lastsHours ? Math.round(story.lastsHours * 3_600_000) : null,
+          highlight: story.highlight ?? null,
+          closeFriends: story.closeFriends ?? false,
           conditions: story.conditions,
           class: story.class,
           sourceRef: story.ref,

@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import type { FeedResponse } from "@truman3/core";
-import { Avatar } from "@truman3/ui";
+import { Avatar, useFeature } from "@truman3/ui";
 import { get, post } from "../api.ts";
 import { PostCard } from "../components/PostCard.tsx";
+import { PostGrid } from "../components/PostGrid.tsx";
 
 interface Explore {
   trending: { tag: string; note?: string }[];
@@ -91,12 +92,63 @@ export function ExploreCards() {
   );
 }
 
-/** Where a phone reaches what a wide screen shows beside the feed. */
+/** Whether a list of posts can be a grid of photos, which needs each post's own page to open. */
+function useGrid() {
+  const grid = useFeature("profileGrid");
+  const pages = useFeature("postPages");
+  return grid && pages;
+}
+
+/** Photos from people someone doesn't follow, on a platform with an Explore grid. */
+function ExploreGrid() {
+  const posts = useQuery({
+    queryKey: ["feed", "explore"],
+    queryFn: () => get<FeedResponse>("/feed?surface=explore"),
+  });
+  if (posts.data?.posts.length === 0) {
+    return <p className="p-6 text-center text-stone-500">Nothing to explore yet.</p>;
+  }
+  return <PostGrid posts={posts.data?.posts ?? []} label="Explore" />;
+}
+
+/**
+ * Where a phone reaches what a wide screen shows beside the feed, and, on a platform with an
+ * Explore grid, photos from people someone doesn't follow.
+ */
 export function ExplorePage() {
+  const gridOn = useFeature("exploreGrid");
   return (
-    <div className="mx-auto max-w-xl space-y-3 p-3 sm:p-0">
-      <h1 className="text-lg font-semibold">Explore</h1>
-      <ExploreCards />
+    <div className="mx-auto max-w-xl space-y-3 sm:space-y-4">
+      <h1 className="p-3 pb-0 text-lg font-semibold sm:p-0">Explore</h1>
+      <div className="space-y-3 px-3 sm:px-0">
+        <ExploreCards />
+      </div>
+      {gridOn && <ExploreGrid />}
+    </div>
+  );
+}
+
+/** Every post at one place. */
+export function PlacePage() {
+  const { place } = useParams({ strict: false }) as { place: string };
+  const grid = useGrid();
+  const posts = useQuery({
+    queryKey: ["feed", "place", place],
+    queryFn: () => get<FeedResponse>(`/feed?surface=place&place=${encodeURIComponent(place)}`),
+  });
+  return (
+    <div className="mx-auto max-w-xl space-y-3 sm:space-y-4">
+      <h1 className="p-3 text-lg font-semibold sm:p-0">{place}</h1>
+      {posts.data?.posts.length === 0 && (
+        <p className="p-6 text-center text-stone-500">No posts to show.</p>
+      )}
+      {grid ? (
+        <PostGrid posts={posts.data?.posts ?? []} label={`Posts at ${place}`} />
+      ) : (
+        posts.data?.posts.map((item) => (
+          <PostCard key={item.repostedBy?.id ?? item.id} post={item} surface="place" />
+        ))
+      )}
     </div>
   );
 }
