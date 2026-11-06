@@ -852,8 +852,18 @@ function PostExtras({
       )}
       {on("photoTags") && (
         <details>
-          <summary className="cursor-pointer">People tagged ({details.taggedIds.length})</summary>
+          <summary className="cursor-pointer">
+            People tagged ({details.taggedIds.length + (details.tagsParticipant ? 1 : 0)})
+          </summary>
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+            <SavedCheckbox
+              checked={details.tagsParticipant}
+              disabled={false}
+              className={row}
+              onChange={(active) => change({ tagsParticipant: active })}
+            >
+              The participant, who's told they were tagged
+            </SavedCheckbox>
             {info.actors.map((actor) => (
               <SavedCheckbox
                 key={actor.id}

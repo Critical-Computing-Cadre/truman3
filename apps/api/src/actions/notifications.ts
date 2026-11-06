@@ -336,7 +336,8 @@ export interface NotificationItem {
     | "uphold"
     | "restore"
     | "repost"
-    | "follow";
+    | "follow"
+    | "tag";
   actors: { username: string; name: string; pictureUrl: string | null }[];
   /** Whether this is about a post, a comment, a story, or a person someone reported. */
   targetKind: "post" | "comment" | "story" | "person";
@@ -369,9 +370,20 @@ const SHOWN_TO_PARTICIPANTS = [
   "restore",
   "repost",
   "follow",
+  "tag",
 ];
 /** What's kept separate in a list, rather than grouped as "Ann and 3 others." */
-const SHOWN_ALONE = ["reply", "remove", "warn", "answer", "ban", "approve", "uphold", "restore"];
+const SHOWN_ALONE = [
+  "reply",
+  "remove",
+  "warn",
+  "answer",
+  "ban",
+  "approve",
+  "uphold",
+  "restore",
+  "tag",
+];
 
 /**
  * Notifications that have come due, newest first. Reads and likes on the same content get grouped
@@ -476,7 +488,7 @@ export async function listNotifications(
   for (const row of rows) {
     // Muting someone means not hearing from them. A moderator's decisions are a different matter.
     if (
-      ["read", "like", "reply", "repost", "follow"].includes(row.type) &&
+      ["read", "like", "reply", "repost", "follow", "tag"].includes(row.type) &&
       muted.has(row.actorId)
     ) {
       continue;
@@ -489,7 +501,7 @@ export async function listNotifications(
     // stay, since they're not banned for those.
     const top = row.targetContentId ? contentById.get(postOf(row.targetContentId)) : undefined;
     if (
-      ["read", "like", "reply", "repost", "follow"].includes(row.type) &&
+      ["read", "like", "reply", "repost", "follow", "tag"].includes(row.type) &&
       bannedAt(bans, row.actorId, top?.spaceId, row.dueAt.getTime())
     ) {
       continue;

@@ -1,7 +1,7 @@
 import { ruleTerms } from "../auto-rules.ts";
 import { MAX_ATTACHMENTS } from "../feed.ts";
 import { hasPlaceholderConsent } from "./consent.ts";
-import type { StudyDefinition } from "./definition.ts";
+import { PARTICIPANT_TAG, type StudyDefinition } from "./definition.ts";
 import { LINK_PLACEHOLDERS } from "./links.ts";
 import { featuresFor } from "./platform.ts";
 import { HOUR_MS } from "./time.ts";
@@ -764,7 +764,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       checkActor(post.likedBy, `Post "${post.ref}"'s likedBy`, post.source);
     }
     for (const username of post.tagged ?? []) {
-      if (!usernames.has(username)) {
+      if (username !== PARTICIPANT_TAG && !usernames.has(username)) {
         error(
           `Post "${post.ref}" tags "${username}", who isn't in the list of actors.`,
           post.source,

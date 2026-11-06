@@ -10,6 +10,9 @@ import { linkSchema, PIN_PLACES, POST_TAGS } from "../post-extras.ts";
 /** How long a place on a post can be. */
 export const MAX_PLACE_LENGTH = 80;
 
+/** In a post's `tagged`, stands for whoever is taking part. */
+export const PARTICIPANT_TAG = "{participant}";
+
 const keySchema = z
   .string()
   .regex(/^[a-z0-9][a-z0-9_-]*$/, "Use lowercase letters, numbers, dashes, and underscores");
@@ -107,6 +110,9 @@ const commentBoxSchema = z.enum(["open", "onReply"]);
 /** Light, dark, or whatever the participant's device uses. */
 export const themeSchema = z.enum(["light", "dark", "device"]);
 
+/** Which button an "are you sure?" box makes the dark one, the one it nudges people toward. */
+export const sureButtonSchema = z.enum(["goBack", "postAnyway"]);
+
 /** Features to turn on or off. Whatever's left out comes from the template. */
 const featureChangesSchema = z.partialRecord(z.enum(FEATURE_KEYS), z.boolean());
 
@@ -123,6 +129,8 @@ const armSchema = z.strictObject({
       commentBox: commentBoxSchema.optional(),
       /** Light unless a study says otherwise, so what people see doesn't vary by device. */
       theme: themeSchema.optional(),
+      /** "Go back and edit" unless a study says otherwise. */
+      sureButton: sureButtonSchema.optional(),
       features: featureChangesSchema.optional(),
       canJoinSpaces: z.boolean().optional(),
       startingKarma: z.number().int().optional(),
@@ -192,6 +200,8 @@ export const studySettingsSchema = z.strictObject({
       commentBox: commentBoxSchema.optional(),
       /** Light unless a study says otherwise, so what people see doesn't vary by device. */
       theme: themeSchema.optional(),
+      /** Which button an "are you sure?" box makes dark. "Go back and edit" unless a study says. */
+      sureButton: sureButtonSchema.optional(),
       /** The starting point for this platform. Leave out for Classic. */
       template: z.enum(TEMPLATE_KEYS).optional(),
       /** Set when a version freezes, so later changes to a template can't affect it. */
@@ -336,6 +346,7 @@ export const postDefinitionSchema = z.object({
   /** Where it says it was, such as "Ithaca, New York". */
   place: z.string().min(1).max(MAX_PLACE_LENGTH).optional(),
   /** People in the cast tagged in it, by username. */
+  /** `{participant}` tags whoever is taking part. */
   tagged: z.array(z.string().min(1)).optional(),
   /** Marks it as an ad, with this label, such as "Sponsored". */
   ad: z.string().min(1).max(40).optional(),

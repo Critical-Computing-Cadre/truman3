@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   createRandom,
   hasErrors,
+  PARTICIPANT_TAG,
   pickFrom,
   STARTING_CONSENT,
   type StudyDefinition,
@@ -486,6 +487,7 @@ export async function startStudy(
             ...(tagged?.some((username) => actorIds.has(username))
               ? { taggedIds: tagged.filter((username) => actorIds.has(username)).map(actorId) }
               : {}),
+            ...(tagged?.includes(PARTICIPANT_TAG) ? { tagsParticipant: true } : {}),
           },
         }),
       ),

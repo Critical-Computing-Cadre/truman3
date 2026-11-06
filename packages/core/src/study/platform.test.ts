@@ -12,6 +12,7 @@ import {
   freezePlatform,
   layoutFor,
   platformStyleFor,
+  sureButtonFor,
   themeFor,
 } from "./platform.ts";
 
@@ -63,6 +64,26 @@ describe("commentBoxFor", () => {
     const both = study("open", "onReply");
     expect(commentBoxFor(both, "b")).toBe("onReply");
     expect(platformStyleFor(both, "b")).toBe("photo");
+  });
+});
+
+describe("sureButtonFor", () => {
+  it("makes going back dark unless the study or a condition says otherwise", () => {
+    const study = (sureButton?: string, armButton?: string) =>
+      settings({
+        platform: { style: "photo", ...(sureButton ? { sureButton } : {}) },
+        conditions: {
+          assignment: { method: "uniform" },
+          arms: [
+            { key: "a" },
+            { key: "b", ...(armButton ? { platform: { sureButton: armButton } } : {}) },
+          ],
+        },
+      });
+    expect(sureButtonFor(study(), "a")).toBe("goBack");
+    expect(sureButtonFor(study("postAnyway"), "a")).toBe("postAnyway");
+    expect(sureButtonFor(study(undefined, "postAnyway"), "b")).toBe("postAnyway");
+    expect(() => study("maybe")).toThrow();
   });
 });
 

@@ -946,6 +946,8 @@ describe("stories and liked by", () => {
     const tagged = { ref: "1", body: "hi", actor: "ann", timeMs: 0, tagged: ["ann"] };
     expect(errors({ posts: [tagged] })).toBe(false);
     expect(errors({ posts: [{ ...tagged, tagged: ["ann", "nobody"] }] })).toBe(true);
+    // {participant} is whoever takes part, so it isn't in the cast.
+    expect(errors({ posts: [{ ...tagged, tagged: ["ann", "{participant}"] }] })).toBe(false);
 
     const forum = settings({ platform: { style: "text", template: "forum" } });
     const offThere = messages(study({ settings: forum, posts: [{ ...tagged, place: "Ithaca" }] }));

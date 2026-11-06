@@ -273,6 +273,7 @@ export async function openDraft(
                     ...(item.taggedActorIds.length > 0
                       ? { taggedIds: item.taggedActorIds.map(asId) }
                       : {}),
+                    ...(item.tagsParticipant ? { tagsParticipant: true } : {}),
                     ...(item.baseViews ? { views: item.baseViews } : {}),
                     pictures: item.attachments.map(({ key }) => key),
                     ...(item.spaceId ? { spaceId: asId(item.spaceId) } : {}),

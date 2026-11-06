@@ -171,7 +171,16 @@ export const feedPostSchema = z.object({
   /** Where it says it was, on a platform with places. */
   place: z.string().optional(),
   /** People in it, on a platform with tagging. */
-  tagged: z.array(z.object({ username: z.string(), name: z.string() })).optional(),
+  tagged: z
+    .array(
+      z.object({
+        username: z.string(),
+        name: z.string(),
+        /** Whether it's whoever is looking: a study tagged them. */
+        isViewer: z.boolean().optional(),
+      }),
+    )
+    .optional(),
   /** How many it says have seen it, on a platform with view counts. */
   viewCount: z.number().optional(),
   /** How many have passed it along, on a platform with reposts. */

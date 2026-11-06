@@ -104,6 +104,13 @@ export function NewPostDialog({
   const adultTags = flow.data?.features.adultTags ?? false;
   const polls = flow.data?.features.polls ?? false;
   const places = flow.data?.features.places ?? false;
+  const tagging = flow.data?.features.photoTags ?? false;
+  const people = useQuery({
+    queryKey: ["people"],
+    queryFn: () => get<{ people: { username: string; name: string }[] }>("/people"),
+    enabled: tagging,
+  });
+  const [tagged, setTagged] = useState<string[]>([]);
   const spacesOn = flow.data?.features.spaces ?? false;
   const chooseSpace = !space && spacesOn;
   const spaces = useQuery({
@@ -157,6 +164,7 @@ export function NewPostDialog({
         ...(titles ? { title } : {}),
         ...(links && goodLink ? { link: goodLink } : {}),
         ...(places && place.trim() ? { place: place.trim() } : {}),
+        ...(tagging && tagged.length > 0 ? { tagged } : {}),
         ...(spoilers && spoiler ? { spoiler: "true" } : {}),
         ...(adultTags && adult ? { adult: "true" } : {}),
         ...(flair ? { flair } : {}),
@@ -175,6 +183,7 @@ export function NewPostDialog({
       setTitle("");
       setLink("");
       setPlace("");
+      setTagged([]);
       setSpoiler(false);
       setAdult(false);
       setChosenSpace("");
@@ -313,6 +322,32 @@ export function NewPostDialog({
               className="w-full rounded border border-stone-300 px-3 py-2 text-base font-normal"
             />
           </label>
+        )}
+        {tagging && (people.data?.people.length ?? 0) > 0 && (
+          <details className="text-sm">
+            <summary className="cursor-pointer font-medium">
+              Tag people{tagged.length > 0 ? ` (${tagged.length})` : ""}
+            </summary>
+            <fieldset className="mt-2 flex max-h-40 flex-col gap-1 overflow-y-auto">
+              <legend className="sr-only">Tag people</legend>
+              {people.data?.people.map(({ username, name }) => (
+                <label key={username} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={tagged.includes(username)}
+                    onChange={(event) =>
+                      setTagged(
+                        event.target.checked
+                          ? [...tagged, username]
+                          : tagged.filter((other) => other !== username),
+                      )
+                    }
+                  />
+                  {name} <span className="text-stone-500">@{username}</span>
+                </label>
+              ))}
+            </fieldset>
+          </details>
         )}
         {polls &&
           (pollOpen ? (

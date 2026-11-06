@@ -474,6 +474,8 @@ const postRoute = createRoute({
             flair: z.string().optional(),
             /** Where it was, on a platform with places. */
             place: z.string().max(MAX_PLACE_LENGTH).optional(),
+            /** Someone in the cast they tag, by username. Repeat it for more, on a platform with tagging. */
+            tagged: z.union([z.string(), z.array(z.string())]).optional(),
             /** They've answered a rule's "are you sure?" and want to go ahead. */
             confirmedRule: z.string().optional(),
             /** The post this quotes, on a platform with quote posts. */
@@ -526,6 +528,35 @@ const featureOff = { error: "This isn't part of this platform." };
 /** Hiding a button isn't enough, so the server refuses whatever's off in this person's condition. */
 const isOff = (context: ParticipantContext, feature: FeatureKey) =>
   !featureOn(context.settings, context.conditionKey, feature);
+
+/** How many people one post can tag. */
+const MAX_TAGGED = 20;
+
+const peopleRoute = createRoute({
+  method: "get",
+  path: "/people",
+  summary: "The cast, for tagging people in a post",
+  responses: {
+    200: {
+      description: "Everyone in the cast, by username",
+      content: {
+        "application/json": {
+          schema: z.object({
+            people: z.array(
+              z.object({
+                username: z.string(),
+                name: z.string(),
+                pictureUrl: z.string().nullable(),
+              }),
+            ),
+          }),
+        },
+      },
+    },
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+  },
+});
 
 const relationRoute = createRoute({
   method: "post",
@@ -633,6 +664,7 @@ const notificationsRoute = createRoute({
                   "restore",
                   "repost",
                   "follow",
+                  "tag",
                 ]),
                 actors: z.array(
                   z.object({
@@ -1640,6 +1672,19 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (place && isOff(context, "places")) {
       return c.json(featureOff, 403);
     }
+    const taggedNames = [...new Set([form.tagged ?? []].flat().map((name) => name.trim()))].filter(
+      Boolean,
+    );
+    if (taggedNames.length > 0 && isOff(context, "photoTags")) {
+      return c.json(featureOff, 403);
+    }
+    if (taggedNames.length > MAX_TAGGED) {
+      return c.json({ error: `A post can tag up to ${MAX_TAGGED} people.` }, 400);
+    }
+    const taggedActors = taggedNames.length > 0 ? await castNamed(context, taggedNames) : [];
+    if (taggedActors.length < taggedNames.length) {
+      return c.json({ error: "Only people on this platform can be tagged." }, 400);
+    }
 
     const limit = maxPostLengthFor(context.settings, context.conditionKey);
     if (limit && text.length > limit) {
@@ -1740,6 +1785,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
             ...(title ? { title } : {}),
             ...(link ? { linkUrl: link } : {}),
             ...(place ? { place } : {}),
+            taggedActorIds: taggedActors.map(({ id }) => id),
             tags,
             ...(pollOptions.length > 0
               ? {
@@ -1761,7 +1807,12 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
         const recorded = await recordEvent(tx, {
           ...participantEvent(context, form.occurredAt, form.clientEventId),
           type: "content.created",
-          payload: { kind: "post" },
+          payload: {
+            kind: "post",
+            ...(taggedActors.length > 0
+              ? { tagged: taggedActors.map(({ username }) => username) }
+              : {}),
+          },
           targetContentId: contentId,
         });
         if (!recorded) {
@@ -1800,6 +1851,52 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       }
       throw error;
     }
+  });
+
+  /** People in the cast with these usernames, leaving out anyone a participant can't tag. */
+  const castNamed = (context: ParticipantContext, usernames: string[]) =>
+    db
+      .select({ id: schema.actors.id, username: schema.actors.username })
+      .from(schema.actors)
+      .where(
+        and(
+          eq(schema.actors.studyVersionId, context.studyVersionId),
+          isNull(schema.actors.worldId),
+          inArray(schema.actors.username, usernames),
+        ),
+      );
+
+  app.openapi(peopleRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "photoTags")) {
+      return c.json(featureOff, 403);
+    }
+    const cast = await db
+      .select()
+      .from(schema.actors)
+      .where(
+        and(
+          eq(schema.actors.studyVersionId, context.studyVersionId),
+          isNull(schema.actors.worldId),
+        ),
+      )
+      .orderBy(schema.actors.username);
+    return c.json(
+      {
+        people: cast.map((actor) => {
+          const profile = actor.profile as ProfileFields;
+          return {
+            username: actor.username,
+            name: profile.name ?? actor.username,
+            pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+          };
+        }),
+      },
+      200,
+    );
   });
 
   /** Finds someone a participant can see: the cast, or themselves. */

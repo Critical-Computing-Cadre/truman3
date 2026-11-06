@@ -1,7 +1,14 @@
+import { useQuery } from "@tanstack/react-query";
 import type { Written } from "../api.ts";
-import { post } from "../api.ts";
+import { flowQuery, post } from "../api.ts";
 
-/** A rule asking if someone's sure before what they wrote goes up. Either answer is recorded. */
+const DARK = "rounded bg-stone-900 px-3 py-1.5 text-white";
+const LIGHT = "rounded border border-stone-400 px-3 py-1.5";
+
+/**
+ * A rule asking if someone's sure before what they wrote goes up. Either answer is recorded. The study
+ * chooses which button is dark, the one it nudges people toward.
+ */
 export function AreYouSure({
   asked,
   sending,
@@ -13,6 +20,8 @@ export function AreYouSure({
   onPost: () => void;
   onBack: () => void;
 }) {
+  const flow = useQuery(flowQuery);
+  const postDark = flow.data?.sureButton === "postAnyway";
   return (
     <section
       role="alert"
@@ -29,7 +38,7 @@ export function AreYouSure({
             post("/moderation/confirm-answered", { rule: asked.rule }).catch(() => {});
             onBack();
           }}
-          className="rounded bg-stone-900 px-3 py-1.5 text-white"
+          className={postDark ? LIGHT : DARK}
         >
           Go back and edit
         </button>
@@ -37,7 +46,7 @@ export function AreYouSure({
           type="button"
           disabled={sending}
           onClick={onPost}
-          className="rounded border border-stone-400 px-3 py-1.5"
+          className={postDark ? DARK : LIGHT}
         >
           Post anyway
         </button>

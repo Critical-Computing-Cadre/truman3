@@ -61,7 +61,7 @@ flow: [{ step: feed }, { step: exit }]
       "id,body,picture,actor,likes,place,tagged,time",
       'p1,Hi,a.jpg,ann,108,"Ithaca, New York",bob|cat,-6:00',
       'p2,Two,b.jpg,bob,1,"Ithaca, New York",,-5:00',
-      "p3,Three,c.jpg,cat,4,Lima,bob,-4:00",
+      "p3,Three,c.jpg,cat,4,Lima,bob|{participant},-4:00",
       "p4,Words only,,cat,0,,,-3:00",
       "",
     ].join("\n"),
@@ -202,6 +202,87 @@ describe("tagging people", () => {
     const { posts } = await feedOf(cookie, "");
     expect(posts.some(({ tagged }) => tagged)).toBe(false);
     expect((await feedOf(cookie, "surface=tagged&username=bob")).status).toBe(403);
+  });
+});
+
+describe("tagging the participant, and participants tagging people", () => {
+  it("names them among who's tagged, tells them, and lists it on their own Tagged tab", async () => {
+    const { slug } = await study();
+    const cookie = await join(slug);
+    const { posts } = await feedOf(cookie, "");
+    const three = posts.find(({ body }) => body === "Three");
+    expect(three?.tagged?.map(({ name, isViewer }) => [name, isViewer ?? false])).toEqual([
+      ["Bob", false],
+      [expect.stringMatching(/^user-/), true],
+    ]);
+
+    const { notifications } = (await (await call(cookie, "GET", "/notifications")).json()) as {
+      notifications: { type: string; actors: { username: string }[]; postId: string }[];
+    };
+    expect(notifications).toEqual([
+      expect.objectContaining({
+        type: "tag",
+        actors: [expect.objectContaining({ username: "cat" })],
+      }),
+    ]);
+    expect(notifications[0]?.postId).toBe(three?.id);
+
+    const me = (await (await call(cookie, "GET", "/me")).json()) as { username: string };
+    const mine = await feedOf(cookie, `surface=tagged&username=${me.username}`);
+    expect(mine.posts.map(({ body }) => body)).toEqual(["Three"]);
+  });
+
+  it("doesn't tell them with tagging off", async () => {
+    const { slug } = await study({ platform: ", features: { photoTags: false }" });
+    const cookie = await join(slug);
+    const { notifications } = (await (await call(cookie, "GET", "/notifications")).json()) as {
+      notifications: unknown[];
+    };
+    expect(notifications).toEqual([]);
+  });
+
+  it("lets a participant tag people in the cast, and no one else", async () => {
+    const { slug } = await study();
+    const cookie = await join(slug);
+    const people = (await (await call(cookie, "GET", "/people")).json()) as {
+      people: { username: string }[];
+    };
+    expect(people.people.map(({ username }) => username)).toEqual(["ann", "bob", "cat"]);
+
+    const form = (tagged: string[]) => {
+      const body = new FormData();
+      for (const [key, value] of Object.entries({ ...meta(), body: "With friends" })) {
+        body.set(key, value);
+      }
+      for (const name of tagged) {
+        body.append("tagged", name);
+      }
+      return app.request("/posts", { method: "POST", headers: { cookie }, body });
+    };
+    const me = (await (await call(cookie, "GET", "/me")).json()) as { username: string };
+    expect((await form(["ann", "nobody"])).status).toBe(400);
+    expect((await form([me.username])).status).toBe(400);
+    const made = await form(["ann", "bob", "ann"]);
+    expect(made.status).toBe(200);
+    const { id } = (await made.json()) as { id: string };
+
+    const { posts } = await feedOf(cookie, "");
+    expect(posts.find((post) => post.id === id)?.tagged?.map(({ username }) => username)).toEqual([
+      "ann",
+      "bob",
+    ]);
+    const [event] = await database.db
+      .select()
+      .from(schema.events)
+      .where(and(eq(schema.events.type, "content.created"), eq(schema.events.targetContentId, id)));
+    expect(event?.payload).toEqual({ kind: "post", tagged: ["ann", "bob"] });
+  });
+
+  it("refuses tagging, and the list of people, with the feature off", async () => {
+    const { slug } = await study({ platform: ", features: { photoTags: false }" });
+    const cookie = await join(slug);
+    expect((await call(cookie, "GET", "/people")).status).toBe(403);
+    expect((await writePost(cookie, { body: "Hi", tagged: "ann" })).status).toBe(403);
   });
 });
 
@@ -374,6 +455,7 @@ describe("saving and exporting", () => {
     const p1 = content.find(({ source_ref }) => source_ref === "p1");
     expect(p1?.place).toBe("Ithaca, New York");
     expect(p1?.tagged).toBe("bob|cat");
+    expect(content.find(({ source_ref }) => source_ref === "p3")?.tagged).toBe("bob|{participant}");
     expect(content.find(({ source_ref }) => source_ref === "h1")?.highlight).toBe("Trips");
     expect(content.find(({ source_ref }) => source_ref === "close")?.close_friends).toBe("true");
     expect(content.find(({ source_ref }) => source_ref === "now")?.close_friends).toBe("");
@@ -394,5 +476,15 @@ describe("saving and exporting", () => {
     const frozen = await freezeDraft(database.db, draft as NonNullable<typeof draft>);
     // Places, tags, highlights, and close friends all came through, so nothing changed.
     expect(frozen.status).toBe("unchanged");
+  });
+});
+
+describe('an "are you sure?" box\'s dark button', () => {
+  it("is going back, unless the study chose posting anyway", async () => {
+    const flowOf = async (slug: string) =>
+      (await (await call(await join(slug), "GET", "/me/flow")).json()) as { sureButton: string };
+    expect((await flowOf((await study()).slug)).sureButton).toBe("goBack");
+    const chosen = await study({ platform: ", sureButton: postAnyway" });
+    expect((await flowOf(chosen.slug)).sureButton).toBe("postAnyway");
   });
 });

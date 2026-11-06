@@ -7,7 +7,7 @@ entry: { idParam: PROLIFIC_PID, idLabel: ID, source: test }
 conditions:
   assignment: { method: uniform }
   arms: [{ key: main }]
-platform: { style: mixed, template: forum }
+platform: { style: mixed, template: forum, features: { appeals: true } }
 feed: { ranker: chronological }
 media: { baseUrl: "https://cdn.example.com/m" }
 flow: [{ step: feed }, { step: exit }]

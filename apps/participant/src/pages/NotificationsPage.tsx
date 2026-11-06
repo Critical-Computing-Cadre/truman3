@@ -32,6 +32,8 @@ function describe(item: NotificationItem): string {
       return `${who} reposted your ${item.targetKind}`;
     case "follow":
       return `${who} followed you`;
+    case "tag":
+      return `${who} tagged you in a post`;
     case "approve":
       return `${who} approved your ${item.targetKind}`;
     case "uphold":

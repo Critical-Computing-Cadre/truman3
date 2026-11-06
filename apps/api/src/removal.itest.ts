@@ -41,7 +41,8 @@ post,b_only,sam,-1:00,Rule 5,b
 `;
 
 async function study({
-  features = "",
+  // Appeals are off in Forum unless a study turns them on, and these tests are about them.
+  features = ", features: { appeals: true }",
   reactions = "",
   arms = "[{ key: a }, { key: b }]",
   flagAnswers = "",

@@ -146,7 +146,48 @@ async function createWorld(tx: Transaction, version: VersionRow, participantId: 
     .insert(schema.worldMemberships)
     .values({ worldId: world.id, participantId, actorId: actor.id });
 
-  return { worldId: world.id, actorId: actor.id };
+  return { worldId: world.id, actorId: actor.id, startedAt: world.startedAt };
+}
+
+/**
+ * A "tagged you" notification for each post the study tagged the participant in, in their condition,
+ * due when the post appears. Written now, like any scheduled outcome, so nothing runs later.
+ */
+async function notifyTags(
+  tx: Transaction,
+  versionId: string,
+  settings: StudySettings,
+  conditionKey: string,
+  world: { worldId: string; actorId: string; startedAt: Date },
+) {
+  if (!featureOn(settings, conditionKey, "photoTags")) {
+    return;
+  }
+  const tagged = (
+    await tx
+      .select()
+      .from(schema.content)
+      .where(
+        and(
+          eq(schema.content.studyVersionId, versionId),
+          isNull(schema.content.worldId),
+          eq(schema.content.kind, "post"),
+          eq(schema.content.tagsParticipant, true),
+        ),
+      )
+  ).filter(({ conditions }) => conditions.length === 0 || conditions.includes(conditionKey));
+  if (tagged.length > 0) {
+    await tx.insert(schema.notifications).values(
+      tagged.map((post) => ({
+        worldId: world.worldId,
+        recipientActorId: world.actorId,
+        actorId: post.authorActorId,
+        type: "tag",
+        targetContentId: post.id,
+        dueAt: new Date(world.startedAt.getTime() + (post.offsetMs ?? 0)),
+      })),
+    );
+  }
 }
 
 /** Everything a new participant needs: a condition, their own world, and an actor to act as. */
@@ -182,6 +223,7 @@ async function enroll(
       );
     }
   }
+  await notifyTags(tx, version.id, settings, condition.key, world);
 
   return { ...world, conditionId: condition.id };
 }
@@ -230,6 +272,7 @@ export async function startPilot(db: Database, versionId: string, conditionKey: 
     const place = await createWorld(tx, version, participantId);
 
     const settings = studySettingsSchema.parse(version.settings);
+    await notifyTags(tx, version.id, settings, condition.key, place);
     const token = newSessionToken();
     await tx.insert(schema.sessions).values({
       tokenHash: hashSessionToken(token),

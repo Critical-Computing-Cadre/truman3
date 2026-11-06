@@ -17,6 +17,15 @@ export function platformStyleFor(settings: StudySettings, conditionKey: string):
 
 export type CommentBox = NonNullable<StudySettings["platform"]["commentBox"]>;
 
+/** Which button an "are you sure?" box makes dark. "Go back and edit" unless a study says otherwise. */
+export function sureButtonFor(
+  settings: StudySettings,
+  conditionKey: string,
+): "goBack" | "postAnyway" {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  return arm?.platform?.sureButton ?? settings.platform.sureButton ?? "goBack";
+}
+
 /** Light, dark, or the participant's device. Light unless a study says otherwise. */
 export function themeFor(
   settings: StudySettings,
@@ -138,6 +147,7 @@ export function platformFor(settings: StudySettings, conditionKey: string) {
     platformStyle: platformStyleFor(settings, conditionKey),
     commentBox: commentBoxFor(settings, conditionKey),
     theme: themeFor(settings, conditionKey),
+    sureButton: sureButtonFor(settings, conditionKey),
     canJoinSpaces: canJoinSpacesFor(settings, conditionKey),
     canSort: canSortFor(settings, conditionKey),
     canSortComments: canSortCommentsFor(settings, conditionKey),

@@ -26,6 +26,8 @@ export const eventPayloadSchemas = {
     quoteOf: z.string().optional(),
     /** For a story, who it's for: everyone, or only their close friends. */
     audience: z.enum(["everyone", "closeFriends"]).optional(),
+    /** People in the cast they tagged in a post, by username. */
+    tagged: z.array(z.string()).optional(),
   }),
   /**
    * They saw one story, for this long. `ended` is how it ended: they went on, went back, closed the

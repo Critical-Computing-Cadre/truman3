@@ -86,6 +86,8 @@ export const TEMPLATES = {
       likes: false,
       following: false,
       adultTags: false,
+      // Kept for a study about appealing, and off otherwise, so a removal doesn't invite one.
+      appeals: false,
       followingFeed: false,
       followCounts: false,
       reposts: false,

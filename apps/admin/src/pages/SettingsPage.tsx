@@ -314,6 +314,19 @@ function StudyForm({
         ]}
       />
       <Choice
+        legend={'In an "are you sure?" box, which button is dark?'}
+        value={value.platform.sureButton ?? "goBack"}
+        onChange={(sureButton) => set({ ...value, platform: { ...value.platform, sureButton } })}
+        options={[
+          {
+            value: "goBack",
+            label: "Go back and edit",
+            hint: "Nudges people to change what they wrote. Default.",
+          },
+          { value: "postAnyway", label: "Post anyway", hint: "Nudges people to post it as it is." },
+        ]}
+      />
+      <Choice
         legend="How do comment boxes appear?"
         value={value.platform.commentBox ?? "open"}
         onChange={(commentBox) => set({ ...value, platform: { ...value.platform, commentBox } })}
