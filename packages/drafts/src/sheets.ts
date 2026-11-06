@@ -9,23 +9,24 @@ import {
   validateStudy,
 } from "@truman3/core";
 import { type Database, schema, type Transaction } from "@truman3/db";
-import { MEDIA_FOLDERS, type StudyTables, UPLOAD_SHEETS } from "@truman3/study-files";
-import { and, eq, max } from "drizzle-orm";
+import { MEDIA_FOLDERS, UPLOAD_SHEETS } from "@truman3/study-files";
+import { eq, max } from "drizzle-orm";
 import { draftToDefinition } from "./definition.ts";
 import { type EditProblem, loadDraft, writeHistory } from "./drafts.ts";
-import { actorItemData, commentItemData, type ItemIds, postItemData } from "./from-files.ts";
+import { type FileTables, type ItemIds, itemsFromTables } from "./from-files.ts";
 import {
   type ActorData,
   type CommentData,
   type DraftItem,
+  type ItemKind,
   itemDataSchemas,
   type PostData,
   type Provenance,
   type SpaceData,
 } from "./items.ts";
 
-/** What an upload adds to a draft: most of a feed, for now. */
-export type Sheets = Pick<StudyTables, "actors" | "posts" | "comments">;
+/** What an upload adds to a draft: anything a study folder can have, besides its settings. */
+export type Sheets = FileTables;
 
 const INSERT_BATCH_SIZE = 500;
 
@@ -44,38 +45,40 @@ export function checkSheets(
 ): StudyIssue[] {
   const { definition } = draftToDefinition(settings, pages, items);
   const clashes: StudyIssue[] = [];
-  const taken = (names: Set<string>, name: string, what: string, source?: Source) => {
-    if (names.has(name)) {
-      clashes.push({
-        severity: "error",
-        message: `${what} is already in this draft. An upload only adds, so give it another, or change it in the builder.`,
-        file: source?.file,
-        row: source?.row,
-      });
+  /** Names the sheets give that the draft already has, for each kind that has a name. */
+  const check = <T extends { source?: Source }>(
+    had: readonly T[],
+    adding: readonly T[],
+    nameOf: (row: T) => string,
+    what: string,
+  ) => {
+    const names = new Set(had.map(nameOf));
+    for (const row of adding) {
+      if (names.has(nameOf(row))) {
+        clashes.push({
+          severity: "error",
+          message: `${what} "${nameOf(row)}" is already in this draft. An upload only adds, so give it another, or change it in the builder.`,
+          file: row.source?.file,
+          row: row.source?.row,
+        });
+      }
     }
   };
-  const usernames = new Set(definition.actors.map(({ username }) => username));
-  const postRefs = new Set(definition.posts.map(({ ref }) => ref));
-  const commentRefs = new Set(definition.comments.map(({ ref }) => ref));
-  for (const actor of sheets.actors) {
-    taken(usernames, actor.username, `The username "${actor.username}"`, actor.source);
-  }
-  for (const post of sheets.posts) {
-    taken(postRefs, post.ref, `The post ID "${post.ref}"`, post.source);
-  }
-  for (const comment of sheets.comments) {
-    taken(commentRefs, comment.ref, `The comment ID "${comment.ref}"`, comment.source);
-  }
+  check(definition.actors, sheets.actors, ({ username }) => username, "The username");
+  check(definition.spaces, sheets.spaces, ({ key }) => key, "The space key");
+  check(definition.posts, sheets.posts, ({ ref }) => ref, "The post ID");
+  check(definition.comments, sheets.comments, ({ ref }) => ref, "The comment ID");
+  check(definition.stories, sheets.stories, ({ ref }) => ref, "The story ID");
+  check(definition.contextNotes, sheets.contextNotes, ({ ref }) => ref, "The note ID");
+  check(definition.autoRules, sheets.autoRules, ({ ref }) => ref, "The rule ID");
   if (clashes.length > 0) {
     return clashes;
   }
 
-  const together = {
-    ...definition,
-    actors: [...definition.actors, ...sheets.actors],
-    posts: [...definition.posts, ...sheets.posts],
-    comments: [...definition.comments, ...sheets.comments],
-  };
+  const together = { ...definition };
+  for (const key of Object.keys(sheets) as (keyof Sheets)[]) {
+    (together[key] as unknown[]) = [...definition[key], ...sheets[key]];
+  }
   const sheetNames: readonly string[] = UPLOAD_SHEETS;
   return validateStudy(together).filter(({ file }) => file && sheetNames.includes(file));
 }
@@ -83,7 +86,7 @@ export function checkSheets(
 type Source = { file: string; row: number } | undefined;
 
 export type AddSheetsResult =
-  | { added: { actors: number; posts: number; comments: number }; warnings: StudyIssue[] }
+  | { added: Partial<Record<ItemKind, number>>; warnings: StudyIssue[] }
   | { issues: StudyIssue[] }
   | EditProblem;
 
@@ -111,34 +114,51 @@ export async function addSheets(
     }
 
     const stored = (folder: string, name: string) => mediaKeys.get(path.join(folder, name)) ?? name;
-    const actors = sheets.actors.map((actor) => ({
-      ...actor,
-      ...(actor.picture ? { picture: stored(MEDIA_FOLDERS.actors, actor.picture) } : {}),
-      ...(actor.banner ? { banner: stored(MEDIA_FOLDERS.actors, actor.banner) } : {}),
-    }));
-    const posts = sheets.posts.map((post) => ({
-      ...post,
-      pictures: post.pictures.map((picture) => stored(MEDIA_FOLDERS.posts, picture)),
-    }));
+    const tables: Sheets = {
+      ...sheets,
+      actors: sheets.actors.map((actor) => ({
+        ...actor,
+        ...(actor.picture ? { picture: stored(MEDIA_FOLDERS.actors, actor.picture) } : {}),
+        ...(actor.banner ? { banner: stored(MEDIA_FOLDERS.actors, actor.banner) } : {}),
+      })),
+      spaces: sheets.spaces.map((space) => ({
+        ...space,
+        ...(space.picture ? { picture: stored(MEDIA_FOLDERS.spaces, space.picture) } : {}),
+        ...(space.banner ? { banner: stored(MEDIA_FOLDERS.spaces, space.banner) } : {}),
+      })),
+      posts: sheets.posts.map((post) => ({
+        ...post,
+        pictures: post.pictures.map((picture) => stored(MEDIA_FOLDERS.posts, picture)),
+      })),
+      stories: sheets.stories.map((story) => ({
+        ...story,
+        picture: stored(MEDIA_FOLDERS.posts, story.picture),
+      })),
+    };
 
     const ofKind = <T>(kind: string) =>
       items
         .filter((item) => item.kind === kind)
         .map((item) => ({ id: item.id, data: item.data as T }));
+    const fresh = <T>(rows: readonly T[], nameOf: (row: T) => string) =>
+      rows.map((row) => [nameOf(row), crypto.randomUUID()] as const);
     const ids: ItemIds = {
       actors: new Map([
         ...ofKind<ActorData>("actor").map(({ id, data }) => [data.username, id] as const),
-        ...actors.map(({ username }) => [username, crypto.randomUUID()] as const),
+        ...fresh(tables.actors, ({ username }) => username),
       ]),
       posts: new Map([
         ...ofKind<PostData>("post").map(({ id, data }) => [data.ref, id] as const),
-        ...posts.map(({ ref }) => [ref, crypto.randomUUID()] as const),
+        ...fresh(tables.posts, ({ ref }) => ref),
       ]),
       comments: new Map([
         ...ofKind<CommentData>("comment").map(({ id, data }) => [data.ref, id] as const),
-        ...sheets.comments.map(({ ref }) => [ref, crypto.randomUUID()] as const),
+        ...fresh(tables.comments, ({ ref }) => ref),
       ]),
-      spaces: new Map(ofKind<SpaceData>("space").map(({ id, data }) => [data.key, id] as const)),
+      spaces: new Map([
+        ...ofKind<SpaceData>("space").map(({ id, data }) => [data.key, id] as const),
+        ...fresh(tables.spaces, ({ key }) => key),
+      ]),
     };
 
     // The same sheets draw the same like counts, as a pack does.
@@ -151,32 +171,24 @@ export async function addSheets(
     const drawLikes = (explicit: number | undefined, distribution: number[] | undefined) =>
       explicit ?? (distribution ? pickFrom(distribution, random) : 0);
 
-    const after = await lastPositions(tx, draftId);
+    // What's added goes after what each kind already has.
+    const next = await nextPositions(tx, draftId);
     const provenance: Provenance = { origin: "file" };
-    const rows = [
-      ...actors.map((actor, index) => ({
-        id: ids.actors.get(actor.username) as string,
-        kind: "actor" as const,
-        position: after.actor + 1 + index,
-        data: itemDataSchemas.actor.parse(actorItemData(actor, ids)),
-      })),
-      ...posts.map((post, index) => ({
-        id: ids.posts.get(post.ref) as string,
-        kind: "post" as const,
-        position: after.post + 1 + index,
-        data: itemDataSchemas.post.parse(
-          postItemData(post, ids, drawLikes(post.likes, loaded.settings.likes.posts)),
-        ),
-      })),
-      ...sheets.comments.map((comment, index) => ({
-        id: ids.comments.get(comment.ref) as string,
-        kind: "comment" as const,
-        position: after.comment + 1 + index,
-        data: itemDataSchemas.comment.parse(
-          commentItemData(comment, ids, drawLikes(comment.likes, loaded.settings.likes.comments)),
-        ),
-      })),
-    ];
+    const added: Partial<Record<ItemKind, number>> = {};
+    const rows = itemsFromTables(tables, ids, {
+      post: (given) => drawLikes(given, loaded.settings.likes.posts),
+      comment: (given) => drawLikes(given, loaded.settings.likes.comments),
+    }).map(({ id, kind, data }) => {
+      const position = next.get(kind) ?? 0;
+      next.set(kind, position + 1);
+      added[kind] = (added[kind] ?? 0) + 1;
+      return {
+        id: id ?? crypto.randomUUID(),
+        kind,
+        position,
+        data: itemDataSchemas[kind].parse(data) as Record<string, unknown>,
+      };
+    });
 
     for (let i = 0; i < rows.length; i += INSERT_BATCH_SIZE) {
       const batch = rows.slice(i, i + INSERT_BATCH_SIZE);
@@ -200,21 +212,16 @@ export async function addSheets(
       .set({ updatedAt: new Date() })
       .where(eq(schema.studyDrafts.id, draftId));
 
-    return {
-      added: { actors: actors.length, posts: posts.length, comments: sheets.comments.length },
-      warnings: issues,
-    };
+    return { added, warnings: issues };
   });
 }
 
-/** Where each kind of item ends, so what's added goes after it. */
-async function lastPositions(tx: Transaction, draftId: string) {
-  const last = async (kind: string) => {
-    const [row] = await tx
-      .select({ position: max(schema.draftItems.position) })
-      .from(schema.draftItems)
-      .where(and(eq(schema.draftItems.draftId, draftId), eq(schema.draftItems.kind, kind)));
-    return row?.position ?? -1;
-  };
-  return { actor: await last("actor"), post: await last("post"), comment: await last("comment") };
+/** Where each kind of item would go next, after what the draft has of it. */
+async function nextPositions(tx: Transaction, draftId: string) {
+  const rows = await tx
+    .select({ kind: schema.draftItems.kind, position: max(schema.draftItems.position) })
+    .from(schema.draftItems)
+    .where(eq(schema.draftItems.draftId, draftId))
+    .groupBy(schema.draftItems.kind);
+  return new Map<string, number>(rows.map(({ kind, position }) => [kind, (position ?? -1) + 1]));
 }

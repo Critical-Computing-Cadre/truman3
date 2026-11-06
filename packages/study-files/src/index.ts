@@ -11,8 +11,10 @@ export {
 export {
   blankSheets,
   type SheetPlatform,
+  sheetAbout,
   sheetColumns,
   sheetPlatform,
+  sheetsFor,
   UPLOAD_SHEETS,
   type UploadSheet,
 } from "./sheets.ts";

@@ -10,8 +10,41 @@ interface SheetIssue {
 }
 
 interface Added {
-  added: { actors: number; posts: number; comments: number };
+  /** How many of each kind of item, by kind, such as `post`. */
+  added: Record<string, number>;
   warnings: SheetIssue[];
+}
+
+/** What each kind of item is called, one and many, in the order the builder lists them. */
+const KIND_NAMES: [string, string, string][] = [
+  ["actor", "person", "people"],
+  ["space", "community", "communities"],
+  ["post", "post", "posts"],
+  ["comment", "comment", "comments"],
+  ["reaction", "response", "responses"],
+  ["story", "story", "stories"],
+  ["contextNote", "context note", "context notes"],
+  ["removal", "removal", "removals"],
+  ["label", "label", "labels"],
+  ["flagAnswer", "answer to flags", "answers to flags"],
+  ["reportAnswer", "answer to reports", "answers to reports"],
+  ["ban", "ban", "bans"],
+  ["autoRule", "rule", "rules"],
+  ["appealAnswer", "answer to appeals", "answers to appeals"],
+];
+
+/** "2 people, 1 post, and 3 comments", for what was added. */
+function describeAdded(added: Record<string, number>) {
+  const parts = KIND_NAMES.flatMap(([kind, one, many]) => {
+    const n = added[kind] ?? 0;
+    return n > 0 ? [`${n} ${n === 1 ? one : many}`] : [];
+  });
+  if (parts.length === 0) {
+    return "nothing";
+  }
+  return parts.length === 1
+    ? (parts[0] as string)
+    : `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}`;
 }
 
 /** An upload that was refused, with what to fix. */
@@ -41,8 +74,6 @@ async function uploadSheets(draftId: string, file: File): Promise<Added> {
 
 const where = ({ file, row }: SheetIssue) => (file ? `${file}${row ? `, row ${row}` : ""}: ` : "");
 
-const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
 function IssueList({ issues }: { issues: SheetIssue[] }) {
   return (
     <ul className="max-h-60 list-disc overflow-y-auto pl-5">
@@ -59,9 +90,10 @@ function IssueList({ issues }: { issues: SheetIssue[] }) {
 }
 
 /**
- * Adds people, posts, and comments to a draft from sheets. It starts with sheets made for this kind
- * of platform, filled in anywhere, and zipped up with their pictures. An upload adds to the draft,
- * all at once or not at all, so a mistake in row 40 doesn't leave half of it in.
+ * Adds to a draft from sheets: people, posts, comments, and anything else a study folder has. It
+ * starts with sheets made for this kind of platform, filled in anywhere, and zipped up with their
+ * pictures. An upload adds to the draft, all at once or not at all, so a mistake in row 40 doesn't
+ * leave half of it in.
  */
 export function SheetUpload({ draftId }: { draftId: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -98,13 +130,7 @@ export function SheetUpload({ draftId }: { draftId: string }) {
         {add.data ? (
           <div className="space-y-3 text-sm">
             <p role="status">
-              Added{" "}
-              {[
-                count(add.data.added.actors, "person", "people"),
-                count(add.data.added.posts, "post", "posts"),
-                count(add.data.added.comments, "comment", "comments"),
-              ].join(", ")}
-              . You can undo it from Recent changes.
+              Added {describeAdded(add.data.added)}. You can undo it from Recent changes.
             </p>
             {add.data.warnings.length > 0 && (
               <div className="rounded bg-amber-50 p-3 text-amber-900">
@@ -139,8 +165,9 @@ export function SheetUpload({ draftId }: { draftId: string }) {
                 >
                   Download the sheets
                 </a>{" "}
-                for people, posts, and comments. They have a column for each thing this platform
-                shows, and an example row.
+                for this platform: the cast, posts, comments, and whatever else it has on, such as
+                communities, stories, or moderation. Each has a column for what this platform shows,
+                and example rows.
               </li>
               <li>
                 Fill them in, in a spreadsheet such as Excel or Google Sheets, and save as CSV.

@@ -137,7 +137,7 @@ describe("sheets for a draft", () => {
       "media/posts/lake.png": PNG,
     });
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ added: { actors: 2, posts: 2, comments: 2 } });
+    expect(await response.json()).toMatchObject({ added: { actor: 2, post: 2, comment: 2 } });
 
     const actors = await itemsOf(draftId, "actor");
     const ann = actors.find(({ data }) => (data as { username: string }).username === "ann");
@@ -264,5 +264,74 @@ describe("sheets for a draft", () => {
     const draftId = await team.draft("classic");
     const empty = await team.send(`/admin/drafts/${draftId}/sheets`, { "notes.txt": "hi" });
     expect(await empty.json()).toMatchObject({ error: expect.stringContaining("There's no") });
+  });
+
+  it("downloads a sheet for each thing the platform has, such as communities and moderation", async () => {
+    const team = await lab();
+    const draftId = await team.draft("forum");
+    const response = await team.call("GET", `/admin/drafts/${draftId}/sheets`);
+    const files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+    expect(Object.keys(files)).toEqual(
+      expect.arrayContaining(["spaces.csv", "removals.csv", "bans.csv", "auto-rules.csv"]),
+    );
+    expect(Object.keys(files)).not.toContain("stories.csv");
+    const note = strFromU8(files["how to fill these in.txt"] as Uint8Array);
+    expect(note).toContain("- spaces.csv: The communities.");
+  });
+
+  it("adds communities, moderation, and responses, pointing at what's there and what's new", async () => {
+    const team = await lab();
+    const draftId = await team.draft("forum");
+    await team.send(`/admin/drafts/${draftId}/sheets`, { "actors.csv": PLAIN_ACTORS });
+    const response = await team.send(`/admin/drafts/${draftId}/sheets`, {
+      "actors.csv": "username,name,moderator\nmods,Moderators,yes\n",
+      "spaces.csv": "key,name\nhiking,Hiking\n",
+      "media/spaces/hiking.png": PNG,
+      "posts.csv": "id,actor,time,title,body,space\np1,ann,-2:00,Trail,Up we go,hiking\n",
+      "removals.csv": "on,target,actor,time,reason\npost,p1,mods,1:00,Off topic\n",
+      "bans.csv": "user,actor,time,space\nbob,mods,2:00,hiking\n",
+      "reactions.csv": "on,nth,type,actor,after,body\npost,0,reply,ann,0:05,Welcome!\n",
+      "auto-rules.csv":
+        "id,on,match,action,actor,after,message\nr1,both,buy now,confirm,mods,0:00,Sure?\n",
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      added: { actor: 1, space: 1, post: 1, removal: 1, ban: 1, reaction: 1, autoRule: 1 },
+    });
+
+    const [space] = await itemsOf(draftId, "space");
+    const [post] = await itemsOf(draftId, "post");
+    const [removal] = await itemsOf(draftId, "removal");
+    const [ban] = await itemsOf(draftId, "ban");
+    const bob = (await itemsOf(draftId, "actor")).find(
+      ({ data }) => (data as { username: string }).username === "bob",
+    );
+    expect(post?.data).toMatchObject({ spaceId: space?.id });
+    expect(removal?.data).toMatchObject({ on: "post", targetId: post?.id, reason: "Off topic" });
+    expect(ban?.data).toMatchObject({ bannedActorId: bob?.id, spaceId: space?.id });
+
+    // A community's key is taken now, so the same one again is refused.
+    const again = await team.send(`/admin/drafts/${draftId}/sheets`, {
+      "spaces.csv": "key,name\nhiking,Hiking again\n",
+    });
+    expect(await again.json()).toMatchObject({
+      issues: [{ file: "spaces.csv", row: 2, message: expect.stringContaining('"hiking"') }],
+    });
+  });
+
+  it("adds stories with their pictures", async () => {
+    const team = await lab();
+    const draftId = await team.draft("photo");
+    const response = await team.send(`/admin/drafts/${draftId}/sheets`, {
+      "actors.csv": PLAIN_ACTORS,
+      "stories.csv": "id,actor,picture,time,caption\ns1,ann,sunrise.png,-1:00,Morning\n",
+      "media/posts/sunrise.png": PNG,
+    });
+    expect(response.status).toBe(200);
+    const [story] = await itemsOf(draftId, "story");
+    expect(story?.data).toMatchObject({
+      caption: "Morning",
+      picture: expect.stringMatching(/^media\/[0-9a-f]{64}\.png$/),
+    });
   });
 });

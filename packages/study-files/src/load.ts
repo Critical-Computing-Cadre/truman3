@@ -83,7 +83,7 @@ export const POSTS: CsvSpec = {
     "class",
   ],
 };
-const SPACES: CsvSpec = {
+export const SPACES: CsvSpec = {
   required: ["key", "name"],
   optional: [
     "description",
@@ -104,27 +104,27 @@ export const COMMENTS: CsvSpec = {
   required: ["id", "body", "actor", "postID", "time"],
   optional: ["replyToID", "likes", "ups", "downs", "condition", "class"],
 };
-const REACTIONS: CsvSpec = {
+export const REACTIONS: CsvSpec = {
   required: ["on", "nth", "type", "actor", "after"],
   optional: ["body", "condition", "class"],
 };
-const FLAG_ANSWERS: CsvSpec = {
+export const FLAG_ANSWERS: CsvSpec = {
   required: ["action", "actor", "after"],
   optional: ["on", "target", "message", "condition", "class"],
 };
-const BANS: CsvSpec = {
+export const BANS: CsvSpec = {
   required: ["user", "actor", "time"],
   optional: ["reason", "space", "condition", "class"],
 };
-const REPORT_ANSWERS: CsvSpec = {
+export const REPORT_ANSWERS: CsvSpec = {
   required: ["action", "actor", "after"],
   optional: ["user", "message", "condition", "class"],
 };
-const AUTO_RULES: CsvSpec = {
+export const AUTO_RULES: CsvSpec = {
   required: ["id", "on", "match", "action", "actor", "after"],
   optional: ["message", "holdOutcome", "condition", "class"],
 };
-const APPEAL_ANSWERS: CsvSpec = {
+export const APPEAL_ANSWERS: CsvSpec = {
   required: ["action", "actor", "after"],
   optional: ["message", "condition", "class"],
 };
@@ -137,19 +137,19 @@ function listOf<K extends string>(key: K, cell: string | undefined): { [P in K]?
   return (names.length > 0 ? { [key]: names } : {}) as { [P in K]?: string[] };
 }
 
-const STORIES: CsvSpec = {
+export const STORIES: CsvSpec = {
   required: ["id", "actor", "picture", "time"],
   optional: ["caption", "lastsHours", "highlight", "closeFriends", "condition", "class"],
 };
-const CONTEXT_NOTES: CsvSpec = {
+export const CONTEXT_NOTES: CsvSpec = {
   required: ["id", "postID", "body", "time"],
   optional: ["helpful", "notHelpful", "condition", "class"],
 };
-const REMOVALS: CsvSpec = {
+export const REMOVALS: CsvSpec = {
   required: ["on", "target", "actor", "time"],
   optional: ["reason", "condition", "class"],
 };
-const LABELS: CsvSpec = {
+export const LABELS: CsvSpec = {
   required: ["on", "target", "actor", "time", "label"],
   optional: ["hides", "reason", "condition", "class"],
 };
