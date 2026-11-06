@@ -13,6 +13,7 @@ import {
 import { AuthorFlair, PostFlair } from "../features/flair.tsx";
 import { PostPhotos } from "../features/galleries.tsx";
 import { KarmaBadge } from "../features/karma.tsx";
+import { useLabels } from "../features/labels.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
 import { useMoreMenu } from "../features/more-menu.tsx";
 import { WhoAndWhere } from "../features/places-tags.tsx";
@@ -54,6 +55,7 @@ function Comment({
       <span className={className}>{children}</span>
     );
 
+  const labels = useLabels(comment, actions, Boolean(renderBody));
   if (comment.flagged) {
     return <FlaggedComment comment={comment} actions={actions} />;
   }
@@ -65,7 +67,9 @@ function Comment({
         <Avatar seed={comment.author.username} url={comment.author.pictureUrl} size="h-8 w-8" />,
       )}
       <div className="min-w-0 flex-1">
-        {renderBody ? (
+        {labels.covered ? (
+          <p className="text-sm">{author("font-semibold", comment.author.name)}</p>
+        ) : renderBody ? (
           <div className="text-sm">
             {author("font-semibold", comment.author.name)}
             <ModeratorTag author={comment.author} />
@@ -82,6 +86,7 @@ function Comment({
           </p>
         )}
         <RemovedNote item={comment} actions={actions} className="mt-1" />
+        {labels.bar && <div className="mt-1">{labels.bar}</div>}
         <p className="mt-0.5 flex gap-3 text-xs text-stone-500">
           <span>{shortTime(comment.at)}</span>
           <CommentLikeButton comment={comment} actions={actions} />
@@ -123,6 +128,7 @@ export function ClassicPost({
   const crosspostingOn = useFeature("crossposting");
   const repostsOn = useFeature("reposts");
   const quotesOn = useFeature("quotes");
+  const labels = useLabels(post, actions, Boolean(renderBody));
   const more = useMoreMenu(["saving", "hiding", "threadMuting", "crossposting", "quotes"], "py-2");
   const lessUsed = (className: string) => (
     <>
@@ -178,27 +184,30 @@ export function ClassicPost({
         />
         <PostFlair post={post} className="px-3 pb-2" />
         <RemovedNote item={post} actions={actions} className="mx-3 mb-2" />
-        <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
-          {wrapImage ? wrapImage(image) : image}
-          {renderBody ? (
-            <div className="p-3">{renderBody(post.id, post.body)}</div>
-          ) : (
-            post.body && (
-              <p className="p-3 break-words whitespace-pre-wrap">
-                <PostText text={post.body} />
-              </p>
-            )
-          )}
-          <PostLink post={post} actions={actions} />
-          <PostPoll post={post} actions={actions} />
-          <ContextNoteBox post={post} actions={actions} />
-          <CrosspostOriginal
-            post={post}
-            {...(renderPostLink ? { renderPostLink } : {})}
-            {...(renderSpace ? { renderSpace } : {})}
-          />
-          <QuotedPost post={post} {...(renderPostLink ? { renderPostLink } : {})} />
-        </TagCover>
+        {labels.bar && <div className="mx-3 mb-2">{labels.bar}</div>}
+        {!labels.covered && (
+          <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
+            {wrapImage ? wrapImage(image) : image}
+            {renderBody ? (
+              <div className="p-3">{renderBody(post.id, post.body)}</div>
+            ) : (
+              post.body && (
+                <p className="p-3 break-words whitespace-pre-wrap">
+                  <PostText text={post.body} />
+                </p>
+              )
+            )}
+            <PostLink post={post} actions={actions} />
+            <PostPoll post={post} actions={actions} />
+            <ContextNoteBox post={post} actions={actions} />
+            <CrosspostOriginal
+              post={post}
+              {...(renderPostLink ? { renderPostLink } : {})}
+              {...(renderSpace ? { renderSpace } : {})}
+            />
+            <QuotedPost post={post} {...(renderPostLink ? { renderPostLink } : {})} />
+          </TagCover>
+        )}
         {renderNote && <div className="px-3 pb-2 empty:hidden">{renderNote(post.id)}</div>}
       </div>
 

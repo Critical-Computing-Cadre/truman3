@@ -132,6 +132,134 @@ function ConditionChoices({
 
 const shorten = (text: string) => (text.length > 60 ? `${text.slice(0, 60)}...` : text);
 
+/** Which post or comment the study wrote that a moderator's decision is about. */
+function TargetPicker({
+  label,
+  item,
+  info,
+  onSave,
+}: {
+  label: string;
+  item: { on: "post" | "comment"; targetId: string };
+  info: DraftInfo;
+  onSave: (changes: { on: string | undefined; targetId: string | undefined }) => void;
+}) {
+  return (
+    <label className={`${LABEL} sm:col-span-2`}>
+      {label}
+      <select
+        disabled={!info.canEdit}
+        value={`${item.on}:${item.targetId}`}
+        onChange={(event) => {
+          const [on, targetId] = event.target.value.split(":");
+          onSave({ on, targetId });
+        }}
+        className={INPUT}
+      >
+        <optgroup label="Posts">
+          {info.posts.map((post) => (
+            <option key={post.id} value={`post:${post.id}`}>
+              {post.authorName}: {shorten(post.title ?? post.body) || "(no text)"}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Comments">
+          {info.comments.map((comment) => (
+            <option key={comment.id} value={`comment:${comment.id}`}>
+              {comment.authorName}: {shorten(comment.body)}
+            </option>
+          ))}
+        </optgroup>
+      </select>
+    </label>
+  );
+}
+
+/** A label on what the study wrote, such as "Spam", which can cover it until someone presses Show. */
+function LabelCard({
+  labeling,
+  info,
+  edits,
+}: {
+  labeling: DraftInfo["labels"][number];
+  info: DraftInfo;
+  edits: DraftEdits;
+}) {
+  const [problem, setProblem] = useState<string | null>(null);
+  const save = (changes: object) => {
+    setProblem(null);
+    edits.update.mutate(
+      { itemId: labeling.id, changes },
+      { onError: (error) => setProblem(error.message) },
+    );
+  };
+  return (
+    <li aria-label="Label" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <TargetPicker label="What it labels" item={labeling} info={info} onSave={save} />
+        <CastField
+          label="The label"
+          value={labeling.label}
+          canEdit={info.canEdit}
+          required
+          onSave={(label) => save({ label })}
+        />
+        <ModeratorPicker
+          actors={info.actors}
+          value={labeling.actorId}
+          canEdit={info.canEdit}
+          onChange={(actorId) => save({ actorId })}
+        />
+        <TimeField
+          label="When"
+          help="hours:minutes from when they start"
+          valueMs={labeling.timeMs}
+          canEdit={info.canEdit}
+          allowBefore
+          onSave={(timeMs) => save({ timeMs })}
+        />
+      </div>
+      <SavedCheckbox
+        checked={labeling.hides}
+        disabled={!info.canEdit}
+        onChange={(hides) => save({ hides })}
+        className="flex items-center gap-2 text-sm"
+      >
+        Cover it until someone presses Show
+      </SavedCheckbox>
+      <CastField
+        label="Reason shown (optional)"
+        value={labeling.reason}
+        canEdit={info.canEdit}
+        multiline
+        onSave={(reason) => save({ reason: reason || null })}
+      />
+      <ConditionChoices
+        all={info.conditions.map(({ key }) => key)}
+        chosen={labeling.conditions}
+        canEdit={info.canEdit}
+        onChange={(conditions) => save({ conditions })}
+      />
+      {problem && (
+        <p role="alert" className="text-sm text-rose-700">
+          {problem}
+        </p>
+      )}
+      {info.canEdit && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => edits.remove.mutate(labeling.id)}
+            className="rounded border border-stone-300 px-2 py-1 text-xs"
+          >
+            Delete this label
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
 function RemovalCard({
   removal,
   info,
@@ -149,37 +277,10 @@ function RemovalCard({
       { onError: (error) => setProblem(error.message) },
     );
   };
-  const value = `${removal.on}:${removal.targetId}`;
   return (
     <li aria-label="Removal" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
       <div className="grid gap-2 sm:grid-cols-2">
-        <label className={`${LABEL} sm:col-span-2`}>
-          What it removes
-          <select
-            disabled={!info.canEdit}
-            value={value}
-            onChange={(event) => {
-              const [on, targetId] = event.target.value.split(":");
-              save({ on, targetId });
-            }}
-            className={INPUT}
-          >
-            <optgroup label="Posts">
-              {info.posts.map((post) => (
-                <option key={post.id} value={`post:${post.id}`}>
-                  {post.authorName}: {shorten(post.title ?? post.body) || "(no text)"}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="Comments">
-              {info.comments.map((comment) => (
-                <option key={comment.id} value={`comment:${comment.id}`}>
-                  {comment.authorName}: {shorten(comment.body)}
-                </option>
-              ))}
-            </optgroup>
-          </select>
-        </label>
+        <TargetPicker label="What it removes" item={removal} info={info} onSave={save} />
         <ModeratorPicker
           actors={info.actors}
           value={removal.actorId}
@@ -258,6 +359,7 @@ function ReactionCard({
           >
             <option value="remove">Remove it</option>
             <option value="warn">Warn them</option>
+            <option value="label">Label it</option>
           </select>
         </label>
         <ModeratorPicker
@@ -305,10 +407,16 @@ function ReactionCard({
         />
       </div>
       <CastField
-        label={reaction.type === "warn" ? "What the warning says" : "Reason shown (optional)"}
+        label={
+          reaction.type === "warn"
+            ? "What the warning says"
+            : reaction.type === "label"
+              ? "The label"
+              : "Reason shown (optional)"
+        }
         value={reaction.body}
         canEdit={info.canEdit}
-        required={reaction.type === "warn"}
+        required={reaction.type === "warn" || reaction.type === "label"}
         multiline
         onSave={(body) => save({ body: body || null })}
       />
@@ -987,11 +1095,13 @@ export function ModerationPage() {
     data.actors.find((actor) => actor.moderator)?.id ?? (data.actors[0]?.id as string);
   const removalOn = data.conditions.some(({ features }) => features.removal);
   const warningsOn = data.conditions.some(({ features }) => features.warnings);
+  const labelsOn = data.conditions.some(({ features }) => features.labels);
   const firstPost = [...data.posts].sort((a, b) => a.offsetMs - b.offsetMs)[0];
 
   const add = (
     kind:
       | "removal"
+      | "label"
       | "reaction"
       | "flagAnswer"
       | "ban"
@@ -1065,6 +1175,51 @@ export function ModerationPage() {
           ))}
         </ul>
       </section>
+
+      {(labelsOn || data.labels.length > 0) && (
+        <section aria-label="Labels" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="font-semibold">Labeling what the study wrote</h2>
+              <p className="text-sm text-stone-500">
+                A label, such as Spam or Misleading, can sit above a post or comment, or cover it
+                until someone presses Show. Pressing Show is recorded.
+              </p>
+            </div>
+            {data.canEdit && (
+              <button
+                type="button"
+                disabled={!firstPost || !moderator || edits.create.isPending}
+                title={!firstPost ? "Write a post first." : undefined}
+                onClick={() =>
+                  add("label", {
+                    on: "post",
+                    targetId: firstPost?.id,
+                    actorId: moderator,
+                    timeMs: firstPost?.offsetMs,
+                    label: "Spam",
+                    hides: true,
+                    conditions: [],
+                  })
+                }
+                className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              >
+                Add a label
+              </button>
+            )}
+          </div>
+          {!labelsOn && (
+            <p className="rounded bg-amber-100 p-2 text-sm text-amber-900">
+              Labels on posts are off in Settings, so these won't show.
+            </p>
+          )}
+          <ul className="space-y-3">
+            {data.labels.map((labeling) => (
+              <LabelCard key={labeling.id} labeling={labeling} info={data} edits={edits} />
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section aria-label="What someone flags" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">

@@ -198,6 +198,9 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
           onReveal: (id) => {
             send(`/content/${id}/reveal`).catch(() => {});
           },
+          onLabelShown: (id, label) => {
+            send(`/content/${id}/label-shown`, { label }).catch(() => {});
+          },
           onAppeal: (id, text) => {
             send(`/content/${id}/appeal`, { text })
               .catch(() => {})

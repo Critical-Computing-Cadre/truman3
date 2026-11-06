@@ -16,9 +16,11 @@ export interface PostActions {
   onShare?: (contentId: string) => Promise<boolean>;
   onOpenLink?: (contentId: string) => void;
   onReveal?: (contentId: string) => void;
+  /** Records pressing Show on what a moderator's label covered, by what the label says. */
+  onLabelShown?: (contentId: string, label: string) => void;
   /** Chooses an option in a poll, by its place in the list. */
   onPollVote?: (contentId: string, option: number) => void;
-  /** Appeals a moderator's removal of what they wrote. */
+  /** Appeals a moderator's removal or label of what they wrote. */
   onAppeal?: (contentId: string, text: string) => void;
   /** Rates the context note on a post. Null takes the rating back. */
   onRateNote?: (contentId: string, value: "helpful" | "not_helpful" | null) => void;

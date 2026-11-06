@@ -2,6 +2,7 @@ import {
   type CommentSort,
   type FeatureSet,
   type FeedAuthor,
+  type FeedLabel,
   type FeedOriginal,
   type FeedPoll,
   type FeedPost,
@@ -301,6 +302,78 @@ export async function loadRemovals(
   return removals;
 }
 
+/** A moderator's label on something, such as "Spam". */
+export interface Label {
+  text: string;
+  actorId: string;
+  hides: boolean;
+  reason: string | null;
+  /** When it came due. */
+  at: Date;
+}
+
+/**
+ * What moderators have labeled so far for this person, by content ID: scripted labels on what the
+ * study wrote, and scripted reactions to what they wrote, which never hide it from them. As with
+ * removals, nothing has to run later. An appeal that puts something back takes its labels off.
+ */
+export async function loadLabels(
+  db: Pick<Database, "select">,
+  context: ParticipantContext,
+  now: Date,
+): Promise<Map<string, Label[]>> {
+  const labels = new Map<string, Label[]>();
+  if (!featureOn(context.settings, context.conditionKey, "labels")) {
+    return labels;
+  }
+  const add = (contentId: string, label: Label) =>
+    labels.set(contentId, [...(labels.get(contentId) ?? []), label]);
+  const startMs = context.worldStartedAt.getTime();
+  const scripted = await db
+    .select()
+    .from(schema.scriptedLabels)
+    .where(
+      and(
+        eq(schema.scriptedLabels.studyVersionId, context.studyVersionId),
+        lte(schema.scriptedLabels.offsetMs, now.getTime() - startMs),
+      ),
+    )
+    .orderBy(asc(schema.scriptedLabels.offsetMs), asc(schema.scriptedLabels.id));
+  for (const row of scripted) {
+    if (row.conditions.length === 0 || row.conditions.includes(context.conditionKey)) {
+      add(row.contentId, {
+        text: row.label,
+        actorId: row.actorId,
+        hides: row.hides,
+        reason: row.reason,
+        at: new Date(startMs + row.offsetMs),
+      });
+    }
+  }
+  const reactions = await db
+    .select()
+    .from(schema.notifications)
+    .where(
+      and(
+        eq(schema.notifications.worldId, context.worldId),
+        inArray(schema.notifications.type, ["label", "restore"]),
+        lte(schema.notifications.dueAt, now),
+      ),
+    )
+    .orderBy(asc(schema.notifications.dueAt));
+  for (const { type, targetContentId, actorId, reason, dueAt } of reactions) {
+    if (!targetContentId) {
+      continue;
+    }
+    if (type === "restore") {
+      labels.delete(targetContentId);
+    } else {
+      add(targetContentId, { text: reason ?? "", actorId, hides: false, reason: null, at: dueAt });
+    }
+  }
+  return labels;
+}
+
 /** Someone in the cast a moderator has banned. Without a space, it's from everywhere. */
 export interface Ban {
   bannedActorId: string;
@@ -585,6 +658,7 @@ export async function shapeFeedPosts({
   pollChoices = new Map(),
   canSeeOriginal = () => true,
   removals = new Map(),
+  labels = new Map(),
   bans = [],
   heldIds = new Set(),
   appealedIds = new Set(),
@@ -624,6 +698,8 @@ export async function shapeFeedPosts({
   canSeeOriginal?: (row: FeedContent) => boolean;
   /** What a moderator has taken down so far, by content ID. */
   removals?: ReadonlyMap<string, Removal>;
+  /** What moderators have labeled so far, by content ID. */
+  labels?: ReadonlyMap<string, readonly Label[]>;
   /** Who a moderator has banned so far. */
   bans?: readonly Ban[];
   /** What's waiting for a moderator's approval now. */
@@ -687,6 +763,7 @@ export async function shapeFeedPosts({
         const removal = removals.get(id);
         return removal ? [removal.actorId] : [];
       }),
+      ...shownIds.flatMap((id) => (labels.get(id) ?? []).map(({ actorId }) => actorId)),
     ]),
   ];
   const authorById = await loadAuthors(authorIds);
@@ -775,8 +852,28 @@ export async function shapeFeedPosts({
     return { removed, withheld: item.authorActorId !== viewerActorId };
   };
 
+  /** What a browser gets about labels. A removal says more, so it takes their place. */
+  const labelsOf = (item: FeedContent): FeedLabel[] => {
+    const own = item.authorActorId === viewerActorId;
+    return removals.has(item.id)
+      ? []
+      : (labels.get(item.id) ?? []).map((label) => {
+          const moderator = authorById.get(label.actorId) as FeedActor;
+          return {
+            text: label.text,
+            by: (moderator.profile as ActorProfile).name ?? moderator.username,
+            hides: label.hides && !own,
+            ...(label.reason ? { reason: label.reason } : {}),
+            ...(features.appeals && own
+              ? { appeal: appealedIds.has(item.id) ? ("sent" as const) : ("open" as const) }
+              : {}),
+          };
+        });
+  };
+
   const common = (item: FeedContent, spaceId: string | null) => {
     const { removed, withheld } = removalOf(item);
+    const labeled = labelsOf(item);
     const liked = likedContentIds.has(item.id);
     const vote = viewerVotes.get(item.id) ?? null;
     const scripted = (type: string) => scriptedCounts.get(`${type}:${item.id}`) ?? 0;
@@ -793,6 +890,7 @@ export async function shapeFeedPosts({
       // A flag's cover and its button to undo it have no place on what's already gone.
       flagged: !removed && flaggedContentIds.has(item.id),
       ...(removed ? { removed } : {}),
+      ...(labeled.length > 0 ? { labels: labeled } : {}),
       ...(heldIds.has(item.id) && !removed ? { held: true as const } : {}),
     };
   };
@@ -1266,6 +1364,7 @@ export async function buildFeed(
   const karmaOn = featureOn(context.settings, context.conditionKey, "karma");
   const elapsedMs = now.getTime() - worldStartMs;
   const removals = await loadRemovals(db, context, now);
+  const labels = await loadLabels(db, context, now);
 
   const contextNotes = await loadContextNotes(db, context, now, state.noteRatings);
   const shaped = await shapeFeedPosts({
@@ -1300,6 +1399,7 @@ export async function buildFeed(
       );
     },
     removals,
+    labels,
     bans,
     contextNotes,
     viewedContentIds: state.viewedContentIds,
@@ -1349,6 +1449,15 @@ export async function buildFeed(
         : {}),
       ...(commentsHere && post.commentIds.some((id) => removals.has(id))
         ? { removedCommentIds: post.commentIds.filter((id) => removals.has(id)) }
+        : {}),
+      // Which labels were on it, and on its comments, since they come and go as removals do.
+      ...(!removals.has(post.id) && labels.has(post.id)
+        ? { labels: labels.get(post.id)?.map(({ text }) => text) }
+        : {}),
+      ...(commentsHere && post.commentIds.some((id) => labels.has(id) && !removals.has(id))
+        ? {
+            labeledCommentIds: post.commentIds.filter((id) => labels.has(id) && !removals.has(id)),
+          }
         : {}),
     })),
   });

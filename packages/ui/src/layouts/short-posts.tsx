@@ -13,6 +13,7 @@ import {
 import { AuthorFlair, PostFlair } from "../features/flair.tsx";
 import { PostPhotos } from "../features/galleries.tsx";
 import { KarmaBadge } from "../features/karma.tsx";
+import { useLabels } from "../features/labels.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
 import { useMoreMenu } from "../features/more-menu.tsx";
 import { WhoAndWhere } from "../features/places-tags.tsx";
@@ -55,6 +56,7 @@ function ShortComment({
     ) : (
       <span className={className}>{children}</span>
     );
+  const labels = useLabels(comment, actions, Boolean(renderBody));
   if (comment.flagged) {
     return <FlaggedComment comment={comment} actions={actions} />;
   }
@@ -76,10 +78,13 @@ function ShortComment({
             @{comment.author.username} · {shortTime(comment.at)}
           </span>
         </p>
-        <div className="text-sm break-words whitespace-pre-wrap">
-          {renderBody ? renderBody(comment.id, comment.body) : <PostText text={comment.body} />}
-        </div>
+        {!labels.covered && (
+          <div className="text-sm break-words whitespace-pre-wrap">
+            {renderBody ? renderBody(comment.id, comment.body) : <PostText text={comment.body} />}
+          </div>
+        )}
         <RemovedNote item={comment} actions={actions} className="mt-1" />
+        {labels.bar && <div className="mt-1">{labels.bar}</div>}
         <p className="mt-1 flex gap-4 text-xs text-stone-500">
           <CommentReplyButton comment={comment} actions={actions} />
           <CommentLikeButton comment={comment} actions={actions} />
@@ -111,6 +116,7 @@ export function ShortPost({
   detail = false,
 }: FeedPostViewProps) {
   const image = post.attachments.length > 0 ? <PostPhotos post={post} /> : null;
+  const labels = useLabels(post, actions, Boolean(renderBody));
   const more = useMoreMenu(
     ["flagging", "saving", "hiding", "threadMuting", "sharing", "crossposting", "quotes"],
     "text-sm text-stone-600",
@@ -169,29 +175,32 @@ export function ShortPost({
           />
           <PostFlair post={post} className="pt-0.5" />
           <RemovedNote item={post} actions={actions} className="mt-1" />
-          <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
-            {renderBody ? (
-              <div className="text-sm">{renderBody(post.id, post.body)}</div>
-            ) : (
-              post.body && (
-                <p className="break-words whitespace-pre-wrap">
-                  <PostText text={post.body} />
-                </p>
-              )
-            )}
-            <PostLink post={post} actions={actions} />
-            <PostPoll post={post} actions={actions} />
-            <ContextNoteBox post={post} actions={actions} />
-            <QuotedPost post={post} {...(renderPostLink ? { renderPostLink } : {})} />
-            <CrosspostOriginal
-              post={post}
-              {...(renderPostLink ? { renderPostLink } : {})}
-              {...(renderSpace ? { renderSpace } : {})}
-            />
-            <div className="mt-2 overflow-hidden rounded-xl empty:hidden">
-              {wrapImage ? wrapImage(image) : image}
-            </div>
-          </TagCover>
+          {labels.bar && <div className="mt-1">{labels.bar}</div>}
+          {!labels.covered && (
+            <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
+              {renderBody ? (
+                <div className="text-sm">{renderBody(post.id, post.body)}</div>
+              ) : (
+                post.body && (
+                  <p className="break-words whitespace-pre-wrap">
+                    <PostText text={post.body} />
+                  </p>
+                )
+              )}
+              <PostLink post={post} actions={actions} />
+              <PostPoll post={post} actions={actions} />
+              <ContextNoteBox post={post} actions={actions} />
+              <QuotedPost post={post} {...(renderPostLink ? { renderPostLink } : {})} />
+              <CrosspostOriginal
+                post={post}
+                {...(renderPostLink ? { renderPostLink } : {})}
+                {...(renderSpace ? { renderSpace } : {})}
+              />
+              <div className="mt-2 overflow-hidden rounded-xl empty:hidden">
+                {wrapImage ? wrapImage(image) : image}
+              </div>
+            </TagCover>
+          )}
           {renderNote && <div className="pt-1 empty:hidden">{renderNote(post.id)}</div>}
           <div className={ROW}>
             {detail ? (

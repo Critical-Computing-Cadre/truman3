@@ -37,9 +37,15 @@ function describe(item: NotificationItem): string {
     case "approve":
       return `${who} approved your ${item.targetKind}`;
     case "uphold":
-      return `${who} looked at your appeal, and your ${item.targetKind} stays removed`;
+      return item.appealOf === "label"
+        ? `${who} looked at your appeal, and the label on your ${item.targetKind} stays`
+        : `${who} looked at your appeal, and your ${item.targetKind} stays removed`;
     case "restore":
-      return `${who} looked at your appeal, and put your ${item.targetKind} back`;
+      return item.appealOf === "label"
+        ? `${who} looked at your appeal, and took the label off your ${item.targetKind}`
+        : `${who} looked at your appeal, and put your ${item.targetKind} back`;
+    case "label":
+      return `${who} labeled your ${item.targetKind} "${item.reason ?? ""}"`;
     case "warn":
       return `${who} warned you about your ${item.targetKind}`;
   }
@@ -103,7 +109,8 @@ export function NotificationsPage() {
               {item.targetBody && (
                 <p className="truncate text-sm text-stone-500">"{item.targetBody}"</p>
               )}
-              {item.reason && (
+              {/* A label is already in the line above. */}
+              {item.reason && item.type !== "label" && (
                 <p className="break-words text-sm">
                   {item.type === "remove" || item.type === "ban"
                     ? `Reason: ${item.reason}`

@@ -387,11 +387,22 @@ export const reactionDefinitionSchema = z.object({
   on: z.enum(["post", "comment", "story"]),
   /** Which one, counting from 0. */
   nth: z.number().int().nonnegative(),
-  type: z.enum(["read", "like", "reply", "up", "down", "remove", "warn", "repost", "follow"]),
+  type: z.enum([
+    "read",
+    "like",
+    "reply",
+    "up",
+    "down",
+    "remove",
+    "warn",
+    "label",
+    "repost",
+    "follow",
+  ]),
   actor: z.string().min(1),
   /** Milliseconds after the participant's post or comment. */
   afterMs: z.number().int().nonnegative(),
-  /** A reply's or warning's text, or the reason given for a removal. */
+  /** A reply's or warning's text, the reason given for a removal, or a label. */
   body: z.string().optional(),
   ...targetingFields,
 });
@@ -406,6 +417,27 @@ export const removalDefinitionSchema = z.object({
   /** Milliseconds relative to when a participant starts. */
   timeMs: z.number().int(),
   /** What they say about why. Leave out to give none. */
+  reason: z.string().min(1).optional(),
+  ...targetingFields,
+});
+
+/** The longest a label can be, so it fits on one line over a post. */
+export const MAX_LABEL_LENGTH = 40;
+
+/**
+ * A moderator labeling something the study wrote, at a set time, such as "Spam". A label can cover
+ * what it's on until someone presses Show, or sit above it.
+ */
+export const labelDefinitionSchema = z.object({
+  on: z.enum(["post", "comment"]),
+  /** The post or comment, by its ID in this study. */
+  target: z.string().min(1),
+  actor: z.string().min(1),
+  /** Milliseconds relative to when a participant starts. */
+  timeMs: z.number().int(),
+  label: z.string().min(1).max(MAX_LABEL_LENGTH),
+  /** Whether it covers the post until someone presses Show. */
+  hides: z.boolean().default(false),
   reason: z.string().min(1).optional(),
   ...targetingFields,
 });
@@ -530,6 +562,7 @@ export const studyDefinitionSchema = z.object({
   comments: z.array(commentDefinitionSchema).default([]),
   reactions: z.array(reactionDefinitionSchema).default([]),
   removals: z.array(removalDefinitionSchema).default([]),
+  labels: z.array(labelDefinitionSchema).default([]),
   flagAnswers: z.array(flagAnswerDefinitionSchema).default([]),
   bans: z.array(banDefinitionSchema).default([]),
   reportAnswers: z.array(reportAnswerDefinitionSchema).default([]),
@@ -547,6 +580,7 @@ export type PostDefinition = z.infer<typeof postDefinitionSchema>;
 export type CommentDefinition = z.infer<typeof commentDefinitionSchema>;
 export type ReactionDefinition = z.infer<typeof reactionDefinitionSchema>;
 export type RemovalDefinition = z.infer<typeof removalDefinitionSchema>;
+export type LabelDefinition = z.infer<typeof labelDefinitionSchema>;
 export type FlagAnswerDefinition = z.infer<typeof flagAnswerDefinitionSchema>;
 export type BanDefinition = z.infer<typeof banDefinitionSchema>;
 export type ReportAnswerDefinition = z.infer<typeof reportAnswerDefinitionSchema>;

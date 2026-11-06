@@ -1,7 +1,7 @@
 import { ruleTerms } from "../auto-rules.ts";
 import { MAX_ATTACHMENTS } from "../feed.ts";
 import { hasPlaceholderConsent } from "./consent.ts";
-import { PARTICIPANT_TAG, type StudyDefinition } from "./definition.ts";
+import { MAX_LABEL_LENGTH, PARTICIPANT_TAG, type StudyDefinition } from "./definition.ts";
 import { LINK_PLACEHOLDERS } from "./links.ts";
 import { featuresFor } from "./platform.ts";
 import { HOUR_MS } from "./time.ts";
@@ -70,6 +70,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       shownIn(arm.key, study.comments),
       shownIn(arm.key, study.reactions),
       shownIn(arm.key, study.removals),
+      shownIn(arm.key, study.labels),
       shownIn(arm.key, study.flagAnswers),
       shownIn(arm.key, study.bans),
       shownIn(arm.key, study.reportAnswers),
@@ -200,6 +201,12 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       (study.removals.some(applies) || reactions.some(({ type }) => type === "remove"))
     ) {
       warning(`Moderators removing things is off in "${arm.key}", so its removals won't happen.`);
+    }
+    if (
+      !on.labels &&
+      (study.labels.some(applies) || reactions.some(({ type }) => type === "label"))
+    ) {
+      warning(`Labels on posts are off in "${arm.key}", so its labels won't show.`);
     }
     if (!on.warnings && reactions.some(({ type }) => type === "warn")) {
       warning(`Moderators warning people is off in "${arm.key}", so its warnings won't happen.`);
@@ -671,13 +678,20 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
     checkActor(reaction.actor, label, reaction.source);
     checkConditions(reaction.conditions, label, reaction.source);
-    if ((reaction.type === "reply" || reaction.type === "warn") && !reaction.body) {
+    if (
+      (reaction.type === "reply" || reaction.type === "warn" || reaction.type === "label") &&
+      !reaction.body
+    ) {
       error(`${label} is a ${reaction.type}, but has no text.`, reaction.source);
+    }
+    if (reaction.type === "label" && (reaction.body ?? "").length > MAX_LABEL_LENGTH) {
+      error(`${label} is a label longer than ${MAX_LABEL_LENGTH} characters.`, reaction.source);
     }
     if (
       reaction.type !== "reply" &&
       reaction.type !== "remove" &&
       reaction.type !== "warn" &&
+      reaction.type !== "label" &&
       reaction.body
     ) {
       error(`${label} is a ${reaction.type}, so it can't have text.`, reaction.source);
@@ -694,6 +708,17 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       error(`${label} points at a ${removal.on} that isn't in this study.`, removal.source);
     } else if (removal.timeMs < target.timeMs) {
       warning(`${label} is set for before it appears, so it will already be removed when it does.`);
+    }
+  }
+
+  for (const labeling of study.labels) {
+    const label = `The "${labeling.label}" label on ${labeling.on} "${labeling.target}"`;
+    checkActor(labeling.actor, label, labeling.source);
+    checkConditions(labeling.conditions, label, labeling.source);
+    const target =
+      labeling.on === "post" ? posts.get(labeling.target) : commentsByRef.get(labeling.target);
+    if (!target) {
+      error(`${label} points at a ${labeling.on} that isn't in this study.`, labeling.source);
     }
   }
 
@@ -902,6 +927,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       ...study.comments,
       ...study.reactions,
       ...study.removals,
+      ...study.labels,
       ...study.flagAnswers,
       ...study.bans,
       ...study.reportAnswers,

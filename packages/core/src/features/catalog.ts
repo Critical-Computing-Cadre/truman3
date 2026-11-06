@@ -325,6 +325,13 @@ export const FEATURES = {
     version: 1,
     events: ["content.created"],
   },
+  labels: {
+    name: "Labels on posts",
+    description:
+      "A moderator the study writes can label a post or comment, such as Spam or Misleading. A label can cover it until someone presses Show, or sit above it. Pressing Show is recorded.",
+    version: 1,
+    events: ["reaction.scheduled", "content.label_shown"],
+  },
   threadMuting: {
     name: "Muting a thread",
     description:

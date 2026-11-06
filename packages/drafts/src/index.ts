@@ -28,6 +28,7 @@ export {
   type FlagAnswerData,
   type ItemKind,
   itemDataSchemas,
+  type LabelData,
   type PostData,
   type Provenance,
   type ReactionData,

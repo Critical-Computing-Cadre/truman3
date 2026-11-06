@@ -1138,3 +1138,83 @@ describe("a profile's header", () => {
     expect(screen.getByTestId("follow-counts").textContent).toBe("1 follower12 following");
   });
 });
+
+describe("a labeled post", () => {
+  afterEach(cleanup);
+  const LAYOUTS = ["classic", "forum", "short-posts", "photo"] as const;
+  const draw = (
+    layout: (typeof LAYOUTS)[number],
+    post: FeedPost,
+    on: Partial<Record<FeatureKey, boolean>> = {},
+  ) => {
+    const actions = {
+      onLike: vi.fn(),
+      onVote: vi.fn(),
+      onFlag: vi.fn(),
+      onReply: vi.fn(),
+      onLabelShown: vi.fn(),
+      onAppeal: vi.fn(),
+    };
+    render(
+      <PlatformProvider
+        platform={{ layout, features: { ...TEMPLATES.shortPosts.features, labels: true, ...on } }}
+      >
+        <FeedPostView post={post} actions={actions} />
+      </PlatformProvider>,
+    );
+    return actions;
+  };
+  const spam = { text: "Spam", by: "Sam", hides: true };
+
+  it.each(LAYOUTS)("is covered until someone presses Show, which is recorded, in %s", (layout) => {
+    const actions = draw(layout, { ...POST, labels: [spam], comments: [] });
+    expect(screen.getByTestId("label-cover").textContent).toContain("Spam");
+    expect(screen.queryByText("A post")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show" }));
+    expect(actions.onLabelShown).toHaveBeenCalledWith("p1", "Spam");
+    expect(screen.getAllByText("A post").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("label-bar").textContent).toContain("Labeled by Sam");
+  });
+
+  it("sits above a post when it doesn't hide it, with its reason", () => {
+    draw("short-posts", {
+      ...POST,
+      labels: [{ text: "Misleading", by: "Sam", hides: false, reason: "No source" }],
+      comments: [],
+    });
+    expect(screen.queryByTestId("label-cover")).toBeNull();
+    expect(screen.getByTestId("label-bar").textContent).toContain("Misleading");
+    expect(screen.getByText("Reason: No source")).toBeTruthy();
+    expect(screen.getByText("A post")).toBeTruthy();
+  });
+
+  it("covers a comment, and leaves the post alone", () => {
+    draw("classic", { ...POST, comments: [{ ...(POST.comments[0] as never), labels: [spam] }] });
+    expect(screen.getByText("A post")).toBeTruthy();
+    expect(screen.queryByText("A comment")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show" }));
+    expect(screen.getByText("A comment")).toBeTruthy();
+  });
+
+  it("lets its author appeal", () => {
+    const actions = draw("short-posts", {
+      ...POST,
+      author: { ...author, isViewer: true },
+      labels: [{ text: "Spam", by: "Sam", hides: false, appeal: "open" }],
+      comments: [],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Appeal" }));
+    fireEvent.change(screen.getByLabelText("Why shouldn't this have this label?"), {
+      target: { value: "It isn't" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send appeal" }));
+    expect(actions.onAppeal).toHaveBeenCalledWith("p1", "It isn't");
+  });
+
+  it("shows nothing when labels are off", () => {
+    draw("short-posts", { ...POST, labels: [spam], comments: [] }, { labels: false });
+    expect(screen.queryByTestId("label-cover")).toBeNull();
+    expect(screen.getByText("A post")).toBeTruthy();
+  });
+});

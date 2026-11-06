@@ -15,6 +15,7 @@ import type {
   ContextNoteData,
   DraftItem,
   FlagAnswerData,
+  LabelData,
   PostData,
   Provenance,
   ReactionData,
@@ -53,6 +54,7 @@ export function draftToDefinition(
   const comments = ofKind<CommentData>("comment");
   const reactions = ofKind<ReactionData>("reaction");
   const removals = ofKind<RemovalData>("removal");
+  const labels = ofKind<LabelData>("label");
   const flagAnswers = ofKind<FlagAnswerData>("flagAnswer");
   const bans = ofKind<BanData>("ban");
   const contextNotes = ofKind<ContextNoteData>("contextNote");
@@ -170,6 +172,13 @@ export function draftToDefinition(
       target:
         (removal.on === "post" ? postRefs.get(targetId) : commentRefs.get(targetId)) ??
         `(missing ${removal.on})`,
+    })),
+    labels: labels.map(({ data: { actorId, targetId, ...labeling } }) => ({
+      ...labeling,
+      actor: usernameOf(actorId),
+      target:
+        (labeling.on === "post" ? postRefs.get(targetId) : commentRefs.get(targetId)) ??
+        `(missing ${labeling.on})`,
     })),
     autoRules: autoRules.map(({ data: { actorId, ...rule } }) => ({
       ...rule,

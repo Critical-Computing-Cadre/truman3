@@ -3,15 +3,17 @@ import { useState } from "react";
 import { useFeature } from "../platform.tsx";
 import type { PostActions } from "../post-props.ts";
 
-/** Where a participant appeals a removal of what they wrote, once. */
-function Appeal({
+/** Where a participant appeals a moderator's removal or label of what they wrote, once. */
+export function Appeal({
   id,
   state,
   actions,
+  question = "Why should this go back up?",
 }: {
   id: string;
   state: "open" | "sent";
   actions?: PostActions | undefined;
+  question?: string;
 }) {
   const [writing, setWriting] = useState(false);
   const [text, setText] = useState("");
@@ -31,7 +33,7 @@ function Appeal({
   return (
     <div className="mt-2 space-y-1">
       <label className="flex flex-col gap-1 text-xs font-medium">
-        Why should this go back up?
+        {question}
         <textarea
           rows={3}
           maxLength={2000}
