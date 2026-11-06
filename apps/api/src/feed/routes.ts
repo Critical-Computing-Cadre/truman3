@@ -249,7 +249,7 @@ const pleaseSignIn = { error: "Please sign in." };
 const featureOff = { error: "This isn't part of this platform." };
 const notAvailable = { error: "This isn't available." };
 
-export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDependencies) {
+export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
 
   app.openapi(feedRoute, async (c) => {
@@ -258,7 +258,7 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
       return c.json(pleaseSignIn, 401);
     }
     // What Christof has made happen by now shows in this feed.
-    await catchUp(db, context);
+    await catchUp(db, context, { writer });
 
     const { visit, surface, space: spaceKey, post, tag, place, username } = c.req.valid("query");
     const on = (feature: FeatureKey) => featureOn(context.settings, context.conditionKey, feature);

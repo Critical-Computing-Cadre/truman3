@@ -994,7 +994,12 @@ interface ProfileFields {
   badge?: string;
 }
 
-export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantRouteDependencies) {
+export function createActionRoutes({
+  db,
+  storage,
+  mediaPublicUrl,
+  writer,
+}: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
 
   const pleaseSignIn = { error: "Please sign in." };
@@ -2152,7 +2157,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (isOff(context, "notifications")) {
       return c.json(featureOff, 403);
     }
-    await catchUp(db, context);
+    await catchUp(db, context, { writer });
     return c.json({ notifications: await listNotifications(db, context, mediaPublicUrl) }, 200);
   });
 

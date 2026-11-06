@@ -281,6 +281,13 @@
       "when": 1793986051465,
       "tag": "0039_beat_runs",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793987933467,
+      "tag": "0040_live_writing",
+      "breakpoints": true
     }
   ]
 }

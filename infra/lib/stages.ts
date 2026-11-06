@@ -22,6 +22,12 @@ export interface Stage {
   databaseStorageGb: number;
   /** Automatic database backups. These are for recovering from a failure. */
   backupDays: number;
+  /**
+   * The name of a Secrets Manager secret, made by hand, holding an Anthropic API key, so Christof's
+   * actors can write live. Leave it out and improvised beats use their fallback lines. The key is
+   * never in this file or the repo. See docs/guides/deploying.md.
+   */
+  anthropicKeySecret?: string;
   /** Addresses other than the one CloudFront gives out. The certificate has to be in us-east-1. */
   domains?: { names: [string, ...string[]]; certificateArn: string };
 }

@@ -2,14 +2,17 @@ import { createHash } from "node:crypto";
 import {
   BEATS_FILE,
   type BeatDefinition,
+  type BeatsFile,
   type BeatTarget,
   createRandom,
   featuresFor,
 } from "@truman3/core";
 import { type Database, schema, type Transaction } from "@truman3/db";
 import { parseBeats } from "@truman3/study-files";
+import type { Writer } from "@truman3/writer";
 import { and, asc, eq, inArray, isNull, lte } from "drizzle-orm";
 import type { ParticipantContext } from "../participants/session.ts";
+import { chooseWords, mightWrite } from "./wording.ts";
 
 /**
  * Christof, the director: what makes each beat in beats.yaml happen in a participant's world. See
@@ -41,11 +44,13 @@ type Trigger =
 
 type Db = Database | Transaction;
 
-const beatsByVersion = new Map<string, Promise<BeatDefinition[]>>();
+type Script = Pick<BeatsFile, "beats" | "live" | "cast">;
 
-/** A version's beats, read once per server, since a version never changes. */
-export function beatsFor(db: Db, studyVersionId: string): Promise<BeatDefinition[]> {
-  const known = beatsByVersion.get(studyVersionId);
+const scripts = new Map<string, Promise<Script>>();
+
+/** A version's beats.yaml, read once per server, since a version never changes. */
+export function scriptFor(db: Db, studyVersionId: string): Promise<Script> {
+  const known = scripts.get(studyVersionId);
   if (known) {
     return known;
   }
@@ -55,12 +60,18 @@ export function beatsFor(db: Db, studyVersionId: string): Promise<BeatDefinition
       .from(schema.studyVersions)
       .where(eq(schema.studyVersions.id, studyVersionId));
     const text = (version?.pages as Record<string, string> | undefined)?.[BEATS_FILE];
-    // A version is checked before it's saved, so a beat that can't be read here never ran anyway.
-    return text ? parseBeats(text).beats : [];
+    // A version is checked before it's saved, so a file that can't be read here never ran anyway.
+    const { beats, live, cast } = parseBeats(text ?? "");
+    return { beats, live, cast };
   })();
-  beatsByVersion.set(studyVersionId, loading);
-  loading.catch(() => beatsByVersion.delete(studyVersionId));
+  scripts.set(studyVersionId, loading);
+  loading.catch(() => scripts.delete(studyVersionId));
   return loading;
+}
+
+/** A version's beats. */
+export async function beatsFor(db: Db, studyVersionId: string) {
+  return (await scriptFor(db, studyVersionId)).beats;
 }
 
 const inCondition = (beat: BeatDefinition, context: ParticipantContext) =>
@@ -263,33 +274,58 @@ async function targetOf(
   return post?.id ?? null;
 }
 
-/** Does what a beat says, at the time it's due. Returns what it made, or why it couldn't. */
-async function perform(
-  tx: Transaction,
+const NEEDS = {
+  post: "posting",
+  comment: "comments",
+  like: "likes",
+  repost: "reposts",
+  follow: "following",
+} as const;
+
+type Prepared =
+  | { ready: true; actorId: string; target: typeof schema.content.$inferSelect | null }
+  | { ready: false; reason: string };
+
+/** Who does a beat and what to, as of when it's due, or why it can't happen. */
+async function prepare(
+  db: Db,
   context: ParticipantContext,
   beat: BeatDefinition,
   trigger: Trigger,
   dueAt: Date,
-): Promise<
-  | { done: true; actorId: string; contentId: string | null; targetContentId: string | null }
-  | { done: false; reason: string }
-> {
+): Promise<Prepared> {
   const action = beat.do;
   const features = featuresFor(context.settings, context.conditionKey);
-  const needs = {
-    post: "posting",
-    comment: "comments",
-    like: "likes",
-    repost: "reposts",
-    follow: "following",
-  } as const;
-  if (!features[needs[action.action]]) {
-    return { done: false, reason: `${needs[action.action]} is off in this condition` };
+  if (!features[NEEDS[action.action]]) {
+    return { ready: false, reason: `${NEEDS[action.action]} is off in this condition` };
   }
-  const actorId = await castMember(tx, context, action.actor);
+  const actorId = await castMember(db, context, action.actor);
   if (!actorId) {
-    return { done: false, reason: `"${action.actor}" isn't in the cast` };
+    return { ready: false, reason: `"${action.actor}" isn't in the cast` };
   }
+  if (!("on" in action)) {
+    return { ready: true, actorId, target: null };
+  }
+  const targetId = await targetOf(db, context, action.on, trigger, dueAt);
+  const [target] = targetId
+    ? await db.select().from(schema.content).where(eq(schema.content.id, targetId))
+    : [];
+  return target
+    ? { ready: true, actorId, target }
+    : { ready: false, reason: "there was nothing there to act on" };
+}
+
+/** Does what a beat says, at the time it's due, with the words chosen for it. */
+async function perform(
+  tx: Transaction,
+  context: ParticipantContext,
+  beat: BeatDefinition,
+  { actorId, target }: Extract<Prepared, { ready: true }>,
+  words: string | null,
+  dueAt: Date,
+): Promise<{ contentId: string | null; targetContentId: string | null }> {
+  const action = beat.do;
+  const features = featuresFor(context.settings, context.conditionKey);
   const base = {
     studyVersionId: context.studyVersionId,
     worldId: context.worldId,
@@ -300,9 +336,9 @@ async function perform(
   if (action.action === "post") {
     const [made] = await tx
       .insert(schema.content)
-      .values({ ...base, kind: "post", body: action.text })
+      .values({ ...base, kind: "post", body: words ?? "" })
       .returning({ id: schema.content.id });
-    return { done: true, actorId, contentId: made?.id ?? null, targetContentId: null };
+    return { contentId: made?.id ?? null, targetContentId: null };
   }
 
   if (action.action === "follow") {
@@ -314,15 +350,11 @@ async function perform(
       targetActorId: context.actorId,
       dueAt,
     });
-    return { done: true, actorId, contentId: null, targetContentId: null };
+    return { contentId: null, targetContentId: null };
   }
 
-  const targetId = await targetOf(tx, context, action.on, trigger, dueAt);
-  const [target] = targetId
-    ? await tx.select().from(schema.content).where(eq(schema.content.id, targetId))
-    : [];
   if (!target) {
-    return { done: false, reason: "there was nothing there to act on" };
+    return { contentId: null, targetContentId: null };
   }
   const theirs = target.authorActorId === context.actorId;
 
@@ -345,7 +377,7 @@ async function perform(
     }
     const [made] = await tx
       .insert(schema.content)
-      .values({ ...base, kind: "comment", body: action.text, parentId })
+      .values({ ...base, kind: "comment", body: words ?? "", parentId })
       .returning({ id: schema.content.id });
     if (theirs) {
       await tx.insert(schema.notifications).values({
@@ -358,7 +390,7 @@ async function perform(
         dueAt,
       });
     }
-    return { done: true, actorId, contentId: made?.id ?? null, targetContentId: target.id };
+    return { contentId: made?.id ?? null, targetContentId: target.id };
   }
 
   if (action.action === "repost") {
@@ -376,7 +408,7 @@ async function perform(
         dueAt,
       });
     }
-    return { done: true, actorId, contentId: made?.id ?? null, targetContentId: target.id };
+    return { contentId: made?.id ?? null, targetContentId: target.id };
   }
 
   // A like counts wherever it is, and tells the participant if it's on what they wrote.
@@ -388,7 +420,7 @@ async function perform(
     targetContentId: target.id,
     dueAt,
   });
-  return { done: true, actorId, contentId: null, targetContentId: target.id };
+  return { contentId: null, targetContentId: target.id };
 }
 
 /** Beats with a set time that have come due and haven't been written down yet. */
@@ -424,13 +456,31 @@ async function scheduleTimed(tx: Transaction, context: ParticipantContext, now: 
   }
 }
 
+/** How catchUp may decide beats. */
+export interface CatchUpOptions {
+  now?: Date;
+  /** What writes improvised lines. Without one, fallback lines are used. */
+  writer?: Writer | null | undefined;
+  /**
+   * Whether this load may wait for a model. A page someone's looking at shouldn't, so it stops at
+   * the first beat that might call one, and leaves it, and everything after it, for a background
+   * check such as `/me`. Order is kept, so `unless` always sees what came before.
+   */
+  mayWrite?: boolean;
+}
+
 /**
  * Decides every beat that has come due in this world, oldest first, and does what each says. A
  * beat that follows another is written down as that one happens, so a chain plays out in one go.
  * Called before anything is loaded and after the participant does something.
  */
-export async function catchUp(db: Database, context: ParticipantContext, now = new Date()) {
-  const beats = await beatsFor(db, context.studyVersionId);
+export async function catchUp(
+  db: Database,
+  context: ParticipantContext,
+  { now = new Date(), writer = null, mayWrite = false }: CatchUpOptions = {},
+) {
+  const script = await scriptFor(db, context.studyVersionId);
+  const { beats } = script;
   if (beats.length === 0) {
     return;
   }
@@ -442,7 +492,7 @@ export async function catchUp(db: Database, context: ParticipantContext, now = n
 
   // A chain can only be as long as there are beats, which bounds the loop.
   for (let round = 0; round <= beats.length * 4; round++) {
-    const due = await db
+    const [run] = await db
       .select()
       .from(schema.beatRuns)
       .where(
@@ -454,72 +504,89 @@ export async function catchUp(db: Database, context: ParticipantContext, now = n
       )
       .orderBy(asc(schema.beatRuns.dueAt), asc(schema.beatRuns.id))
       .limit(1);
-    const [run] = due;
     if (!run) {
       return;
     }
+    const beat = byId.get(run.beat);
+    if (beat && !mayWrite && mightWrite(script, beat, writer)) {
+      return;
+    }
+    // Only one load decides a run, even if two arrive at once.
+    const [claimed] = await db
+      .update(schema.beatRuns)
+      .set({ status: "skipped", decidedAt: now, reason: "being decided" })
+      .where(and(eq(schema.beatRuns.id, run.id), eq(schema.beatRuns.status, "pending")))
+      .returning({ id: schema.beatRuns.id });
+    if (!claimed) {
+      continue;
+    }
+    const decide = (values: Partial<typeof schema.beatRuns.$inferInsert>) =>
+      db.update(schema.beatRuns).set(values).where(eq(schema.beatRuns.id, run.id));
+    if (!beat) {
+      await decide({ reason: "the beat isn't in this version" });
+      continue;
+    }
+    const blockers = beat.unless.length
+      ? await db
+          .select({ beat: schema.beatRuns.beat })
+          .from(schema.beatRuns)
+          .where(
+            and(
+              eq(schema.beatRuns.worldId, context.worldId),
+              eq(schema.beatRuns.status, "fired"),
+              inArray(schema.beatRuns.beat, beat.unless),
+              lte(schema.beatRuns.dueAt, run.dueAt),
+            ),
+          )
+          .limit(1)
+      : [];
+    if (blockers[0]) {
+      await decide({ reason: `"${blockers[0].beat}" had already happened` });
+      continue;
+    }
+    const trigger = run.trigger as Trigger;
+    const prepared = await prepare(db, context, beat, trigger, run.dueAt);
+    if (!prepared.ready) {
+      await decide({ reason: prepared.reason });
+      continue;
+    }
+    // Choosing words can wait on a model, so it happens outside any transaction.
+    const action = beat.do;
+    const chosen =
+      action.action === "post" || action.action === "comment"
+        ? await chooseWords(
+            db,
+            context,
+            script,
+            action,
+            prepared.actorId,
+            prepared.target?.id ?? null,
+            writer,
+          )
+        : { text: null, writing: null };
+
     await db.transaction(async (tx) => {
-      // Only one load decides a run, even if two arrive at once.
-      const [claimed] = await tx
+      const done = await perform(tx, context, beat, prepared, chosen.text, run.dueAt);
+      await tx
         .update(schema.beatRuns)
-        .set({ status: "skipped", decidedAt: now })
-        .where(and(eq(schema.beatRuns.id, run.id), eq(schema.beatRuns.status, "pending")))
-        .returning({ id: schema.beatRuns.id });
-      if (!claimed) {
-        return;
-      }
-      const beat = byId.get(run.beat);
-      const trigger = run.trigger as Trigger;
-      const decide = (values: Partial<typeof schema.beatRuns.$inferInsert>) =>
-        tx.update(schema.beatRuns).set(values).where(eq(schema.beatRuns.id, run.id));
-      if (!beat) {
-        await decide({ reason: "the beat isn't in this version" });
-        return;
-      }
-      const blockers = beat.unless.length
-        ? await tx
-            .select({ beat: schema.beatRuns.beat })
-            .from(schema.beatRuns)
-            .where(
-              and(
-                eq(schema.beatRuns.worldId, context.worldId),
-                eq(schema.beatRuns.status, "fired"),
-                inArray(schema.beatRuns.beat, beat.unless),
-                lte(schema.beatRuns.dueAt, run.dueAt),
-              ),
-            )
-            .limit(1)
-        : [];
-      if (blockers[0]) {
-        await decide({ reason: `"${blockers[0].beat}" had already happened` });
-        return;
-      }
-      const done = await perform(tx, context, beat, trigger, run.dueAt);
-      if (!done.done) {
-        await decide({ reason: done.reason });
-        return;
-      }
-      await decide({
-        status: "fired",
-        actorId: done.actorId,
-        contentId: done.contentId,
-        targetContentId: done.targetContentId,
-      });
+        .set({
+          status: "fired",
+          reason: null,
+          actorId: prepared.actorId,
+          contentId: done.contentId,
+          targetContentId: done.targetContentId,
+          writing: chosen.writing,
+        })
+        .where(eq(schema.beatRuns.id, run.id));
       // What follows this beat counts from when it happened.
       for (const next of beats) {
         if (inCondition(next, context) && "beat" in next.when && next.when.beat === beat.id) {
+          const made = done.contentId ?? done.targetContentId;
           await schedule(
             tx,
             context,
             next,
-            {
-              kind: "beat",
-              beat: beat.id,
-              runId: run.id,
-              ...((done.contentId ?? done.targetContentId)
-                ? { contentId: (done.contentId ?? done.targetContentId) as string }
-                : {}),
-            },
+            { kind: "beat", beat: beat.id, runId: run.id, ...(made ? { contentId: made } : {}) },
             run.dueAt,
           );
         }

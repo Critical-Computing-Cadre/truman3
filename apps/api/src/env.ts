@@ -13,6 +13,8 @@ const envSchema = z.object({
   /** Encrypts researchers' Prolific tokens. Without it, connecting to Prolific is turned off. */
   TRUMAN_SECRET_KEY: z.string().optional(),
   PROLIFIC_API_URL: z.url().optional(),
+  /** Lets Christof's actors write live with Claude. Without it, beats use their fallback lines. */
+  ANTHROPIC_API_KEY: z.string().optional(),
   /** The participant app's public address, used in study links and the link Prolific sends people to. */
   PARTICIPANT_APP_URL: z.url().optional(),
 });

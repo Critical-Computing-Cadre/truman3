@@ -1,5 +1,27 @@
 # What Christof makes happen in each participant's world. Times are hours:minutes from when they
 # start. See docs/guides/writing-beats.md.
+
+# Live writing is off, so improvised replies use their fallback lines. To have Jake and Maya write
+# their own words, set enabled: true, on a server with ANTHROPIC_API_KEY set.
+live:
+  enabled: false
+  budgetUsd: 5
+  redLines: [Insulting anyone's appearance, family, or identity]
+
+cast:
+  jake:
+    about: A classmate who thinks he's funny. Doesn't know Maya well.
+    voice: Lowercase, short, sarcastic. Never uses exclamation marks.
+    goals: To look cool, and not to back down in front of people.
+    relationships:
+      maya: Doesn't take her art seriously
+      participant: Annoyed that they're getting involved
+  maya:
+    about: An art student who just shared her first painting.
+    voice: Warm and a little shy, with the odd emoji.
+    relationships:
+      participant: Grateful when they're kind
+
 beats:
   - id: jake-mocks
     note: A few minutes in, Jake mocks Maya's painting.
@@ -43,13 +65,23 @@ beats:
     note: If the participant replies to Jake, he answers them.
     when: { participant: comment, under: jake-mocks }
     delay: { min: "0:01", max: "0:02" }
-    do: { action: comment, actor: jake, on: trigger, text: "relax, it's a joke" }
+    do:
+      action: comment
+      actor: jake
+      on: trigger
+      improvise: Brush off what they said, without apologizing
+      fallback: "relax, it's a joke"
 
   - id: maya-thanks
     note: If the participant comments on Maya's post, she thanks them.
     when: { participant: comment, on: maya }
     delay: { min: "0:01", max: "0:03" }
-    do: { action: comment, actor: maya, on: trigger, text: "Thank you, that really means a lot" }
+    do:
+      action: comment
+      actor: maya
+      on: trigger
+      improvise: Thank them for what they said, in your own words
+      fallback: "Thank you, that really means a lot"
 
   - id: sam-agrees
     note: In "defended", Sam likes what the participant said to Maya.

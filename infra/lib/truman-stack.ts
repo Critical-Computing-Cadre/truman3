@@ -377,6 +377,14 @@ export class TrumanStack extends Stack {
       secrets: {
         DATABASE_APP_PASSWORD: ecs.Secret.fromSecretsManager(appPassword),
         TRUMAN_SECRET_KEY: ecs.Secret.fromSecretsManager(secretKey),
+        // Made by hand, so the key never passes through the repo or a deploy.
+        ...(stage.anthropicKeySecret
+          ? {
+              ANTHROPIC_API_KEY: ecs.Secret.fromSecretsManager(
+                secrets.Secret.fromSecretNameV2(this, "AnthropicKey", stage.anthropicKeySecret),
+              ),
+            }
+          : {}),
       },
       logging: ecs.LogDrivers.awsLogs({ logGroup: apiLogs, streamPrefix: "api" }),
       portMappings: [{ containerPort: API_PORT }],

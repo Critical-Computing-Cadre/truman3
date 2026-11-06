@@ -1016,6 +1016,32 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       }
     }
   }
+  // Persona cards and live writing, from the top of beats.yaml.
+  const christof = study.christof;
+  for (const [username, persona] of Object.entries(christof?.cast ?? {})) {
+    if (!usernames.has(username)) {
+      beatProblem(
+        "error",
+        `There's a persona card for "${username}", who isn't in the list of actors.`,
+      );
+    }
+    for (const other of Object.keys(persona.relationships ?? {})) {
+      if (other !== "participant" && !usernames.has(other)) {
+        beatProblem(
+          "warning",
+          `${username}'s persona card mentions "${other}", who isn't in the list of actors. Use "participant" for whoever takes part.`,
+        );
+      }
+    }
+  }
+  const improvised = study.beats.filter((beat) => "improvise" in beat.do && beat.do.improvise);
+  if (improvised.length > 0 && !christof?.live.enabled) {
+    beatProblem(
+      "warning",
+      `Live writing is off, so ${improvised.length === 1 ? `the beat "${improvised[0]?.id}" uses its` : `${improvised.length} improvised beats use their`} fallback line. Turn it on with live: { enabled: true } in beats.yaml.`,
+    );
+  }
+
   // One beat following another can't go round in a circle, or it would never stop.
   for (const beat of study.beats) {
     const seen = new Set<string>();

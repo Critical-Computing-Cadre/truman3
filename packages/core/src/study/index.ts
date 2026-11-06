@@ -2,11 +2,14 @@ export {
   BEATS_FILE,
   type BeatAction,
   type BeatDefinition,
+  type BeatsFile,
   type BeatTarget,
   type BeatTrigger,
   beatSchema,
   beatsFileSchema,
+  type LiveWriting,
   PARTICIPANT_ACTIONS,
+  type Persona,
 } from "./beats.ts";
 export { hasPlaceholderConsent, STARTING_CONSENT } from "./consent.ts";
 export {

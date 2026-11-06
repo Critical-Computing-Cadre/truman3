@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { connectedAsOwner, createDb } from "@truman3/db";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
+import { anthropicWriter } from "@truman3/writer";
 import { createApp } from "./app.ts";
 import { forwardedAddress } from "./client-address.ts";
 import { parseServerEnv } from "./env.ts";
@@ -34,6 +35,7 @@ const app = createApp({
   mediaPublicUrl: env.MEDIA_PUBLIC_URL,
   secureCookies: env.NODE_ENV !== "development",
   participantAppUrl: env.PARTICIPANT_APP_URL,
+  writer: env.ANTHROPIC_API_KEY ? anthropicWriter(env.ANTHROPIC_API_KEY) : null,
   prolific: {
     secretKey: env.TRUMAN_SECRET_KEY,
     apiUrl: env.PROLIFIC_API_URL,

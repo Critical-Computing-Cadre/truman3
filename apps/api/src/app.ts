@@ -2,6 +2,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { healthResponseSchema } from "@truman3/core";
 import { Hono } from "hono";
 import { createActionRoutes } from "./actions/routes.ts";
+import { createChristofRoutes } from "./admin/christof.ts";
 import { createDraftRoutes } from "./admin/drafts.ts";
 import { createLaunchRoutes } from "./admin/launch.ts";
 import { createMonitorRoutes } from "./admin/monitor.ts";
@@ -95,6 +96,7 @@ export function createApp({
   app.route("/", createPackRoutes(participantDependencies));
   app.route("/", createSheetRoutes(participantDependencies));
   app.route("/", createMonitorRoutes(participantDependencies));
+  app.route("/", createChristofRoutes(participantDependencies));
   app.route("/", createLaunchRoutes(participantDependencies));
   app.route("/", createProlificRoutes(participantDependencies));
 

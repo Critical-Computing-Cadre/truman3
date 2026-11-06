@@ -1,11 +1,12 @@
-import { BEATS_FILE, type BeatDefinition, beatsFileSchema, type StudyIssue } from "@truman3/core";
+import { BEATS_FILE, type BeatsFile, beatsFileSchema, type StudyIssue } from "@truman3/core";
 import { parse as parseYaml } from "yaml";
 
 /**
  * Reads beats.yaml. Problems come back as issues that name the beat, by its place in the list and
  * its id if it has one, and say what's wrong in plain language.
  */
-export function parseBeats(text: string): { beats: BeatDefinition[]; issues: StudyIssue[] } {
+export function parseBeats(text: string): BeatsFile & { issues: StudyIssue[] } {
+  const empty = beatsFileSchema.parse({});
   const problem = (message: string): StudyIssue => ({
     severity: "error",
     message,
@@ -16,15 +17,15 @@ export function parseBeats(text: string): { beats: BeatDefinition[]; issues: Stu
     raw = parseYaml(text) ?? { beats: [] };
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : String(cause);
-    return { beats: [], issues: [problem(`This file couldn't be read: ${detail}`)] };
+    return { ...empty, issues: [problem(`This file couldn't be read: ${detail}`)] };
   }
   const parsed = beatsFileSchema.safeParse(raw);
   if (parsed.success) {
-    return { beats: parsed.data.beats, issues: [] };
+    return { ...parsed.data, issues: [] };
   }
   const listed = (raw as { beats?: { id?: unknown }[] } | null)?.beats;
   return {
-    beats: [],
+    ...empty,
     issues: parsed.error.issues.map((issue) => {
       const [top, index, ...rest] = issue.path;
       if (top === "beats" && typeof index === "number") {
