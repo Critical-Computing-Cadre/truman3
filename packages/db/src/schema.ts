@@ -82,6 +82,12 @@ export const studies = pgTable("studies", {
   slug: text().notNull().unique(),
   /** The version new participants get. Empty means it isn't open to new participants. */
   liveVersionId: uuid("live_version_id").references((): AnyPgColumn => studyVersions.id),
+  /**
+   * Christof's kill switches: stops live writing for the whole study, or for these people in the
+   * cast, by username, at once. Beats still happen, with their fallback lines. See ADR 52.
+   */
+  livePaused: boolean("live_paused").notNull().default(false),
+  pausedActors: text("paused_actors").array().notNull().default(sql`'{}'`),
   createdAt: time("created_at").notNull().defaultNow(),
 });
 
@@ -780,6 +786,11 @@ export const beatRuns = pgTable(
     targetContentId: uuid("target_content_id").references(() => content.id, {
       onDelete: "cascade",
     }),
+    /**
+     * How the words were chosen, for a beat that improvises: the prompt, the model, what it wrote,
+     * the check, and what it cost, or why the fallback line was used instead.
+     */
+    writing: jsonb(),
   },
   (table) => [
     uniqueIndex("beat_runs_once").on(table.worldId, table.beat, table.run),

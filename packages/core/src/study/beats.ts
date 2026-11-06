@@ -105,18 +105,49 @@ const targetSchema = z.union([
   z.strictObject({ post: z.string().min(1) }),
 ]);
 
+/**
+ * What's said: fixed `text`, or `improvise`, which tells the actor's model what to write, with a
+ * `fallback` line for when live writing is off, out of budget, paused, or fails its check.
+ */
+const wording = {
+  text: z.string().min(1).optional(),
+  improvise: z.string().min(1).max(1000).optional(),
+  fallback: z.string().min(1).optional(),
+};
+const checkWording = (
+  action: {
+    text?: string | undefined;
+    improvise?: string | undefined;
+    fallback?: string | undefined;
+  },
+  ctx: z.RefinementCtx,
+) => {
+  if ((action.text === undefined) === (action.improvise === undefined)) {
+    ctx.addIssue({ code: "custom", message: "Give either text or improvise." });
+  }
+  if (action.improvise !== undefined && action.fallback === undefined) {
+    ctx.addIssue({
+      code: "custom",
+      message: "An improvised line needs a fallback line, for when live writing can't be used.",
+    });
+  }
+  if (action.text !== undefined && action.fallback !== undefined) {
+    ctx.addIssue({ code: "custom", message: "A fallback only goes with improvise." });
+  }
+};
+
 const actionSchema = z.discriminatedUnion("action", [
-  z.strictObject({
-    action: z.literal("post"),
-    actor: z.string().min(1),
-    text: z.string().min(1),
-  }),
-  z.strictObject({
-    action: z.literal("comment"),
-    actor: z.string().min(1),
-    text: z.string().min(1),
-    on: targetSchema,
-  }),
+  z
+    .strictObject({ action: z.literal("post"), actor: z.string().min(1), ...wording })
+    .superRefine(checkWording),
+  z
+    .strictObject({
+      action: z.literal("comment"),
+      actor: z.string().min(1),
+      ...wording,
+      on: targetSchema,
+    })
+    .superRefine(checkWording),
   z.strictObject({ action: z.literal("like"), actor: z.string().min(1), on: targetSchema }),
   z.strictObject({ action: z.literal("repost"), actor: z.string().min(1), on: targetSchema }),
   /** Following the participant. */
@@ -146,7 +177,48 @@ export const beatSchema = z.strictObject({
   unless: z.array(idSchema).default([]),
 });
 
-export const beatsFileSchema = z.strictObject({ beats: z.array(beatSchema).default([]) });
+/**
+ * Who someone in the cast is, for when their model writes for them. Everything is optional, and
+ * what's given goes into what the model is told. Red lines are things they never do.
+ */
+export const personaSchema = z.strictObject({
+  about: z.string().max(2000).optional(),
+  voice: z.string().max(1000).optional(),
+  values: z.string().max(1000).optional(),
+  goals: z.string().max(1000).optional(),
+  /** How they feel about others in the cast, and the participant, by username or "participant". */
+  relationships: z.record(z.string(), z.string().max(500)).optional(),
+  redLines: z.array(z.string().min(1).max(500)).default([]),
+});
+
+/** Whether the actors' models write live, and within what. Off unless a study turns it on. */
+export const liveWritingSchema = z.strictObject({
+  enabled: z.boolean().default(false),
+  /** The most this study can spend on writing, in US dollars, across everyone in it. */
+  budgetUsd: z.number().positive().max(10_000).default(5),
+  model: z.string().min(1).default("claude-opus-5-5"),
+  /** The longest anything written can be, in characters. */
+  maxLength: z.number().int().positive().max(5000).default(500),
+  /** Things nobody in the cast ever writes, on top of each person's own red lines. */
+  redLines: z.array(z.string().min(1).max(500)).default([]),
+});
+
+export const beatsFileSchema = z.strictObject({
+  live: liveWritingSchema.default({
+    enabled: false,
+    budgetUsd: 5,
+    model: "claude-opus-5-5",
+    maxLength: 500,
+    redLines: [],
+  }),
+  /** Persona cards, by username. */
+  cast: z.record(z.string(), personaSchema).default({}),
+  beats: z.array(beatSchema).default([]),
+});
+
+export type Persona = z.output<typeof personaSchema>;
+export type LiveWriting = z.output<typeof liveWritingSchema>;
+export type BeatsFile = z.output<typeof beatsFileSchema>;
 
 export type BeatDefinition = z.output<typeof beatSchema>;
 export type BeatTrigger = BeatDefinition["when"];

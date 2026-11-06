@@ -113,9 +113,9 @@ export function draftToDefinition(
   }
 
   const beatsText = pages[BEATS_FILE];
-  const { beats, issues: beatIssues } = beatsText
-    ? parseBeats(beatsText)
-    : { beats: [], issues: [] };
+  const read = beatsText ? parseBeats(beatsText) : null;
+  const beats = read?.beats ?? [];
+  const beatIssues = read?.issues ?? [];
   const definition = studyDefinitionSchema.parse({
     settings,
     // A step can be removed, and its page stay behind so it can be undone. It shouldn't be frozen.
@@ -127,6 +127,7 @@ export function draftToDefinition(
       ),
     ),
     beats,
+    ...(read ? { christof: { live: read.live, cast: read.cast } } : {}),
     actors: actors.map(({ data: { spaceFlair, ...actor } }) => {
       // A space that's been removed takes what people showed in it with it.
       const flair = Object.entries(spaceFlair ?? {}).flatMap(([spaceId, text]) => {

@@ -6,7 +6,7 @@ import { LAYOUT_KEYS, TEMPLATE_KEYS } from "../features/templates.ts";
 import { COMMENT_SORTS, FEED_SORTS } from "../orders.ts";
 import { flairSchema, pollSchema } from "../polls-flair.ts";
 import { linkSchema, PIN_PLACES, POST_TAGS } from "../post-extras.ts";
-import type { BeatDefinition } from "./beats.ts";
+import type { BeatDefinition, BeatsFile } from "./beats.ts";
 
 /** How long a place on a post can be. */
 export const MAX_PLACE_LENGTH = 80;
@@ -573,6 +573,10 @@ export const studyDefinitionSchema = z.object({
   stories: z.array(storyDefinitionSchema).default([]),
   /** What Christof makes happen, read from beats.yaml, which is kept among the pages as written. */
   beats: z.array(z.custom<BeatDefinition>((value) => typeof value === "object")).default([]),
+  /** The rest of beats.yaml: whether actors write live, and their persona cards. */
+  christof: z
+    .custom<Pick<BeatsFile, "live" | "cast">>((value) => typeof value === "object")
+    .optional(),
 });
 
 export type StudySettings = z.infer<typeof studySettingsSchema>;

@@ -3,6 +3,7 @@ import { Link, useParams } from "@tanstack/react-router";
 import { shortTime } from "@truman3/ui";
 import { type FormEvent, useRef, useState } from "react";
 import { download, get, post } from "../api.ts";
+import { ChristofCard } from "../components/ChristofCard.tsx";
 
 const REFRESH_MS = 15_000;
 
@@ -454,6 +455,7 @@ export function MonitorPage() {
       ))}
 
       {monitor.enrolledByDay.length > 1 && <EnrolledByDay days={monitor.enrolledByDay} />}
+      <ChristofCard studyId={studyId} canEdit={monitor.role !== "viewer"} />
       <ExportCard studyId={studyId} monitor={monitor} />
       <WithdrawCard studyId={studyId} monitor={monitor} />
     </main>

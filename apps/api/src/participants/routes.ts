@@ -2,6 +2,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { featureOn } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
+import type { Writer } from "@truman3/writer";
 import { eq } from "drizzle-orm";
 import type { Context } from "hono";
 import { setCookie } from "hono/cookie";
@@ -129,12 +130,15 @@ export interface ParticipantRouteDependencies {
   allowLoginAttempt?: (key: string) => boolean;
   /** The participant app's public address, shown to researchers as the study link. */
   participantAppUrl?: string;
+  /** What writes improvised lines for Christof. Without one, beats use their fallback lines. */
+  writer?: Writer | null;
   /** How to reach Prolific. Leave out and researchers can't connect to it. */
   prolific?: ProlificConfig;
 }
 
 export function createParticipantRoutes(dependencies: ParticipantRouteDependencies) {
-  const { db, mediaPublicUrl, getClientIp, secureCookies, allowEntryAttempt } = dependencies;
+  const { db, mediaPublicUrl, getClientIp, secureCookies, allowEntryAttempt, writer } =
+    dependencies;
   const app = new OpenAPIHono();
 
   // The same message for every unknown study, and it doesn't use the word "study" for participants.
@@ -195,8 +199,9 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
     if (!context) {
       return c.json({ error: "Please sign in." }, 401);
     }
-    // Checked often for the unread count, so it's where beats that have come due get decided.
-    await catchUp(db, context);
+    // Checked often, in the background, for the unread count, so it's where a beat that needs a
+    // model gets its words written. A page someone's looking at never waits for one.
+    await catchUp(db, context, { writer, mayWrite: true });
 
     const [row] = await db
       .select({ username: schema.actors.username, profile: schema.actors.profile })

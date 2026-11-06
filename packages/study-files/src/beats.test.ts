@@ -73,7 +73,7 @@ beats:
   });
 
   it("accepts an empty file", () => {
-    expect(parseBeats("")).toEqual({ beats: [], issues: [] });
+    expect(parseBeats("")).toMatchObject({ beats: [], issues: [], cast: {} });
   });
 });
 
@@ -169,6 +169,71 @@ beats:
       'warning: The beat "share" is set for after the study ends, so it won\'t happen.',
       'warning: The beat "share" needs reposts, which is off in "a", so it won\'t happen there.',
       'warning: The beat "share" needs reposts, which is off in "b", so it won\'t happen there.',
+    ]);
+  });
+
+  it("needs a fallback for an improvised line, and either text or improvise", () => {
+    const messages = (yaml: string) => parseBeats(yaml).issues.map(({ message }) => message);
+    expect(
+      messages(`
+beats:
+  - { id: a, when: { time: "0:01" }, do: { action: post, actor: ann, improvise: Say hi } }
+`),
+    ).toEqual([
+      'The beat "a" (do): An improvised line needs a fallback line, for when live writing can\'t be used.',
+    ]);
+    expect(
+      messages(`
+beats:
+  - { id: b, when: { time: "0:01" }, do: { action: post, actor: ann } }
+`),
+    ).toEqual(['The beat "b" (do): Give either text or improvise.']);
+  });
+
+  it("reads live writing settings and persona cards, with live writing off by default", () => {
+    const off = parseBeats("beats: []");
+    expect(off.live).toEqual({
+      enabled: false,
+      budgetUsd: 5,
+      model: "claude-opus-5-5",
+      maxLength: 500,
+      redLines: [],
+    });
+    const on = parseBeats(`
+live: { enabled: true, budgetUsd: 2 }
+cast:
+  ann: { voice: Cheerful, redLines: [No politics] }
+beats: []
+`);
+    expect(on.live).toMatchObject({ enabled: true, budgetUsd: 2 });
+    expect(on.cast.ann).toEqual({ voice: "Cheerful", redLines: ["No politics"] });
+  });
+
+  it("warns when lines improvise but live writing is off, and checks persona cards", () => {
+    const { beats, live, cast } = parseBeats(`
+cast:
+  carl: { voice: Grumpy }
+  ann: { relationships: { zed: rivals, participant: friendly } }
+beats:
+  - id: hi
+    when: { time: "0:01" }
+    do: { action: post, actor: ann, improvise: Say hi, fallback: Hi! }
+`);
+    const study = studyDefinitionSchema.parse({
+      settings,
+      actors: [{ username: "ann", name: "Ann", conditions: [] }],
+      posts: [],
+      beats,
+      christof: { live, cast },
+    });
+    expect(
+      validateStudy(study)
+        .filter(({ file }) => file === "beats.yaml")
+        .map(({ severity, message }) => `${severity}: ${message}`),
+    ).toEqual([
+      "error: There's a persona card for \"carl\", who isn't in the list of actors.",
+      'warning: ann\'s persona card mentions "zed", who isn\'t in the list of actors. Use "participant" for whoever takes part.',
+      'warning: Live writing is off, so the beat "hi" uses its fallback line. Turn it on with live: { enabled: true } in beats.yaml.',
     ]);
   });
 });
