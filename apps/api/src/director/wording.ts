@@ -13,7 +13,8 @@ import type { ParticipantContext } from "../participants/session.ts";
  */
 
 export interface Writing {
-  mode: "live" | "fallback";
+  /** Written by a model, the fallback line, or a beat's fixed text. */
+  mode: "live" | "fallback" | "fixed";
   /** Why the fallback was used. */
   reason?: string;
   model?: string;
@@ -22,6 +23,13 @@ export interface Writing {
   output?: string;
   check?: { allowed: boolean; reason: string };
   costUsd: number;
+  /** For a beat that waits for approval: the line suggested to the researcher. */
+  draft?: string | null;
+  /** Who approved or skipped it. */
+  decidedBy?: string;
+  /** Whether they changed the line, and what it became. */
+  edited?: boolean;
+  final?: string;
 }
 
 type Script = Pick<BeatsFile, "live" | "cast">;

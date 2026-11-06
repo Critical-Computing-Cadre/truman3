@@ -63,6 +63,20 @@ function Reference() {
               How long after, how many times, not after which beats, and in which conditions
             </td>
           </tr>
+          <tr>
+            <th className={`${row} font-mono`}>improvise, fallback</th>
+            <td className={row}>
+              Instead of <code>text</code>: what the actor's model writes, and the line used when it
+              can't. Needs <code>live: {"{ enabled: true }"}</code>
+            </td>
+          </tr>
+          <tr>
+            <th className={`${row} font-mono`}>approve</th>
+            <td className={row}>
+              Waits for a researcher on the Monitor page to approve, change, or skip it. Or{" "}
+              <code>live: {"{ approval: all }"}</code> for every beat
+            </td>
+          </tr>
         </tbody>
       </table>
     </details>

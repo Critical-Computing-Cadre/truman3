@@ -145,3 +145,19 @@ For each improvised beat, `beat_runs.csv` and the Monitor page record whether it
 ### Waiting for a line
 
 A page someone is looking at never waits for a model. A beat that's writing live is written by the app's background check, which runs every 30 seconds, so it can appear up to that much later than it was due. It's placed at the time it was due.
+
+## Approving beats, for Wizard of Oz studies
+
+A beat can wait for a researcher to approve it, change its line, or skip it before it happens. Do this for every beat with `approval: all` in `live`, or for one beat with `approve: true`. A beat can also say `approve: false` to leave itself out of `approval: all`.
+
+```yaml
+live:
+  approval: all
+  approvalTimeout: "0:05" # or never
+```
+
+- The beat waits on the **Monitor** page, under "Waiting for you". You see what it's about, such as the participant's post, and a suggested line: the model's, if live writing is on, or else the fallback or fixed text.
+- You can **approve** it, **post your own version**, or **skip** it. Approving works with live writing off, so a researcher can write every line themselves.
+- **When it posts:** an approved line appears when it's approved, and beats after it count from then.
+- **If nobody decides** within `approvalTimeout` (ten minutes unless a study says), the fallback or fixed line is used, as of when the time ran out, so a participant never waits forever. `never` waits as long as it takes.
+- **What's recorded:** `beat_runs.csv` records who decided, the suggested line, and whether it was changed.

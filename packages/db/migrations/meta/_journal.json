@@ -288,6 +288,13 @@
       "when": 1793987933467,
       "tag": "0040_live_writing",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793996288340,
+      "tag": "0041_beat_approval",
+      "breakpoints": true
     }
   ]
 }

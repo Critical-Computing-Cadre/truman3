@@ -51,7 +51,7 @@ afterAll(async () => {
 const meta = () => ({ clientEventId: randomUUID(), occurredAt: new Date().toISOString() });
 
 /** A study whose one beat improvises a reply to the participant's first post, at once. */
-async function study(live: string, teamId?: string) {
+async function study(live: string, teamId?: string, beats?: string) {
   const dir = mkdtempSync(path.join(tmpdir(), "truman-live-"));
   dirs.push(dir);
   const slug = `live-${randomUUID().slice(0, 8)}`;
@@ -72,7 +72,9 @@ flow: [{ step: feed }, { step: exit }]
 `,
     "actors.csv": "username,name\nann,Ann Lee\n",
     "posts.csv": "id,body,actor,time\np1,Hello from Ann,ann,-1:00\n",
-    "beats.yaml": `
+    "beats.yaml":
+      beats ??
+      `
 ${live}
 cast:
   ann:
@@ -327,5 +329,134 @@ describe("Christof's controls", () => {
     );
     state = (await (await lab.call("GET", url)).json()) as typeof state;
     expect(state.spentUsd).toBe(0.01);
+  });
+});
+
+describe("beats that wait for a researcher", () => {
+  async function researcher() {
+    const id = randomUUID().slice(0, 8);
+    const { teamId, password } = await setUpTeam(database.db, {
+      teamName: `lab-${id}`,
+      slug: `lab-${id}`,
+      email: `${id}@example.edu`,
+      name: "Wizard",
+    });
+    const login = await app.request("/admin/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: `${id}@example.edu`, password }),
+    });
+    const cookie = (login.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+    const call = (method: string, url: string, body?: object) =>
+      app.request(url, {
+        method,
+        headers: { "content-type": "application/json", cookie },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+    return { teamId, call };
+  }
+
+  const WIZARD = `
+live: { approval: all, approvalTimeout: "0:05" }
+beats:
+  - id: reply
+    note: Ann answers their first post.
+    when: { participant: post, nth: 0 }
+    do:
+      action: comment
+      actor: ann
+      on: trigger
+      improvise: Answer them
+      fallback: Thanks for posting!
+  - id: then-like
+    when: { beat: reply }
+    do: { action: like, actor: ann, on: { beat: reply } }
+`;
+
+  async function setUp() {
+    const lab = await researcher();
+    const slug = await study("", lab.teamId, WIZARD);
+    const [found] = await database.db
+      .select({ id: schema.studies.id })
+      .from(schema.studies)
+      .where(eq(schema.studies.slug, slug));
+    const url = `/admin/studies/${found?.id}/christof`;
+    const person = participant(app, slug);
+    await person.join();
+    const id = await person.write("Anyone here like hiking?");
+    await person.poll();
+    const state = async () =>
+      (await (await lab.call("GET", url)).json()) as {
+        awaiting: { id: string; beat: string; draft: string; onText: string; onAuthor: string }[];
+      };
+    return { lab, url, person, id, state };
+  }
+
+  it("waits with a draft, and posts the researcher's version when they approve it", async () => {
+    const { lab, url, person, id, state } = await setUp();
+    expect((await person.post(id)).comments).toEqual([]);
+    const [waiting] = (await state()).awaiting;
+    expect(waiting).toMatchObject({
+      beat: "reply",
+      draft: "Thanks for posting!",
+      onText: "Anyone here like hiking?",
+      onAuthor: "the participant",
+    });
+
+    const approve = await lab.call("POST", `${url}/runs/${waiting?.id}`, {
+      action: "approve",
+      text: "Yes! Every weekend.",
+    });
+    expect(await approve.json()).toEqual({ status: "fired" });
+    const post = await person.post(id);
+    expect(post.comments.map(({ body }) => body)).toEqual(["Yes! Every weekend."]);
+    expect((await state()).awaiting.map(({ beat }) => beat)).not.toContain("reply");
+    expect(await writingOf("reply")).toMatchObject({
+      draft: "Thanks for posting!",
+      edited: true,
+      final: "Yes! Every weekend.",
+      decidedBy: "Wizard",
+    });
+
+    // What follows it waits for a researcher too, and counts from the approval.
+    await person.poll();
+    const [next] = (await state()).awaiting;
+    expect(next?.beat).toBe("then-like");
+    await lab.call("POST", `${url}/runs/${next?.id}`, { action: "approve" });
+    expect((await person.post(id)).comments[0]?.likes).toBe(1);
+
+    // A beat can only be decided once.
+    expect((await lab.call("POST", `${url}/runs/${waiting?.id}`, { action: "skip" })).status).toBe(
+      409,
+    );
+  });
+
+  it("is skipped when the researcher skips it", async () => {
+    const { lab, url, person, id, state } = await setUp();
+    const [waiting] = (await state()).awaiting;
+    expect(
+      await (await lab.call("POST", `${url}/runs/${waiting?.id}`, { action: "skip" })).json(),
+    ).toEqual({
+      status: "skipped",
+    });
+    expect((await person.post(id)).comments).toEqual([]);
+    expect((await latestRun("reply"))?.reason).toBe("a researcher skipped it");
+  });
+
+  it("uses the fallback line when nobody decides in time", async () => {
+    const { person, id, state } = await setUp();
+    const [waiting] = (await state()).awaiting;
+    await database.db
+      .update(schema.beatRuns)
+      .set({ decidedAt: new Date(Date.now() - 6 * 60_000) })
+      .where(eq(schema.beatRuns.id, waiting?.id as string));
+    await person.poll();
+    expect((await person.post(id)).comments.map(({ body }) => body)).toEqual([
+      "Thanks for posting!",
+    ]);
+    expect(await writingOf("reply")).toMatchObject({
+      mode: "fallback",
+      reason: "nobody approved it within 0:05",
+    });
   });
 });

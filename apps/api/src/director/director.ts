@@ -6,13 +6,14 @@ import {
   type BeatTarget,
   createRandom,
   featuresFor,
+  formatStudyTime,
 } from "@truman3/core";
 import { type Database, schema, type Transaction } from "@truman3/db";
 import { parseBeats } from "@truman3/study-files";
 import type { Writer } from "@truman3/writer";
 import { and, asc, eq, inArray, isNull, lte } from "drizzle-orm";
 import type { ParticipantContext } from "../participants/session.ts";
-import { chooseWords, mightWrite } from "./wording.ts";
+import { chooseWords, mightWrite, type Writing } from "./wording.ts";
 
 /**
  * Christof, the director: what makes each beat in beats.yaml happen in a participant's world. See
@@ -489,6 +490,7 @@ export async function catchUp(
   await db.transaction(async (tx) => {
     await scheduleTimed(tx, context, now);
   });
+  await timeOutApprovals(db, context, script, now);
 
   // A chain can only be as long as there are beats, which bounds the loop.
   for (let round = 0; round <= beats.length * 4; round++) {
@@ -565,34 +567,191 @@ export async function catchUp(
           )
         : { text: null, writing: null };
 
-    await db.transaction(async (tx) => {
-      const done = await perform(tx, context, beat, prepared, chosen.text, run.dueAt);
-      await tx
-        .update(schema.beatRuns)
-        .set({
-          status: "fired",
-          reason: null,
-          actorId: prepared.actorId,
-          contentId: done.contentId,
-          targetContentId: done.targetContentId,
-          writing: chosen.writing,
-        })
-        .where(eq(schema.beatRuns.id, run.id));
-      // What follows this beat counts from when it happened.
-      for (const next of beats) {
-        if (inCondition(next, context) && "beat" in next.when && next.when.beat === beat.id) {
-          const made = done.contentId ?? done.targetContentId;
-          await schedule(
-            tx,
-            context,
-            next,
-            { kind: "beat", beat: beat.id, runId: run.id, ...(made ? { contentId: made } : {}) },
-            run.dueAt,
-          );
-        }
-      }
-    });
+    if (needsApproval(script, beat)) {
+      await decide({
+        status: "awaiting",
+        reason: "waiting for a researcher",
+        actorId: prepared.actorId,
+        targetContentId: prepared.target?.id ?? null,
+        writing: { ...(chosen.writing ?? { mode: "fixed", costUsd: 0 }), draft: chosen.text },
+      });
+      continue;
+    }
+    await fire(db, context, beats, beat, run, prepared, chosen.text, chosen.writing, run.dueAt);
   }
+}
+
+/** Whether a beat waits for a researcher before it happens. */
+export function needsApproval(script: Script, beat: BeatDefinition) {
+  return beat.approve ?? script.live.approval === "all";
+}
+
+/**
+ * Does a beat, records that it happened, and writes down the beats that follow it, all at once.
+ * What it makes appears at `at`: when it was due, or when a researcher approved it.
+ */
+async function fire(
+  db: Database,
+  context: ParticipantContext,
+  beats: readonly BeatDefinition[],
+  beat: BeatDefinition,
+  run: { id: string },
+  prepared: Extract<Prepared, { ready: true }>,
+  text: string | null,
+  writing: Writing | null,
+  at: Date,
+) {
+  await db.transaction(async (tx) => {
+    const done = await perform(tx, context, beat, prepared, text, at);
+    await tx
+      .update(schema.beatRuns)
+      .set({
+        status: "fired",
+        reason: null,
+        actorId: prepared.actorId,
+        contentId: done.contentId,
+        targetContentId: done.targetContentId,
+        writing,
+      })
+      .where(eq(schema.beatRuns.id, run.id));
+    // What follows this beat counts from when it happened.
+    for (const next of beats) {
+      if (inCondition(next, context) && "beat" in next.when && next.when.beat === beat.id) {
+        const made = done.contentId ?? done.targetContentId;
+        await schedule(
+          tx,
+          context,
+          next,
+          { kind: "beat", beat: beat.id, runId: run.id, ...(made ? { contentId: made } : {}) },
+          at,
+        );
+      }
+    }
+  });
+}
+
+/** The line a beat uses when nobody approves it in time: its fallback, or its fixed text. */
+const unattendedLine = (beat: BeatDefinition) =>
+  beat.do.action === "post" || beat.do.action === "comment"
+    ? (beat.do.text ?? beat.do.fallback ?? null)
+    : null;
+
+/**
+ * Beats that waited too long for a researcher. Each happens with its fallback or fixed line, as of
+ * when its wait ran out, so a participant never waits forever on someone who isn't watching.
+ */
+async function timeOutApprovals(
+  db: Database,
+  context: ParticipantContext,
+  script: Script,
+  now: Date,
+) {
+  const { approvalTimeout } = script.live;
+  if (approvalTimeout === null) {
+    return;
+  }
+  const waiting = await db
+    .select()
+    .from(schema.beatRuns)
+    .where(
+      and(
+        eq(schema.beatRuns.worldId, context.worldId),
+        eq(schema.beatRuns.status, "awaiting"),
+        lte(schema.beatRuns.decidedAt, new Date(now.getTime() - approvalTimeout)),
+      ),
+    );
+  for (const run of waiting) {
+    const [claimed] = await db
+      .update(schema.beatRuns)
+      .set({ status: "skipped", reason: "being decided" })
+      .where(and(eq(schema.beatRuns.id, run.id), eq(schema.beatRuns.status, "awaiting")))
+      .returning({ id: schema.beatRuns.id });
+    const beat = script.beats.find(({ id }) => id === run.beat);
+    if (!claimed || !beat) {
+      continue;
+    }
+    const at = new Date((run.decidedAt as Date).getTime() + approvalTimeout);
+    const prepared = await prepare(db, context, beat, run.trigger as Trigger, at);
+    const writing = {
+      ...(run.writing as Writing),
+      mode: "fallback" as const,
+      reason: `nobody approved it within ${formatStudyTime(approvalTimeout)}`,
+    };
+    if (!prepared.ready) {
+      await db
+        .update(schema.beatRuns)
+        .set({ reason: prepared.reason, writing })
+        .where(eq(schema.beatRuns.id, run.id));
+      continue;
+    }
+    await fire(db, context, script.beats, beat, run, prepared, unattendedLine(beat), writing, at);
+  }
+}
+
+/** What a researcher decides about a beat that's waiting for them. */
+export interface Approval {
+  action: "approve" | "skip";
+  /** The line to post, if they changed it. Leave out to post the draft as it is. */
+  text?: string | undefined;
+  /** Who decided, for the record. */
+  by: string;
+}
+
+/**
+ * A researcher approves, edits, or skips a beat that's waiting for them. An approved beat happens
+ * now, as of the approval, and what follows it counts from then. Returns null if it isn't waiting
+ * any more, because someone else decided it or its time ran out.
+ */
+export async function decideAwaiting(
+  db: Database,
+  context: ParticipantContext,
+  runId: string,
+  approval: Approval,
+  now = new Date(),
+): Promise<"fired" | "skipped" | null> {
+  const [run] = await db
+    .update(schema.beatRuns)
+    .set({ status: "skipped", reason: "being decided" })
+    .where(
+      and(
+        eq(schema.beatRuns.id, runId),
+        eq(schema.beatRuns.worldId, context.worldId),
+        eq(schema.beatRuns.status, "awaiting"),
+      ),
+    )
+    .returning();
+  if (!run) {
+    return null;
+  }
+  const script = await scriptFor(db, context.studyVersionId);
+  const beat = script.beats.find(({ id }) => id === run.beat);
+  const before = (run.writing ?? {}) as Writing;
+  const record = (values: Partial<typeof schema.beatRuns.$inferInsert>) =>
+    db.update(schema.beatRuns).set(values).where(eq(schema.beatRuns.id, run.id));
+  if (!beat || approval.action === "skip") {
+    await record({
+      reason: beat ? "a researcher skipped it" : "the beat isn't in this version",
+      writing: { ...before, decidedBy: approval.by },
+    });
+    return "skipped";
+  }
+  const prepared = await prepare(db, context, beat, run.trigger as Trigger, now);
+  if (!prepared.ready) {
+    await record({ reason: prepared.reason, writing: { ...before, decidedBy: approval.by } });
+    return "skipped";
+  }
+  const draft = before.draft ?? null;
+  const text =
+    beat.do.action === "post" || beat.do.action === "comment"
+      ? approval.text?.trim() || draft
+      : null;
+  const writing: Writing = {
+    ...before,
+    decidedBy: approval.by,
+    ...(text !== draft ? { edited: true, final: text ?? "" } : {}),
+  };
+  await fire(db, context, script.beats, beat, run, prepared, text, writing, now);
+  return "fired";
 }
 
 /** How many times the participant has done this, counting the one just recorded, from 0. */
