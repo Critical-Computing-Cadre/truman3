@@ -8,8 +8,11 @@ import {
   MEDIA_FOLDERS,
   readStudyTables,
   type StudyFiles,
+  sheetAbout,
   sheetPlatform,
+  sheetsFor,
   UPLOAD_SHEETS,
+  type UploadSheet,
 } from "@truman3/study-files";
 import { strToU8, unzipSync, zipSync } from "fflate";
 import { MAX_IMAGE_BYTES, storeStudyImageBytes } from "../actions/images.ts";
@@ -57,7 +60,7 @@ const downloadRoute = createRoute({
 const uploadRoute = createRoute({
   method: "post",
   path: "/admin/drafts/{draftId}/sheets",
-  summary: "Add the people, posts, and comments in a zip of sheets and pictures to this draft",
+  summary: "Add what a zip of sheets and pictures describes to this draft",
   request: {
     params: draftParams,
     body: {
@@ -77,7 +80,8 @@ const uploadRoute = createRoute({
       content: {
         "application/json": {
           schema: z.object({
-            added: z.object({ actors: z.number(), posts: z.number(), comments: z.number() }),
+            /** How many of each kind of item, by kind, such as `post`. */
+            added: z.record(z.string(), z.number()),
             warnings: z.array(issueSchema),
           }),
         },
@@ -96,27 +100,29 @@ const uploadRoute = createRoute({
   },
 });
 
-const HOW_TO = `How to fill these in
+/** The note that comes with the sheets, listing the ones this study has. */
+function howTo(sheets: readonly UploadSheet[]) {
+  return `How to fill these in
 
 Each sheet is a CSV file. Open it in a spreadsheet, such as Excel or Google Sheets, and replace the
-example row with your own. Save each one as CSV with the same name.
+example rows with your own. Save each one as CSV with the same name. A sheet you don't need can be
+left out of the zip.
 
-- actors.csv: the people in the cast. A username is how posts and comments say who wrote them.
-- posts.csv: the posts. Each needs an id, used by comments and reposts to point at it.
-- comments.csv: the comments. postID says which post one is on.
+${sheets.map((sheet) => `- ${sheet}: ${sheetAbout(sheet)}`).join("\n")}
 
 Times are hours:minutes from when a participant joins. -2:00 is two hours before, so it's already
-there when they arrive. 0:30 appears half an hour after they join.
+there when they arrive. 0:30 appears half an hour after they join. "after" is how long after a
+participant does something.
 
-Pictures go in this zip too: people's pictures in ${MEDIA_FOLDERS.actors}/, and posts' in
-${MEDIA_FOLDERS.posts}/. A sheet names them by file name, like lake.jpg. A post can have several,
-separated by |.
+Pictures go in this zip too: people's pictures in ${MEDIA_FOLDERS.actors}/, posts' and stories' in
+${MEDIA_FOLDERS.posts}/, and communities' in ${MEDIA_FOLDERS.spaces}/. A sheet names them by file
+name, like lake.jpg. A post can have several, separated by |.
 
-To add them, zip the sheets and pictures together, and upload the zip with "Add from sheets"
-on the draft's page.
-An upload adds to what's there, so use usernames and ids the draft doesn't have yet. A column
-left out, or left empty, uses the study's default.
+To add them, zip the sheets and pictures together, and upload the zip with "Add from sheets" on
+the draft's page. An upload adds to what's there, so use usernames, keys, and ids the draft doesn't
+have yet. A column left out, or left empty, uses the study's default.
 `;
+}
 
 /**
  * The files in an uploaded zip, by their path in it. If everything is inside one folder, as when
@@ -169,8 +175,18 @@ const asStudyFiles = (files: ReadonlyMap<string, Uint8Array>): StudyFiles => {
 };
 
 /** The pictures these sheets name, by their path in the zip. */
-function picturesIn({ actors, posts }: Sheets) {
+function picturesIn({ actors, posts, spaces, stories }: Sheets) {
   const pictures = new Set<string>();
+  for (const space of spaces) {
+    for (const name of [space.picture, space.banner]) {
+      if (name) {
+        pictures.add(path.posix.join(MEDIA_FOLDERS.spaces, name));
+      }
+    }
+  }
+  for (const story of stories) {
+    pictures.add(path.posix.join(MEDIA_FOLDERS.posts, story.picture));
+  }
   for (const actor of actors) {
     for (const name of [actor.picture, actor.banner]) {
       if (name) {
@@ -212,12 +228,18 @@ export function createSheetRoutes({ db, storage }: ParticipantRouteDependencies)
       return c.json(body, status);
     }
     const { settings } = found.loaded;
-    const files: Record<string, Uint8Array> = { "how to fill these in.txt": strToU8(HOW_TO) };
-    for (const [sheet, text] of blankSheets(sheetPlatform(settings))) {
+    const platform = sheetPlatform(settings);
+    const files: Record<string, Uint8Array> = {
+      "how to fill these in.txt": strToU8(howTo(sheetsFor(platform))),
+    };
+    for (const [sheet, text] of blankSheets(platform)) {
       files[sheet] = strToU8(text);
     }
     files[`${MEDIA_FOLDERS.actors}/`] = new Uint8Array(0);
     files[`${MEDIA_FOLDERS.posts}/`] = new Uint8Array(0);
+    if (platform.features.spaces) {
+      files[`${MEDIA_FOLDERS.spaces}/`] = new Uint8Array(0);
+    }
     const zipped = zipSync(files);
     return c.body(zipped.slice().buffer, 200, {
       "content-type": "application/zip",
@@ -259,11 +281,7 @@ export function createSheetRoutes({ db, storage }: ParticipantRouteDependencies)
     // Pictures come in the zip, even if the study's other media is hosted somewhere else.
     const settings = { ...loaded.settings, media: {} };
     const read = readStudyTables(asStudyFiles(files), settings, UPLOAD_SHEETS);
-    const sheets: Sheets = {
-      actors: read.tables.actors,
-      posts: read.tables.posts,
-      comments: read.tables.comments,
-    };
+    const { pages: _pages, ...sheets } = read.tables;
     const issues = read.issues.some(({ severity }) => severity === "error")
       ? read.issues
       : [
@@ -299,7 +317,10 @@ export function createSheetRoutes({ db, storage }: ParticipantRouteDependencies)
       return problems("Nothing was added. Fix these and upload it again.", result.issues);
     }
     return c.json(
-      { added: result.added, warnings: [...read.issues, ...result.warnings].map(issueFields) },
+      {
+        added: result.added as Record<string, number>,
+        warnings: [...read.issues, ...result.warnings].map(issueFields),
+      },
       200,
     );
   });

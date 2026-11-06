@@ -19,7 +19,7 @@ import { loadStudyFolder, MEDIA_FOLDERS } from "@truman3/study-files";
 import { storeMedia } from "@truman3/study-import";
 import { and, eq, isNull } from "drizzle-orm";
 import type { EditProblem } from "./drafts.ts";
-import { actorItemData, commentItemData, type ItemIds, postItemData } from "./from-files.ts";
+import { type ItemIds, itemsFromTables } from "./from-files.ts";
 import type { Provenance } from "./items.ts";
 
 const INSERT_BATCH_SIZE = 500;
@@ -437,7 +437,6 @@ export async function startStudy(
 
     const actorIds = new Map(actors.map(({ username }) => [username, crypto.randomUUID()]));
     const postIds = new Map(posts.map(({ ref }) => [ref, crypto.randomUUID()]));
-    const actorId = (username: string) => actorIds.get(username) as string;
     const commentIds = new Map(comments.map(({ ref }) => [ref, crypto.randomUUID()]));
     const spaceIds = new Map(spaces.map(({ key }) => [key, crypto.randomUUID()]));
     const ids: ItemIds = {
@@ -447,135 +446,42 @@ export async function startStudy(
       spaces: spaceIds,
     };
 
-    const rows: (typeof schema.draftItems.$inferInsert)[] = [
-      ...actors.map((actor, position) => ({
-        id: actorId(actor.username),
+    // Each kind is numbered from 0, as the builder lists them.
+    const counts = new Map<string, number>();
+    const rows: (typeof schema.draftItems.$inferInsert)[] = itemsFromTables(
+      {
+        actors,
+        spaces,
+        posts,
+        comments,
+        reactions,
+        removals,
+        labels,
+        stories,
+        contextNotes,
+        autoRules,
+        appealAnswers,
+        bans,
+        reportAnswers,
+        flagAnswers,
+      },
+      ids,
+      {
+        post: (given) => drawLikes(given, settings.likes.posts),
+        comment: (given) => drawLikes(given, settings.likes.comments),
+      },
+    ).map(({ id, kind, provenanceKey, data }) => {
+      const position = counts.get(kind) ?? 0;
+      counts.set(kind, position + 1);
+      return {
+        ...(id ? { id } : {}),
         draftId: draft.id,
-        kind: "actor",
+        kind,
         position,
-        provenance: fromPack(null),
-        data: actorItemData(actor, ids),
-      })),
-      ...spaces.map((space, position) => ({
-        id: spaceIds.get(space.key) as string,
-        draftId: draft.id,
-        kind: "space",
-        position,
-        provenance: fromPack(null),
-        data: space,
-      })),
-      // A crosspost whose original was left out of this study is an ordinary post.
-      ...posts.map((post, position) => ({
-        id: postIds.get(post.ref) as string,
-        draftId: draft.id,
-        kind: "post",
-        position,
-        provenance: fromPack(`post:${post.ref}`),
-        data: postItemData(post, ids, drawLikes(post.likes, settings.likes.posts)),
-      })),
-      // A reply whose comment was left out of this study sits on the post instead.
-      ...comments.map((comment, position) => ({
-        id: commentIds.get(comment.ref) as string,
-        draftId: draft.id,
-        kind: "comment",
-        position,
-        provenance: fromPack(`comment:${comment.ref}`),
-        data: commentItemData(comment, ids, drawLikes(comment.likes, settings.likes.comments)),
-      })),
-      ...reactions.map(({ actor, ...reaction }, position) => ({
-        draftId: draft.id,
-        kind: "reaction",
-        position,
-        provenance: fromPack(null),
-        data: { ...reaction, actorId: actorId(actor) },
-      })),
-      ...removals.map(({ actor, target, ...removal }, position) => ({
-        draftId: draft.id,
-        kind: "removal",
-        position,
-        provenance: fromPack(null),
-        data: {
-          ...removal,
-          actorId: actorId(actor),
-          targetId: (removal.on === "post" ? postIds : commentIds).get(target) as string,
-        },
-      })),
-      ...labels.map(({ actor, target, ...labeling }, position) => ({
-        draftId: draft.id,
-        kind: "label",
-        position,
-        provenance: fromPack(null),
-        data: {
-          ...labeling,
-          actorId: actorId(actor),
-          targetId: (labeling.on === "post" ? postIds : commentIds).get(target) as string,
-        },
-      })),
-      ...stories.map(({ actor, ...story }, position) => ({
-        draftId: draft.id,
-        kind: "story",
-        position,
-        provenance: fromPack(null),
-        data: { ...story, actorId: actorId(actor) },
-      })),
-      ...contextNotes.map(({ post, ...note }, position) => ({
-        draftId: draft.id,
-        kind: "contextNote",
-        position,
-        provenance: fromPack(null),
-        data: { ...note, targetId: postIds.get(post) as string },
-      })),
-      ...autoRules.map(({ actor, ...rule }, position) => ({
-        draftId: draft.id,
-        kind: "autoRule",
-        position,
-        provenance: fromPack(null),
-        data: { ...rule, actorId: actorId(actor) },
-      })),
-      ...appealAnswers.map(({ actor, ...answer }, position) => ({
-        draftId: draft.id,
-        kind: "appealAnswer",
-        position,
-        provenance: fromPack(null),
-        data: { ...answer, actorId: actorId(actor) },
-      })),
-      ...bans.map(({ actor, user, space, ...ban }, position) => ({
-        draftId: draft.id,
-        kind: "ban",
-        position,
-        provenance: fromPack(null),
-        data: {
-          ...ban,
-          actorId: actorId(actor),
-          bannedActorId: actorId(user),
-          ...(space ? { spaceId: spaceIds.get(space) as string } : {}),
-        },
-      })),
-      ...reportAnswers.map(({ actor, user, ...answer }, position) => ({
-        draftId: draft.id,
-        kind: "reportAnswer",
-        position,
-        provenance: fromPack(null),
-        data: {
-          ...answer,
-          actorId: actorId(actor),
-          ...(user ? { reportedActorId: actorId(user) } : {}),
-        },
-      })),
-      ...flagAnswers.map(({ actor, target, ...answer }, position) => ({
-        draftId: draft.id,
-        kind: "flagAnswer",
-        position,
-        provenance: fromPack(null),
-        data: {
-          ...answer,
-          actorId: actorId(actor),
-          ...(target
-            ? { targetId: (answer.on === "comment" ? commentIds : postIds).get(target) as string }
-            : {}),
-        },
-      })),
-    ];
+        provenance: fromPack(provenanceKey),
+        data,
+      };
+    });
     for (let i = 0; i < rows.length; i += INSERT_BATCH_SIZE) {
       await tx.insert(schema.draftItems).values(rows.slice(i, i + INSERT_BATCH_SIZE));
     }

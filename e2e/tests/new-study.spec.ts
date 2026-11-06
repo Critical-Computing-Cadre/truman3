@@ -288,7 +288,7 @@ test("a researcher fills in sheets for a whole feed, and uploads them with their
   );
   await dialog.getByRole("button", { name: "Add to the draft" }).click();
   await expect(dialog.getByRole("status")).toHaveText(
-    "Added 2 people, 1 post, 1 comment. You can undo it from Recent changes.",
+    "Added 2 people, 1 post, and 1 comment. You can undo it from Recent changes.",
   );
   await dialog.getByRole("button", { name: "Done" }).click();
 
