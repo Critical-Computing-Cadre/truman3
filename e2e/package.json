@@ -19,6 +19,7 @@
     "@types/node": "^24.19.2",
     "csv-parse": "7.0.3",
     "drizzle-orm": "0.45.4",
+    "fflate": "0.8.2",
     "typescript": "7.0.2"
   }
 }

@@ -35,7 +35,7 @@ function chunks<T>(items: T[], size: number): T[][] {
   return result;
 }
 
-async function writeHistory(
+export async function writeHistory(
   tx: Transaction,
   rows: {
     itemId: string;
@@ -449,7 +449,10 @@ export interface LoadedDraft {
 }
 
 /** A draft and its items that haven't been deleted. */
-export async function loadDraft(db: Database, draftId: string): Promise<LoadedDraft | null> {
+export async function loadDraft(
+  db: Database | Transaction,
+  draftId: string,
+): Promise<LoadedDraft | null> {
   const [draft] = await db
     .select()
     .from(schema.studyDrafts)

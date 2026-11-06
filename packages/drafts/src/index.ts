@@ -55,6 +55,7 @@ export {
   type SectionState,
   sectionValue,
 } from "./sections.ts";
+export { type AddSheetsResult, addSheets, checkSheets, type Sheets } from "./sheets.ts";
 export {
   type ActiveResearcher,
   listChanges,

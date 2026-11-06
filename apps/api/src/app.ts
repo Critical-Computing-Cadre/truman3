@@ -8,6 +8,7 @@ import { createMonitorRoutes } from "./admin/monitor.ts";
 import { createPackRoutes } from "./admin/packs.ts";
 import { createProlificRoutes } from "./admin/prolific.ts";
 import { createAdminRoutes } from "./admin/routes.ts";
+import { createSheetRoutes } from "./admin/sheets.ts";
 import { describeError } from "./errors.ts";
 import { createFeedRoutes } from "./feed/routes.ts";
 import { createFlowRoutes } from "./flow/routes.ts";
@@ -92,6 +93,7 @@ export function createApp({
   app.route("/", createAdminRoutes(participantDependencies));
   app.route("/", createDraftRoutes(participantDependencies));
   app.route("/", createPackRoutes(participantDependencies));
+  app.route("/", createSheetRoutes(participantDependencies));
   app.route("/", createMonitorRoutes(participantDependencies));
   app.route("/", createLaunchRoutes(participantDependencies));
   app.route("/", createProlificRoutes(participantDependencies));

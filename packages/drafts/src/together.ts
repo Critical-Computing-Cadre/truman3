@@ -1,5 +1,5 @@
 import { type Database, schema } from "@truman3/db";
-import { and, desc, eq, gt, isNull, max, ne } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, max, ne } from "drizzle-orm";
 import type { EditProblem } from "./drafts.ts";
 import type { Provenance } from "./items.ts";
 import { pageKeyOf } from "./sections.ts";
@@ -88,16 +88,20 @@ function describeSection(section: string) {
   return page === null ? (SECTION_NAMES[section] ?? "the settings") : "a page's text";
 }
 
-function describeChange(action: string, rows: { data: unknown; previousData: unknown }[]) {
+function describeChange(
+  action: string,
+  rows: { data: unknown; previousData: unknown }[],
+  total = rows.length,
+) {
   const [first] = rows;
   const section = (first?.data as { section?: string } | undefined)?.section;
   if (section) {
     return `${action === "undo" ? "undid a change to" : "changed"} ${describeSection(section)}`;
   }
-  const extra = rows.length > 1 ? ` and ${rows.length - 1} more` : "";
+  const extra = total > 1 ? ` and ${total - 1} more` : "";
   switch (action) {
     case "create":
-      return `added ${quote(first?.data)}`;
+      return `added ${quote(first?.data)}${extra}`;
     case "delete":
       return `deleted ${quote(first?.data)}${extra}`;
     case "undo":
@@ -130,8 +134,31 @@ export async function listChanges(
     .orderBy(desc(schema.draftItemHistory.id))
     .limit(CHANGES_SHOWN * 5);
 
-  const groups = Map.groupBy(rows, ({ history }) => history.changeId);
-  return [...groups.values()].slice(0, CHANGES_SHOWN).map((group) => {
+  const groups = [...Map.groupBy(rows, ({ history }) => history.changeId).values()].slice(
+    0,
+    CHANGES_SHOWN,
+  );
+  // One change can hold more items than were read, such as an upload of a whole feed.
+  const sizes = new Map(
+    groups.length === 0
+      ? []
+      : (
+          await db
+            .select({ changeId: schema.draftItemHistory.changeId, items: count() })
+            .from(schema.draftItemHistory)
+            .where(
+              and(
+                eq(schema.draftItemHistory.draftId, draftId),
+                inArray(
+                  schema.draftItemHistory.changeId,
+                  groups.map((group) => (group[0] as (typeof group)[number]).history.changeId),
+                ),
+              ),
+            )
+            .groupBy(schema.draftItemHistory.changeId)
+        ).map(({ changeId, items }) => [changeId, items]),
+  );
+  return groups.map((group) => {
     const [first] = group as [(typeof group)[number]];
     const { history, who } = first;
     return {
@@ -142,6 +169,7 @@ export async function listChanges(
       summary: describeChange(
         history.action,
         group.map((row) => row.history),
+        sizes.get(history.changeId) ?? group.length,
       ),
       at: history.at.toISOString(),
       canUndo:

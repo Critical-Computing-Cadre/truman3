@@ -260,6 +260,9 @@ importers:
       '@truman3/study-export':
         specifier: workspace:*
         version: link:../../packages/study-export
+      '@truman3/study-files':
+        specifier: workspace:*
+        version: link:../../packages/study-files
       '@truman3/study-import':
         specifier: workspace:*
         version: link:../../packages/study-import
@@ -404,6 +407,9 @@ importers:
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(postgres@4.0.0)
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
       typescript:
         specifier: 7.0.2
         version: 7.0.2

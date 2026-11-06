@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { ADMIN_PORT, APP_PORT } from "../playwright.config.ts";
 
 const STATE_FILE = path.resolve(import.meta.dirname, "../.e2e-state.json");
@@ -224,4 +225,74 @@ test("choosing a kind of platform, with a look at each and help deciding", async
   await expect(page.getByText("Forum sounds closest.")).toBeVisible();
   await page.getByRole("button", { name: "Use Forum" }).click();
   await expect(page.getByRole("radio", { name: "Forum", exact: true })).toBeChecked();
+});
+
+test("a researcher fills in sheets for a whole feed, and uploads them with their pictures", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+  const stamp = Date.now() % 1_000_000;
+
+  await signIn(page);
+  await startStudy(page, `From sheets ${stamp}`, async () => {
+    await page.getByRole("radio", { name: "Photo", exact: true }).check();
+    await page.getByRole("radio", { name: /Start with nothing/ }).check();
+  });
+
+  await page.getByRole("button", { name: "Add from sheets" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add from sheets" });
+
+  // The sheets are made for this kind of platform.
+  const downloading = page.waitForEvent("download");
+  await dialog.getByRole("link", { name: "Download the sheets" }).click();
+  const sheets = unzipSync(readFileSync(await (await downloading).path()));
+  expect(strFromU8(sheets["posts.csv"] as Uint8Array)).toMatch(/^id,actor,time,body,picture,place/);
+
+  const zipOf = (files: Record<string, string | Uint8Array>) => ({
+    name: "feed.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.from(
+      zipSync(
+        Object.fromEntries(
+          Object.entries(files).map(([name, file]) => [
+            name,
+            typeof file === "string" ? strToU8(file) : file,
+          ]),
+        ),
+      ),
+    ),
+  });
+  const actors = "username,name,picture\nann,Ann Lee,\nbob,Bob,\n";
+
+  // A mistake says which row, and nothing is added.
+  await dialog
+    .getByLabel("The zip")
+    .setInputFiles(
+      zipOf({ "actors.csv": actors, "posts.csv": "id,actor,time,body\np1,nobody,-1:00,Hi\n" }),
+    );
+  await dialog.getByRole("button", { name: "Add to the draft" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("posts.csv, row 2");
+
+  const photo = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  await dialog.getByLabel("The zip").setInputFiles(
+    zipOf({
+      "actors.csv": actors,
+      "posts.csv":
+        "id,actor,time,body,picture,place\np1,ann,-1:00,Sunrise at the lake,lake.png,Ithaca\n",
+      "comments.csv": "id,postID,actor,time,body\nc1,p1,bob,-0:30,Which trail?\n",
+      "media/posts/lake.png": photo,
+    }),
+  );
+  await dialog.getByRole("button", { name: "Add to the draft" }).click();
+  await expect(dialog.getByRole("status")).toHaveText(
+    "Added 2 people, 1 post, 1 comment. You can undo it from Recent changes.",
+  );
+  await dialog.getByRole("button", { name: "Done" }).click();
+
+  await expect(page.locator("article").getByText("Sunrise at the lake")).toBeVisible();
+  await page.locator("summary", { hasText: "Recent changes" }).click();
+  await expect(page.getByText(/added .* and 3 more/)).toBeVisible();
 });
