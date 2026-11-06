@@ -18,6 +18,7 @@ import {
   type RemovalDefinition,
   type ReportAnswerDefinition,
   type SpaceDefinition,
+  type StoryDefinition,
   type StudyDefinition,
   type StudyIssue,
   studyDefinitionSchema,
@@ -68,6 +69,7 @@ const POSTS: CsvSpec = {
     "quotes",
     "ad",
     "views",
+    "likedBy",
     "likes",
     "ups",
     "downs",
@@ -119,6 +121,10 @@ const AUTO_RULES: CsvSpec = {
 const APPEAL_ANSWERS: CsvSpec = {
   required: ["action", "actor", "after"],
   optional: ["message", "condition", "class"],
+};
+const STORIES: CsvSpec = {
+  required: ["id", "actor", "picture", "time"],
+  optional: ["caption", "lastsHours", "condition", "class"],
 };
 const CONTEXT_NOTES: CsvSpec = {
   required: ["id", "postID", "body", "time"],
@@ -403,6 +409,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       // "yes" is the usual label, and anything else is the label a study wants.
       ...optional("ad", /^(yes|true)$/i.test(cells.ad ?? "") ? "Sponsored" : cells.ad || undefined),
       ...optional("views", wholeNumber(cells.views, "views", "posts.csv", row)),
+      ...optional("likedBy", cells.likedBy || undefined),
       ...optional("likes", wholeNumber(cells.likes, "likes", "posts.csv", row)),
       ...optional("ups", wholeNumber(cells.ups, "ups", "posts.csv", row)),
       ...optional("downs", wholeNumber(cells.downs, "downs", "posts.csv", row)),
@@ -435,8 +442,8 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     const file = "reactions.csv";
     const on = cells.on;
     const type = cells.type;
-    if (on !== "post" && on !== "comment") {
-      rowError(file, row, `"${on}" in on has to be post or comment.`);
+    if (on !== "post" && on !== "comment" && on !== "story") {
+      rowError(file, row, `"${on}" in on has to be post, comment, or story.`);
       continue;
     }
     if (
@@ -603,6 +610,25 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     };
   });
 
+  const stories: StoryDefinition[] = readTable("stories.csv", STORIES, false).map(
+    ({ row, cells }) => {
+      const file = "stories.csv";
+      const lasts = cells.lastsHours ? Number(cells.lastsHours) : undefined;
+      if (lasts !== undefined && !(lasts > 0)) {
+        rowError(file, row, `"${cells.lastsHours}" in lastsHours has to be a number of hours.`);
+      }
+      return {
+        ref: cells.id || `(row ${row})`,
+        actor: cells.actor || `(row ${row})`,
+        picture: cells.picture ?? "",
+        timeMs: time(cells.time, "time", file, row),
+        ...optional("caption", cells.caption || undefined),
+        ...(lasts && lasts > 0 ? { lastsHours: lasts } : {}),
+        ...targeting(cells, file, row),
+      };
+    },
+  );
+
   const pages: Record<string, string> = {};
   for (const step of settings.data.flow) {
     if (step.step === "consent" || step.step === "page") {
@@ -636,6 +662,9 @@ export function loadStudyFolder(folder: string): LoadedStudy {
         checkMedia(MEDIA_FOLDERS.posts, picture, post.source);
       }
     }
+    for (const story of stories) {
+      checkMedia(MEDIA_FOLDERS.posts, story.picture, story.source);
+    }
     for (const image of [settings.data.site.logo, settings.data.site.favicon]) {
       if (image && !existsSync(path.join(folder, image))) {
         issues.push({
@@ -662,6 +691,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     autoRules,
     appealAnswers,
     contextNotes,
+    stories,
   });
   if (!parsed.success) {
     return {

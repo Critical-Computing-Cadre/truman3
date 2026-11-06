@@ -444,3 +444,25 @@ describe("what's added for short posts, part 2", () => {
     ]);
   });
 });
+
+describe("stories.csv", () => {
+  it("reads stories and who liked a post", () => {
+    const { definition } = loadStudyFolder(
+      folder({
+        ...base,
+        "posts.csv": "id,body,actor,time,likedBy\n1,hello,ann,0:00,ann\n",
+        "stories.csv": "id,actor,picture,caption,time,lastsHours\ns,ann,a.jpg,Hi,1:00,2\n",
+      }),
+    );
+    expect(definition?.stories).toEqual([
+      expect.objectContaining({
+        ref: "s",
+        actor: "ann",
+        picture: "a.jpg",
+        caption: "Hi",
+        lastsHours: 2,
+      }),
+    ]);
+    expect(definition?.posts[0]?.likedBy).toBe("ann");
+  });
+});

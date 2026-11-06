@@ -21,14 +21,17 @@ export function ClassicHeader({ renderBrand, links, action }: PageHeaderProps) {
   );
 }
 
-export function ClassicFeedFrame({ renderProfile, children }: FeedFrameProps) {
+export function ClassicFeedFrame({ renderProfile, top, children }: FeedFrameProps) {
   return (
     <div className="justify-center gap-4 md:grid md:grid-cols-[14rem_minmax(0,36rem)] lg:grid-cols-[14rem_minmax(0,36rem)_14rem]">
       {/* Too narrow on a phone, where the Profile link in the header does this job. */}
       <aside className="hidden md:block">
         <div className="sticky top-16">{renderProfile(false)}</div>
       </aside>
-      <div className="min-w-0 space-y-3 sm:space-y-4">{children}</div>
+      <div className="min-w-0 space-y-3 sm:space-y-4">
+        {top}
+        {children}
+      </div>
     </div>
   );
 }

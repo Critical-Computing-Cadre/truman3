@@ -52,6 +52,7 @@ export type FeedContent = Pick<
   | "baseReposts"
   | "baseQuotes"
   | "adLabel"
+  | "likedByActorId"
   | "baseViews"
   | "body"
   | "attachments"
@@ -660,6 +661,10 @@ export async function shapeFeedPosts({
     ...new Set([
       ...shownIds.map((id) => (byId.get(id) as FeedContent).authorActorId),
       ...feed.posts.flatMap((post) => {
+        const shown = shownAs(byId.get(post.id) as FeedContent);
+        return shown.likedByActorId && features.likes ? [shown.likedByActorId] : [];
+      }),
+      ...feed.posts.flatMap((post) => {
         const listed = byId.get(post.id) as FeedContent;
         const above = listed.repostOf ? byId.get(listed.repostOf) : undefined;
         return [shownAs(listed).authorActorId, ...(above ? [above.authorActorId] : [])];
@@ -834,6 +839,13 @@ export async function shapeFeedPosts({
     const passing = {
       ...repostedBy,
       ...(item.adLabel && features.ads ? { ad: item.adLabel } : {}),
+      ...(item.likedByActorId && features.likes && authorById.has(item.likedByActorId)
+        ? {
+            likedBy:
+              ((authorById.get(item.likedByActorId) as FeedActor).profile as ActorProfile).name ??
+              (authorById.get(item.likedByActorId) as FeedActor).username,
+          }
+        : {}),
       ...(features.viewCounts
         ? { viewCount: item.baseViews + (viewedContentIds.has(item.id) ? 1 : 0) }
         : {}),
@@ -982,18 +994,21 @@ export async function buildFeed(
 ): Promise<FeedPost[]> {
   const worldStartMs = context.worldStartedAt.getTime();
 
-  const rows = await db
-    .select()
-    .from(schema.content)
-    .where(
-      or(
-        and(
-          eq(schema.content.studyVersionId, context.studyVersionId),
-          isNull(schema.content.worldId),
+  // Stories are content too, but they have their own row across the top, not a place in lists.
+  const rows = (
+    await db
+      .select()
+      .from(schema.content)
+      .where(
+        or(
+          and(
+            eq(schema.content.studyVersionId, context.studyVersionId),
+            isNull(schema.content.worldId),
+          ),
+          eq(schema.content.worldId, context.worldId),
         ),
-        eq(schema.content.worldId, context.worldId),
-      ),
-    );
+      )
+  ).filter(({ kind }) => kind !== "story");
 
   const state = await loadViewerState(db, context);
   const rowsById = new Map(rows.map((row) => [row.id, row]));

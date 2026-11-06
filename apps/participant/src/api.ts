@@ -108,7 +108,7 @@ export interface NotificationItem {
     | "repost"
     | "follow";
   actors: { username: string; name: string; pictureUrl: string | null }[];
-  targetKind: "post" | "comment" | "person";
+  targetKind: "post" | "comment" | "story" | "person";
   targetName: string;
   targetIsTheirs: boolean;
   postId: string | null;

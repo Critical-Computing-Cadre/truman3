@@ -39,11 +39,12 @@ export async function loadVersion(db: Database, versionId: string) {
   return row ? { ...row, settings: studySettingsSchema.parse(row.version.settings) } : null;
 }
 
-export function scriptedContent(db: Database, versionId: string) {
-  return db
+export async function scriptedContent(db: Database, versionId: string) {
+  const rows = await db
     .select()
     .from(schema.content)
     .where(and(eq(schema.content.studyVersionId, versionId), isNull(schema.content.worldId)));
+  return rows.filter(({ kind }) => kind !== "story");
 }
 
 export interface PreviewSpace {

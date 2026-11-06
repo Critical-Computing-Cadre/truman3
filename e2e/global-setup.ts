@@ -162,6 +162,15 @@ export default async function globalSetup() {
   if (shortPosts.status === "failed") {
     throw new Error(shortPosts.issues.map((issue) => issue.message).join("\n"));
   }
+  const photo = await importStudyFolder(
+    database.db,
+    storage,
+    path.join(import.meta.dirname, "fixtures/photo"),
+    { launch: true },
+  );
+  if (photo.status === "failed") {
+    throw new Error(photo.issues.map((issue) => issue.message).join("\n"));
+  }
   writeFileSync(
     STATE_FILE,
     JSON.stringify({

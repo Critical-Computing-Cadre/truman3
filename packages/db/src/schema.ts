@@ -349,6 +349,10 @@ export const content = pgTable(
     repostOf: uuid("repost_of").references((): AnyPgColumn => content.id),
     /** The post this quotes. */
     quoteOf: uuid("quote_of").references((): AnyPgColumn => content.id),
+    /** How long a story lasts. Null is a day. */
+    lastsMs: bigint("lasts_ms", { mode: "number" }),
+    /** Someone in the cast who liked it, for "Liked by ... and others." */
+    likedByActorId: uuid("liked_by_actor_id").references(() => actors.id),
     /** Marks it as an ad, with this label. */
     adLabel: text("ad_label"),
     baseViews: integer("base_views").notNull().default(0),
@@ -379,7 +383,7 @@ export const content = pgTable(
       .on(table.worldId, table.visibleAt)
       .where(sql`${table.worldId} is not null`),
     index("content_parent").on(table.parentId),
-    check("content_kind", inList(table.kind, ["post", "comment"])),
+    check("content_kind", inList(table.kind, ["post", "comment", "story"])),
     check(
       "content_comment_has_parent",
       sql`(${table.kind} = 'comment') = (${table.parentId} is not null)`,
@@ -413,7 +417,7 @@ export const scriptedReactions = pgTable(
   },
   (table) => [
     index("scripted_reactions_trigger").on(table.studyVersionId, table.on, table.nth),
-    check("scripted_reactions_on", inList(table.on, ["post", "comment"])),
+    check("scripted_reactions_on", inList(table.on, ["post", "comment", "story"])),
     check(
       "scripted_reactions_type",
       inList(table.type, [
@@ -957,6 +961,7 @@ export const draftItems = pgTable(
         "autoRule",
         "appealAnswer",
         "contextNote",
+        "story",
         "setting",
         "space",
       ]),

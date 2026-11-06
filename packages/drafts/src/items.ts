@@ -74,6 +74,7 @@ export const itemDataSchemas = {
     reposts: z.number().int().nonnegative().optional(),
     quotes: z.number().int().nonnegative().optional(),
     ad: z.string().min(1).max(40).optional(),
+    likedById: z.uuid().optional(),
     views: z.number().int().nonnegative().optional(),
     timeMs: z.number().int(),
     likes: z.number().int().nonnegative(),
@@ -95,7 +96,7 @@ export const itemDataSchemas = {
     ...targeting,
   }),
   reaction: z.strictObject({
-    on: z.enum(["post", "comment"]),
+    on: z.enum(["post", "comment", "story"]),
     nth: z.number().int().nonnegative(),
     type: z.enum(["read", "like", "reply", "up", "down", "remove", "warn", "repost", "follow"]),
     actorId: z.uuid(),
@@ -137,6 +138,16 @@ export const itemDataSchemas = {
     message: z.string().min(1).optional(),
     ...targeting,
   }),
+  story: z.strictObject({
+    ref: z.string().min(1),
+    actorId: z.uuid(),
+    /** Missing until a researcher adds one, and a version can't be saved without it. */
+    picture: z.string().optional(),
+    caption: z.string().max(500).optional(),
+    timeMs: z.number().int(),
+    lastsHours: z.number().positive().optional(),
+    ...targeting,
+  }),
   contextNote: z.strictObject({
     ref: z.string().min(1),
     targetId: z.uuid(),
@@ -175,6 +186,7 @@ export type RemovalData = z.infer<typeof itemDataSchemas.removal>;
 export type FlagAnswerData = z.infer<typeof itemDataSchemas.flagAnswer>;
 export type BanData = z.infer<typeof itemDataSchemas.ban>;
 export type ContextNoteData = z.infer<typeof itemDataSchemas.contextNote>;
+export type StoryData = z.infer<typeof itemDataSchemas.story>;
 export type AutoRuleData = z.infer<typeof itemDataSchemas.autoRule>;
 export type AppealAnswerData = z.infer<typeof itemDataSchemas.appealAnswer>;
 export type ReportAnswerData = z.infer<typeof itemDataSchemas.reportAnswer>;

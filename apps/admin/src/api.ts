@@ -194,6 +194,16 @@ export interface DraftInfo {
     message: string;
     conditions: string[];
   }[];
+  /** Photos someone in the cast posts as stories. */
+  stories: {
+    id: string;
+    actorId: string;
+    pictureUrl: string | null;
+    caption: string;
+    timeMs: number;
+    lastsHours: number | null;
+    conditions: string[];
+  }[];
   /** A note on a post, as if readers had added context. */
   contextNotes: {
     id: string;
@@ -294,6 +304,7 @@ export interface DraftItemDetails {
   quotes: number;
   ad: string | null;
   views: number;
+  likedById: string | null;
   origin: string;
 }
 

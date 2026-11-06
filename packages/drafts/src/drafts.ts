@@ -229,50 +229,53 @@ export async function openDraft(
           ...optional("class", space.class),
         },
       })),
-      ...content.map((item, index) => {
-        const shared = {
-          ref: item.sourceRef ?? item.id,
-          body: item.body,
-          actorId: asId(item.authorActorId),
-          timeMs: item.offsetMs ?? 0,
-          likes: item.baseLikes,
-          ups: item.baseUps,
-          downs: item.baseDowns,
-          conditions: item.conditions,
-          ...optional("class", item.class),
-        };
-        return {
-          id: asId(item.id),
-          draftId: created.id,
-          kind: item.kind,
-          position: item.position ?? index,
-          provenance: (Object.keys(item.provenance as object).length
-            ? item.provenance
-            : fromFile) as Provenance,
-          data:
-            item.kind === "post"
-              ? {
-                  ...shared,
-                  ...optional("title", item.title),
-                  ...optional("link", item.linkUrl),
-                  ...(item.pinnedOn.length > 0 ? { pinnedOn: item.pinnedOn } : {}),
-                  ...(item.locked ? { locked: true } : {}),
-                  ...(item.tags.length > 0 ? { tags: item.tags } : {}),
-                  ...(item.poll ? { poll: item.poll } : {}),
-                  ...optional("flair", item.flair),
-                  ...(item.crosspostOf ? { crosspostOfId: asId(item.crosspostOf) } : {}),
-                  ...(item.repostOf ? { repostOfId: asId(item.repostOf) } : {}),
-                  ...(item.quoteOf ? { quoteOfId: asId(item.quoteOf) } : {}),
-                  ...(item.baseReposts ? { reposts: item.baseReposts } : {}),
-                  ...(item.baseQuotes ? { quotes: item.baseQuotes } : {}),
-                  ...optional("ad", item.adLabel),
-                  ...(item.baseViews ? { views: item.baseViews } : {}),
-                  pictures: item.attachments.map(({ key }) => key),
-                  ...(item.spaceId ? { spaceId: asId(item.spaceId) } : {}),
-                }
-              : { ...shared, ...commentPlace(item) },
-        };
-      }),
+      ...content
+        .filter(({ kind }) => kind !== "story")
+        .map((item, index) => {
+          const shared = {
+            ref: item.sourceRef ?? item.id,
+            body: item.body,
+            actorId: asId(item.authorActorId),
+            timeMs: item.offsetMs ?? 0,
+            likes: item.baseLikes,
+            ups: item.baseUps,
+            downs: item.baseDowns,
+            conditions: item.conditions,
+            ...optional("class", item.class),
+          };
+          return {
+            id: asId(item.id),
+            draftId: created.id,
+            kind: item.kind,
+            position: item.position ?? index,
+            provenance: (Object.keys(item.provenance as object).length
+              ? item.provenance
+              : fromFile) as Provenance,
+            data:
+              item.kind === "post"
+                ? {
+                    ...shared,
+                    ...optional("title", item.title),
+                    ...optional("link", item.linkUrl),
+                    ...(item.pinnedOn.length > 0 ? { pinnedOn: item.pinnedOn } : {}),
+                    ...(item.locked ? { locked: true } : {}),
+                    ...(item.tags.length > 0 ? { tags: item.tags } : {}),
+                    ...(item.poll ? { poll: item.poll } : {}),
+                    ...optional("flair", item.flair),
+                    ...(item.crosspostOf ? { crosspostOfId: asId(item.crosspostOf) } : {}),
+                    ...(item.repostOf ? { repostOfId: asId(item.repostOf) } : {}),
+                    ...(item.quoteOf ? { quoteOfId: asId(item.quoteOf) } : {}),
+                    ...(item.baseReposts ? { reposts: item.baseReposts } : {}),
+                    ...(item.baseQuotes ? { quotes: item.baseQuotes } : {}),
+                    ...optional("ad", item.adLabel),
+                    ...(item.likedByActorId ? { likedById: asId(item.likedByActorId) } : {}),
+                    ...(item.baseViews ? { views: item.baseViews } : {}),
+                    pictures: item.attachments.map(({ key }) => key),
+                    ...(item.spaceId ? { spaceId: asId(item.spaceId) } : {}),
+                  }
+                : { ...shared, ...commentPlace(item) },
+          };
+        }),
       ...reactions.map((reaction, position) => ({
         draftId: created.id,
         kind: "reaction",
@@ -304,6 +307,25 @@ export async function openDraft(
           ...optional("class", removal.class),
         },
       })),
+      ...content
+        .filter(({ kind }) => kind === "story")
+        .map((story, position) => ({
+          id: asId(story.id),
+          draftId: created.id,
+          kind: "story",
+          position,
+          provenance: fromFile,
+          data: {
+            ref: story.sourceRef ?? newRef("story", story.id),
+            actorId: asId(story.authorActorId),
+            ...(story.attachments[0] ? { picture: story.attachments[0].key } : {}),
+            ...optional("caption", story.body || undefined),
+            timeMs: story.offsetMs ?? 0,
+            ...(story.lastsMs ? { lastsHours: story.lastsMs / 3_600_000 } : {}),
+            conditions: story.conditions,
+            ...optional("class", story.class),
+          },
+        })),
       ...contextNotes.map((note, position) => ({
         draftId: created.id,
         kind: "contextNote",
@@ -706,7 +728,8 @@ export async function createItem(
     | "reportAnswer"
     | "autoRule"
     | "appealAnswer"
-    | "contextNote",
+    | "contextNote"
+    | "story",
   fields: Record<string, unknown>,
 ): Promise<{ id: string } | EditProblem> {
   return db.transaction(async (tx) => {
@@ -739,6 +762,9 @@ export async function createItem(
       }
       if (kind === "contextNote") {
         return { ...fields, ref: newRef("note", id) };
+      }
+      if (kind === "story") {
+        return { ...fields, ref: newRef("story", id) };
       }
       // A space's key is part of its address, so it's made from the name, and can be changed later.
       return kind === "space"

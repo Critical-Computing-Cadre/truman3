@@ -964,3 +964,27 @@ describe("short posts, part 2", () => {
     expect(screen.queryByRole("link", { name: "#News" })).toBeNull();
   });
 });
+
+describe("the photo layout", () => {
+  afterEach(cleanup);
+  const draw = (post: FeedPost) =>
+    render(
+      <PlatformProvider platform={{ layout: "photo", features: TEMPLATES.photo.features }}>
+        <FeedPostView
+          post={post}
+          actions={{ onLike: vi.fn(), onVote: vi.fn(), onFlag: vi.fn(), onReply: vi.fn() }}
+        />
+      </PlatformProvider>,
+    );
+
+  it("says who liked it, and how many others", () => {
+    draw({ ...POST, comments: [], likes: 108, likedBy: "Bob" });
+    expect(screen.getByTestId("liked-by").textContent).toBe("Liked by Bob and 107 others");
+  });
+
+  it("names nobody if the study didn't, and has a like button as an icon", () => {
+    draw({ ...POST, comments: [], likes: 3 });
+    expect(screen.queryByTestId("liked-by")).toBeNull();
+    expect(screen.getByRole("button", { name: "Like" })).toBeDefined();
+  });
+});

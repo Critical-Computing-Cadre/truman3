@@ -4,7 +4,7 @@ import { FEATURE_KEYS, type FeatureSet } from "./catalog.ts";
  * How posts and the page around them are arranged. A layout's look can't change once a study has
  * launched with it, so changing one means adding a new name, such as `classic-2` (ADR 18).
  */
-export const LAYOUT_KEYS = ["classic", "forum", "short-posts"] as const;
+export const LAYOUT_KEYS = ["classic", "forum", "short-posts", "photo"] as const;
 
 export type LayoutKey = (typeof LAYOUT_KEYS)[number];
 
@@ -65,6 +65,8 @@ export const TEMPLATES = {
       whoToFollow: false,
       viewCounts: false,
       muting: false,
+      stories: false,
+      profileGrid: false,
       ads: false,
     },
   },
@@ -90,6 +92,8 @@ export const TEMPLATES = {
       whoToFollow: false,
       viewCounts: false,
       muting: false,
+      stories: false,
+      profileGrid: false,
     },
     feed: { ranker: "top", commentOrder: "top" },
   },
@@ -109,6 +113,34 @@ export const TEMPLATES = {
       adultTags: false,
       appeals: false,
       modLog: false,
+      stories: false,
+      profileGrid: false,
+    },
+    feed: { ranker: "new", commentOrder: "top" },
+  },
+  photo: {
+    name: "Photo",
+    description:
+      "Square photos from people you follow, stories across the top, and a profile that's a grid of photos.",
+    layout: "photo",
+    features: {
+      ...allFeatures,
+      votes: false,
+      titles: false,
+      karma: false,
+      spaces: false,
+      flair: false,
+      crossposting: false,
+      adultTags: false,
+      appeals: false,
+      modLog: false,
+      quotes: false,
+      followingFeed: false,
+      links: false,
+      polls: false,
+      contextNotes: false,
+      trending: false,
+      viewCounts: false,
     },
     feed: { ranker: "new", commentOrder: "top" },
   },

@@ -22,6 +22,8 @@ export interface PageHeaderProps {
 export interface FeedFrameProps {
   /** Who this is, as a large card or a compact one. */
   renderProfile: (compact: boolean) => ReactNode;
+  /** Above the posts, such as a row of stories. */
+  top?: ReactNode;
   /** Anything else useful beside a feed. */
   side?: ReactNode;
   children: ReactNode;

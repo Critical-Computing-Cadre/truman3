@@ -321,6 +321,8 @@ export const postDefinitionSchema = z.object({
   repostOf: z.string().min(1).optional(),
   /** The post this quotes, by its ID in this study. */
   quoteOf: z.string().min(1).optional(),
+  /** Someone in the cast who liked it, by username, for "Liked by ... and others." */
+  likedBy: z.string().min(1).optional(),
   /** Marks it as an ad, with this label, such as "Sponsored". */
   ad: z.string().min(1).max(40).optional(),
   /** How many it says have seen it. */
@@ -355,7 +357,7 @@ export const commentDefinitionSchema = z.object({
 
 export const reactionDefinitionSchema = z.object({
   /** What the participant did to trigger this: their nth post or comment. */
-  on: z.enum(["post", "comment"]),
+  on: z.enum(["post", "comment", "story"]),
   /** Which one, counting from 0. */
   nth: z.number().int().nonnegative(),
   type: z.enum(["read", "like", "reply", "up", "down", "remove", "warn", "repost", "follow"]),
@@ -453,6 +455,21 @@ export const appealAnswerDefinitionSchema = z.object({
   ...targetingFields,
 });
 
+/** A photo someone in the cast posts as a story, at a set time, which lasts a set time. */
+export const storyDefinitionSchema = z.object({
+  /** What records call it. */
+  ref: z.string().min(1),
+  actor: z.string().min(1),
+  /** In media/posts. Empty only while a draft is being written, and validation refuses that. */
+  picture: z.string(),
+  caption: z.string().max(500).optional(),
+  /** Milliseconds relative to when a participant starts. */
+  timeMs: z.number().int(),
+  /** How long it lasts. Leave out for a day. */
+  lastsHours: z.number().positive().optional(),
+  ...targetingFields,
+});
+
 /** A note on a post, as if readers had added context, from a set time. Only the first due one shows. */
 export const contextNoteDefinitionSchema = z.object({
   /** What records call it. */
@@ -488,6 +505,7 @@ export const studyDefinitionSchema = z.object({
   autoRules: z.array(autoRuleDefinitionSchema).default([]),
   appealAnswers: z.array(appealAnswerDefinitionSchema).default([]),
   contextNotes: z.array(contextNoteDefinitionSchema).default([]),
+  stories: z.array(storyDefinitionSchema).default([]),
 });
 
 export type StudySettings = z.infer<typeof studySettingsSchema>;
@@ -504,3 +522,4 @@ export type ReportAnswerDefinition = z.infer<typeof reportAnswerDefinitionSchema
 export type AutoRuleDefinition = z.infer<typeof autoRuleDefinitionSchema>;
 export type AppealAnswerDefinition = z.infer<typeof appealAnswerDefinitionSchema>;
 export type ContextNoteDefinition = z.infer<typeof contextNoteDefinitionSchema>;
+export type StoryDefinition = z.infer<typeof storyDefinitionSchema>;

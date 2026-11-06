@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet } from "@tanstack/react-router";
 import type { FeedWarning } from "@truman3/core";
 import {
+  LinkIcon,
   PageHeader,
   type PageLink,
   PlatformProvider,
@@ -13,6 +14,22 @@ import { type FlowState, get, meQuery, post } from "../api.ts";
 import { flushTracking } from "../tracking.ts";
 
 const POLL_EVERY_MS = 30_000;
+
+/**
+ * On a platform that shows icons for its sections, an icon goes before each link's word. The link
+ * stretches over the icon too, so either one can be pressed.
+ */
+function withIcon(link: PageLink): PageLink {
+  return {
+    ...link,
+    render: (className) => (
+      <span className="relative flex items-center">
+        <LinkIcon name={link.key} className="pointer-events-none absolute left-3 h-6 w-6" />
+        {link.render(`${className} pl-12 after:absolute after:inset-0`)}
+      </span>
+    ),
+  };
+}
 
 const LINK = "font-medium text-sky-800 underline-offset-2 hover:underline";
 const TEXT_LINKS: TextLinks = {
@@ -147,7 +164,7 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
               )}
             </Link>
           )}
-          home={{
+          home={withIcon({
             key: "home",
             label: "Home",
             render: (className) => (
@@ -155,8 +172,8 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
                 Home
               </Link>
             ),
-          }}
-          links={links}
+          })}
+          links={flow.layout === "photo" ? links.map(withIcon) : links}
           action={
             flow.canFinish ? (
               <button

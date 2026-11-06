@@ -34,6 +34,7 @@ export {
   type RemovalData,
   type ReportAnswerData,
   type SpaceData,
+  type StoryData,
 } from "./items.ts";
 export {
   type PackContents,

@@ -16,6 +16,7 @@ import type {
   RemovalData,
   ReportAnswerData,
   SpaceData,
+  StoryData,
 } from "./items.ts";
 
 export interface DraftAsDefinition {
@@ -50,6 +51,7 @@ export function draftToDefinition(
   const flagAnswers = ofKind<FlagAnswerData>("flagAnswer");
   const bans = ofKind<BanData>("ban");
   const contextNotes = ofKind<ContextNoteData>("contextNote");
+  const stories = ofKind<StoryData>("story");
   const autoRules = ofKind<AutoRuleData>("autoRule");
   const appealAnswers = ofKind<AppealAnswerData>("appealAnswer");
   const reportAnswers = ofKind<ReportAnswerData>("reportAnswer");
@@ -82,6 +84,11 @@ export function draftToDefinition(
     }
     provenance.set(`post:${data.ref}`, item.provenance as Provenance);
   }
+  for (const { data } of stories) {
+    if (data.picture) {
+      mediaKeys.set(path.join(MEDIA_FOLDERS.posts, data.picture), data.picture);
+    }
+  }
   for (const { item, data } of comments) {
     provenance.set(`comment:${data.ref}`, item.provenance as Provenance);
   }
@@ -109,9 +116,12 @@ export function draftToDefinition(
     }),
     spaces: spaces.map(({ data }) => data),
     posts: posts.map(
-      ({ data: { actorId, spaceId, crosspostOfId, repostOfId, quoteOfId, ...post } }) => ({
+      ({
+        data: { actorId, spaceId, crosspostOfId, repostOfId, quoteOfId, likedById, ...post },
+      }) => ({
         ...post,
         actor: usernameOf(actorId),
+        ...(likedById ? { likedBy: usernameOf(likedById) } : {}),
         ...(repostOfId ? { repostOf: postRefs.get(repostOfId) ?? "(missing post)" } : {}),
         ...(quoteOfId ? { quoteOf: postRefs.get(quoteOfId) ?? "(missing post)" } : {}),
         ...(crosspostOfId ? { crosspostOf: postRefs.get(crosspostOfId) ?? "(missing post)" } : {}),
@@ -141,6 +151,11 @@ export function draftToDefinition(
     })),
     appealAnswers: appealAnswers.map(({ data: { actorId, ...answer } }) => ({
       ...answer,
+      actor: usernameOf(actorId),
+    })),
+    stories: stories.map(({ data: { actorId, picture, ...story } }) => ({
+      ...story,
+      picture: picture ?? "",
       actor: usernameOf(actorId),
     })),
     contextNotes: contextNotes.map(({ data: { targetId, ...note } }) => ({

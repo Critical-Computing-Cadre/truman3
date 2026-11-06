@@ -166,6 +166,8 @@ export const feedPostSchema = z.object({
     .optional(),
   /** Marks this as an ad, with the label the study wrote. */
   ad: z.string().optional(),
+  /** Someone in the cast who liked it, for "Liked by Ann and 41 others." */
+  likedBy: z.string().optional(),
   /** How many it says have seen it, on a platform with view counts. */
   viewCount: z.number().optional(),
   /** How many have passed it along, on a platform with reposts. */
@@ -240,3 +242,26 @@ export type FeedAuthor = z.infer<typeof feedAuthorSchema>;
 export type FeedComment = z.infer<typeof feedCommentSchema>;
 export type FeedPost = z.infer<typeof feedPostSchema>;
 export type FeedResponse = z.infer<typeof feedResponseSchema>;
+
+/** One story, as a viewer gets it. */
+export const feedStorySchema = z.object({
+  id: z.string(),
+  imageUrl: z.string(),
+  caption: z.string().optional(),
+  at: z.iso.datetime(),
+  seen: z.boolean(),
+});
+
+/** Someone's stories that are up now, in the order they were posted. */
+export const storyGroupSchema = z.object({
+  author: z.object({
+    username: z.string(),
+    name: z.string(),
+    pictureUrl: z.string().nullable(),
+    isViewer: z.boolean(),
+  }),
+  stories: z.array(feedStorySchema),
+  /** Whether this viewer has seen every one. */
+  allSeen: z.boolean(),
+});
+export type StoryGroup = z.infer<typeof storyGroupSchema>;

@@ -18,6 +18,12 @@ import type {
   PostFrameProps,
   SpaceFrameProps,
 } from "./layouts/page-props.ts";
+import {
+  PhotoFeedFrame,
+  PhotoHeader,
+  PhotoPostFrame,
+  PhotoSpaceFrame,
+} from "./layouts/photo-page.tsx";
 import { usePlatform } from "./platform.tsx";
 
 /** The page around posts belongs to a layout too, so these pick the one for this platform. */
@@ -48,6 +54,12 @@ const FRAMES: Record<
     Feed: ForumFeedFrame,
     Space: ForumSpaceFrame,
     Post: ForumPostFrame,
+  },
+  photo: {
+    Header: PhotoHeader,
+    Feed: PhotoFeedFrame,
+    Space: PhotoSpaceFrame,
+    Post: PhotoPostFrame,
   },
 };
 

@@ -4,6 +4,7 @@ export { FeedPostView } from "./FeedPostView.tsx";
 export { KarmaBadge } from "./features/karma.tsx";
 export { type TextLinks, TextLinksContext } from "./features/post-text.tsx";
 export { WarningNotice } from "./features/warnings.tsx";
+export { LinkIcon, PlusIcon } from "./icons.tsx";
 export type { PageLink } from "./layouts/page-props.ts";
 export { FeedFrame, PageHeader, PostFrame, SpaceFrame } from "./PageFrames.tsx";
 export { type PlatformChoices, PlatformProvider, useFeature, usePlatform } from "./platform.tsx";
