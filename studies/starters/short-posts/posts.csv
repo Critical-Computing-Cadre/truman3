@@ -1,0 +1,18 @@
+id,actor,time,body,picture,repostOf,quoteOf,reposts,quotes,views,likes,ad
+s1,cityweather,-30:00,Rain moves in after 2pm today. Grab an umbrella. #weather,,,,410,22,98000,1200,
+s2,nora.writes,-28:00,"Council votes tonight on the new bus lanes. I'll be live-posting from the meeting. #transit",,,,88,14,24000,640,
+s3,marcus,-27:30,Bus lanes cut commute times by 20% in every city that tried them. #transit,,,,1200,300,180000,5400,
+s4,jules,-26:00,Finished three books this week. Recommendations for the next one? #books,,,,12,4,3100,95,
+s5,oldbookshop,-25:00,New arrivals table is full. Come say hi. #books,city-day.png,,,30,2,8800,210,
+s6,priya_codes,-22:00,Shipped a tiny side project this weekend. It does one thing and it does it well.,,,,40,6,9900,380,
+s7,jules,-21:00,,,s3,,,,,,
+s8,leah,-18:00,Is it just me or is every coffee shop out of oat milk today,,,,3,1,900,41,
+s9,nora.writes,-16:30,Bus lanes passed 7-2. Full story tomorrow.,,,,560,90,61000,2900,
+s10,marcus,-16:00,This is the best news I've had all year.,,,s9,40,3,12000,880,
+s11,sneakerdeals,-14:00,50% off everything today only. Don't miss out!,city-night.png,,,2,0,40000,30,Sponsored
+s12,cityweather,-10:00,Clear skies tomorrow. Perfect for a walk by the lake. #weather,lake-trail.png,,,220,10,71000,1900,
+s13,priya_codes,-6:00,"Hot take: most apps would be better with fewer features",,,,310,120,52000,2100,
+s14,jules,-4:00,Biked to work in the sun. 10/10 would recommend.,,,,8,1,2200,130,
+s15,leah,-2:00,"Heard the new bridge is closing for a year?? #transit",,,,90,40,30000,210,
+s16,nora.writes,1:00,"Correction: the bridge closes for 3 weeks, not a year. #transit",,,,140,8,20000,700,
+s17,cityweather,5:00,Storm watch for tonight. Stay safe. #weather,,,,600,30,110000,2400,

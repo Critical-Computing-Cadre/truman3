@@ -1,0 +1,5 @@
+key,name,description,rules,banner,startsJoined,members,postFlair,userFlair
+hiking,Hiking,"Trails, gear, and trip reports.","1. Be kind. 2. No selling. 3. Leave no trace.",,yes,48200,Trip report=#2f855a|Question=#2b6cb0|Gear,Day hiker|Backpacker|Moderator
+cooking,Cooking,Recipes and kitchen questions.,"1. Be kind. 2. Recipes in the comments, please.",,yes,152000,Recipe=#c05621|Question=#2b6cb0,Home baker|Professional
+tech,Tech Help,Ask anything about computers and phones.,"1. Be kind. 2. Say what you've tried.",banner-city.png,yes,91300,Solved=#2f855a|Question=#2b6cb0,Web dev|Hardware
+offtopic,Off Topic,Everything else.,1. Be kind.,,no,12000,,

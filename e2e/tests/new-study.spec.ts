@@ -296,3 +296,17 @@ test("a researcher fills in sheets for a whole feed, and uploads them with their
   await page.locator("summary", { hasText: "Recent changes" }).click();
   await expect(page.getByText(/added .* and 3 more/)).toBeVisible();
 });
+
+test("a study can start with sample content for its kind of platform", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+  await signIn(page);
+  await startStudy(page, `Sample forum ${Date.now() % 1_000_000}`, async () => {
+    await page.getByRole("radio", { name: "Forum", exact: true }).check();
+    await page.getByRole("radio", { name: /Sample content for Forum/ }).check();
+  });
+  await expect(page.getByText("My sourdough finally has an open crumb").first()).toBeVisible();
+  await page.getByText("1 thing to check").click();
+  await page.screenshot({ path: testInfo.outputPath("sample-forum.png"), fullPage: true });
+});

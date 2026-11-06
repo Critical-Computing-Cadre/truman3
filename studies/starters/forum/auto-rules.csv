@@ -1,0 +1,2 @@
+id,on,match,action,actor,after,message,holdOutcome
+selling,both,for sale|buy now,confirm,automod,0:00,"Selling isn't allowed here (rule 2). Post anyway?",

@@ -489,3 +489,59 @@ export async function startStudy(
     return { studyId: study.id, draftId: draft.id };
   });
 }
+
+/** Where the starters live: a small study for each kind of platform, to try it out with. */
+export const STARTERS_FOLDER = path.resolve(import.meta.dirname, "../../../studies/starters");
+
+const STARTER_FOLDERS: Record<TemplateKey, string> = {
+  classic: "classic",
+  forum: "forum",
+  shortPosts: "short-posts",
+  photo: "photo",
+};
+
+export interface Starter {
+  /** Not a saved pack, so this only marks where content came from. */
+  id: string;
+  name: string;
+  contents: PackContents;
+  summary: PackSummary;
+}
+
+const starters = new Map<TemplateKey, Promise<Starter | null>>();
+
+/**
+ * The sample content for a kind of platform, read from its folder and with its pictures stored, as
+ * a pack would be. It's worked out once per server, since the folders don't change while it runs.
+ * Null if there isn't one, or it has problems, which a test makes sure doesn't happen.
+ */
+export function starterFor(storage: Storage, template: TemplateKey): Promise<Starter | null> {
+  const known = starters.get(template);
+  if (known) {
+    return known;
+  }
+  const loading = (async () => {
+    const { definition, issues } = loadStudyFolder(
+      path.join(STARTERS_FOLDER, STARTER_FOLDERS[template]),
+    );
+    if (!definition || hasErrors(issues)) {
+      return null;
+    }
+    const { keys } = await storeMedia(
+      definition,
+      path.join(STARTERS_FOLDER, STARTER_FOLDERS[template]),
+      storage,
+    );
+    const contents = packContents(definition, keys);
+    return {
+      id: `starter:${template}`,
+      name: definition.settings.title,
+      contents,
+      summary: summarize(contents),
+    };
+  })();
+  starters.set(template, loading);
+  // A storage hiccup shouldn't stop the next try.
+  loading.catch(() => starters.delete(template));
+  return loading;
+}

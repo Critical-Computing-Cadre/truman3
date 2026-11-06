@@ -6,6 +6,8 @@
 !apps/api
 !apps/cli
 !packages
+# Sample content a new study can start with, for each kind of platform.
+!studies/starters
 
 packages/ui
 **/node_modules

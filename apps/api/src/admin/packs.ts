@@ -10,6 +10,7 @@ import {
   type PackSummary,
   packContents,
   savePack,
+  starterFor,
   startStudy,
 } from "@truman3/drafts";
 import { and, desc, eq, inArray, isNull, ne, or } from "drizzle-orm";
@@ -51,6 +52,16 @@ const listRoute = createRoute({
                 imageUrls: z.array(z.string()),
               }),
             ),
+            /** Sample content for each kind of platform that has some. */
+            starters: z.array(
+              z.object({
+                template: z.enum(TEMPLATE_KEYS),
+                actors: z.number(),
+                posts: z.number(),
+                comments: z.number(),
+                imageUrls: z.array(z.string()),
+              }),
+            ),
           }),
         },
       },
@@ -77,6 +88,8 @@ const startRoute = createRoute({
       /** No default: this is a design decision for the researcher. */
       assignment: z.enum(["uniform", "blocked"]),
       packId: z.uuid().nullable(),
+      /** Start with the sample content for this kind of platform, instead of a pack. */
+      starter: z.boolean().optional(),
       keep: z.enum(["everything", "background"]).optional(),
       /** Which kind of platform. It can't change later. Leave out for the pack's, or else Classic. */
       template: z.enum(TEMPLATE_KEYS).optional(),
@@ -129,7 +142,7 @@ const saveRoute = createRoute({
   },
 });
 
-export function createPackRoutes({ db, mediaPublicUrl }: ParticipantRouteDependencies) {
+export function createPackRoutes({ db, mediaPublicUrl, storage }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const pleaseSignIn = { error: "Please sign in." };
 
@@ -179,9 +192,26 @@ export function createPackRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
       )
       .orderBy(desc(schema.contentPacks.createdAt));
 
+    // A starter that can't be read is left out, rather than stopping anyone starting a study.
+    const starters = (
+      await Promise.all(
+        TEMPLATE_KEYS.map(async (template) => {
+          const found = await starterFor(storage, template).catch(() => null);
+          return found ? [{ template, found }] : [];
+        }),
+      )
+    ).flat();
+
     return c.json(
       {
         teams,
+        starters: starters.map(({ template, found }) => ({
+          template,
+          actors: found.summary.actors,
+          posts: found.summary.posts,
+          comments: found.summary.comments,
+          imageUrls: found.summary.images.map((image) => mediaUrl(image, mediaPublicUrl)),
+        })),
         packs: packs.map(({ summary, teamId, ...pack }) => {
           const { images, ...counts } = summary as PackSummary;
           return {
@@ -201,7 +231,8 @@ export function createPackRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
     if (!researcher) {
       return c.json(pleaseSignIn, 401);
     }
-    const { teamId, title, slug, assignment, packId, keep, template } = c.req.valid("json");
+    const { teamId, title, slug, assignment, packId, keep, template, starter } =
+      c.req.valid("json");
 
     const teams = await teamsFor(researcher.id);
     if (!teams.some(({ id }) => id === teamId)) {
@@ -209,7 +240,13 @@ export function createPackRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
     }
 
     let pack: { id: string; name: string; contents: PackContents } | undefined;
-    if (packId) {
+    if (starter) {
+      const found = await starterFor(storage, template ?? "classic");
+      if (!found) {
+        return c.json({ error: "There's no sample content for that kind of platform." }, 404);
+      }
+      pack = found;
+    } else if (packId) {
       const [row] = await db
         .select()
         .from(schema.contentPacks)
