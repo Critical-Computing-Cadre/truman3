@@ -3,6 +3,7 @@ import { Link, Outlet } from "@tanstack/react-router";
 import type { FeedWarning } from "@truman3/core";
 import {
   LinkIcon,
+  PageBody,
   PageHeader,
   type PageLink,
   PlatformProvider,
@@ -215,16 +216,18 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
             ) : undefined
           }
         />
-        <main className="mx-auto max-w-6xl pb-16 sm:px-3 sm:pt-4">
-          {(warnings.data?.warnings ?? []).map((warning) => (
-            <div key={warning.id} className="mb-3">
-              <WarningNotice warning={warning} onAcknowledge={(id) => acknowledge.mutate(id)} />
-            </div>
-          ))}
-          <TextLinksContext.Provider value={TEXT_LINKS}>
-            <Outlet />
-          </TextLinksContext.Provider>
-        </main>
+        <PageBody>
+          <main className="mx-auto max-w-6xl pb-16 sm:px-3 sm:pt-4">
+            {(warnings.data?.warnings ?? []).map((warning) => (
+              <div key={warning.id} className="mb-3">
+                <WarningNotice warning={warning} onAcknowledge={(id) => acknowledge.mutate(id)} />
+              </div>
+            ))}
+            <TextLinksContext.Provider value={TEXT_LINKS}>
+              <Outlet />
+            </TextLinksContext.Provider>
+          </main>
+        </PageBody>
       </div>
     </PlatformProvider>
   );

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { StoryGroup } from "@truman3/core";
-import { Avatar, PlusIcon, useFeature, useStoryLook } from "@truman3/ui";
+import { Avatar, PlusIcon, shortTime, useFeature, useStoryLook } from "@truman3/ui";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { get, post, postForm } from "../api.ts";
 
@@ -13,8 +13,28 @@ export const storiesQuery = {
 };
 
 /**
- * One person's stories, full screen, one after another. Each one seen is recorded, with where it was
- * opened from: the row, or a highlight on someone's profile.
+ * The viewer is dark in light mode and dark mode alike, as on these platforms, so its colors are
+ * written out rather than taken from the theme, which swaps white and black in dark mode.
+ */
+const WHITE = "text-[#fff]";
+const ON_PHOTO = "drop-shadow-[0_1px_2px_rgb(0_0_0/0.6)]";
+
+function Chevron({ direction }: { direction: "left" | "right" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-5 w-5 fill-none stroke-current stroke-2"
+    >
+      <path d={direction === "left" ? "M15 5l-7 7 7 7" : "M9 5l7 7-7 7"} />
+    </svg>
+  );
+}
+
+/**
+ * Someone's stories, one after another, in a window over the page, as on Instagram. On a phone it
+ * fills the screen. Each one seen is recorded, with where it was opened from: the row, or a
+ * highlight on someone's profile.
  */
 export function StoryViewer({
   groups,
@@ -33,6 +53,7 @@ export function StoryViewer({
   const client = useQueryClient();
   const dialog = useRef<HTMLDialogElement>(null);
   const [place, setPlace] = useState({ group: start, story: 0 });
+  const [paused, setPaused] = useState(false);
   const shownAt = useRef(Date.now());
   // Saves of what's been seen, so the row refreshes only once they've all landed.
   const saving = useRef<Promise<unknown>[]>([]);
@@ -73,8 +94,9 @@ export function StoryViewer({
     record("closed");
     finish();
   };
+  const atStart = place.group === 0 && place.story === 0;
   const move = (step: 1 | -1, ended: "next" | "previous" | "timer") => {
-    if (!group) {
+    if (!group || (step === -1 && atStart)) {
       return;
     }
     record(ended);
@@ -94,17 +116,12 @@ export function StoryViewer({
     finish();
   };
 
-  useEffect(() => {
-    if (!story) {
-      return;
-    }
-    const timer = setTimeout(() => move(1, "timer"), STORY_MS);
-    return () => clearTimeout(timer);
-  });
-
   if (!group || !story) {
     return null;
   }
+  // On a phone they sit on the story's edges, and beside it where there's room.
+  const arrow = (side: string) =>
+    `absolute top-1/2 ${side} z-10 flex h-9 w-9 shrink-0 -translate-y-1/2 items-center justify-center rounded-full bg-[rgb(255_255_255/0.35)] text-[#111] shadow disabled:invisible sm:static sm:translate-y-0 sm:bg-[#fff]`;
   return (
     <dialog
       ref={dialog}
@@ -113,63 +130,154 @@ export function StoryViewer({
         event.preventDefault();
         close();
       }}
-      className="m-0 h-dvh max-h-none w-screen max-w-none bg-stone-950 text-white backdrop:bg-black"
+      onKeyDown={(event) => {
+        if (event.key === "ArrowRight") {
+          move(1, "next");
+        } else if (event.key === "ArrowLeft") {
+          move(-1, "previous");
+        }
+      }}
+      className={`m-0 h-dvh max-h-none w-screen max-w-none bg-transparent p-0 ${WHITE} backdrop:bg-[rgb(16_16_16/0.94)]`}
     >
-      <div className="relative mx-auto flex h-full max-w-md flex-col">
-        <div className="flex gap-1 px-3 pt-3">
-          {group.stories.map((item, index) => (
-            <span
-              key={item.id}
-              className={`h-0.5 flex-1 rounded ${index <= place.story ? "bg-white" : "bg-white/40"}`}
-            />
-          ))}
-        </div>
-        <div className="flex items-center gap-2 px-3 py-2 text-sm">
-          <Avatar seed={group.author.username} url={group.author.pictureUrl} size="h-8 w-8" />
-          <span className="font-semibold">{group.author.name}</span>
-          {story.closeFriends && (
-            <span className="rounded-full bg-green-600 px-2 py-0.5 text-xs font-semibold">
-              Close friends
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={close}
-            className="ml-auto px-2 text-2xl"
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
-        <div className="relative flex min-h-0 flex-1 items-center justify-center">
-          <img src={story.imageUrl} alt="" className="max-h-full max-w-full object-contain" />
-          <button
-            type="button"
-            aria-label="Previous"
+      {/* Clicking around the story, rather than on it, closes it. */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: Escape and the close button do the same */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: Escape and the close button do the same */}
+      <div
+        className="relative flex h-full items-center justify-center gap-6"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            close();
+          }
+        }}
+      >
+        <button
+          type="button"
+          aria-label="Previous"
+          disabled={atStart}
+          onClick={() => move(-1, "previous")}
+          className={arrow("left-2")}
+        >
+          <Chevron direction="left" />
+        </button>
+        <div
+          data-testid="story-card"
+          className="relative h-full w-full overflow-hidden bg-[#000] sm:aspect-[9/16] sm:h-[min(92dvh,52rem)] sm:w-auto sm:rounded-xl"
+        >
+          {/* The same photo, blurred, fills what the photo itself doesn't, as these platforms do. */}
+          <img
+            src={story.imageUrl}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-2xl"
+          />
+          <img
+            src={story.imageUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-contain"
+          />
+          {/* Tapping the left third goes back, and the rest goes on, as on these platforms. The
+              arrows do the same for a keyboard or screen reader. */}
+          <div
+            aria-hidden="true"
             onClick={() => move(-1, "previous")}
             className="absolute inset-y-0 left-0 w-1/3"
           />
-          <button
-            type="button"
-            aria-label="Next"
+          <div
+            aria-hidden="true"
             onClick={() => move(1, "next")}
             className="absolute inset-y-0 right-0 w-2/3"
           />
+
+          <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-[rgb(0_0_0/0.55)] to-transparent px-3 pt-3 pb-8">
+            <div className="flex gap-1" aria-hidden="true">
+              {group.stories.map((item, index) => (
+                <span
+                  key={item.id}
+                  className="h-0.5 flex-1 overflow-hidden rounded bg-[rgb(255_255_255/0.4)]"
+                >
+                  {index < place.story && <span className="block h-full w-full bg-[#fff]" />}
+                  {index === place.story && (
+                    <span
+                      key={story.id}
+                      data-testid="story-progress"
+                      className="block h-full bg-[#fff]"
+                      style={{
+                        animation: `story-fill ${STORY_MS}ms linear forwards`,
+                        animationPlayState: paused ? "paused" : "running",
+                      }}
+                      onAnimationEnd={() => move(1, "timer")}
+                    />
+                  )}
+                </span>
+              ))}
+            </div>
+            <div className={`mt-3 flex items-center gap-2 text-sm ${ON_PHOTO}`}>
+              <Avatar seed={group.author.username} url={group.author.pictureUrl} size="h-8 w-8" />
+              <span className="truncate font-semibold">{group.author.name}</span>
+              <span className="shrink-0 text-[rgb(255_255_255/0.75)]">{shortTime(story.at)}</span>
+              {story.closeFriends && (
+                <span className="shrink-0 rounded-full bg-green-600 px-2 py-0.5 text-xs font-semibold">
+                  Close friends
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setPaused(!paused)}
+                aria-label={paused ? "Play" : "Pause"}
+                className="relative z-10 ml-auto px-1"
+              >
+                {paused ? (
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-current">
+                    <path d="M7 4v16l13-8z" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-current">
+                    <path d="M6 4h4v16H6zM14 4h4v16h-4z" />
+                  </svg>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={close}
+                className="relative z-10 px-1 text-2xl leading-none"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          {(story.caption || group.author.isViewer) && (
+            <div
+              className={`pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[rgb(0_0_0/0.6)] to-transparent px-4 pt-10 pb-5 text-center ${ON_PHOTO}`}
+            >
+              {story.caption && <p className="break-words">{story.caption}</p>}
+              {group.author.isViewer && (
+                <p
+                  data-testid="story-viewers"
+                  className="mt-2 text-sm text-[rgb(255_255_255/0.85)]"
+                >
+                  {viewers.data?.viewers.length
+                    ? `Seen by ${viewers.data.viewers.map(({ name }) => name).join(", ")}`
+                    : "No views yet"}
+                </p>
+              )}
+            </div>
+          )}
         </div>
-        {story.caption && <p className="px-4 py-3 text-center">{story.caption}</p>}
-        {group.author.isViewer && (
-          <p data-testid="story-viewers" className="px-4 pb-4 text-sm text-white/80">
-            {viewers.data?.viewers.length
-              ? `Seen by ${viewers.data.viewers.map(({ name }) => name).join(", ")}`
-              : "No views yet"}
-          </p>
-        )}
+        <button
+          type="button"
+          aria-label="Next"
+          onClick={() => move(1, "next")}
+          className={arrow("right-2")}
+        >
+          <Chevron direction="right" />
+        </button>
       </div>
     </dialog>
   );
 }
 
-/** Posting a story: one photo, and a few words if they like. */
 function NewStory({ onDone }: { onDone: () => void }) {
   const client = useQueryClient();
   const dialog = useRef<HTMLDialogElement>(null);

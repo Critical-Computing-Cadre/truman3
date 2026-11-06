@@ -8,6 +8,7 @@ export { LinkIcon, PlusIcon } from "./icons.tsx";
 export type { PageLink } from "./layouts/page-props.ts";
 export {
   FeedFrame,
+  PageBody,
   PageHeader,
   PostFrame,
   ProfileHeader,
