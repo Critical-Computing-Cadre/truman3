@@ -56,9 +56,10 @@ test("tabs, following, reposts, quotes, a limit, and badges", async ({ page }, t
     .getByRole("article")
     .filter({ has: page.getByTestId("reposted-by") })
     .first();
-  await expect(repostOfStory.getByRole("button", { name: /Repost/ })).toContainText("(9)");
-  await repostOfStory.getByRole("button", { name: /Repost/ }).click();
-  await expect(page.getByRole("button", { name: /Reposted/ }).first()).toContainText("(10)");
+  // Short posts shows an icon and its count, as these platforms do.
+  await expect(repostOfStory.getByRole("button", { name: "Repost" })).toContainText("9");
+  await repostOfStory.getByRole("button", { name: "Repost" }).click();
+  await expect(page.getByRole("button", { name: "Reposted" }).first()).toContainText("10");
 
   // Quoting, within the limit the study set.
   const open = page.getByRole("article").filter({ hasText: "A post by someone unfollowed" });
@@ -231,4 +232,34 @@ test("a researcher builds a short posts study, with a repost and a badge", async
   await expect(participant.getByText("The first thing Casey said").first()).toBeVisible();
   await participant.goto(`http://localhost:${APP_PORT}/u/casey`);
   await expect(participant.getByTestId("follow-counts")).toContainText("501 followers");
+});
+
+test("a study that follows the device is dark on a device set to dark", async ({
+  browser,
+}, testInfo) => {
+  const project = testInfo.project.name;
+  const app = `http://localhost:${APP_PORT}`;
+  const join = `${app}/join/short-posts-e2e?PROLIFIC_PID=DARK-${project}-${Date.now()}`;
+
+  // The same study, on a device set to light, stays light.
+  const light = await browser.newPage({ colorScheme: "light" });
+  await light.goto(join);
+  await expect(light.getByRole("tablist", { name: "Feeds" })).toBeVisible();
+  await expect(light.locator("html")).toHaveAttribute("data-theme", "light");
+  await light.close();
+
+  const page = await browser.newPage({ colorScheme: "dark" });
+  await page.goto(join.replace("DARK-", "DARK2-"));
+  await expect(page.getByRole("tablist", { name: "Feeds" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  // The page itself turns dark, not only a setting on it.
+  const background = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const [r = 255, g = 255, b = 255] = (background.match(/[\d.]+/g) ?? []).map(Number);
+  expect(r + g + b).toBeLessThan(200);
+  await shot(page, project, "6-dark");
+
+  // A device that switches to light while they're there switches the page too.
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.close();
 });

@@ -44,12 +44,17 @@ export function PhotoHeader({ renderBrand, home, links, action }: PageHeaderProp
   );
 }
 
-/** Stories across the top, then posts, with the viewer and suggestions to the right where there's room. */
-export function PhotoFeedFrame({ renderProfile, side, top, children }: FeedFrameProps) {
+function RailFeedFrame({
+  renderProfile,
+  side,
+  top,
+  children,
+  width,
+}: FeedFrameProps & { width: string }) {
   return (
     <div className="md:pl-20 xl:pl-60">
-      <div className="mx-auto flex max-w-[60rem] justify-center gap-12">
-        <div className="w-full max-w-[29.5rem] min-w-0 space-y-3">
+      <div className="mx-auto flex max-w-[64rem] justify-center gap-10">
+        <div className={`w-full ${width} min-w-0 space-y-3`}>
           {top}
           {children}
         </div>
@@ -66,3 +71,13 @@ export function PhotoFeedFrame({ renderProfile, side, top, children }: FeedFrame
 }
 
 export { LinkIcon };
+
+/** Stories across the top, then posts, with the viewer and suggestions to the right where there's room. */
+export function PhotoFeedFrame(props: FeedFrameProps) {
+  return <RailFeedFrame {...props} width="max-w-[29.5rem]" />;
+}
+
+/** The same, with a wider column, for short posts. */
+export function ShortFeedFrame(props: FeedFrameProps) {
+  return <RailFeedFrame {...props} width="max-w-[37.5rem]" />;
+}

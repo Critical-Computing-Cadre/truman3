@@ -300,6 +300,20 @@ function StudyForm({
         ]}
       />
       <Choice
+        legend="Light or dark?"
+        value={value.platform.theme ?? "light"}
+        onChange={(theme) => set({ ...value, platform: { ...value.platform, theme } })}
+        options={[
+          { value: "light", label: "Light", hint: "The same for everyone. Default." },
+          { value: "dark", label: "Dark", hint: "The same for everyone." },
+          {
+            value: "device",
+            label: "Whatever their device uses",
+            hint: "As real platforms do, so two people in a condition may see different colors.",
+          },
+        ]}
+      />
+      <Choice
         legend="How do comment boxes appear?"
         value={value.platform.commentBox ?? "open"}
         onChange={(commentBox) => set({ ...value, platform: { ...value.platform, commentBox } })}

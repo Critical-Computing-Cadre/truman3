@@ -34,7 +34,8 @@ import { VoteButtons } from "../features/votes.tsx";
 import type { FeedPostViewProps } from "../post-props.ts";
 import { shortTime } from "../time.ts";
 
-const ROW = "flex flex-wrap items-center gap-x-4 gap-y-1 pt-1.5 text-sm text-stone-600";
+const ROW =
+  "flex flex-wrap items-center gap-x-8 gap-y-1 pt-2 text-sm text-stone-500 [&_svg]:h-5 [&_svg]:w-5";
 
 function ShortComment({
   comment,
@@ -111,6 +112,7 @@ export function ShortPost({
   const more = useMoreMenu(
     ["flagging", "saving", "hiding", "sharing", "crossposting", "quotes"],
     "text-sm text-stone-600",
+    true,
   );
   const lessUsed = (
     <>
@@ -194,11 +196,12 @@ export function ShortPost({
               <CommentsLink
                 post={post}
                 className=""
+                look="icon"
                 {...(renderPostLink ? { renderPostLink } : {})}
               />
             )}
-            <RepostButton post={post} actions={actions} />
-            <PostLikeButton post={post} {...(actions ? { actions } : {})} />
+            <RepostButton post={post} actions={actions} look="icon" />
+            <PostLikeButton post={post} look="icon" {...(actions ? { actions } : {})} />
             <VoteButtons item={post} actions={actions} />
             {more.collapsed ? more.toggle : lessUsed}
           </div>

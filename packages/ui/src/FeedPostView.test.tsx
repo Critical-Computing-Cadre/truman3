@@ -48,7 +48,10 @@ describe("FeedPostView", () => {
 
     expect(screen.getByText("A post")).toBeTruthy();
     expect(screen.getByText("2h")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Like \(3\)/ })).toBeTruthy();
+    // Classic counts likes above its buttons, as a community feed does.
+    expect(screen.getByText("♥ 3")).toBeTruthy();
+    // The post's Like button comes first; each comment has its own.
+    expect(screen.getAllByRole("button", { name: "Like" })[0]).toBeTruthy();
     expect(screen.getByText("A comment")).toBeTruthy();
   });
 
@@ -64,7 +67,7 @@ describe("FeedPostView", () => {
     const actions = { onLike: vi.fn(), onVote: vi.fn(), onFlag: vi.fn(), onReply: vi.fn() };
     render(<FeedPostView post={POST} actions={actions} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Like \(3\)/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Like" })[0] as HTMLElement);
     fireEvent.click(screen.getByRole("button", { name: "Reply" }));
 
     expect(actions.onLike).toHaveBeenCalledWith("p1", true);
@@ -854,8 +857,11 @@ describe("short posts", () => {
     const onQuote = vi.fn();
     const post = { ...POST, comments: [], repostCount: 4, quoteCount: 2 };
     draw("short-posts", post, features, { onRepost, onQuote });
-    fireEvent.click(screen.getByRole("button", { name: /Repost \(4\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Repost" }));
+    expect(screen.getByRole("button", { name: "Repost" }).textContent).toContain("4");
     expect(onRepost).toHaveBeenCalledWith("p1", true);
+    // Quoting sits behind More, as on these platforms.
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
     fireEvent.click(screen.getByRole("button", { name: /Quote \(2\)/ }));
     expect(onQuote).toHaveBeenCalled();
   });

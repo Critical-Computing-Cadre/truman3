@@ -1,5 +1,6 @@
 import type { FeedPost } from "@truman3/core";
 import { type ReactNode, useState } from "react";
+import { ShareIcon } from "../icons.tsx";
 import { useFeature } from "../platform.tsx";
 import type { PostActions } from "../post-props.ts";
 
@@ -137,10 +138,13 @@ export function ShareButton({
   post,
   actions,
   className = "",
+  look = "words",
 }: {
   post: FeedPost;
   actions?: PostActions | undefined;
   className?: string;
+  /** Words, an icon, or both, as a layout chooses. */
+  look?: "words" | "icon" | "both";
 }) {
   const on = useFeature("sharing");
   const [result, setResult] = useState<"copied" | "failed" | null>(null);
@@ -152,12 +156,13 @@ export function ShareButton({
     <button
       type="button"
       disabled={!actions}
-      className={className}
+      className={`${look === "words" ? "" : "flex items-center gap-1.5"} ${className}`}
       onClick={async () => {
         setResult((await actions?.onShare?.(post.id)) ? "copied" : "failed");
       }}
     >
-      {result ? label[result] : "Share"}
+      {look !== "words" && <ShareIcon className="h-5 w-5" />}
+      {result ? label[result] : look === "icon" ? <span className="sr-only">Share</span> : "Share"}
     </button>
   );
 }

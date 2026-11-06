@@ -23,6 +23,7 @@ import {
   PhotoHeader,
   PhotoPostFrame,
   PhotoSpaceFrame,
+  ShortFeedFrame,
 } from "./layouts/photo-page.tsx";
 import { usePlatform } from "./platform.tsx";
 
@@ -48,10 +49,10 @@ const FRAMES: Record<
     Space: ForumSpaceFrame,
     Post: ForumPostFrame,
   },
-  // Its own posts, in the same frame as Forum for now. Templates get their own look later.
+  // A menu of icons and words down the left, as Photo has, with a wider column of posts.
   "short-posts": {
-    Header: ForumHeader,
-    Feed: ForumFeedFrame,
+    Header: PhotoHeader,
+    Feed: ShortFeedFrame,
     Space: ForumSpaceFrame,
     Post: ForumPostFrame,
   },

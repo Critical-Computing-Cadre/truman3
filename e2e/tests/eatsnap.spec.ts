@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
@@ -18,6 +18,24 @@ const PNG = Buffer.from(
 );
 
 type Row = Record<string, string>;
+
+/** With FORUM_SHOTS set, saves pictures of Classic in light and dark, to compare with real platforms. */
+async function lookAt(page: Page, project: string) {
+  const folder = process.env.FORUM_SHOTS;
+  if (!folder) {
+    return;
+  }
+  mkdirSync(folder, { recursive: true });
+  await page.screenshot({ path: path.join(folder, `classic-${project}-light.png`) });
+  // Only for the picture: the example study is light.
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "dark";
+  });
+  await page.screenshot({ path: path.join(folder, `classic-${project}-dark.png`) });
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "light";
+  });
+}
 
 const { databaseUrl } = JSON.parse(readFileSync(STATE_FILE, "utf8")) as { databaseUrl: string };
 const database = createDb(databaseUrl);
@@ -124,14 +142,15 @@ test("a participant goes through the whole study, and the export matches what th
   const posts = page.locator("article");
   const scripted = posts.first();
 
-  // Like, undo, and like again.
-  const like = scripted.getByRole("button", { name: /Like/ }).first();
+  // Like, undo, and like again. Classic's like button says Like, and shows whether it's pressed, with the count above it.
+  const like = scripted.getByRole("button", { name: "Like", exact: true }).first();
   await like.click();
-  await expect(scripted.getByRole("button", { name: /♥ Like/ })).toBeVisible();
-  await scripted.getByRole("button", { name: /♥ Like/ }).click();
-  await expect(scripted.getByRole("button", { name: /♡ Like/ })).toBeVisible();
-  await scripted.getByRole("button", { name: /♡ Like/ }).click();
-  await expect(scripted.getByRole("button", { name: /♥ Like/ })).toBeVisible();
+  await expect(like).toHaveAttribute("aria-pressed", "true");
+  await like.click();
+  await expect(like).toHaveAttribute("aria-pressed", "false");
+  await like.click();
+  await expect(like).toHaveAttribute("aria-pressed", "true");
+  await lookAt(page, testInfo.project.name);
 
   // Comment on a scripted post.
   await scripted.getByRole("button", { name: "Reply" }).click();

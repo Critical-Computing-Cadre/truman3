@@ -101,6 +101,9 @@ const platformStyleSchema = z.enum(["photo", "text", "mixed"]);
  */
 const commentBoxSchema = z.enum(["open", "onReply"]);
 
+/** Light, dark, or whatever the participant's device uses. */
+export const themeSchema = z.enum(["light", "dark", "device"]);
+
 /** Features to turn on or off. Whatever's left out comes from the template. */
 const featureChangesSchema = z.partialRecord(z.enum(FEATURE_KEYS), z.boolean());
 
@@ -115,6 +118,8 @@ const armSchema = z.strictObject({
     .strictObject({
       style: platformStyleSchema.optional(),
       commentBox: commentBoxSchema.optional(),
+      /** Light unless a study says otherwise, so what people see doesn't vary by device. */
+      theme: themeSchema.optional(),
       features: featureChangesSchema.optional(),
       canJoinSpaces: z.boolean().optional(),
       startingKarma: z.number().int().optional(),
@@ -182,6 +187,8 @@ export const studySettingsSchema = z.strictObject({
     .strictObject({
       style: platformStyleSchema,
       commentBox: commentBoxSchema.optional(),
+      /** Light unless a study says otherwise, so what people see doesn't vary by device. */
+      theme: themeSchema.optional(),
       /** The starting point for this platform. Leave out for Classic. */
       template: z.enum(TEMPLATE_KEYS).optional(),
       /** Set when a version freezes, so later changes to a template can't affect it. */
