@@ -11,6 +11,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ApiError, get, post, type Researcher } from "./api.ts";
 import "./index.css";
+import { BeatsPage } from "./pages/BeatsPage.tsx";
 import { CastPage } from "./pages/CastPage.tsx";
 import { DraftPage } from "./pages/DraftPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
@@ -115,6 +116,12 @@ const moderationRoute = createRoute({
   component: ModerationPage,
 });
 
+const beatsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/drafts/$draftId/beats",
+  component: BeatsPage,
+});
+
 const storiesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/drafts/$draftId/stories",
@@ -145,6 +152,7 @@ const router = createRouter({
     castRoute,
     spacesRoute,
     moderationRoute,
+    beatsRoute,
     storiesRoute,
     monitorRoute,
     prolificRoute,

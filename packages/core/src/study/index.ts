@@ -1,3 +1,13 @@
+export {
+  BEATS_FILE,
+  type BeatAction,
+  type BeatDefinition,
+  type BeatTarget,
+  type BeatTrigger,
+  beatSchema,
+  beatsFileSchema,
+  PARTICIPANT_ACTIONS,
+} from "./beats.ts";
 export { hasPlaceholderConsent, STARTING_CONSENT } from "./consent.ts";
 export {
   type ActorDefinition,

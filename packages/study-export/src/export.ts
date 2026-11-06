@@ -452,6 +452,50 @@ export async function exportStudy(
     );
   }
 
+  const beatRuns = worldIds.length
+    ? await db
+        .select()
+        .from(schema.beatRuns)
+        .where(inArray(schema.beatRuns.worldId, worldIds))
+        .orderBy(asc(schema.beatRuns.dueAt))
+    : [];
+  if (beatRuns.length > 0) {
+    files.push(
+      writeCsv(
+        folder,
+        "beat_runs.csv",
+        [
+          "participant_id",
+          "beat",
+          "run",
+          "status",
+          "trigger",
+          "triggered_at",
+          "due_at",
+          "decided_at",
+          "reason",
+          "actor",
+          "content_id",
+          "target_content_id",
+        ],
+        beatRuns.map((run) => ({
+          participant_id: participantByWorld.get(run.worldId) ?? "",
+          beat: run.beat,
+          run: run.run,
+          status: run.status,
+          trigger: JSON.stringify(run.trigger),
+          triggered_at: iso(run.triggeredAt),
+          due_at: iso(run.dueAt),
+          decided_at: run.decidedAt ? iso(run.decidedAt) : "",
+          reason: safeText(run.reason),
+          actor: run.actorId ? safeText(actorById.get(run.actorId)?.username) : "",
+          content_id: run.contentId ?? "",
+          target_content_id: run.targetContentId ?? "",
+        })),
+      ),
+    );
+  }
+
   if (removals.length > 0) {
     files.push(
       writeCsv(
@@ -1053,6 +1097,29 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ["moderator", "Who does it, by username"],
     ["after_ms", "How long after the flag"],
     ["message", "What an answer says, or the reason for a removal"],
+  ],
+  "beat_runs.csv": [
+    [
+      "beat",
+      "Each time Christof, the director, considered a beat from beats.yaml in a participant's world, which is in each version's pages. Only present if some did",
+    ],
+    ["run", "Which time this beat ran in this world, from 0, since a beat can run more than once"],
+    [
+      "status",
+      "fired if it happened, skipped if it didn't, and pending if it wasn't due yet when this was exported",
+    ],
+    [
+      "trigger",
+      "What set it off, as JSON: a time, something the participant did (with what it was on, and which of theirs it was, from 0), or another beat",
+    ],
+    ["triggered_at, due_at", "When it was set off, and when it was due after its delay"],
+    ["decided_at", "When it was decided, which is the first time anything loaded after it was due"],
+    ["reason", "Why it was skipped, in plain words"],
+    ["actor", "Who in the cast did it, by username"],
+    [
+      "content_id, target_content_id",
+      "What it made, such as a comment, and what it acted on, in content.csv. What it made appeared at due_at",
+    ],
   ],
   "removals.csv": [
     [

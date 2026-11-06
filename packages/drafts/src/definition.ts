@@ -1,11 +1,13 @@
 import path from "node:path";
 import {
+  BEATS_FILE,
   PARTICIPANT_TAG,
   type StudyDefinition,
+  type StudyIssue,
   type StudySettings,
   studyDefinitionSchema,
 } from "@truman3/core";
-import { MEDIA_FOLDERS } from "@truman3/study-files";
+import { MEDIA_FOLDERS, parseBeats } from "@truman3/study-files";
 import type {
   ActorData,
   AppealAnswerData,
@@ -31,6 +33,8 @@ export interface DraftAsDefinition {
   mediaKeys: Map<string, string>;
   /** Each post and comment's provenance, by its reference. */
   provenance: Map<string, Provenance>;
+  /** Problems reading beats.yaml, which can't be checked as part of the definition. */
+  beatIssues: StudyIssue[];
 }
 
 /**
@@ -108,14 +112,21 @@ export function draftToDefinition(
     }
   }
 
+  const beatsText = pages[BEATS_FILE];
+  const { beats, issues: beatIssues } = beatsText
+    ? parseBeats(beatsText)
+    : { beats: [], issues: [] };
   const definition = studyDefinitionSchema.parse({
     settings,
     // A step can be removed, and its page stay behind so it can be undone. It shouldn't be frozen.
+    // Beats are kept with the pages, as written.
     pages: Object.fromEntries(
-      Object.entries(pages).filter(([key]) =>
-        settings.flow.some((step) => "page" in step && step.page === key),
+      Object.entries(pages).filter(
+        ([key]) =>
+          key === BEATS_FILE || settings.flow.some((step) => "page" in step && step.page === key),
       ),
     ),
+    beats,
     actors: actors.map(({ data: { spaceFlair, ...actor } }) => {
       // A space that's been removed takes what people showed in it with it.
       const flair = Object.entries(spaceFlair ?? {}).flatMap(([spaceId, text]) => {
@@ -221,5 +232,5 @@ export function draftToDefinition(
     })),
   });
 
-  return { definition, mediaKeys, provenance };
+  return { definition, mediaKeys, provenance, beatIssues };
 }

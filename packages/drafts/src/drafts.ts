@@ -500,7 +500,8 @@ export async function loadDraft(
 
 /** The same checks a study written in files goes through. */
 export function checkDraft({ settings, pages, items }: LoadedDraft): StudyIssue[] {
-  return validateStudy(draftToDefinition(settings, pages, items as DraftItem[]).definition);
+  const { definition, beatIssues } = draftToDefinition(settings, pages, items as DraftItem[]);
+  return [...beatIssues, ...validateStudy(definition)];
 }
 
 async function itemExists(tx: Transaction, draftId: string, kind: ItemKind, id: string) {
@@ -1371,12 +1372,12 @@ export async function freezeDraft(db: Database, loaded: LoadedDraft): Promise<Fr
     return { status: "unchanged", version: base?.version ?? 0 };
   }
 
-  const { definition, mediaKeys, provenance } = draftToDefinition(
+  const { definition, mediaKeys, provenance, beatIssues } = draftToDefinition(
     loaded.settings,
     loaded.pages,
     loaded.items as DraftItem[],
   );
-  const issues = validateStudy(definition);
+  const issues = [...beatIssues, ...validateStudy(definition)];
   if (hasErrors(issues)) {
     return { status: "invalid", issues };
   }

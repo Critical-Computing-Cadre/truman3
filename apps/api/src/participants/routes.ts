@@ -7,6 +7,7 @@ import type { Context } from "hono";
 import { setCookie } from "hono/cookie";
 import { countUnreadNotifications } from "../actions/notifications.ts";
 import type { ProlificConfig } from "../admin/prolific.ts";
+import { catchUp } from "../director/director.ts";
 import { mediaUrl, participantKarma } from "../feed/build.ts";
 import { summarizeDevice } from "./device.ts";
 import { enterStudy, entrySettings } from "./enter.ts";
@@ -194,6 +195,8 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
     if (!context) {
       return c.json({ error: "Please sign in." }, 401);
     }
+    // Checked often for the unread count, so it's where beats that have come due get decided.
+    await catchUp(db, context);
 
     const [row] = await db
       .select({ username: schema.actors.username, profile: schema.actors.profile })

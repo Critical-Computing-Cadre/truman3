@@ -174,7 +174,12 @@ const settingsRoute = createRoute({
             sections: z.record(z.string(), sectionStateSchema),
             pages: z.record(z.string(), z.object({ revision: z.number(), text: z.string() })),
             issues: z.array(
-              z.object({ severity: z.enum(["error", "warning"]), message: z.string() }),
+              z.object({
+                severity: z.enum(["error", "warning"]),
+                message: z.string(),
+                /** Where it is, such as beats.yaml, when it's in one file. */
+                file: z.string().optional(),
+              }),
             ),
           }),
         },
@@ -974,7 +979,11 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
             { revision: sections.get(pageSection(key))?.revision ?? 0, text },
           ]),
         ),
-        issues: checkDraft(loaded).map(({ severity, message }) => ({ severity, message })),
+        issues: checkDraft(loaded).map(({ severity, message, file }) => ({
+          severity,
+          message,
+          ...(file ? { file } : {}),
+        })),
       },
       200,
     );

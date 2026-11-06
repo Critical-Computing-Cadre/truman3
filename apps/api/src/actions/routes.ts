@@ -26,6 +26,7 @@ import {
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, inArray, isNull, lte, or } from "drizzle-orm";
+import { catchUp, nthOf, onParticipantAct } from "../director/director.ts";
 import {
   buildFeed,
   castKarma,
@@ -1049,6 +1050,23 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
             );
         }
         await alsoDo?.(tx);
+        if (kind === "like" && body.active) {
+          const [liked] = await tx
+            .select({ authorActorId: schema.content.authorActorId })
+            .from(schema.content)
+            .where(eq(schema.content.id, contentId));
+          await onParticipantAct(
+            tx,
+            context,
+            {
+              action: "like",
+              contentId,
+              ...(liked ? { targetActorId: liked.authorActorId } : {}),
+              nth: await nthOf(tx, context, "content.liked"),
+            },
+            new Date(),
+          );
+        }
       });
     };
   };
@@ -2021,6 +2039,18 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       };
       if (active) {
         await tx.insert(schema.actorRelations).values(row).onConflictDoNothing();
+        if (kind === "follow") {
+          await onParticipantAct(
+            tx,
+            context,
+            {
+              action: "follow",
+              targetActorId: actor.id,
+              nth: await nthOf(tx, context, "actor.followed"),
+            },
+            new Date(),
+          );
+        }
       } else {
         await tx
           .delete(schema.actorRelations)
@@ -2122,6 +2152,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     if (isOff(context, "notifications")) {
       return c.json(featureOff, 403);
     }
+    await catchUp(db, context);
     return c.json({ notifications: await listNotifications(db, context, mediaPublicUrl) }, 200);
   });
 
@@ -2417,6 +2448,17 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
           kind: "post",
           visibleAt: now,
         });
+        await onParticipantAct(
+          tx,
+          context,
+          {
+            action: "repost",
+            contentId: root.id,
+            targetActorId: root.authorActorId,
+            nth: await nthOf(tx, context, "content.reposted"),
+          },
+          now,
+        );
       }
       if (!body.active && already) {
         await tx.delete(schema.content).where(mine);

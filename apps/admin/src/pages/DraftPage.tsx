@@ -1679,6 +1679,13 @@ export function DraftPage() {
                 Moderation
               </Link>
             )}
+            <Link
+              to="/drafts/$draftId/beats"
+              params={{ draftId }}
+              className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+            >
+              Beats
+            </Link>
             {info.data.canEdit && !info.data.closed && <SheetUpload draftId={draftId} />}
             {info.data.canEdit && <SavePack draftId={draftId} defaultName={info.data.title} />}
             {info.data.canEdit && <SaveVersion draftId={draftId} info={info.data} />}

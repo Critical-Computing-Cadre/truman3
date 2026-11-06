@@ -750,6 +750,45 @@ export const actorRelations = pgTable(
 );
 
 /**
+ * Each time Christof, the director, considers a beat in a participant's world: what set it off,
+ * when it's due, and then whether it happened and why not. It's the decision trace for beats, and
+ * goes with the world on withdrawal. A beat waits as `pending` until it's due, and is decided then,
+ * when someone next loads anything, so nothing has to run in the background. See ADR 51.
+ */
+export const beatRuns = pgTable(
+  "beat_runs",
+  {
+    id: id(),
+    worldId: uuid("world_id")
+      .notNull()
+      .references(() => worlds.id, { onDelete: "cascade" }),
+    /** The beat, by its id in beats.yaml. */
+    beat: text().notNull(),
+    /** Which time this beat has run in this world, from 0, since a beat can have a limit. */
+    run: integer().notNull(),
+    status: text().notNull(),
+    /** What set it off: a time, something the participant did, or another beat. */
+    trigger: jsonb().notNull(),
+    triggeredAt: timestamp("triggered_at", { withTimezone: true }).notNull(),
+    dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    /** Why it didn't happen, in plain language. */
+    reason: text(),
+    /** Who did it, and what it made or acted on. */
+    actorId: uuid("actor_id").references(() => actors.id, { onDelete: "cascade" }),
+    contentId: uuid("content_id").references(() => content.id, { onDelete: "cascade" }),
+    targetContentId: uuid("target_content_id").references(() => content.id, {
+      onDelete: "cascade",
+    }),
+  },
+  (table) => [
+    uniqueIndex("beat_runs_once").on(table.worldId, table.beat, table.run),
+    index("beat_runs_due").on(table.worldId, table.status, table.dueAt),
+    check("beat_runs_status", inList(table.status, ["pending", "fired", "skipped"])),
+  ],
+);
+
+/**
  * Scripted reactions to a participant, with when they come due. Notifications and like counts only
  * count ones that are due, so this needs no background worker.
  */

@@ -360,7 +360,7 @@ export interface DraftSettings {
   canEdit: boolean;
   sections: { [K in keyof DraftSections]: { revision: number; value: DraftSections[K] } };
   pages: Record<string, { revision: number; text: string }>;
-  issues: { severity: "error" | "warning"; message: string }[];
+  issues: { severity: "error" | "warning"; message: string; file?: string }[];
 }
 
 export interface ContentPack {
