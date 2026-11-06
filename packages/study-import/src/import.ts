@@ -74,6 +74,7 @@ function hashStudy(study: StudyDefinition, mediaKeys: Map<string, string>): stri
       ? { appealAnswers: withoutSource(study.appealAnswers) }
       : {}),
     ...(study.contextNotes.length > 0 ? { contextNotes: withoutSource(study.contextNotes) } : {}),
+    ...(study.stories.length > 0 ? { stories: withoutSource(study.stories) } : {}),
     media: [...mediaKeys.entries()].sort(([a], [b]) => a.localeCompare(b)),
   };
   return createHash("sha256").update(stableStringify(identity)).digest("hex");
@@ -116,6 +117,9 @@ export async function storeMedia(
     for (const picture of post.pictures) {
       files.set(path.join(MEDIA_FOLDERS.posts, picture), picture);
     }
+  }
+  for (const story of study.stories) {
+    files.set(path.join(MEDIA_FOLDERS.posts, story.picture), story.picture);
   }
   for (const image of [site.logo, site.favicon, site.homepageImage]) {
     if (image) {
@@ -398,6 +402,7 @@ export async function freezeStudy(
           baseReposts: post.reposts ?? 0,
           baseQuotes: post.quotes ?? 0,
           adLabel: post.ad,
+          likedByActorId: post.likedBy ? actorId(post.likedBy) : null,
           baseViews: post.views ?? 0,
           body: post.body,
           attachments: post.pictures.map((picture) => ({
@@ -562,6 +567,28 @@ export async function freezeStudy(
           position,
           conditions: answer.conditions,
           class: answer.class,
+        })),
+      );
+    }
+
+    for (const batch of chunks(study.stories, INSERT_BATCH_SIZE)) {
+      await tx.insert(schema.content).values(
+        batch.map((story) => ({
+          studyVersionId,
+          authorActorId: actorId(story.actor),
+          kind: "story",
+          body: story.caption ?? "",
+          attachments: [
+            {
+              type: "image" as const,
+              key: mediaKeys.get(path.join(MEDIA_FOLDERS.posts, story.picture)) as string,
+            },
+          ],
+          offsetMs: story.timeMs,
+          lastsMs: story.lastsHours ? Math.round(story.lastsHours * 3_600_000) : null,
+          conditions: story.conditions,
+          class: story.class,
+          sourceRef: story.ref,
         })),
       );
     }

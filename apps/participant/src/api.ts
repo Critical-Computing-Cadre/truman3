@@ -59,6 +59,7 @@ export interface FlowState {
   canFinish: boolean;
   platformStyle: "photo" | "text" | "mixed";
   commentBox: "open" | "onReply";
+  theme: "light" | "dark" | "device";
   layout: LayoutKey;
   features: FeatureSet;
   maxPostLength: number | null;
@@ -108,7 +109,7 @@ export interface NotificationItem {
     | "repost"
     | "follow";
   actors: { username: string; name: string; pictureUrl: string | null }[];
-  targetKind: "post" | "comment" | "person";
+  targetKind: "post" | "comment" | "story" | "person";
   targetName: string;
   targetIsTheirs: boolean;
   postId: string | null;

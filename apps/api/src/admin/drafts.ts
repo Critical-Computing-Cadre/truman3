@@ -44,6 +44,7 @@ import {
   type SectionName,
   type SpaceData,
   STORED_IMAGE,
+  type StoryData,
   saveSection,
   sectionValue,
   undoChange,
@@ -269,6 +270,10 @@ const fieldsSchema = z.strictObject({
   /** Marks it as an ad, with this label. Null makes it an ordinary post. */
   ad: z.string().trim().min(1).max(40).nullable().optional(),
   views: z.number().int().nonnegative().optional(),
+  /** Someone in the cast who liked a post. Null takes them away. */
+  likedById: z.uuid().nullable().optional(),
+  caption: z.string().max(500).nullable().optional(),
+  lastsHours: z.number().positive().nullable().optional(),
   helpful: z.number().int().nonnegative().optional(),
   notHelpful: z.number().int().nonnegative().optional(),
   /** Someone in the cast's flair in each space, by the space's ID. */
@@ -383,6 +388,7 @@ const createItemRoute = createRoute({
           "autoRule",
           "appealAnswer",
           "contextNote",
+          "story",
         ]),
         fields: fieldsSchema,
       }),
@@ -568,6 +574,7 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
         baseReposts: data.reposts ?? 0,
         baseQuotes: data.quotes ?? 0,
         adLabel: data.ad ?? null,
+        likedByActorId: data.likedById ?? null,
         baseViews: data.views ?? 0,
         body: data.body,
         attachments: (data.pictures ?? []).map((key) => ({ type: "image" as const, key })),
@@ -765,6 +772,20 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               actorId: data.actorId,
               timeMs: data.timeMs,
               reason: data.reason ?? "",
+              conditions: data.conditions,
+            };
+          }),
+        stories: items
+          .filter((item) => item.kind === "story")
+          .map((item) => {
+            const data = item.data as StoryData;
+            return {
+              id: item.id,
+              actorId: data.actorId,
+              pictureUrl: data.picture ? mediaUrl(data.picture, mediaPublicUrl) : null,
+              caption: data.caption ?? "",
+              timeMs: data.timeMs,
+              lastsHours: data.lastsHours ?? null,
               conditions: data.conditions,
             };
           }),
@@ -1033,6 +1054,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
         quotes: number;
         ad: string | null;
         views: number;
+        likedById: string | null;
         origin: string;
       }
     > = {};
@@ -1061,6 +1083,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           quotes: data.quotes ?? 0,
           ad: data.ad ?? null,
           views: data.views ?? 0,
+          likedById: data.likedById ?? null,
           origin: (item.provenance as Provenance).origin,
         };
       }

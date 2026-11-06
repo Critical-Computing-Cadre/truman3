@@ -20,10 +20,18 @@ export const eventPayloadSchemas = {
   "flow.exited": z.strictObject({ outcome: z.string() }),
   /** `crosspostOf` is the post a crosspost came from. */
   "content.created": z.strictObject({
-    kind: z.enum(["post", "comment"]),
+    kind: z.enum(["post", "comment", "story"]),
     crosspostOf: z.string().optional(),
     /** The post this quotes. */
     quoteOf: z.string().optional(),
+  }),
+  /**
+   * They saw one story, for this long. `ended` is how it ended: they went on, went back, closed the
+   * viewer, or its time ran out and the next began.
+   */
+  "story.viewed": z.strictObject({
+    dwellMs: z.number().nonnegative(),
+    ended: z.enum(["next", "previous", "closed", "timer"]),
   }),
   /** They passed a post along, or took that back. It names the first post, not a repost of it. */
   "content.reposted": empty,

@@ -239,6 +239,13 @@
       "when": 1793898707568,
       "tag": "0033_notes_ads_and_muting",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793938674377,
+      "tag": "0034_stories",
+      "breakpoints": true
     }
   ]
 }

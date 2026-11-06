@@ -21,6 +21,7 @@ import { type FlowState, flowQuery, get, meQuery, post, postForm, type Written }
 import { AreYouSure } from "../components/AreYouSure.tsx";
 import { CommunitiesCard } from "../components/Community.tsx";
 import { PostCard } from "../components/PostCard.tsx";
+import { StoriesRow } from "../components/Stories.tsx";
 import { ExploreCards } from "./ExplorePage.tsx";
 
 /** Picked once per page load, for studies that reshuffle the feed on each visit. */
@@ -452,6 +453,16 @@ export function FeedPage() {
 
   return (
     <FeedFrame
+      {...(flow.data?.features.stories
+        ? {
+            top: (
+              <StoriesRow
+                canPost={flow.data.features.posting}
+                {...(me.data ? { me: me.data } : {})}
+              />
+            ),
+          }
+        : {})}
       renderProfile={(compact) =>
         me.data && (
           <ProfileCard

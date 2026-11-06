@@ -12,6 +12,7 @@ import {
   freezePlatform,
   layoutFor,
   platformStyleFor,
+  themeFor,
 } from "./platform.ts";
 
 const settings = (extra: object = {}) =>
@@ -62,6 +63,32 @@ describe("commentBoxFor", () => {
     const both = study("open", "onReply");
     expect(commentBoxFor(both, "b")).toBe("onReply");
     expect(platformStyleFor(both, "b")).toBe("photo");
+  });
+});
+
+describe("themeFor", () => {
+  const study = (theme?: string, armTheme?: string) =>
+    settings({
+      platform: { style: "photo", ...(theme ? { theme } : {}) },
+      conditions: {
+        assignment: { method: "uniform" },
+        arms: [{ key: "a" }, { key: "b", ...(armTheme ? { platform: { theme: armTheme } } : {}) }],
+      },
+    });
+
+  it("is light unless the study says otherwise", () => {
+    expect(themeFor(study(), "a")).toBe("light");
+    expect(themeFor(study("dark"), "a")).toBe("dark");
+    expect(themeFor(study("device"), "a")).toBe("device");
+  });
+
+  it("can differ by condition", () => {
+    expect(themeFor(study("light", "dark"), "b")).toBe("dark");
+    expect(themeFor(study("light", "dark"), "a")).toBe("light");
+  });
+
+  it("takes nothing else", () => {
+    expect(() => study("sepia")).toThrow();
   });
 });
 

@@ -19,6 +19,7 @@ import {
   pollOptionsProblem,
   safeLink,
   startingFollowersFor,
+  storyGroupSchema,
   trendingFor,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
@@ -54,6 +55,7 @@ import {
   scheduleReportAnswer,
 } from "./notifications.ts";
 import { actionMetaSchema } from "./request.ts";
+import { findLiveStory, listStories, storyViewers } from "./stories.ts";
 
 const errorSchema = z.object({ error: z.string() });
 const errorResponse = (description: string) => ({
@@ -79,6 +81,98 @@ const writtenSchema = z.union([
   z.object({ id: z.uuid() }),
   z.object({ confirm: z.object({ rule: z.string(), message: z.string(), by: z.string() }) }),
 ]);
+
+const storiesRoute = createRoute({
+  method: "get",
+  path: "/stories",
+  summary: "Stories that are up now, grouped by who posted them",
+  responses: {
+    200: {
+      description: "This person's own first, then those they haven't seen",
+      content: { "application/json": { schema: z.object({ stories: z.array(storyGroupSchema) }) } },
+    },
+    401: notSignedIn,
+  },
+});
+
+const newStoryRoute = createRoute({
+  method: "post",
+  path: "/stories",
+  summary: "Post a story: one photo, which lasts a day",
+  request: {
+    body: {
+      required: true,
+      content: {
+        "multipart/form-data": {
+          schema: actionMetaSchema.extend({
+            caption: z.string().max(500).default(""),
+            image: z.instanceof(File).openapi({ type: "string", format: "binary" }),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Posted",
+      content: { "application/json": { schema: z.object({ id: z.uuid() }) } },
+    },
+    400: errorResponse("The photo can't be used"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+  },
+});
+
+const storyViewedRoute = createRoute({
+  method: "post",
+  path: "/stories/{id}/viewed",
+  summary: "Record that someone saw a story, and how it ended",
+  request: {
+    params: contentParams,
+    ...jsonBody(
+      actionMetaSchema.extend({
+        dwellMs: z
+          .number()
+          .nonnegative()
+          .max(24 * 60 * 60 * 1000),
+        ended: z.enum(["next", "previous", "closed", "timer"]),
+      }),
+    ),
+  },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("No story that's up for this person"),
+  },
+});
+
+const storyViewersRoute = createRoute({
+  method: "get",
+  path: "/stories/{id}/viewers",
+  summary: "Who has viewed someone's own story, as the study wrote",
+  request: { params: contentParams },
+  responses: {
+    200: {
+      description: "In the order they viewed it",
+      content: {
+        "application/json": {
+          schema: z.object({
+            viewers: z.array(
+              z.object({
+                username: z.string(),
+                name: z.string(),
+                pictureUrl: z.string().nullable(),
+              }),
+            ),
+          }),
+        },
+      },
+    },
+    401: notSignedIn,
+    404: errorResponse("Not one of this person's stories"),
+  },
+});
 
 const noteRatingRoute = createRoute({
   method: "post",
@@ -523,7 +617,7 @@ const notificationsRoute = createRoute({
                   }),
                 ),
                 targetIsTheirs: z.boolean(),
-                targetKind: z.enum(["post", "comment", "person"]),
+                targetKind: z.enum(["post", "comment", "story", "person"]),
                 targetName: z.string(),
                 /** The post this is about, for a link to its own page. */
                 postId: z.string().nullable(),
@@ -1834,6 +1928,124 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       return c.json(featureOff, 403);
     }
     return c.json({ notifications: await listNotifications(db, context, mediaPublicUrl) }, 200);
+  });
+
+  app.openapi(storiesRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    return c.json({ stories: await listStories(db, context, mediaPublicUrl) }, 200);
+  });
+
+  app.openapi(newStoryRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "stories") || isOff(context, "posting")) {
+      return c.json(featureOff, 403);
+    }
+    const now = new Date();
+    const form = c.req.valid("form");
+    const repeat = await findRepeat(db, context.worldId, form.clientEventId);
+    if (repeat?.contentId) {
+      return c.json({ id: repeat.contentId }, 200);
+    }
+    const key = await storeUploadedImage(
+      storage,
+      context.worldId,
+      context.participantId,
+      form.image,
+    );
+    if (!key) {
+      return c.json(
+        {
+          error: `That photo can't be used. Use a JPEG, PNG, GIF, or WebP under ${MAX_IMAGE_BYTES / 1024 / 1024} MB.`,
+        },
+        400,
+      );
+    }
+    const id = await db.transaction(async (tx) => {
+      const nth = await countOwnContent(tx, context, "story");
+      const [created] = await tx
+        .insert(schema.content)
+        .values({
+          studyVersionId: context.studyVersionId,
+          worldId: context.worldId,
+          authorActorId: context.actorId,
+          kind: "story",
+          body: form.caption.trim(),
+          attachments: [{ type: "image", key }],
+          visibleAt: now,
+        })
+        .returning({ id: schema.content.id });
+      const storyId = created?.id as string;
+      await recordEvent(tx, {
+        ...participantEvent(context, form.occurredAt, form.clientEventId),
+        type: "content.created",
+        payload: { kind: "story" },
+        targetContentId: storyId,
+      });
+      await scheduleReactions(tx, context, {
+        on: "story",
+        nth,
+        contentId: storyId,
+        replyUnderId: storyId,
+        spaceId: null,
+        now,
+      });
+      return storyId;
+    });
+    return c.json({ id }, 200);
+  });
+
+  app.openapi(storyViewedRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "stories")) {
+      return c.json(featureOff, 403);
+    }
+    const { id } = c.req.valid("param");
+    if (!(await findLiveStory(db, context, id))) {
+      return c.json(notAvailable, 404);
+    }
+    const body = c.req.valid("json");
+    await db.transaction(async (tx) => {
+      const recorded = await recordEvent(tx, {
+        ...participantEvent(context, body.occurredAt, body.clientEventId),
+        type: "story.viewed",
+        payload: { dwellMs: body.dwellMs, ended: body.ended },
+        targetContentId: id,
+      });
+      if (recorded) {
+        await tx
+          .insert(schema.contentInteractions)
+          .values({
+            worldId: context.worldId,
+            actorId: context.actorId,
+            contentId: id,
+            kind: "view",
+          })
+          .onConflictDoNothing();
+      }
+    });
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(storyViewersRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const { id } = c.req.valid("param");
+    const story = await findLiveStory(db, context, id);
+    if (!story || story.authorActorId !== context.actorId) {
+      return c.json(notAvailable, 404);
+    }
+    return c.json({ viewers: await storyViewers(db, context, id, mediaPublicUrl) }, 200);
   });
 
   app.openapi(noteRatingRoute, async (c) => {

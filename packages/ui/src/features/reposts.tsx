@@ -1,4 +1,5 @@
 import type { FeedOriginal, FeedPost } from "@truman3/core";
+import { RepostIcon } from "../icons.tsx";
 import { useFeature } from "../platform.tsx";
 import type { FeedPostViewProps, PostActions } from "../post-props.ts";
 
@@ -20,15 +21,32 @@ export function RepostButton({
   post,
   actions,
   className = "",
+  look = "words",
 }: {
   post: FeedPost;
   actions?: PostActions | undefined;
   className?: string;
+  look?: "words" | "icon";
 }) {
   if (!useFeature("reposts") || post.removed) {
     return null;
   }
   const count = post.repostCount ?? 0;
+  if (look === "icon") {
+    return (
+      <button
+        type="button"
+        aria-label={post.reposted ? "Reposted" : "Repost"}
+        aria-pressed={Boolean(post.reposted)}
+        disabled={!actions?.onRepost}
+        className={`flex items-center gap-1 ${className} ${post.reposted ? "text-emerald-700" : ""}`}
+        onClick={() => actions?.onRepost?.(post.id, !post.reposted)}
+      >
+        <RepostIcon />
+        {count > 0 && <span className="text-sm font-semibold">{count}</span>}
+      </button>
+    );
+  }
   return (
     <button
       type="button"

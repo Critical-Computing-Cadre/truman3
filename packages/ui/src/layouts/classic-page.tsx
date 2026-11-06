@@ -21,14 +21,23 @@ export function ClassicHeader({ renderBrand, links, action }: PageHeaderProps) {
   );
 }
 
-export function ClassicFeedFrame({ renderProfile, children }: FeedFrameProps) {
+export function ClassicFeedFrame({ renderProfile, side, top, children }: FeedFrameProps) {
   return (
-    <div className="justify-center gap-4 md:grid md:grid-cols-[14rem_minmax(0,36rem)] lg:grid-cols-[14rem_minmax(0,36rem)_14rem]">
+    <div className="justify-center gap-6 md:grid md:grid-cols-[15rem_minmax(0,36rem)] lg:grid-cols-[15rem_minmax(0,36rem)_18rem]">
       {/* Too narrow on a phone, where the Profile link in the header does this job. */}
       <aside className="hidden md:block">
         <div className="sticky top-16">{renderProfile(false)}</div>
       </aside>
-      <div className="min-w-0 space-y-3 sm:space-y-4">{children}</div>
+      <div className="min-w-0 space-y-3 sm:space-y-4">
+        {top}
+        {children}
+      </div>
+      {/* Suggestions and the like, beside the feed where there's room, as on a community feed. */}
+      {side && (
+        <aside className="hidden space-y-4 lg:block">
+          <div className="sticky top-16 space-y-4">{side}</div>
+        </aside>
+      )}
     </div>
   );
 }

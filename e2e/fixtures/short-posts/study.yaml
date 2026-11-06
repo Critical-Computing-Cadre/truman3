@@ -11,6 +11,7 @@ platform:
   style: text
   template: shortPosts
   maxPostLength: 40
+  theme: device
   trending: [{ tag: news, note: 12K posts }, { tag: local }]
 feed: { ranker: chronological, homeTabLabel: Everything, adEvery: 2 }
 media: { baseUrl: "https://cdn.example.com/m" }

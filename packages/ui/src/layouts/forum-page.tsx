@@ -39,10 +39,13 @@ export function ForumHeader({ renderBrand, home, links, action }: PageHeaderProp
   );
 }
 
-export function ForumFeedFrame({ renderProfile, side, children }: FeedFrameProps) {
+export function ForumFeedFrame({ renderProfile, side, top, children }: FeedFrameProps) {
   return (
     <div className={SIDE_GRID}>
-      <div className="min-w-0 space-y-3">{children}</div>
+      <div className="min-w-0 space-y-3">
+        {top}
+        {children}
+      </div>
       <aside aria-label="About you" className="sticky top-18 hidden space-y-4 lg:block">
         {renderProfile(true)}
         {side}

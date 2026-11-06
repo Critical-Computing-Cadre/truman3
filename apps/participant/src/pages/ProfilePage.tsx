@@ -86,6 +86,9 @@ export function ProfilePage() {
   const blocking = useFeature("blocking");
   const reporting = useFeature("reporting");
   const muting = useFeature("muting");
+  const gridOn = useFeature("profileGrid");
+  const pagesOn = useFeature("postPages");
+  const grid = gridOn && pagesOn;
   const [reason, setReason] = useState<string | null>(null);
   const [openList, setOpenList] = useState<"saved" | "hidden" | null>(null);
 
@@ -229,7 +232,33 @@ export function ProfilePage() {
       {!openList && actor.posts.length === 0 && (
         <p className="p-6 text-center text-stone-500">No posts to show.</p>
       )}
+      {!openList && grid && (
+        <ul aria-label="Posts" className="grid grid-cols-3 gap-1">
+          {actor.posts
+            .filter((post) => !post.repostedBy)
+            .map((post) => (
+              <li key={post.id}>
+                <Link
+                  to="/p/$postId"
+                  params={{ postId: post.id }}
+                  className="block aspect-square overflow-hidden bg-stone-200"
+                >
+                  {post.attachments[0] ? (
+                    <img
+                      src={post.attachments[0].url}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="block p-2 text-xs text-stone-700">{post.body}</span>
+                  )}
+                </Link>
+              </li>
+            ))}
+        </ul>
+      )}
       {!openList &&
+        !grid &&
         actor.posts.map((post) => (
           <PostCard key={post.repostedBy?.id ?? post.id} post={post} surface="profile" />
         ))}

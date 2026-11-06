@@ -18,7 +18,7 @@ export async function scheduleReactions(
   tx: Transaction,
   context: ParticipantContext,
   trigger: {
-    on: "post" | "comment";
+    on: "post" | "comment" | "story";
     nth: number;
     contentId: string;
     /** What a scripted reply should appear under: the post, or with threads, the comment. */
@@ -338,8 +338,8 @@ export interface NotificationItem {
     | "repost"
     | "follow";
   actors: { username: string; name: string; pictureUrl: string | null }[];
-  /** Whether this is about a post, a comment, or a person someone reported. */
-  targetKind: "post" | "comment" | "person";
+  /** Whether this is about a post, a comment, a story, or a person someone reported. */
+  targetKind: "post" | "comment" | "story" | "person";
   /** Who wrote it, or who was reported. */
   targetName: string;
   /** Whether they wrote it. If not, this answers their flag. */
@@ -481,6 +481,10 @@ export async function listNotifications(
     ) {
       continue;
     }
+    // Who saw someone's story shows in the story itself, as on these platforms, not as a notification.
+    if (row.type === "read" && contentById.get(row.targetContentId ?? "")?.kind === "story") {
+      continue;
+    }
     // Someone banned stops reacting, even if that was already on its way. A moderator's decisions
     // stay, since they're not banned for those.
     const top = row.targetContentId ? contentById.get(postOf(row.targetContentId)) : undefined;
@@ -512,7 +516,11 @@ export async function listNotifications(
       key,
       type: row.type as NotificationItem["type"],
       actors: [toActor(row.actorId)],
-      targetKind: !target ? "person" : target.kind === "comment" ? "comment" : "post",
+      targetKind: !target
+        ? "person"
+        : target.kind === "comment" || target.kind === "story"
+          ? target.kind
+          : "post",
       targetName: toActor(row.targetActorId ?? target?.authorActorId ?? "").name,
       postId: row.targetContentId ? postOf(row.targetContentId) : null,
       commentId: row.replyContentId ?? (target?.kind === "comment" ? target.id : null),

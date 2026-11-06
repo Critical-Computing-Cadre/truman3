@@ -121,12 +121,11 @@ export function ClassicPost({
   const crosspostingOn = useFeature("crossposting");
   const repostsOn = useFeature("reposts");
   const quotesOn = useFeature("quotes");
-  const more = useMoreMenu(["saving", "hiding", "sharing", "crossposting", "quotes"], "py-3");
+  const more = useMoreMenu(["saving", "hiding", "crossposting", "quotes"], "py-2");
   const lessUsed = (className: string) => (
     <>
       <SaveButton post={post} actions={actions} className={className} />
       <HideButton post={post} actions={actions} className={className} />
-      <ShareButton post={post} actions={actions} className={className} />
       <CrosspostButton post={post} actions={actions} className={className} />
       <QuoteButton post={post} actions={actions} className={className} />
     </>
@@ -149,7 +148,7 @@ export function ClassicPost({
     <article
       ref={rootRef}
       aria-label={`Post by ${post.author.name}`}
-      className="overflow-hidden bg-white shadow-sm sm:rounded-lg"
+      className="overflow-hidden border-y border-stone-200 bg-white sm:rounded-xl sm:border"
     >
       <RepostedBy post={post} />
       <SpaceLine post={post} renderSpace={renderSpace} />
@@ -199,6 +198,15 @@ export function ClassicPost({
         {renderNote && <div className="px-3 pb-2 empty:hidden">{renderNote(post.id)}</div>}
       </div>
 
+      {/* A count of reactions and comments above the buttons, as on a community feed. */}
+      {(post.likes > 0 || post.commentCount > 0) && (likesOn || commentsOn) && (
+        <div className="flex items-center justify-between px-3 pb-2 text-sm text-stone-500">
+          <span>{likesOn && post.likes > 0 ? `♥ ${post.likes.toLocaleString("en-US")}` : ""}</span>
+          {!detail && commentsOn && post.commentCount > 0 && (
+            <CommentsLink post={post} {...(renderPostLink ? { renderPostLink } : {})} />
+          )}
+        </div>
+      )}
       {(commentsOn ||
         likesOn ||
         flaggingOn ||
@@ -209,20 +217,14 @@ export function ClassicPost({
         crosspostingOn ||
         repostsOn ||
         quotesOn) && (
-        <div className="grid auto-cols-fr grid-flow-col border-t border-stone-200 text-sm text-stone-700">
-          <VoteButtons item={post} actions={actions} className="py-3" />
+        <div className="mx-3 grid auto-cols-fr grid-flow-col border-t border-stone-200 text-sm font-medium text-stone-600">
+          <PostLikeButton post={post} look="both" {...(actions ? { actions } : {})} />
           <ReplyButton actions={actions} post={post} />
+          <VoteButtons item={post} actions={actions} className="py-2" />
+          <RepostButton post={post} actions={actions} className="justify-center py-2" look="icon" />
+          <ShareButton post={post} actions={actions} look="both" className="justify-center py-2" />
           <PostFlagButton post={post} {...(actions ? { actions } : {})} />
-          <PostLikeButton post={post} {...(actions ? { actions } : {})} />
-          <RepostButton post={post} actions={actions} className="py-3" />
-          {more.collapsed ? more.toggle : lessUsed("py-3")}
-          {!detail && (
-            <CommentsLink
-              post={post}
-              className="py-3 text-center"
-              {...(renderPostLink ? { renderPostLink } : {})}
-            />
-          )}
+          {more.collapsed ? more.toggle : lessUsed("py-2")}
         </div>
       )}
 

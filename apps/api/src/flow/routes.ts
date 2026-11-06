@@ -36,6 +36,8 @@ const flowStateSchema = z.object({
   canFinish: z.boolean(),
   /** What their posts must contain. */
   platformStyle: z.enum(["photo", "text", "mixed"]),
+  /** Light, dark, or whatever their device uses. */
+  theme: z.enum(["light", "dark", "device"]),
   /** Whether the comment box is always there, or appears on Reply. */
   commentBox: z.enum(["open", "onReply"]),
   /** How posts are arranged. */

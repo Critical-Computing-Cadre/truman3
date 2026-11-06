@@ -76,6 +76,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       shownIn(arm.key, study.autoRules),
       shownIn(arm.key, study.appealAnswers),
       shownIn(arm.key, study.contextNotes),
+      shownIn(arm.key, study.stories),
     ]);
     const same = conditionLooks.get(looks);
     if (same) {
@@ -311,6 +312,9 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
     if (on.whoToFollow && !on.following) {
       warning(`Who to follow is on in "${arm.key}", but following, which it needs, is off.`);
+    }
+    if (!on.stories && study.stories.some(applies)) {
+      warning(`Stories are off in "${arm.key}", so its stories won't show there.`);
     }
     if (on.modLog && !on.removal) {
       warning(`A mod log is on in "${arm.key}", but it lists removals, which are off.`);
@@ -633,6 +637,12 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
 
   for (const reaction of study.reactions) {
     const label = `The reaction to the participant's ${reaction.on} #${reaction.nth}`;
+    if (reaction.on === "story" && reaction.type !== "read" && reaction.type !== "like") {
+      error(
+        `${label} can only be a read or a like, since a story has nothing else.`,
+        reaction.source,
+      );
+    }
     checkActor(reaction.actor, label, reaction.source);
     checkConditions(reaction.conditions, label, reaction.source);
     if ((reaction.type === "reply" || reaction.type === "warn") && !reaction.body) {
@@ -707,6 +717,25 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     checkConditions(answer.conditions, label, answer.source);
     if (answer.action === "answer" && !answer.message) {
       error(`${label} has no message.`, answer.source);
+    }
+  }
+
+  const storyRefs = new Set<string>();
+  for (const story of study.stories) {
+    const label = `The story "${story.ref}"`;
+    if (storyRefs.has(story.ref)) {
+      error(`${label} has the same ID as another story.`, story.source);
+    }
+    storyRefs.add(story.ref);
+    checkActor(story.actor, label, story.source);
+    checkConditions(story.conditions, label, story.source);
+    if (!story.picture) {
+      error(`${label} has no photo yet.`, story.source);
+    }
+  }
+  for (const post of study.posts) {
+    if (post.likedBy) {
+      checkActor(post.likedBy, `Post "${post.ref}"'s likedBy`, post.source);
     }
   }
 
@@ -845,6 +874,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       ...study.autoRules,
       ...study.appealAnswers,
       ...study.contextNotes,
+      ...study.stories,
     ].flatMap((item) => item.conditions),
   );
   const hasOverrides = settings.conditions.arms.some((arm) => arm.feed);

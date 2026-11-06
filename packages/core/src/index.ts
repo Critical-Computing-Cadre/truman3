@@ -38,7 +38,9 @@ export {
   type ModLogEntry,
   modLogEntrySchema,
   type SpaceView,
+  type StoryGroup,
   spaceViewSchema,
+  storyGroupSchema,
 } from "./feed.ts";
 export { type HealthResponse, healthResponseSchema } from "./health.ts";
 export {

@@ -127,7 +127,7 @@ export function ForumPost({
         <HideButton post={post} actions={actions} />
       </div>
       <div className={PILL}>
-        <ShareButton post={post} actions={actions} />
+        <ShareButton post={post} actions={actions} look="both" />
       </div>
       <div className={PILL}>
         <CrosspostButton post={post} actions={actions} />
@@ -219,6 +219,7 @@ export function ForumPost({
             <CommentsLink
               post={post}
               className={PILL}
+              look="icon"
               {...(renderPostLink ? { renderPostLink } : {})}
             />
           )}

@@ -201,6 +201,19 @@ export const FEATURES = {
     version: 1,
     events: ["content.link_opened"],
   },
+  stories: {
+    name: "Stories",
+    description:
+      "Photos in a row across the top, which last a set time and open full screen one after another. The study writes them, and participants can post their own.",
+    version: 1,
+    events: ["story.viewed", "content.created"],
+  },
+  profileGrid: {
+    name: "A profile grid",
+    description: "A profile shows someone's posts as a grid of photos.",
+    version: 1,
+    events: [],
+  },
   warnings: {
     name: "Moderators warning people",
     description:

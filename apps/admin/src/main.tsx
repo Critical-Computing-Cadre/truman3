@@ -21,6 +21,7 @@ import { PreviewPage } from "./pages/PreviewPage.tsx";
 import { ProlificPage } from "./pages/ProlificPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { SpacesPage } from "./pages/SpacesPage.tsx";
+import { StoriesPage } from "./pages/StoriesPage.tsx";
 import { StudiesPage } from "./pages/StudiesPage.tsx";
 
 /** Everything here needs signing in, so this shows the login page until then. */
@@ -114,6 +115,12 @@ const moderationRoute = createRoute({
   component: ModerationPage,
 });
 
+const storiesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/drafts/$draftId/stories",
+  component: StoriesPage,
+});
+
 const monitorRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/studies/$studyId/monitor",
@@ -138,6 +145,7 @@ const router = createRouter({
     castRoute,
     spacesRoute,
     moderationRoute,
+    storiesRoute,
     monitorRoute,
     prolificRoute,
   ]),

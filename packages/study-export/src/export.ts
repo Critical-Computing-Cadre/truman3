@@ -761,6 +761,8 @@ export async function exportStudy(
         "base_quotes",
         "ad",
         "base_views",
+        "lasts_ms",
+        "liked_by",
         "media",
         "provenance",
         "offset_ms",
@@ -796,6 +798,8 @@ export async function exportStudy(
         base_quotes: item.baseQuotes,
         ad: safeText(item.adLabel),
         base_views: item.baseViews,
+        lasts_ms: item.lastsMs ?? "",
+        liked_by: item.likedByActorId ? actorLabel(item.likedByActorId) : "",
         media: item.attachments.map(({ key }) => key).join("|"),
         provenance: provenanceLabel(item.provenance),
         offset_ms: item.offsetMs ?? "",
@@ -1046,6 +1050,8 @@ const FILE_DOCS: Record<string, [string, string][]> = {
       "If it's an ad, the label it shows. How often someone saw one is in impressions.csv, and clicks are content.link_opened",
     ],
     ["base_views", "How many it says have seen it, before this person"],
+    ["lasts_ms", "For a story, how long it lasts. Empty is a day"],
+    ["liked_by", 'Someone in the cast a post says liked it, as in "Liked by ... and others"'],
     [
       "base_reposts, base_quotes",
       "How many it says passed it along or quoted it, before anything during the study",
@@ -1084,6 +1090,8 @@ const ORDER_NOTES: [string, string][] = [
 const EVENT_NOTES: Record<string, string> = {
   "content.reposted":
     "They passed a post along. It names the first post, even if they saw it through someone else's repost. content.unreposted is taking that back.",
+  "story.viewed":
+    "They saw one story, for dwell_ms. `ended` says how: next, previous, closed, or timer, when it moved on by itself. A story is a row in content.csv with kind story.",
   "content.note_rated":
     "They rated a context note. `note` is its ID in context_notes.csv. Null takes their rating back, and they have one rating at a time.",
   "actor.muted":

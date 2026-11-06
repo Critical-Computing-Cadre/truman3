@@ -33,6 +33,7 @@ type Removal = StudyDefinition["removals"][number];
 type FlagAnswer = StudyDefinition["flagAnswers"][number];
 type Ban = StudyDefinition["bans"][number];
 type ContextNote = StudyDefinition["contextNotes"][number];
+type Story = StudyDefinition["stories"][number];
 type AutoRule = StudyDefinition["autoRules"][number];
 type AppealAnswer = StudyDefinition["appealAnswers"][number];
 type ReportAnswer = StudyDefinition["reportAnswers"][number];
@@ -62,6 +63,8 @@ export interface PackContents {
   appealAnswers?: AppealAnswer[];
   /** Packs saved before context notes don't have this. */
   contextNotes?: ContextNote[];
+  /** Packs saved before stories don't have this. */
+  stories?: Story[];
   /** Each post and comment's history before the pack, by kind and reference. */
   provenance: Record<string, Provenance>;
 }
@@ -100,6 +103,7 @@ export function packContents(
     autoRules,
     appealAnswers,
     contextNotes,
+    stories,
   }: StudyDefinition,
   mediaKeys: Map<string, string>,
   provenance: Map<string, Provenance> = new Map(),
@@ -157,6 +161,14 @@ export function packContents(
     ...(autoRules.length > 0 ? { autoRules: autoRules.map(withoutSource) } : {}),
     ...(appealAnswers.length > 0 ? { appealAnswers: appealAnswers.map(withoutSource) } : {}),
     ...(contextNotes.length > 0 ? { contextNotes: contextNotes.map(withoutSource) } : {}),
+    ...(stories.length > 0
+      ? {
+          stories: stories.map((story) => ({
+            ...withoutSource(story),
+            picture: mediaKeys.get(path.join(MEDIA_FOLDERS.posts, story.picture)) ?? story.picture,
+          })),
+        }
+      : {}),
     provenance: Object.fromEntries(provenance),
   };
 }
@@ -174,6 +186,7 @@ function summarize(contents: PackContents): PackSummary {
     ...(contents.autoRules ?? []),
     ...(contents.appealAnswers ?? []),
     ...(contents.contextNotes ?? []),
+    ...(contents.stories ?? []),
   ];
   return {
     actors: contents.actors.length,
@@ -358,6 +371,7 @@ export async function startStudy(
   const reportAnswers = everywhere(contents?.reportAnswers ?? []);
   const autoRules = everywhere(contents?.autoRules ?? []);
   const appealAnswers = everywhere(contents?.appealAnswers ?? []);
+  const stories = everywhere(contents?.stories ?? []);
   const contextNotes = everywhere(contents?.contextNotes ?? []).filter(({ post }) =>
     keptPosts.has(post),
   );
@@ -444,7 +458,7 @@ export async function startStudy(
         data: space,
       })),
       ...posts.map(
-        ({ actor, likes, space, crosspostOf, repostOf, quoteOf, ...post }, position) => ({
+        ({ actor, likes, space, crosspostOf, repostOf, quoteOf, likedBy, ...post }, position) => ({
           id: postIds.get(post.ref) as string,
           draftId: draft.id,
           kind: "post",
@@ -465,6 +479,7 @@ export async function startStudy(
               ? { crosspostOfId: postIds.get(crosspostOf) as string }
               : {}),
             likes: drawLikes(likes, settings.likes.posts),
+            ...(likedBy && actorIds.has(likedBy) ? { likedById: actorId(likedBy) } : {}),
           },
         }),
       ),
@@ -502,6 +517,13 @@ export async function startStudy(
           actorId: actorId(actor),
           targetId: (removal.on === "post" ? postIds : commentIds).get(target) as string,
         },
+      })),
+      ...stories.map(({ actor, ...story }, position) => ({
+        draftId: draft.id,
+        kind: "story",
+        position,
+        provenance: fromPack(null),
+        data: { ...story, actorId: actorId(actor) },
       })),
       ...contextNotes.map(({ post, ...note }, position) => ({
         draftId: draft.id,

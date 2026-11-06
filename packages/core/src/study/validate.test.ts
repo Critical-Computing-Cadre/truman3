@@ -919,3 +919,32 @@ describe("context notes, ads, and suggestions", () => {
     expect(found).toContainEqual(expect.stringContaining('Who to follow is off in "a"'));
   });
 });
+
+describe("stories and liked by", () => {
+  const photo = settings({ platform: { style: "photo", template: "photo" } });
+  const story = { ref: "s", actor: "ann", picture: "a.jpg", timeMs: 0 };
+  const errors = (fields: object) =>
+    hasErrors(validateStudy(study({ settings: photo, ...fields })));
+
+  it("needs someone, a photo, and its own ID", () => {
+    expect(errors({ stories: [story] })).toBe(false);
+    expect(errors({ stories: [{ ...story, actor: "nobody" }] })).toBe(true);
+    expect(errors({ stories: [{ ...story, picture: "" }] })).toBe(true);
+    expect(errors({ stories: [story, story] })).toBe(true);
+  });
+
+  it("warns when stories are off, and checks who a post says liked it", () => {
+    expect(messages(study({ stories: [story] }))).toContainEqual(
+      expect.stringContaining('Stories are off in "a"'),
+    );
+    expect(
+      errors({ posts: [{ ref: "1", body: "hi", actor: "ann", timeMs: 0, likedBy: "nobody" }] }),
+    ).toBe(true);
+  });
+
+  it("only lets a story's reaction be a read or a like", () => {
+    const reaction = { on: "story", nth: 0, actor: "ann", afterMs: 0 };
+    expect(errors({ reactions: [{ ...reaction, type: "read" }] })).toBe(false);
+    expect(errors({ reactions: [{ ...reaction, type: "reply", body: "Hi" }] })).toBe(true);
+  });
+});

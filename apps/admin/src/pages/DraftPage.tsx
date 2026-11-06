@@ -66,7 +66,8 @@ export function useDraftEdits(draftId: string) {
           | "reportAnswer"
           | "autoRule"
           | "appealAnswer"
-          | "contextNote";
+          | "contextNote"
+          | "story";
         fields: object;
       }) => send("POST", base, body),
       onSettled: refresh,
@@ -816,6 +817,23 @@ function PostExtras({
             onBlur={(event) => change({ ad: event.target.value.trim() || null })}
             className={`${field} min-w-0 flex-1`}
           />
+        </label>
+      )}
+      {on("likes") && (
+        <label className="flex items-center gap-2">
+          Liked by
+          <select
+            value={details.likedById ?? ""}
+            onChange={(event) => change({ likedById: event.target.value || null })}
+            className={`${field} min-w-0 flex-1`}
+          >
+            <option value="">Nobody named</option>
+            {info.actors.map((actor) => (
+              <option key={actor.id} value={actor.id}>
+                {actor.name}
+              </option>
+            ))}
+          </select>
         </label>
       )}
       {on("viewCounts") && (
@@ -1577,6 +1595,15 @@ export function DraftPage() {
             >
               Cast
             </Link>
+            {info.data.conditions.some(({ features }) => features.stories) && (
+              <Link
+                to="/drafts/$draftId/stories"
+                params={{ draftId }}
+                className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+              >
+                Stories
+              </Link>
+            )}
             {info.data.conditions.some(({ features }) => features.spaces) && (
               <Link
                 to="/drafts/$draftId/spaces"
