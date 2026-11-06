@@ -260,6 +260,13 @@
       "when": 1793944681089,
       "tag": "0036_tagging_participants",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793946477767,
+      "tag": "0037_muting_threads",
+      "breakpoints": true
     }
   ]
 }

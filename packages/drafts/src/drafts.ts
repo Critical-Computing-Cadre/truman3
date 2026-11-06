@@ -193,6 +193,7 @@ export async function openDraft(
             ...optional("location", profile.location),
             ...optional("bio", profile.bio),
             ...optional("picture", profile.picture),
+            ...optional("banner", profile.banner),
             ...optional("moderator", profile.moderator),
             ...optional("karma", profile.karma),
             ...optional("followers", profile.followers),

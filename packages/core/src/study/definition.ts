@@ -270,6 +270,8 @@ export const actorDefinitionSchema = z.object({
   location: z.string().optional(),
   bio: z.string().optional(),
   picture: z.string().optional(),
+  /** A wide picture across the top of their profile, in media/actors, on a layout that has one. */
+  banner: z.string().optional(),
   /** Shows a tag on their name. It doesn't give them any powers. */
   moderator: z.boolean().optional(),
   /** Their points, on a platform with karma. */

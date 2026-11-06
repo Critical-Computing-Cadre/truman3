@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { FeedPostView } from "./FeedPostView.tsx";
 import { TextLinksContext } from "./features/post-text.tsx";
 import { WarningNotice } from "./features/warnings.tsx";
+import { ProfileHeader } from "./PageFrames.tsx";
 import { PlatformProvider } from "./platform.tsx";
 import type { FeedPostViewProps } from "./post-props.ts";
 
@@ -1054,5 +1055,86 @@ describe("places and tagging people", () => {
     draw("classic", { places: false, photoTags: false });
     expect(screen.queryByTestId("tagged-line")).toBeNull();
     expect(screen.queryByTestId("post-place")).toBeNull();
+  });
+});
+
+describe("muting a thread", () => {
+  afterEach(cleanup);
+  const draw = (on: boolean, onMuteThread = vi.fn(), post: FeedPost = { ...POST, comments: [] }) =>
+    render(
+      <PlatformProvider
+        platform={{
+          layout: "short-posts",
+          features: { ...TEMPLATES.shortPosts.features, threadMuting: on },
+        }}
+      >
+        <FeedPostView
+          post={post}
+          actions={{
+            onLike: vi.fn(),
+            onVote: vi.fn(),
+            onFlag: vi.fn(),
+            onReply: vi.fn(),
+            onMuteThread,
+          }}
+        />
+      </PlatformProvider>,
+    );
+
+  it("is in the More menu, and says when it's muted", () => {
+    const onMuteThread = vi.fn();
+    draw(true, onMuteThread);
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mute thread" }));
+    expect(onMuteThread).toHaveBeenCalledWith("p1", true);
+    cleanup();
+    draw(true, vi.fn(), { ...POST, comments: [], threadMuted: true });
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    expect(screen.getByRole("button", { name: "Unmute thread" })).toBeTruthy();
+  });
+
+  it("isn't there with the feature off", () => {
+    draw(false);
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    expect(screen.queryByRole("button", { name: /Mute thread/ })).toBeNull();
+  });
+});
+
+describe("a profile's header", () => {
+  afterEach(cleanup);
+  const draw = (layout: "short-posts" | "photo" | "classic", bannerUrl: string | null = null) =>
+    render(
+      <PlatformProvider platform={{ layout, features: TEMPLATES.shortPosts.features }}>
+        <ProfileHeader
+          username="ann"
+          name="Ann Lee"
+          pictureUrl={null}
+          bannerUrl={bannerUrl}
+          bio="Hello"
+          location=""
+          counts={{ posts: 3, followers: 1, following: 12 }}
+          extras={null}
+          actions={<button type="button">Follow</button>}
+        />
+      </PlatformProvider>,
+    );
+
+  it("has a banner in Short posts, with the study's picture if it gave one", () => {
+    draw("short-posts", "https://example.com/wide.png");
+    expect(screen.getByTestId("profile-banner").getAttribute("style")).toContain("wide.png");
+    expect(screen.getByRole("heading", { name: "Ann Lee" })).toBeTruthy();
+    expect(screen.getByTestId("follow-counts").textContent).toBe("3 posts1 follower12 following");
+  });
+
+  it("leads with the username in Photo, and has no banner", () => {
+    draw("photo");
+    expect(screen.getByRole("heading", { name: "ann" })).toBeTruthy();
+    expect(screen.queryByTestId("profile-banner")).toBeNull();
+  });
+
+  it("is centered in Classic, without a count of posts", () => {
+    draw("classic");
+    expect(screen.getByRole("heading", { name: "Ann Lee" })).toBeTruthy();
+    expect(screen.getByTestId("follow-counts").textContent).toBe("1 follower12 following");
   });
 });

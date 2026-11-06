@@ -1,4 +1,4 @@
-import { featuresFor } from "@truman3/core";
+import { featureOn, featuresFor } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, gt, inArray, lte } from "drizzle-orm";
 import { bannedAt, loadBans, loadRemovals, mediaUrl } from "../feed/build.ts";
@@ -301,25 +301,92 @@ async function lastViewedAt(db: Database, context: ParticipantContext): Promise<
   return membership?.viewedAt ?? null;
 }
 
+/** What someone hears about a thread from the cast, which muting the thread stops. */
+const ABOUT_A_THREAD = ["read", "like", "reply", "repost", "tag"];
+
+/** The posts this person muted notifications about, on a platform with that. */
+async function mutedThreads(db: Database, context: ParticipantContext): Promise<Set<string>> {
+  if (!featureOn(context.settings, context.conditionKey, "threadMuting")) {
+    return new Set();
+  }
+  const rows = await db
+    .select({ contentId: schema.contentInteractions.contentId })
+    .from(schema.contentInteractions)
+    .where(
+      and(
+        eq(schema.contentInteractions.worldId, context.worldId),
+        eq(schema.contentInteractions.actorId, context.actorId),
+        eq(schema.contentInteractions.kind, "mute_thread"),
+      ),
+    );
+  return new Set(rows.map(({ contentId }) => contentId));
+}
+
+/** The post at the top of each of these, following parents up. */
+async function postsAbove(db: Database, ids: string[]): Promise<Map<string, string>> {
+  const parents = new Map<string, string | null>();
+  let missing = [...new Set(ids)];
+  while (missing.length > 0) {
+    const rows = await db
+      .select({ id: schema.content.id, parentId: schema.content.parentId })
+      .from(schema.content)
+      .where(inArray(schema.content.id, missing));
+    for (const row of rows) {
+      parents.set(row.id, row.parentId);
+    }
+    missing = rows.flatMap(({ parentId }) =>
+      parentId && !parents.has(parentId) ? [parentId] : [],
+    );
+  }
+  return new Map(
+    ids.map((id) => {
+      let current = id;
+      for (let step = 0; parents.get(current) && step < parents.size; step++) {
+        current = parents.get(current) as string;
+      }
+      return [id, current];
+    }),
+  );
+}
+
 export async function countUnreadNotifications(
   db: Database,
   context: ParticipantContext,
   now = new Date(),
 ): Promise<number> {
   const viewedAt = await lastViewedAt(db, context);
-  const [row] = await db
-    .select({ total: count() })
+  const unread = and(
+    eq(schema.notifications.worldId, context.worldId),
+    eq(schema.notifications.recipientActorId, context.actorId),
+    inArray(schema.notifications.type, SHOWN_TO_PARTICIPANTS),
+    lte(schema.notifications.dueAt, now),
+    viewedAt ? gt(schema.notifications.dueAt, viewedAt) : undefined,
+  );
+  const muted = await mutedThreads(db, context);
+  if (muted.size === 0) {
+    const [row] = await db.select({ total: count() }).from(schema.notifications).where(unread);
+    return row?.total ?? 0;
+  }
+  // Muted threads need each notification's post, which a count alone can't give.
+  const rows = await db
+    .select({
+      type: schema.notifications.type,
+      targetContentId: schema.notifications.targetContentId,
+    })
     .from(schema.notifications)
-    .where(
-      and(
-        eq(schema.notifications.worldId, context.worldId),
-        eq(schema.notifications.recipientActorId, context.actorId),
-        inArray(schema.notifications.type, SHOWN_TO_PARTICIPANTS),
-        lte(schema.notifications.dueAt, now),
-        viewedAt ? gt(schema.notifications.dueAt, viewedAt) : undefined,
+    .where(unread);
+  const above = await postsAbove(
+    db,
+    rows.flatMap(({ targetContentId }) => (targetContentId ? [targetContentId] : [])),
+  );
+  return rows.filter(
+    ({ type, targetContentId }) =>
+      !(
+        ABOUT_A_THREAD.includes(type) &&
+        targetContentId &&
+        muted.has(above.get(targetContentId) ?? targetContentId)
       ),
-    );
-  return row?.total ?? 0;
+  ).length;
 }
 
 export interface NotificationItem {
@@ -484,8 +551,17 @@ export async function listNotifications(
       ),
     );
   const muted = new Set(mutes.map(({ actorId }) => actorId));
+  const mutedPosts = await mutedThreads(db, context);
   const groups = new Map<string, NotificationItem>();
   for (const row of rows) {
+    // Muting a thread stops hearing about it from the cast, as muting someone does.
+    if (
+      ABOUT_A_THREAD.includes(row.type) &&
+      row.targetContentId &&
+      mutedPosts.has(postOf(row.targetContentId))
+    ) {
+      continue;
+    }
     // Muting someone means not hearing from them. A moderator's decisions are a different matter.
     if (
       ["read", "like", "reply", "repost", "follow", "tag"].includes(row.type) &&

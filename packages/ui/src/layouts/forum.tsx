@@ -19,6 +19,7 @@ import { WhoAndWhere } from "../features/places-tags.tsx";
 import { PostPoll } from "../features/polls.tsx";
 import {
   HideButton,
+  MuteThreadButton,
   PostBadges,
   PostLink,
   SaveButton,
@@ -113,7 +114,7 @@ export function ForumPost({
 }: FeedPostViewProps) {
   const image = post.attachments.length > 0 ? <PostPhotos post={post} /> : null;
   const more = useMoreMenu(
-    ["flagging", "saving", "hiding", "sharing", "crossposting", "quotes"],
+    ["flagging", "saving", "hiding", "threadMuting", "sharing", "crossposting", "quotes"],
     PILL,
   );
   const lessUsed = (
@@ -126,6 +127,7 @@ export function ForumPost({
       </div>
       <div className={PILL}>
         <HideButton post={post} actions={actions} />
+        <MuteThreadButton post={post} actions={actions} />
       </div>
       <div className={PILL}>
         <ShareButton post={post} actions={actions} look="both" />

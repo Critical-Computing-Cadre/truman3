@@ -179,6 +179,8 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
           onFlag: (id, active) => action.mutate({ url: `/content/${id}/flag`, active }),
           onSave: (id, active) => action.mutate({ url: `/content/${id}/save`, active }),
           onHide: (id, active) => action.mutate({ url: `/content/${id}/hide`, active }),
+          onMuteThread: (id, active) =>
+            action.mutate({ url: `/content/${id}/mute-thread`, active }),
           // Copied first, since a browser only allows it straight after a click.
           onShare: async (id) => {
             const copied = await navigator.clipboard

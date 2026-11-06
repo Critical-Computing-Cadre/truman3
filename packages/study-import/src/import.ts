@@ -105,6 +105,9 @@ export async function storeMedia(
     if (actor.picture) {
       files.set(path.join(MEDIA_FOLDERS.actors, actor.picture), actor.picture);
     }
+    if (actor.banner) {
+      files.set(path.join(MEDIA_FOLDERS.actors, actor.banner), actor.banner);
+    }
   }
   for (const space of study.spaces) {
     if (space.picture) {
@@ -321,6 +324,7 @@ export async function freezeStudy(
               spaceFlair: actor.spaceFlair,
               picture:
                 actor.picture && mediaKeys.get(path.join(MEDIA_FOLDERS.actors, actor.picture)),
+              banner: actor.banner && mediaKeys.get(path.join(MEDIA_FOLDERS.actors, actor.banner)),
             },
           })),
         )

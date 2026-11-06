@@ -36,6 +36,7 @@ const ACTORS: CsvSpec = {
     "location",
     "bio",
     "picture",
+    "banner",
     "moderator",
     "karma",
     "followers",
@@ -338,6 +339,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       ...optional("location", cells.location),
       ...optional("bio", cells.bio),
       ...optional("picture", cells.picture),
+      ...optional("banner", cells.banner),
       ...(yesOrNo(cells.moderator, "moderator", "actors.csv", row) ? { moderator: true } : {}),
       ...optional("karma", signedNumber(cells.karma, "karma", "actors.csv", row)),
       ...optional("followers", wholeNumber(cells.followers, "followers", "actors.csv", row)),
@@ -667,6 +669,7 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     };
     for (const actor of actors) {
       checkMedia(MEDIA_FOLDERS.actors, actor.picture, actor.source);
+      checkMedia(MEDIA_FOLDERS.actors, actor.banner, actor.source);
     }
     for (const space of spaces) {
       checkMedia(MEDIA_FOLDERS.spaces, space.picture, space.source);

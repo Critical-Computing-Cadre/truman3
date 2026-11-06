@@ -11,6 +11,7 @@ export interface PostActions {
   onReplyTo?: (comment: FeedComment) => void;
   onSave?: (contentId: string, active: boolean) => void;
   onHide?: (contentId: string, active: boolean) => void;
+  onMuteThread?: (contentId: string, active: boolean) => void;
   /** Copies a link to a post. Says whether that worked. */
   onShare?: (contentId: string) => Promise<boolean>;
   onOpenLink?: (contentId: string) => void;

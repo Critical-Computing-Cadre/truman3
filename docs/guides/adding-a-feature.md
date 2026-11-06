@@ -17,7 +17,7 @@ Then add tests:
 - A component test that it disappears when off (`packages/ui/src/FeedPostView.test.tsx`).
 - A server test that its route refuses when off (`apps/api/src/features.itest.ts`).
 
-A layout is also the page around posts: its header and what goes beside a feed, a space, and a post, in `packages/ui/src/layouts/*-page.tsx`. Pages hand over the pieces, and each layout decides where they go.
+A layout is also the page around posts: its header and what goes beside a feed, a space, and a post, in `packages/ui/src/layouts/*-page.tsx`, and the top of a profile, in `profile-headers.tsx`. `PageFrames.tsx` says which each layout uses. Pages hand over the pieces, and each layout decides where they go.
 
 A button for something less often used goes in what a layout passes to `useMoreMenu`, so it doesn't wrap a phone's row.
 

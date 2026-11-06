@@ -74,6 +74,9 @@ export function draftToDefinition(
     if (data.picture) {
       mediaKeys.set(path.join(MEDIA_FOLDERS.actors, data.picture), data.picture);
     }
+    if (data.banner) {
+      mediaKeys.set(path.join(MEDIA_FOLDERS.actors, data.banner), data.banner);
+    }
   }
   for (const { data } of spaces) {
     if (data.picture) {

@@ -15,6 +15,7 @@ import { useMoreMenu } from "../features/more-menu.tsx";
 import { PhotoTags, PostPlace } from "../features/places-tags.tsx";
 import {
   HideButton,
+  MuteThreadButton,
   PostBadges,
   SaveButton,
   ShareButton,
@@ -83,7 +84,7 @@ export function PhotoPost({
   wrapImage,
   detail = false,
 }: FeedPostViewProps) {
-  const more = useMoreMenu(["flagging", "hiding"], "text-sm text-stone-600");
+  const more = useMoreMenu(["flagging", "hiding", "threadMuting"], "text-sm text-stone-600");
   const author = (className: string, children: ReactNode) =>
     renderAuthor ? (
       renderAuthor(post.author, className, children)
@@ -140,6 +141,7 @@ export function PhotoPost({
         <div {...more.panelProps} className="flex gap-4 px-3 pt-2 text-sm">
           <PostFlagButton post={post} {...(actions ? { actions } : {})} />
           <HideButton post={post} actions={actions} />
+          <MuteThreadButton post={post} actions={actions} />
         </div>
       )}
       <div className="flex items-center gap-4 px-3 pt-2.5">
@@ -168,6 +170,7 @@ export function PhotoPost({
           <span className="flex gap-3 text-sm text-stone-500">
             <PostFlagButton post={post} {...(actions ? { actions } : {})} />
             <HideButton post={post} actions={actions} />
+            <MuteThreadButton post={post} actions={actions} />
           </span>
         )}
       </div>
