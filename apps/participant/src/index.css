@@ -5,6 +5,28 @@
   color-scheme: light;
 }
 
+/*
+ * Dark, when a study chooses it. Tailwind's colors are variables, so turning the grays and white
+ * around here darkens every page, without each component having to say what it looks like in the
+ * dark. Bright colors, like a like's red, stay as they are.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-white: #0f1012;
+  --color-black: #ffffff;
+  --color-stone-50: #16181b;
+  --color-stone-100: #0a0b0d;
+  --color-stone-200: #2a2d31;
+  --color-stone-300: #3a3e43;
+  --color-stone-400: #5c6168;
+  --color-stone-500: #8a9098;
+  --color-stone-600: #a7adb4;
+  --color-stone-700: #c6cbd0;
+  --color-stone-800: #dde1e5;
+  --color-stone-900: #eef0f2;
+  --color-stone-950: #f7f8f9;
+}
+
 body {
   @apply bg-stone-100 text-stone-900 antialiased;
 }

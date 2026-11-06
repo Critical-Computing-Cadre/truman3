@@ -10,10 +10,14 @@ import {
   TextLinksContext,
   WarningNotice,
 } from "@truman3/ui";
+import { useEffect } from "react";
 import { type FlowState, get, meQuery, post } from "../api.ts";
 import { flushTracking } from "../tracking.ts";
 
 const POLL_EVERY_MS = 30_000;
+
+/** Layouts whose sections show an icon before each word. */
+const ICON_LAYOUTS: string[] = ["photo", "short-posts", "classic"];
 
 /**
  * On a platform that shows icons for its sections, an icon goes before each link's word. The link
@@ -45,10 +49,29 @@ const TEXT_LINKS: TextLinks = {
   ),
 };
 
+/** Puts the study's light or dark on the page, following the device if that's what it chose. */
+function useTheme(theme: FlowState["theme"]) {
+  useEffect(() => {
+    const root = document.documentElement;
+    const device = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const apply = () => {
+      const dark = theme === "dark" || (theme === "device" && Boolean(device?.matches));
+      root.dataset.theme = dark ? "dark" : "light";
+    };
+    apply();
+    device?.addEventListener?.("change", apply);
+    return () => {
+      device?.removeEventListener?.("change", apply);
+      root.dataset.theme = "light";
+    };
+  }, [theme]);
+}
+
 /** The header and page around everything once someone's in the feed. */
 export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () => void }) {
   const me = useQuery({ ...meQuery, refetchInterval: POLL_EVERY_MS });
   const unread = me.data?.unreadNotifications ?? 0;
+  useTheme(flow.theme);
   const client = useQueryClient();
   const warnings = useQuery({
     queryKey: ["warnings"],
@@ -164,7 +187,7 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
               )}
             </Link>
           )}
-          home={withIcon({
+          home={(ICON_LAYOUTS.includes(flow.layout) ? withIcon : (link: PageLink) => link)({
             key: "home",
             label: "Home",
             render: (className) => (
@@ -173,7 +196,7 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
               </Link>
             ),
           })}
-          links={flow.layout === "photo" ? links.map(withIcon) : links}
+          links={ICON_LAYOUTS.includes(flow.layout) ? links.map(withIcon) : links}
           action={
             flow.canFinish ? (
               <button

@@ -59,6 +59,7 @@ export interface FlowState {
   canFinish: boolean;
   platformStyle: "photo" | "text" | "mixed";
   commentBox: "open" | "onReply";
+  theme: "light" | "dark" | "device";
   layout: LayoutKey;
   features: FeatureSet;
   maxPostLength: number | null;

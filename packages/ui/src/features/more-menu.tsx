@@ -8,9 +8,14 @@ import { useIsPhone, usePlatform } from "../platform.tsx";
  * nothing changes. A layout says where the button and the row go. Nothing happens without one of
  * these features, so a platform that doesn't have them looks as it always has.
  */
-export function useMoreMenu(features: readonly FeatureKey[], buttonClassName: string) {
+export function useMoreMenu(
+  features: readonly FeatureKey[],
+  buttonClassName: string,
+  /** Behind "More" on every screen, as some platforms keep them, not only on a phone. */
+  always = false,
+) {
   const platform = usePlatform();
-  const phone = useIsPhone();
+  const phone = useIsPhone() || always;
   const [open, setOpen] = useState(false);
   const id = useId();
   const button = useRef<HTMLButtonElement>(null);

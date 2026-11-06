@@ -17,6 +17,15 @@ export function platformStyleFor(settings: StudySettings, conditionKey: string):
 
 export type CommentBox = NonNullable<StudySettings["platform"]["commentBox"]>;
 
+/** Light, dark, or the participant's device. Light unless a study says otherwise. */
+export function themeFor(
+  settings: StudySettings,
+  conditionKey: string,
+): "light" | "dark" | "device" {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  return arm?.platform?.theme ?? settings.platform.theme ?? "light";
+}
+
 /** How the comment box appears in a condition. */
 export function commentBoxFor(settings: StudySettings, conditionKey: string): CommentBox {
   const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
@@ -128,6 +137,7 @@ export function platformFor(settings: StudySettings, conditionKey: string) {
     features: featuresFor(settings, conditionKey),
     platformStyle: platformStyleFor(settings, conditionKey),
     commentBox: commentBoxFor(settings, conditionKey),
+    theme: themeFor(settings, conditionKey),
     canJoinSpaces: canJoinSpacesFor(settings, conditionKey),
     canSort: canSortFor(settings, conditionKey),
     canSortComments: canSortCommentsFor(settings, conditionKey),
