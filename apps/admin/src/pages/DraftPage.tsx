@@ -33,6 +33,7 @@ import {
 } from "../api.ts";
 import { PostTimeline } from "../components/PostTimeline.tsx";
 import { SavedCheckbox } from "../components/SavedCheckbox.tsx";
+import { SheetUpload } from "../components/SheetUpload.tsx";
 import { TimelineControls, useTimeline } from "../components/TimelineControls.tsx";
 
 /** Marks an edit to a draft, so the page can tell when one is still on its way. */
@@ -1676,6 +1677,7 @@ export function DraftPage() {
                 Moderation
               </Link>
             )}
+            {info.data.canEdit && !info.data.closed && <SheetUpload draftId={draftId} />}
             {info.data.canEdit && <SavePack draftId={draftId} defaultName={info.data.title} />}
             {info.data.canEdit && <SaveVersion draftId={draftId} info={info.data} />}
           </>

@@ -3,7 +3,6 @@ import path from "node:path";
 import {
   createRandom,
   hasErrors,
-  PARTICIPANT_TAG,
   pickFrom,
   STARTING_CONSENT,
   type StudyDefinition,
@@ -20,6 +19,7 @@ import { loadStudyFolder, MEDIA_FOLDERS } from "@truman3/study-files";
 import { storeMedia } from "@truman3/study-import";
 import { and, eq, isNull } from "drizzle-orm";
 import type { EditProblem } from "./drafts.ts";
+import { actorItemData, commentItemData, type ItemIds, postItemData } from "./from-files.ts";
 import type { Provenance } from "./items.ts";
 
 const INSERT_BATCH_SIZE = 500;
@@ -431,25 +431,22 @@ export async function startStudy(
     const actorId = (username: string) => actorIds.get(username) as string;
     const commentIds = new Map(comments.map(({ ref }) => [ref, crypto.randomUUID()]));
     const spaceIds = new Map(spaces.map(({ key }) => [key, crypto.randomUUID()]));
+    const ids: ItemIds = {
+      actors: actorIds,
+      posts: postIds,
+      comments: commentIds,
+      spaces: spaceIds,
+    };
 
     const rows: (typeof schema.draftItems.$inferInsert)[] = [
-      ...actors.map(({ spaceFlair, ...actor }, position) => {
-        const flair = Object.entries(spaceFlair ?? {}).flatMap(([key, text]) => {
-          const id = spaceIds.get(key);
-          return id ? [[id, text]] : [];
-        });
-        return {
-          id: actorId(actor.username),
-          draftId: draft.id,
-          kind: "actor",
-          position,
-          provenance: fromPack(null),
-          data: {
-            ...actor,
-            ...(flair.length > 0 ? { spaceFlair: Object.fromEntries(flair) } : {}),
-          },
-        };
-      }),
+      ...actors.map((actor, position) => ({
+        id: actorId(actor.username),
+        draftId: draft.id,
+        kind: "actor",
+        position,
+        provenance: fromPack(null),
+        data: actorItemData(actor, ids),
+      })),
       ...spaces.map((space, position) => ({
         id: spaceIds.get(space.key) as string,
         draftId: draft.id,
@@ -458,55 +455,23 @@ export async function startStudy(
         provenance: fromPack(null),
         data: space,
       })),
-      ...posts.map(
-        (
-          { actor, likes, space, crosspostOf, repostOf, quoteOf, likedBy, tagged, ...post },
-          position,
-        ) => ({
-          id: postIds.get(post.ref) as string,
-          draftId: draft.id,
-          kind: "post",
-          position,
-          provenance: fromPack(`post:${post.ref}`),
-          data: {
-            ...post,
-            actorId: actorId(actor),
-            ...(space && spaceIds.has(space) ? { spaceId: spaceIds.get(space) as string } : {}),
-            // A crosspost whose original was left out of this study is an ordinary post.
-            ...(repostOf && postIds.has(repostOf)
-              ? { repostOfId: postIds.get(repostOf) as string }
-              : {}),
-            ...(quoteOf && postIds.has(quoteOf)
-              ? { quoteOfId: postIds.get(quoteOf) as string }
-              : {}),
-            ...(crosspostOf && postIds.has(crosspostOf)
-              ? { crosspostOfId: postIds.get(crosspostOf) as string }
-              : {}),
-            likes: drawLikes(likes, settings.likes.posts),
-            ...(likedBy && actorIds.has(likedBy) ? { likedById: actorId(likedBy) } : {}),
-            ...(tagged?.some((username) => actorIds.has(username))
-              ? { taggedIds: tagged.filter((username) => actorIds.has(username)).map(actorId) }
-              : {}),
-            ...(tagged?.includes(PARTICIPANT_TAG) ? { tagsParticipant: true } : {}),
-          },
-        }),
-      ),
-      ...comments.map(({ actor, post, likes, replyTo, ...comment }, position) => ({
+      // A crosspost whose original was left out of this study is an ordinary post.
+      ...posts.map((post, position) => ({
+        id: postIds.get(post.ref) as string,
+        draftId: draft.id,
+        kind: "post",
+        position,
+        provenance: fromPack(`post:${post.ref}`),
+        data: postItemData(post, ids, drawLikes(post.likes, settings.likes.posts)),
+      })),
+      // A reply whose comment was left out of this study sits on the post instead.
+      ...comments.map((comment, position) => ({
         id: commentIds.get(comment.ref) as string,
         draftId: draft.id,
         kind: "comment",
         position,
         provenance: fromPack(`comment:${comment.ref}`),
-        data: {
-          ...comment,
-          actorId: actorId(actor),
-          postId: postIds.get(post) as string,
-          // A reply whose comment was left out of this study sits on the post instead.
-          ...(replyTo && commentIds.has(replyTo)
-            ? { replyToId: commentIds.get(replyTo) as string }
-            : {}),
-          likes: drawLikes(likes, settings.likes.comments),
-        },
+        data: commentItemData(comment, ids, drawLikes(comment.likes, settings.likes.comments)),
       })),
       ...reactions.map(({ actor, ...reaction }, position) => ({
         draftId: draft.id,

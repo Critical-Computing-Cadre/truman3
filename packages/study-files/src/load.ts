@@ -21,6 +21,7 @@ import {
   type StoryDefinition,
   type StudyDefinition,
   type StudyIssue,
+  type StudySettings,
   studyDefinitionSchema,
   studySettingsSchema,
   validateStudy,
@@ -28,7 +29,7 @@ import {
 import { parse as parseYaml } from "yaml";
 import { type CsvRow, type CsvSpec, parseCsv } from "./csv.ts";
 
-const ACTORS: CsvSpec = {
+export const ACTORS: CsvSpec = {
   required: ["username", "name"],
   optional: [
     "gender",
@@ -49,7 +50,7 @@ const ACTORS: CsvSpec = {
     "class",
   ],
 };
-const POSTS: CsvSpec = {
+export const POSTS: CsvSpec = {
   required: ["id", "actor", "time"],
   optional: [
     "title",
@@ -97,7 +98,7 @@ const SPACES: CsvSpec = {
     "class",
   ],
 };
-const COMMENTS: CsvSpec = {
+export const COMMENTS: CsvSpec = {
   required: ["id", "body", "actor", "postID", "time"],
   optional: ["replyToID", "likes", "ups", "downs", "condition", "class"],
 };
@@ -161,16 +162,15 @@ export interface LoadedStudy {
 
 /** Reads and checks a study folder. Problems come back as issues; it doesn't throw for them. */
 export function loadStudyFolder(folder: string): LoadedStudy {
-  const issues: StudyIssue[] = [];
-
-  const settingsPath = path.join(folder, "study.yaml");
-  if (!existsSync(settingsPath)) {
+  const source = folderFiles(folder);
+  const settingsText = source.read("study.yaml");
+  if (settingsText === null) {
     return { issues: [{ severity: "error", message: `There's no study.yaml in ${folder}.` }] };
   }
 
   let rawSettings: unknown;
   try {
-    rawSettings = parseYaml(readFileSync(settingsPath, "utf8"));
+    rawSettings = parseYaml(settingsText);
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : String(cause);
     return {
@@ -195,15 +195,76 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     };
   }
 
+  const { tables, issues } = readStudyTables(source, settings.data);
+  const parsed = studyDefinitionSchema.safeParse({
+    settings: settings.data,
+    ...tables,
+  });
+  if (!parsed.success) {
+    return {
+      issues: [
+        ...issues,
+        ...parsed.error.issues.map((issue) => ({
+          severity: "error" as const,
+          message: `${issue.path.join(".")}: ${issue.message}`,
+        })),
+      ],
+    };
+  }
+
+  // Rows that couldn't be read have placeholder values, so cross-checks would only add noise.
+  if (hasErrors(issues)) {
+    return { definition: parsed.data, issues };
+  }
+
+  return { definition: parsed.data, issues: [...issues, ...validateStudy(parsed.data)] };
+}
+
+/**
+ * Where a study's files come from: a folder on disk, or a zip someone uploaded. Paths are relative to
+ * the study, like `posts.csv` or `media/posts/lake.jpg`.
+ */
+export interface StudyFiles {
+  /** The file's text, or null if it isn't there. */
+  read(file: string): string | null;
+  has(file: string): boolean;
+}
+
+/** A study folder on disk. */
+export function folderFiles(folder: string): StudyFiles {
+  return {
+    read: (file) => {
+      const fullPath = path.join(folder, file);
+      return existsSync(fullPath) ? readFileSync(fullPath, "utf8") : null;
+    },
+    has: (file) => existsSync(path.join(folder, file)),
+  };
+}
+
+/** Everything a study's files describe besides its settings, before it's checked as a whole. */
+export type StudyTables = Omit<StudyDefinition, "settings">;
+
+/**
+ * Reads a study's sheets and pages, with these settings. With `only`, it reads just those sheets,
+ * none of them is required, and pages and the site's images are left alone: that's for adding a
+ * few sheets to a study that already has the rest.
+ */
+export function readStudyTables(
+  source: StudyFiles,
+  settings: StudySettings,
+  only?: readonly string[],
+): { tables: StudyTables; issues: StudyIssue[] } {
+  const issues: StudyIssue[] = [];
+
   const readTable = (file: string, spec: CsvSpec, required: boolean): CsvRow[] => {
-    const fullPath = path.join(folder, file);
-    if (!existsSync(fullPath)) {
-      if (required) {
+    const text = only && !only.includes(file) ? null : source.read(file);
+    if (text === null) {
+      if (required && !only) {
         issues.push({ severity: "error", file, message: "This file is missing." });
       }
       return [];
     }
-    const result = parseCsv(readFileSync(fullPath, "utf8"), file, spec);
+    const result = parseCsv(text, file, spec);
     issues.push(...result.issues);
     return result.rows;
   };
@@ -647,23 +708,23 @@ export function loadStudyFolder(folder: string): LoadedStudy {
   );
 
   const pages: Record<string, string> = {};
-  for (const step of settings.data.flow) {
+  for (const step of settings.flow) {
     if (step.step === "consent" || step.step === "page") {
-      const pagePath = path.join(folder, step.page);
-      if (existsSync(pagePath)) {
-        pages[step.page] = readFileSync(pagePath, "utf8");
+      const page = only ? null : source.read(step.page);
+      if (page !== null) {
+        pages[step.page] = page;
       }
     }
   }
 
-  if (!settings.data.media.baseUrl) {
-    const checkMedia = (file: string, name: string | undefined, source?: CsvRowSource) => {
-      if (name && !existsSync(path.join(folder, file, name))) {
+  if (!settings.media.baseUrl) {
+    const checkMedia = (file: string, name: string | undefined, from?: CsvRowSource) => {
+      if (name && !source.has(path.join(file, name))) {
         issues.push({
           severity: "error",
           message: `The image "${name}" isn't in ${file}.`,
-          file: source?.file,
-          row: source?.row,
+          file: from?.file,
+          row: from?.row,
         });
       }
     };
@@ -683,8 +744,8 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     for (const story of stories) {
       checkMedia(MEDIA_FOLDERS.posts, story.picture, story.source);
     }
-    for (const image of [settings.data.site.logo, settings.data.site.favicon]) {
-      if (image && !existsSync(path.join(folder, image))) {
+    for (const image of [settings.site.logo, settings.site.favicon]) {
+      if (!only && image && !source.has(image)) {
         issues.push({
           severity: "error",
           file: "study.yaml",
@@ -694,41 +755,25 @@ export function loadStudyFolder(folder: string): LoadedStudy {
     }
   }
 
-  const parsed = studyDefinitionSchema.safeParse({
-    settings: settings.data,
-    pages,
-    actors,
-    spaces,
-    posts,
-    comments,
-    reactions,
-    removals,
-    flagAnswers,
-    bans,
-    reportAnswers,
-    autoRules,
-    appealAnswers,
-    contextNotes,
-    stories,
-  });
-  if (!parsed.success) {
-    return {
-      issues: [
-        ...issues,
-        ...parsed.error.issues.map((issue) => ({
-          severity: "error" as const,
-          message: `${issue.path.join(".")}: ${issue.message}`,
-        })),
-      ],
-    };
-  }
-
-  // Rows that couldn't be read have placeholder values, so cross-checks would only add noise.
-  if (hasErrors(issues)) {
-    return { definition: parsed.data, issues };
-  }
-
-  return { definition: parsed.data, issues: [...issues, ...validateStudy(parsed.data)] };
+  return {
+    tables: {
+      pages,
+      actors,
+      spaces,
+      posts,
+      comments,
+      reactions,
+      removals,
+      flagAnswers,
+      bans,
+      reportAnswers,
+      autoRules,
+      appealAnswers,
+      contextNotes,
+      stories,
+    },
+    issues,
+  };
 }
 
 type CsvRowSource = { file: string; row: number };

@@ -60,7 +60,17 @@ export async function storeStudyImage(storage: Storage, file: File): Promise<str
   if (file.size === 0 || file.size > MAX_IMAGE_BYTES) {
     return null;
   }
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  return storeStudyImageBytes(storage, new Uint8Array(await file.arrayBuffer()));
+}
+
+/** The same, for an image already read, such as one from a zip. */
+export async function storeStudyImageBytes(
+  storage: Storage,
+  bytes: Uint8Array,
+): Promise<string | null> {
+  if (bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES) {
+    return null;
+  }
   const detected = detectImageType(bytes);
   if (!detected) {
     return null;

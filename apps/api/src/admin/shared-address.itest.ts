@@ -20,8 +20,11 @@ let researcher: string;
 const cookieFrom = (response: Response) =>
   (response.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
 
+/** Routes that take a file, so they're sent a form rather than JSON. */
+const UPLOAD = /\/(images|sheets)$/;
+
 const call = (cookie: string, method: string, url: string) =>
-  url.endsWith("/images")
+  method === "POST" && UPLOAD.test(url)
     ? app.request(url, { method, headers: { cookie }, body: new FormData() })
     : app.request(url, {
         method,

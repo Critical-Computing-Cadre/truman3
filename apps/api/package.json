@@ -19,6 +19,7 @@
     "@truman3/recruit": "workspace:*",
     "@truman3/storage": "workspace:*",
     "@truman3/study-export": "workspace:*",
+    "@truman3/study-files": "workspace:*",
     "@truman3/study-import": "workspace:*",
     "drizzle-orm": "0.45.4",
     "fflate": "0.8.2",
