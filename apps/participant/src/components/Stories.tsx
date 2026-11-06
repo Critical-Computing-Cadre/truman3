@@ -26,6 +26,8 @@ function StoryViewer({
   const dialog = useRef<HTMLDialogElement>(null);
   const [place, setPlace] = useState({ group: start, story: 0 });
   const shownAt = useRef(Date.now());
+  // Saves of what's been seen, so the row refreshes only once they've all landed.
+  const saving = useRef<Promise<unknown>[]>([]);
   const group = groups[place.group];
   const story = group?.stories[place.story];
 
@@ -42,16 +44,22 @@ function StoryViewer({
 
   const record = (ended: "next" | "previous" | "closed" | "timer") => {
     if (story && !group?.author.isViewer) {
-      post(`/stories/${story.id}/viewed`, { dwellMs: Date.now() - shownAt.current, ended }).catch(
-        () => {},
+      saving.current.push(
+        post(`/stories/${story.id}/viewed`, {
+          dwellMs: Date.now() - shownAt.current,
+          ended,
+        }).catch(() => {}),
       );
     }
     shownAt.current = Date.now();
   };
+  const finish = () => {
+    Promise.all(saving.current).then(() => client.invalidateQueries({ queryKey: ["stories"] }));
+    onClose();
+  };
   const close = () => {
     record("closed");
-    client.invalidateQueries({ queryKey: ["stories"] });
-    onClose();
+    finish();
   };
   const move = (step: 1 | -1, ended: "next" | "previous" | "timer") => {
     if (!group) {
@@ -71,8 +79,7 @@ function StoryViewer({
       });
       return;
     }
-    client.invalidateQueries({ queryKey: ["stories"] });
-    onClose();
+    finish();
   };
 
   useEffect(() => {
