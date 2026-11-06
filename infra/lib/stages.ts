@@ -45,5 +45,7 @@ export const STAGES: Record<string, Stage> = {
     apiTasks: 1,
     databaseStorageGb: 20,
     backupDays: 7,
+    // Made by hand in this account and region. The key itself is never in the repo.
+    anthropicKeySecret: "truman3-staging/anthropic-api-key",
   },
 };
