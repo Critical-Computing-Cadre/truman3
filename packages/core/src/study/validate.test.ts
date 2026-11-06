@@ -942,6 +942,36 @@ describe("stories and liked by", () => {
     ).toBe(true);
   });
 
+  it("checks who a post tags, and warns when places, tags, highlights, or close friends won't show", () => {
+    const tagged = { ref: "1", body: "hi", actor: "ann", timeMs: 0, tagged: ["ann"] };
+    expect(errors({ posts: [tagged] })).toBe(false);
+    expect(errors({ posts: [{ ...tagged, tagged: ["ann", "nobody"] }] })).toBe(true);
+
+    const forum = settings({ platform: { style: "text", template: "forum" } });
+    const offThere = messages(study({ settings: forum, posts: [{ ...tagged, place: "Ithaca" }] }));
+    expect(offThere).toContainEqual(expect.stringContaining('Places are off in "a"'));
+    expect(offThere).toContainEqual(expect.stringContaining('Tagging people is off in "a"'));
+
+    const noExtras = settings({
+      platform: {
+        style: "photo",
+        template: "photo",
+        features: { highlights: false, closeFriends: false },
+      },
+    });
+    const storyWarnings = messages(
+      study({
+        settings: noExtras,
+        stories: [{ ...story, highlight: "Trips", closeFriends: true }],
+      }),
+    );
+    expect(storyWarnings).toContainEqual(expect.stringContaining('Highlights are off in "a"'));
+    expect(storyWarnings).toContainEqual(expect.stringContaining('Close friends is off in "a"'));
+    expect(
+      messages(study({ settings: photo, stories: [{ ...story, highlight: "T" }] })),
+    ).not.toContainEqual(expect.stringContaining("Highlights are off"));
+  });
+
   it("only lets a story's reaction be a read or a like", () => {
     const reaction = { on: "story", nth: 0, actor: "ann", afterMs: 0 };
     expect(errors({ reactions: [{ ...reaction, type: "read" }] })).toBe(false);

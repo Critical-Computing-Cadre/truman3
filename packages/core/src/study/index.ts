@@ -14,6 +14,7 @@ export {
   contextNoteDefinitionSchema,
   type FlagAnswerDefinition,
   flagAnswerDefinitionSchema,
+  MAX_PLACE_LENGTH,
   MAX_TITLE_LENGTH,
   type PostDefinition,
   postDefinitionSchema,

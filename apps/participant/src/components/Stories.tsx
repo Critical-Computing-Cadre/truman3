@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { StoryGroup } from "@truman3/core";
-import { Avatar, PlusIcon } from "@truman3/ui";
+import { Avatar, PlusIcon, useFeature } from "@truman3/ui";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { get, post, postForm } from "../api.ts";
 
@@ -12,15 +12,23 @@ export const storiesQuery = {
   queryFn: () => get<{ stories: StoryGroup[] }>("/stories"),
 };
 
-/** One person's stories, full screen, one after another. Each one seen is recorded. */
-function StoryViewer({
+/**
+ * One person's stories, full screen, one after another. Each one seen is recorded, with where it was
+ * opened from: the row, or a highlight on someone's profile.
+ */
+export function StoryViewer({
   groups,
   start,
   onClose,
+  from = "row",
+  label,
 }: {
   groups: StoryGroup[];
   start: number;
   onClose: () => void;
+  from?: "row" | "highlight";
+  /** What the dialog is called, if not "Stories from" whoever posted them. */
+  label?: string;
 }) {
   const client = useQueryClient();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -48,13 +56,17 @@ function StoryViewer({
         post(`/stories/${story.id}/viewed`, {
           dwellMs: Date.now() - shownAt.current,
           ended,
+          ...(from === "highlight" ? { from } : {}),
         }).catch(() => {}),
       );
     }
     shownAt.current = Date.now();
   };
   const finish = () => {
-    Promise.all(saving.current).then(() => client.invalidateQueries({ queryKey: ["stories"] }));
+    Promise.all(saving.current).then(() => {
+      client.invalidateQueries({ queryKey: ["stories"] });
+      client.invalidateQueries({ queryKey: ["actor"] });
+    });
     onClose();
   };
   const close = () => {
@@ -96,7 +108,7 @@ function StoryViewer({
   return (
     <dialog
       ref={dialog}
-      aria-label={`Stories from ${group.author.name}`}
+      aria-label={label ?? `Stories from ${group.author.name}`}
       onCancel={(event) => {
         event.preventDefault();
         close();
@@ -115,6 +127,11 @@ function StoryViewer({
         <div className="flex items-center gap-2 px-3 py-2 text-sm">
           <Avatar seed={group.author.username} url={group.author.pictureUrl} size="h-8 w-8" />
           <span className="font-semibold">{group.author.name}</span>
+          {story.closeFriends && (
+            <span className="rounded-full bg-green-600 px-2 py-0.5 text-xs font-semibold">
+              Close friends
+            </span>
+          )}
           <button
             type="button"
             onClick={close}
@@ -158,11 +175,18 @@ function NewStory({ onDone }: { onDone: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
+  const [audience, setAudience] = useState<"everyone" | "closeFriends">("everyone");
+  const closeFriendsOn = useFeature("closeFriends");
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
   const send = useMutation({
-    mutationFn: () => postForm("/stories", { image: file as File, caption }),
+    mutationFn: () =>
+      postForm("/stories", {
+        image: file as File,
+        caption,
+        ...(closeFriendsOn ? { audience } : {}),
+      }),
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ["stories"] });
       onDone();
@@ -199,6 +223,29 @@ function NewStory({ onDone }: { onDone: () => void }) {
             className="rounded border border-stone-300 px-2 py-1.5 font-normal"
           />
         </label>
+        {closeFriendsOn && (
+          <fieldset className="flex flex-col gap-1 text-sm">
+            <legend className="mb-1 font-medium">Who can see it</legend>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="audience"
+                checked={audience === "everyone"}
+                onChange={() => setAudience("everyone")}
+              />
+              Everyone
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="audience"
+                checked={audience === "closeFriends"}
+                onChange={() => setAudience("closeFriends")}
+              />
+              Close friends only
+            </label>
+          </fieldset>
+        )}
         {send.isError && (
           <p role="alert" className="text-sm text-rose-700">
             {send.error.message}
@@ -266,12 +313,12 @@ export function StoriesRow({
               aria-label={
                 group.author.isViewer
                   ? "Your story"
-                  : `Stories from ${group.author.name}${group.allSeen ? ", seen" : ""}`
+                  : `Stories from ${group.author.name}${group.closeFriends ? ", close friends" : ""}${group.allSeen ? ", seen" : ""}`
               }
               className="flex w-full flex-col items-center gap-1 text-xs"
             >
               <span
-                className={`rounded-full p-[2px] ${group.allSeen ? "bg-stone-300" : "bg-gradient-to-tr from-amber-400 to-fuchsia-600"}`}
+                className={`rounded-full p-[2px] ${group.allSeen ? "bg-stone-300" : group.closeFriends ? "bg-green-500" : "bg-gradient-to-tr from-amber-400 to-fuchsia-600"}`}
               >
                 <span className="block rounded-full bg-white p-[2px]">
                   <Avatar

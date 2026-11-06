@@ -15,6 +15,7 @@ import { PostPhotos } from "../features/galleries.tsx";
 import { KarmaBadge } from "../features/karma.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
 import { useMoreMenu } from "../features/more-menu.tsx";
+import { WhoAndWhere } from "../features/places-tags.tsx";
 import { PostPoll } from "../features/polls.tsx";
 import {
   HideButton,
@@ -167,6 +168,7 @@ export function ForumPost({
           <time dateTime={post.at}>· {shortTime(post.at)}</time>
           <PostBadges post={post} className="ml-auto" />
         </header>
+        <WhoAndWhere post={post} className="px-4 pt-1 text-xs text-stone-500" />
         <PostTitle
           post={post}
           className="px-4 pt-1.5 text-lg leading-snug font-semibold"

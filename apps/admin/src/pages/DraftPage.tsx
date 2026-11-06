@@ -10,6 +10,7 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import {
   formatStudyTime,
   MAX_ATTACHMENTS,
+  MAX_PLACE_LENGTH,
   MAX_POLL_OPTION_LENGTH,
   MAX_POLL_OPTIONS,
   MIN_POLL_OPTIONS,
@@ -835,6 +836,39 @@ function PostExtras({
             ))}
           </select>
         </label>
+      )}
+      {on("places") && (
+        <label className="flex items-center gap-2">
+          Place
+          <input
+            aria-label="Place"
+            defaultValue={details.place ?? ""}
+            maxLength={MAX_PLACE_LENGTH}
+            placeholder="Where it says it was, such as Ithaca, New York"
+            onBlur={(event) => change({ place: event.target.value.trim() || null })}
+            className={`${field} min-w-0 flex-1`}
+          />
+        </label>
+      )}
+      {on("photoTags") && (
+        <details>
+          <summary className="cursor-pointer">People tagged ({details.taggedIds.length})</summary>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+            {info.actors.map((actor) => (
+              <SavedCheckbox
+                key={actor.id}
+                checked={details.taggedIds.includes(actor.id)}
+                disabled={false}
+                className={row}
+                onChange={(active) =>
+                  change({ taggedIds: toggled(details.taggedIds, actor.id, active) })
+                }
+              >
+                {actor.name}
+              </SavedCheckbox>
+            ))}
+          </div>
+        </details>
       )}
       {on("viewCounts") && (
         <label className="flex items-center gap-2">

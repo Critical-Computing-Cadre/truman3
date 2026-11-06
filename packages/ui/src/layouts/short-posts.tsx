@@ -15,6 +15,7 @@ import { PostPhotos } from "../features/galleries.tsx";
 import { KarmaBadge } from "../features/karma.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
 import { useMoreMenu } from "../features/more-menu.tsx";
+import { WhoAndWhere } from "../features/places-tags.tsx";
 import { PostPoll } from "../features/polls.tsx";
 import {
   HideButton,
@@ -157,6 +158,7 @@ export function ShortPost({
             <SpaceChip post={post} renderSpace={renderSpace} />
             <PostBadges post={post} className="ml-auto" />
           </header>
+          <WhoAndWhere post={post} className="text-sm text-stone-500" />
           <PostTitle
             post={post}
             className="pt-0.5 font-semibold"

@@ -316,6 +316,32 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     if (!on.stories && study.stories.some(applies)) {
       warning(`Stories are off in "${arm.key}", so its stories won't show there.`);
     }
+    const placed = study.posts.filter((post) => applies(post) && post.place).length;
+    if (!on.places && placed > 0) {
+      warning(`Places are off in "${arm.key}", so ${placed} places on posts won't show there.`);
+    }
+    const tagging = study.posts.filter((post) => applies(post) && post.tagged?.length).length;
+    if (!on.photoTags && tagging > 0) {
+      warning(
+        `Tagging people is off in "${arm.key}", so tags on ${tagging} posts won't show there.`,
+      );
+    }
+    if (
+      on.stories &&
+      !on.highlights &&
+      study.stories.some((story) => applies(story) && story.highlight)
+    ) {
+      warning(`Highlights are off in "${arm.key}", so its highlights won't show there.`);
+    }
+    if (
+      on.stories &&
+      !on.closeFriends &&
+      study.stories.some((story) => applies(story) && story.closeFriends)
+    ) {
+      warning(
+        `Close friends is off in "${arm.key}", so its close-friends stories will show as ordinary ones.`,
+      );
+    }
     if (on.modLog && !on.removal) {
       warning(`A mod log is on in "${arm.key}", but it lists removals, which are off.`);
     }
@@ -736,6 +762,14 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
   for (const post of study.posts) {
     if (post.likedBy) {
       checkActor(post.likedBy, `Post "${post.ref}"'s likedBy`, post.source);
+    }
+    for (const username of post.tagged ?? []) {
+      if (!usernames.has(username)) {
+        error(
+          `Post "${post.ref}" tags "${username}", who isn't in the list of actors.`,
+          post.source,
+        );
+      }
     }
   }
 

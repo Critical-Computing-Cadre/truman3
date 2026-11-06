@@ -6,6 +6,7 @@ import {
   flairSchema,
   linkSchema,
   MAX_ATTACHMENTS,
+  MAX_PLACE_LENGTH,
   MAX_RULE_MATCH_LENGTH,
   MAX_TITLE_LENGTH,
   PIN_PLACES,
@@ -272,8 +273,15 @@ const fieldsSchema = z.strictObject({
   views: z.number().int().nonnegative().optional(),
   /** Someone in the cast who liked a post. Null takes them away. */
   likedById: z.uuid().nullable().optional(),
+  /** Where a post says it was. Null takes it away. */
+  place: z.string().trim().min(1).max(MAX_PLACE_LENGTH).nullable().optional(),
+  /** People in the cast tagged in a post. */
+  taggedIds: z.array(z.uuid()).optional(),
   caption: z.string().max(500).nullable().optional(),
   lastsHours: z.number().positive().nullable().optional(),
+  /** The highlight that keeps a story on its poster's profile. Null takes it out. */
+  highlight: z.string().trim().min(1).max(40).nullable().optional(),
+  closeFriends: z.boolean().optional(),
   helpful: z.number().int().nonnegative().optional(),
   notHelpful: z.number().int().nonnegative().optional(),
   /** Someone in the cast's flair in each space, by the space's ID. */
@@ -575,6 +583,8 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
         baseQuotes: data.quotes ?? 0,
         adLabel: data.ad ?? null,
         likedByActorId: data.likedById ?? null,
+        place: data.place ?? null,
+        taggedActorIds: data.taggedIds ?? [],
         baseViews: data.views ?? 0,
         body: data.body,
         attachments: (data.pictures ?? []).map((key) => ({ type: "image" as const, key })),
@@ -786,6 +796,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               caption: data.caption ?? "",
               timeMs: data.timeMs,
               lastsHours: data.lastsHours ?? null,
+              highlight: data.highlight ?? null,
+              closeFriends: data.closeFriends ?? false,
               conditions: data.conditions,
             };
           }),
@@ -1055,6 +1067,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
         ad: string | null;
         views: number;
         likedById: string | null;
+        place: string | null;
+        taggedIds: string[];
         origin: string;
       }
     > = {};
@@ -1084,6 +1098,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           ad: data.ad ?? null,
           views: data.views ?? 0,
           likedById: data.likedById ?? null,
+          place: data.place ?? null,
+          taggedIds: data.taggedIds ?? [],
           origin: (item.provenance as Provenance).origin,
         };
       }

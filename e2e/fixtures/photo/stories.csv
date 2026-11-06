@@ -1,6 +1,8 @@
-id,actor,picture,caption,time,lastsHours
-s1,ann,s1.jpg,Morning coffee,-3:00,
-s2,ann,s2.jpg,,-2:00,
-s3,bob,s3.jpg,At the lake,-1:00,
-old,cleo,s4.jpg,Gone by now,-30:00,
-later,cleo,s5.jpg,Not yet,5:00,
+id,actor,picture,caption,time,lastsHours,highlight,closeFriends
+s1,ann,s1.jpg,Morning coffee,-3:00,,,
+s2,ann,s2.jpg,,-2:00,,,
+s3,bob,s3.jpg,At the lake,-1:00,,,
+old,cleo,s4.jpg,Gone by now,-30:00,,,
+later,cleo,s5.jpg,Not yet,5:00,,,
+trip,ann,s6.jpg,Summer trip,-40:00,,Trips,
+close,dee,s7.jpg,Just for you,-0:30,,,yes

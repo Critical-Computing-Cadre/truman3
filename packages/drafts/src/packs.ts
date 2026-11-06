@@ -458,7 +458,10 @@ export async function startStudy(
         data: space,
       })),
       ...posts.map(
-        ({ actor, likes, space, crosspostOf, repostOf, quoteOf, likedBy, ...post }, position) => ({
+        (
+          { actor, likes, space, crosspostOf, repostOf, quoteOf, likedBy, tagged, ...post },
+          position,
+        ) => ({
           id: postIds.get(post.ref) as string,
           draftId: draft.id,
           kind: "post",
@@ -480,6 +483,9 @@ export async function startStudy(
               : {}),
             likes: drawLikes(likes, settings.likes.posts),
             ...(likedBy && actorIds.has(likedBy) ? { likedById: actorId(likedBy) } : {}),
+            ...(tagged?.some((username) => actorIds.has(username))
+              ? { taggedIds: tagged.filter((username) => actorIds.has(username)).map(actorId) }
+              : {}),
           },
         }),
       ),

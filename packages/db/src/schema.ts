@@ -353,6 +353,14 @@ export const content = pgTable(
     lastsMs: bigint("lasts_ms", { mode: "number" }),
     /** Someone in the cast who liked it, for "Liked by ... and others." */
     likedByActorId: uuid("liked_by_actor_id").references(() => actors.id),
+    /** Where it says it was. */
+    place: text(),
+    /** People in the cast tagged in it. Each is checked against the cast when a study is saved. */
+    taggedActorIds: uuid("tagged_actor_ids").array().notNull().default(sql`'{}'`),
+    /** For a story, the highlight on its poster's profile that keeps it. */
+    highlight: text(),
+    /** For a story, whether it's only for its poster's close friends. */
+    closeFriends: boolean("close_friends").notNull().default(false),
     /** Marks it as an ad, with this label. */
     adLabel: text("ad_label"),
     baseViews: integer("base_views").notNull().default(0),
@@ -705,7 +713,10 @@ export const actorRelations = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.worldId, table.actorId, table.targetActorId, table.kind] }),
-    check("actor_relations_kind", inList(table.kind, ["follow", "block", "report", "mute"])),
+    check(
+      "actor_relations_kind",
+      inList(table.kind, ["follow", "block", "report", "mute", "closeFriend"]),
+    ),
   ],
 );
 

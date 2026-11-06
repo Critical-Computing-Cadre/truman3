@@ -6,6 +6,7 @@ import {
   FEED_SORTS,
   type FeedResponse,
   MAX_LINK_LENGTH,
+  MAX_PLACE_LENGTH,
   MAX_POLL_OPTION_LENGTH,
   MAX_POLL_OPTIONS,
   MAX_TITLE_LENGTH,
@@ -102,6 +103,7 @@ export function NewPostDialog({
   const spoilers = flow.data?.features.spoilers ?? false;
   const adultTags = flow.data?.features.adultTags ?? false;
   const polls = flow.data?.features.polls ?? false;
+  const places = flow.data?.features.places ?? false;
   const spacesOn = flow.data?.features.spaces ?? false;
   const chooseSpace = !space && spacesOn;
   const spaces = useQuery({
@@ -114,6 +116,7 @@ export function NewPostDialog({
   const [pollOptions, setPollOptions] = useState(["", ""]);
   const [title, setTitle] = useState("");
   const [link, setLink] = useState("");
+  const [place, setPlace] = useState("");
   const [spoiler, setSpoiler] = useState(false);
   const [adult, setAdult] = useState(false);
   const [chosenSpace, setChosenSpace] = useState("");
@@ -153,6 +156,7 @@ export function NewPostDialog({
         ...(confirmedRule ? { confirmedRule } : {}),
         ...(titles ? { title } : {}),
         ...(links && goodLink ? { link: goodLink } : {}),
+        ...(places && place.trim() ? { place: place.trim() } : {}),
         ...(spoilers && spoiler ? { spoiler: "true" } : {}),
         ...(adultTags && adult ? { adult: "true" } : {}),
         ...(flair ? { flair } : {}),
@@ -170,6 +174,7 @@ export function NewPostDialog({
       setAsked(null);
       setTitle("");
       setLink("");
+      setPlace("");
       setSpoiler(false);
       setAdult(false);
       setChosenSpace("");
@@ -296,6 +301,18 @@ export function NewPostDialog({
               <p className="text-rose-700">Use a full address, starting with http or https.</p>
             )}
           </div>
+        )}
+        {places && (
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Add a place (optional)
+            <input
+              maxLength={MAX_PLACE_LENGTH}
+              value={place}
+              onChange={(event) => setPlace(event.target.value)}
+              placeholder="Where was this?"
+              className="w-full rounded border border-stone-300 px-3 py-2 text-base font-normal"
+            />
+          </label>
         )}
         {polls &&
           (pollOpen ? (

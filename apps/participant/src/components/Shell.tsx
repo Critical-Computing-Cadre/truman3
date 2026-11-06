@@ -47,6 +47,11 @@ const TEXT_LINKS: TextLinks = {
       {children}
     </Link>
   ),
+  renderPlace: (place, children) => (
+    <Link to="/places/$place" params={{ place }} className="underline-offset-2 hover:underline">
+      {children}
+    </Link>
+  ),
 };
 
 /** Puts the study's light or dark on the page, following the device if that's what it chose. */
@@ -106,7 +111,7 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
           },
         ]
       : []),
-    ...(flow.features.trending || flow.features.whoToFollow
+    ...(flow.features.trending || flow.features.whoToFollow || flow.features.exploreGrid
       ? [
           {
             key: "explore",

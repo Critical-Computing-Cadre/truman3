@@ -246,6 +246,13 @@
       "when": 1793938674377,
       "tag": "0034_stories",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793941932098,
+      "tag": "0035_places_tags_highlights",
+      "breakpoints": true
     }
   ]
 }

@@ -994,3 +994,65 @@ describe("the photo layout", () => {
     expect(screen.getByRole("button", { name: "Like" })).toBeDefined();
   });
 });
+
+describe("places and tagging people", () => {
+  afterEach(cleanup);
+  const placed: FeedPost = {
+    ...POST,
+    comments: [],
+    attachments: [{ type: "image", url: "https://example.com/a.jpg" }],
+    place: "Ithaca, New York",
+    tagged: [
+      { username: "bob", name: "Bob" },
+      { username: "cat", name: "Cat" },
+    ],
+  };
+  const draw = (
+    layout: "photo" | "classic",
+    on: Partial<Record<FeatureKey, boolean>> = {},
+    post = placed,
+  ) =>
+    render(
+      <PlatformProvider platform={{ layout, features: { ...TEMPLATES[layout].features, ...on } }}>
+        <TextLinksContext.Provider
+          value={{
+            renderTag: (_tag, children) => children,
+            renderMention: (username, children) => <a href={`/u/${username}`}>{children}</a>,
+            renderPlace: (place, children) => <a href={`/places/${place}`}>{children}</a>,
+          }}
+        >
+          <FeedPostView
+            post={post}
+            actions={{ onLike: vi.fn(), onVote: vi.fn(), onFlag: vi.fn(), onReply: vi.fn() }}
+          />
+        </TextLinksContext.Provider>
+      </PlatformProvider>,
+    );
+
+  it("shows the place under the name on a photo, and who's tagged when the icon's pressed", () => {
+    draw("photo");
+    expect(screen.getByRole("link", { name: "Ithaca, New York" }).getAttribute("href")).toBe(
+      "/places/Ithaca, New York",
+    );
+    expect(screen.queryByTestId("photo-tags")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Tagged: Bob, Cat" }));
+    expect(screen.getByRole("link", { name: "Bob" }).getAttribute("href")).toBe("/u/bob");
+    expect(screen.getByTestId("photo-tags").textContent).toBe("BobCat");
+  });
+
+  it("says it in words where a layout does", () => {
+    draw("classic", { places: true, photoTags: true });
+    expect(screen.getByTestId("tagged-line").textContent).toBe("with Bob and Cat");
+    expect(screen.getByText(/· at/)).toBeTruthy();
+  });
+
+  it("shows neither with the features off", () => {
+    draw("photo", { places: false, photoTags: false });
+    expect(screen.queryByTestId("post-place")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Tagged/ })).toBeNull();
+    cleanup();
+    draw("classic", { places: false, photoTags: false });
+    expect(screen.queryByTestId("tagged-line")).toBeNull();
+    expect(screen.queryByTestId("post-place")).toBeNull();
+  });
+});

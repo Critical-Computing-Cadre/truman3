@@ -70,6 +70,8 @@ const POSTS: CsvSpec = {
     "ad",
     "views",
     "likedBy",
+    "place",
+    "tagged",
     "likes",
     "ups",
     "downs",
@@ -122,9 +124,18 @@ const APPEAL_ANSWERS: CsvSpec = {
   required: ["action", "actor", "after"],
   optional: ["message", "condition", "class"],
 };
+/** A cell of names split on "|", left out when it's empty. */
+function listOf<K extends string>(key: K, cell: string | undefined): { [P in K]?: string[] } {
+  const names = (cell ?? "")
+    .split("|")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  return (names.length > 0 ? { [key]: names } : {}) as { [P in K]?: string[] };
+}
+
 const STORIES: CsvSpec = {
   required: ["id", "actor", "picture", "time"],
-  optional: ["caption", "lastsHours", "condition", "class"],
+  optional: ["caption", "lastsHours", "highlight", "closeFriends", "condition", "class"],
 };
 const CONTEXT_NOTES: CsvSpec = {
   required: ["id", "postID", "body", "time"],
@@ -410,6 +421,8 @@ export function loadStudyFolder(folder: string): LoadedStudy {
       ...optional("ad", /^(yes|true)$/i.test(cells.ad ?? "") ? "Sponsored" : cells.ad || undefined),
       ...optional("views", wholeNumber(cells.views, "views", "posts.csv", row)),
       ...optional("likedBy", cells.likedBy || undefined),
+      ...optional("place", cells.place || undefined),
+      ...listOf("tagged", cells.tagged),
       ...optional("likes", wholeNumber(cells.likes, "likes", "posts.csv", row)),
       ...optional("ups", wholeNumber(cells.ups, "ups", "posts.csv", row)),
       ...optional("downs", wholeNumber(cells.downs, "downs", "posts.csv", row)),
@@ -624,6 +637,8 @@ export function loadStudyFolder(folder: string): LoadedStudy {
         timeMs: time(cells.time, "time", file, row),
         ...optional("caption", cells.caption || undefined),
         ...(lasts && lasts > 0 ? { lastsHours: lasts } : {}),
+        ...optional("highlight", cells.highlight || undefined),
+        ...(/^(yes|true)$/i.test(cells.closeFriends ?? "") ? { closeFriends: true } : {}),
         ...targeting(cells, file, row),
       };
     },
