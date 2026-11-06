@@ -13,6 +13,7 @@ import {
 import { AuthorFlair, PostFlair } from "../features/flair.tsx";
 import { PostPhotos } from "../features/galleries.tsx";
 import { KarmaBadge } from "../features/karma.tsx";
+import { useLabels } from "../features/labels.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
 import { useMoreMenu } from "../features/more-menu.tsx";
 import { WhoAndWhere } from "../features/places-tags.tsx";
@@ -57,6 +58,7 @@ function ForumComment({
       <span className={className}>{children}</span>
     );
 
+  const labels = useLabels(comment, actions, Boolean(renderBody));
   if (comment.flagged) {
     return <FlaggedComment comment={comment} actions={actions} />;
   }
@@ -78,10 +80,13 @@ function ForumComment({
         <KarmaBadge author={comment.author} />
         <span>· {shortTime(comment.at)}</span>
       </p>
-      <div className="mt-1 text-sm break-words whitespace-pre-wrap">
-        {renderBody ? renderBody(comment.id, comment.body) : <PostText text={comment.body} />}
-      </div>
+      {!labels.covered && (
+        <div className="mt-1 text-sm break-words whitespace-pre-wrap">
+          {renderBody ? renderBody(comment.id, comment.body) : <PostText text={comment.body} />}
+        </div>
+      )}
       <RemovedNote item={comment} actions={actions} className="mt-1" />
+      {labels.bar && <div className="mt-1">{labels.bar}</div>}
       <p className="mt-1 flex flex-wrap items-center gap-3 text-xs font-medium text-stone-500">
         <VoteButtons item={comment} actions={actions} />
         <CommentLikeButton comment={comment} actions={actions} />
@@ -113,6 +118,7 @@ export function ForumPost({
   detail = false,
 }: FeedPostViewProps) {
   const image = post.attachments.length > 0 ? <PostPhotos post={post} /> : null;
+  const labels = useLabels(post, actions, Boolean(renderBody));
   const more = useMoreMenu(
     ["flagging", "saving", "hiding", "threadMuting", "sharing", "crossposting", "quotes"],
     PILL,
@@ -179,31 +185,34 @@ export function ForumPost({
         />
         <PostFlair post={post} className="px-4 pt-1" />
         <RemovedNote item={post} actions={actions} className="mx-4 mt-2" />
-        <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
-          {renderBody ? (
-            <div className="px-4 pt-1.5 text-sm">{renderBody(post.id, post.body)}</div>
-          ) : (
-            post.body && (
-              <p
-                className={`px-4 pt-1.5 text-sm break-words whitespace-pre-wrap text-stone-700 ${detail ? "" : "line-clamp-4"}`}
-              >
-                <PostText text={post.body} />
-              </p>
-            )
-          )}
-          <PostLink post={post} actions={actions} />
-          <PostPoll post={post} actions={actions} />
-          <ContextNoteBox post={post} actions={actions} />
-          <CrosspostOriginal
-            post={post}
-            {...(renderPostLink ? { renderPostLink } : {})}
-            {...(renderSpace ? { renderSpace } : {})}
-          />
-          <QuotedPost post={post} {...(renderPostLink ? { renderPostLink } : {})} />
-          <div className="mx-4 mt-2.5 overflow-hidden rounded-xl empty:hidden">
-            {wrapImage ? wrapImage(image) : image}
-          </div>
-        </TagCover>
+        {labels.bar && <div className="mx-4 mt-2">{labels.bar}</div>}
+        {!labels.covered && (
+          <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
+            {renderBody ? (
+              <div className="px-4 pt-1.5 text-sm">{renderBody(post.id, post.body)}</div>
+            ) : (
+              post.body && (
+                <p
+                  className={`px-4 pt-1.5 text-sm break-words whitespace-pre-wrap text-stone-700 ${detail ? "" : "line-clamp-4"}`}
+                >
+                  <PostText text={post.body} />
+                </p>
+              )
+            )}
+            <PostLink post={post} actions={actions} />
+            <PostPoll post={post} actions={actions} />
+            <ContextNoteBox post={post} actions={actions} />
+            <CrosspostOriginal
+              post={post}
+              {...(renderPostLink ? { renderPostLink } : {})}
+              {...(renderSpace ? { renderSpace } : {})}
+            />
+            <QuotedPost post={post} {...(renderPostLink ? { renderPostLink } : {})} />
+            <div className="mx-4 mt-2.5 overflow-hidden rounded-xl empty:hidden">
+              {wrapImage ? wrapImage(image) : image}
+            </div>
+          </TagCover>
+        )}
         {renderNote && <div className="px-4 pt-1 empty:hidden">{renderNote(post.id)}</div>}
         <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
           <div className={PILL}>

@@ -263,3 +263,19 @@ test("a study that follows the device is dark on a device set to dark", async ({
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.close();
 });
+
+test("a label covers a post until someone presses Show", async ({ page }, testInfo) => {
+  const project = testInfo.project.name;
+  const app = `http://localhost:${APP_PORT}`;
+  await page.goto(`${app}/join/short-posts-e2e?PROLIFIC_PID=LABEL-${project}-${Date.now()}`);
+
+  const cover = page.getByTestId("label-cover").first();
+  await expect(cover).toContainText("Misleading");
+  await expect(cover).toContainText("Labeled by Moderators");
+  await expect(page.getByText("Shoes cure colds")).toHaveCount(0);
+  await shot(page, project, "6-label");
+
+  await cover.getByRole("button", { name: "Show" }).click();
+  await expect(page.getByText("Shoes cure colds").first()).toBeVisible();
+  await expect(page.getByTestId("label-bar").first()).toContainText("Misleading");
+});

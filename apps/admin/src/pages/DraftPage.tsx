@@ -62,6 +62,7 @@ export function useDraftEdits(draftId: string) {
           | "actor"
           | "space"
           | "removal"
+          | "label"
           | "reaction"
           | "flagAnswer"
           | "ban"
@@ -1667,6 +1668,7 @@ export function DraftPage() {
                 features.bans ||
                 features.autoRules ||
                 features.appeals ||
+                features.labels ||
                 features.contextNotes,
             ) && (
               <Link

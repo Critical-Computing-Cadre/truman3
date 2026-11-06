@@ -183,6 +183,18 @@ export interface DraftInfo {
     reason: string;
     conditions: string[];
   }[];
+  /** A moderator labeling what the study wrote, such as "Spam". */
+  labels: {
+    id: string;
+    on: "post" | "comment";
+    targetId: string;
+    actorId: string;
+    timeMs: number;
+    label: string;
+    hides: boolean;
+    reason: string;
+    conditions: string[];
+  }[];
   /** What a moderator does when someone flags something. No target means any flag. */
   flagAnswers: {
     id: string;
@@ -262,7 +274,7 @@ export interface DraftInfo {
     id: string;
     on: "post" | "comment";
     nth: number;
-    type: "remove" | "warn";
+    type: "remove" | "warn" | "label";
     actorId: string;
     afterMs: number;
     body: string;

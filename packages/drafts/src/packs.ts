@@ -31,6 +31,7 @@ type Post = StudyDefinition["posts"][number];
 type Comment = StudyDefinition["comments"][number];
 type Reaction = StudyDefinition["reactions"][number];
 type Removal = StudyDefinition["removals"][number];
+type Label = StudyDefinition["labels"][number];
 type FlagAnswer = StudyDefinition["flagAnswers"][number];
 type Ban = StudyDefinition["bans"][number];
 type ContextNote = StudyDefinition["contextNotes"][number];
@@ -54,6 +55,8 @@ export interface PackContents {
   reactions: Reaction[];
   /** Packs saved before removals don't have this. */
   removals?: Removal[];
+  /** Packs saved before labels don't have this. */
+  labels?: Label[];
   /** Packs saved before answers to flags don't have this. */
   flagAnswers?: FlagAnswer[];
   /** Packs saved before bans don't have these. */
@@ -98,6 +101,7 @@ export function packContents(
     comments,
     reactions,
     removals,
+    labels,
     flagAnswers,
     bans,
     reportAnswers,
@@ -156,6 +160,7 @@ export function packContents(
     comments: comments.map(withoutSource),
     reactions: reactions.map(withoutSource),
     ...(removals.length > 0 ? { removals: removals.map(withoutSource) } : {}),
+    ...(labels.length > 0 ? { labels: labels.map(withoutSource) } : {}),
     ...(flagAnswers.length > 0 ? { flagAnswers: flagAnswers.map(withoutSource) } : {}),
     ...(bans.length > 0 ? { bans: bans.map(withoutSource) } : {}),
     ...(reportAnswers.length > 0 ? { reportAnswers: reportAnswers.map(withoutSource) } : {}),
@@ -181,6 +186,7 @@ function summarize(contents: PackContents): PackSummary {
     ...contents.comments,
     ...contents.reactions,
     ...(contents.removals ?? []),
+    ...(contents.labels ?? []),
     ...(contents.flagAnswers ?? []),
     ...(contents.bans ?? []),
     ...(contents.reportAnswers ?? []),
@@ -366,6 +372,9 @@ export async function startStudy(
   const removals = everywhere(contents?.removals ?? []).filter(({ on, target }) =>
     (on === "post" ? keptPosts : keptComments).has(target),
   );
+  const labels = everywhere(contents?.labels ?? []).filter(({ on, target }) =>
+    (on === "post" ? keptPosts : keptComments).has(target),
+  );
   const bans = everywhere(contents?.bans ?? []).filter(
     ({ space }) => !space || keptSpaces.has(space),
   );
@@ -489,6 +498,17 @@ export async function startStudy(
           ...removal,
           actorId: actorId(actor),
           targetId: (removal.on === "post" ? postIds : commentIds).get(target) as string,
+        },
+      })),
+      ...labels.map(({ actor, target, ...labeling }, position) => ({
+        draftId: draft.id,
+        kind: "label",
+        position,
+        provenance: fromPack(null),
+        data: {
+          ...labeling,
+          actorId: actorId(actor),
+          targetId: (labeling.on === "post" ? postIds : commentIds).get(target) as string,
         },
       })),
       ...stories.map(({ actor, ...story }, position) => ({

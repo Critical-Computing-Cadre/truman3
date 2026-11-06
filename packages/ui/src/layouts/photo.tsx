@@ -10,6 +10,7 @@ import {
   PostFlagButton,
 } from "../features/flagging.tsx";
 import { PostPhotos } from "../features/galleries.tsx";
+import { useLabels } from "../features/labels.tsx";
 import { CommentLikeButton, PostLikeButton } from "../features/likes.tsx";
 import { useMoreMenu } from "../features/more-menu.tsx";
 import { PhotoTags, PostPlace } from "../features/places-tags.tsx";
@@ -46,6 +47,7 @@ function PhotoComment({
     ) : (
       <span className={className}>{children}</span>
     );
+  const labels = useLabels(comment, actions, Boolean(renderBody));
   if (comment.flagged) {
     return <FlaggedComment comment={comment} actions={actions} />;
   }
@@ -54,9 +56,14 @@ function PhotoComment({
       <p className="break-words whitespace-pre-wrap">
         {author("mr-1 font-semibold", comment.author.username)}
         <ModeratorTag author={comment.author} />{" "}
-        {renderBody ? renderBody(comment.id, comment.body) : <PostText text={comment.body} />}
+        {labels.covered ? null : renderBody ? (
+          renderBody(comment.id, comment.body)
+        ) : (
+          <PostText text={comment.body} />
+        )}
       </p>
       <RemovedNote item={comment} actions={actions} className="mt-1" />
+      {labels.bar && <div className="mt-1">{labels.bar}</div>}
       <p className="mt-0.5 flex gap-3 text-xs text-stone-500">
         <span>{shortTime(comment.at)}</span>
         <CommentLikeButton comment={comment} actions={actions} />
@@ -84,6 +91,7 @@ export function PhotoPost({
   wrapImage,
   detail = false,
 }: FeedPostViewProps) {
+  const labels = useLabels(post, actions, Boolean(renderBody));
   const more = useMoreMenu(["flagging", "hiding", "threadMuting"], "text-sm text-stone-600");
   const author = (className: string, children: ReactNode) =>
     renderAuthor ? (
@@ -130,13 +138,16 @@ export function PhotoPost({
         {more.collapsed ? more.toggle : null}
       </header>
       <RemovedNote item={post} actions={actions} className="mx-3 mb-2" />
-      <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
-        <div className="relative bg-stone-100 empty:hidden">
-          {wrapImage ? wrapImage(image) : image}
-          {image && <PhotoTags post={post} />}
-        </div>
-        <QuotedPost post={post} {...(renderPostLink ? { renderPostLink } : {})} />
-      </TagCover>
+      {labels.bar && <div className="mx-3 mb-2">{labels.bar}</div>}
+      {!labels.covered && (
+        <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
+          <div className="relative bg-stone-100 empty:hidden">
+            {wrapImage ? wrapImage(image) : image}
+            {image && <PhotoTags post={post} />}
+          </div>
+          <QuotedPost post={post} {...(renderPostLink ? { renderPostLink } : {})} />
+        </TagCover>
+      )}
       {more.open && (
         <div {...more.panelProps} className="flex gap-4 px-3 pt-2 text-sm">
           <PostFlagButton post={post} {...(actions ? { actions } : {})} />
@@ -186,14 +197,16 @@ export function PhotoPost({
         </p>
       )}
       <div className="px-3 pt-1 text-sm">
-        {renderBody
-          ? renderBody(post.id, post.body)
-          : post.body && (
-              <p className={`break-words whitespace-pre-wrap ${detail ? "" : "line-clamp-2"}`}>
-                {author("mr-1 font-semibold", post.author.username)}
-                <PostText text={post.body} />
-              </p>
-            )}
+        {labels.covered
+          ? null
+          : renderBody
+            ? renderBody(post.id, post.body)
+            : post.body && (
+                <p className={`break-words whitespace-pre-wrap ${detail ? "" : "line-clamp-2"}`}>
+                  {author("mr-1 font-semibold", post.author.username)}
+                  <PostText text={post.body} />
+                </p>
+              )}
       </div>
       <ContextNoteBox post={post} actions={actions} />
       {renderNote && <div className="px-3 pt-1 empty:hidden">{renderNote(post.id)}</div>}

@@ -1258,7 +1258,7 @@ describe("appeals", () => {
           eq(schema.events.type, "moderation.appealed"),
         ),
       );
-    expect(events.map(({ payload }) => payload)).toEqual([{ text: "It's fine" }]);
+    expect(events.map(({ payload }) => payload)).toEqual([{ text: "It's fine", of: "removal" }]);
   });
 
   it("puts it back, or keeps the removal, as the study writes", async () => {

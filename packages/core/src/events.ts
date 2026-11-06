@@ -58,6 +58,8 @@ export const eventPayloadSchemas = {
   "content.unsaved": empty,
   /** They stopped notifications about a thread, or started them again. The target is its post. */
   "content.thread_muted": empty,
+  /** They pressed Show on something a label covered. The label is what it said, like "Spam". */
+  "content.label_shown": z.strictObject({ label: z.string() }),
   "content.thread_unmuted": empty,
   "content.hidden": empty,
   "content.unhidden": empty,
@@ -100,8 +102,14 @@ export const eventPayloadSchemas = {
     rule: z.string(),
     choice: z.enum(["posted", "went_back"]),
   }),
-  /** They appealed a moderator's removal of what they wrote. */
-  "moderation.appealed": z.strictObject({ text: z.string() }),
+  /**
+   * They appealed a moderator's removal or label of what they wrote. Appeals from before labels
+   * don't say, and were all of removals.
+   */
+  "moderation.appealed": z.strictObject({
+    text: z.string(),
+    of: z.enum(["removal", "label"]).optional(),
+  }),
   /** Which space, by its key in the study. */
   "space.joined": z.strictObject({ space: z.string() }),
   "space.left": z.strictObject({ space: z.string() }),
@@ -124,6 +132,7 @@ export const eventPayloadSchemas = {
       "down",
       "remove",
       "warn",
+      "label",
       "answer",
       "ban",
       "hold",
@@ -133,7 +142,10 @@ export const eventPayloadSchemas = {
       "repost",
       "follow",
     ]),
-    /** On a removal, the reason the study wrote, if any. On a warning or answer, what it says. */
+    /**
+     * On a removal, the reason the study wrote, if any. On a warning or answer, what it says. On a
+     * label, the label.
+     */
     reason: z.string().optional(),
     dueAt: z.iso.datetime(),
   }),

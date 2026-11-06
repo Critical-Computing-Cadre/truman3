@@ -33,6 +33,7 @@ import {
   hiddenByBan,
   loadBans,
   loadContextNotes,
+  loadLabels,
   loadRemovals,
   loadSpacesFor,
   mediaUrl,
@@ -249,10 +250,26 @@ const confirmAnsweredRoute = createRoute({
   },
 });
 
+const labelShownRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/label-shown",
+  summary: "Record that someone pressed Show on what a moderator's label covered",
+  request: {
+    params: contentParams,
+    ...jsonBody(actionMetaSchema.extend({ label: z.string().min(1) })),
+  },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Nothing this participant can see that a label covers"),
+  },
+});
+
 const appealRoute = createRoute({
   method: "post",
   path: "/content/{id}/appeal",
-  summary: "Appeal a moderator's removal of what they wrote",
+  summary: "Appeal a moderator's removal or label of what they wrote",
   request: {
     params: contentParams,
     ...jsonBody(actionMetaSchema.extend({ text: z.string().trim().min(1).max(2000) })),
@@ -261,7 +278,7 @@ const appealRoute = createRoute({
     200: okResponse("Recorded"),
     401: notSignedIn,
     403: errorResponse("That feature is off in this condition"),
-    404: errorResponse("Nothing of theirs that a moderator removed"),
+    404: errorResponse("Nothing of theirs that a moderator removed or labeled"),
     409: errorResponse("They've already appealed this"),
   },
 });
@@ -672,6 +689,7 @@ const notificationsRoute = createRoute({
                   "reply",
                   "remove",
                   "warn",
+                  "label",
                   "answer",
                   "ban",
                   "approve",
@@ -699,6 +717,8 @@ const notificationsRoute = createRoute({
                 targetImageUrl: z.string().nullable(),
                 replyBody: z.string().nullable(),
                 reason: z.string().nullable(),
+                /** For an answer to an appeal, whether it was of a removal or a label. */
+                appealOf: z.enum(["removal", "label"]).optional(),
                 at: z.iso.datetime(),
                 unread: z.boolean(),
               }),
@@ -2420,6 +2440,33 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     return c.json({ ok: true as const }, 200);
   });
 
+  app.openapi(labelShownRoute, async (c) => {
+    const context = await participantFromRequest(c, db);
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "labels")) {
+      return c.json(featureOff, 403);
+    }
+    const now = new Date();
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
+    const item = await findVisibleContent(db, context, id, now);
+    const covering = (await loadLabels(db, context, now))
+      .get(id)
+      ?.some(({ text, hides }) => hides && text === body.label);
+    if (!item || item.authorActorId === context.actorId || !covering) {
+      return c.json(notAvailable, 404);
+    }
+    await recordEvent(db, {
+      ...participantEvent(context, body.occurredAt, body.clientEventId),
+      type: "content.label_shown",
+      payload: { label: body.label },
+      targetContentId: id,
+    });
+    return c.json({ ok: true as const }, 200);
+  });
+
   app.openapi(appealRoute, async (c) => {
     const context = await participantFromRequest(c, db);
     if (!context) {
@@ -2431,7 +2478,9 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     const now = new Date();
     const { id } = c.req.valid("param");
     const item = await findVisibleContent(db, context, id, now);
-    if (!item || item.authorActorId !== context.actorId || !(await isRemoved(context, id))) {
+    const removed = await isRemoved(context, id);
+    const labeled = !removed && (await loadLabels(db, context, now)).has(id);
+    if (!item || item.authorActorId !== context.actorId || (!removed && !labeled)) {
       return c.json(notAvailable, 404);
     }
     const body = c.req.valid("json");
@@ -2453,7 +2502,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       const recorded = await recordEvent(tx, {
         ...participantEvent(context, body.occurredAt, body.clientEventId),
         type: "moderation.appealed",
-        payload: { text: body.text },
+        payload: { text: body.text, of: removed ? "removal" : "label" },
         targetContentId: id,
       });
       if (recorded) {

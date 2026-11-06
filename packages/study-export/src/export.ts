@@ -248,6 +248,13 @@ export async function exportStudy(
         .where(inArray(schema.scriptedRemovals.studyVersionId, versionIds))
         .orderBy(asc(schema.scriptedRemovals.offsetMs))
     : [];
+  const labels = versionIds.length
+    ? await db
+        .select()
+        .from(schema.scriptedLabels)
+        .where(inArray(schema.scriptedLabels.studyVersionId, versionIds))
+        .orderBy(asc(schema.scriptedLabels.offsetMs))
+    : [];
 
   /** Participants' usernames can identify them, so exports refer to them by study ID. */
   const actorLabel = (actorId: string | null) => {
@@ -459,6 +466,37 @@ export async function exportStudy(
           reason: safeText(removal.reason),
           conditions: removal.conditions.join("|"),
           class: safeText(removal.class),
+        })),
+      ),
+    );
+  }
+
+  if (labels.length > 0) {
+    files.push(
+      writeCsv(
+        folder,
+        "labels.csv",
+        [
+          "study_version",
+          "content_id",
+          "moderator",
+          "offset_ms",
+          "label",
+          "hides",
+          "reason",
+          "conditions",
+          "class",
+        ],
+        labels.map((labeling) => ({
+          study_version: versionNumber.get(labeling.studyVersionId),
+          content_id: labeling.contentId,
+          moderator: safeText(actorById.get(labeling.actorId)?.username),
+          offset_ms: labeling.offsetMs,
+          label: safeText(labeling.label),
+          hides: labeling.hides ? "true" : "",
+          reason: safeText(labeling.reason),
+          conditions: labeling.conditions.join("|"),
+          class: safeText(labeling.class),
         })),
       ),
     );
@@ -691,6 +729,8 @@ export async function exportStudy(
         "comment_ids",
         "removed",
         "removed_comment_ids",
+        "labels",
+        "labeled_comment_ids",
         "context_note",
       ],
       impressions.flatMap((impression) =>
@@ -702,6 +742,8 @@ export async function exportStudy(
             commentIds?: string[];
             removed?: boolean;
             removedCommentIds?: string[];
+            labels?: string[];
+            labeledCommentIds?: string[];
             contextNote?: string;
           }[]
         ).map((item) => ({
@@ -727,6 +769,8 @@ export async function exportStudy(
           comment_ids: (item.commentIds ?? []).join("|"),
           removed: item.removed ?? false,
           removed_comment_ids: (item.removedCommentIds ?? []).join("|"),
+          labels: safeText((item.labels ?? []).join("|")),
+          labeled_comment_ids: (item.labeledCommentIds ?? []).join("|"),
           context_note: item.contextNote ?? "",
         })),
       ),
@@ -939,6 +983,11 @@ const FILE_DOCS: Record<string, [string, string][]> = {
       "1 if a moderator had removed this post by then, so a note was shown in its place. Its author still saw what they wrote",
     ],
     ["removed_comment_ids", "Which of comment_ids a moderator had removed by then"],
+    [
+      "labels",
+      "The labels a moderator had put on this post by then, separated by |. Whether one covered it, and whether the participant pressed Show, are in labels.csv and events.csv",
+    ],
+    ["labeled_comment_ids", "Which of comment_ids had a label by then"],
     ["context_note", "The context note showing on it by then, by its ID in context_notes.csv"],
   ],
   "context_notes.csv": [
@@ -1009,6 +1058,20 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ],
     ["moderator", "Who removed it, by username"],
     ["offset_ms", "When, relative to the start"],
+    ["reason", "What the moderator says about why"],
+  ],
+  "labels.csv": [
+    [
+      "content_id",
+      "What a moderator labels at a set time, such as Spam, on what the study wrote. Labels on what a participant wrote are reaction.scheduled in events.csv, and never cover it for them. Whether each was on screen is in impressions.csv. Only present if a version has some",
+    ],
+    ["moderator", "Who labeled it, by username"],
+    ["offset_ms", "When, relative to the start"],
+    ["label", "What the label says"],
+    [
+      "hides",
+      "true if it covered the post or comment until someone pressed Show, which is content.label_shown in events.csv",
+    ],
     ["reason", "What the moderator says about why"],
   ],
   "spaces.csv": [
@@ -1125,9 +1188,9 @@ const EVENT_NOTES: Record<string, string> = {
   "moderation.confirm_answered":
     "What they did when a rule asked if they were sure: posted anyway, or went back. Someone who closes the page does neither.",
   "moderation.appealed":
-    "They appealed a moderator's removal of what they wrote. `text` is their appeal, in their words. Treat it as sensitive.",
+    "They appealed a moderator's removal or label of what they wrote. `text` is their appeal, in their words. Treat it as sensitive. `of` says whether it was a removal or a label, and is missing from appeals recorded before labels, which were all of removals.",
   "reaction.scheduled":
-    "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator. `warn` means a moderator warned them, and `reason` is what it said. `answer` means a moderator answered their flag, and `reason` is what it said. A `remove` following a flag is about what they flagged, not something they wrote. An `answer` or `ban` following a report has `target_actor` instead of a post or comment. `hold` and `approve` are a rule holding what they wrote, with `dueAt` when it's decided. `uphold` and `restore` answer an appeal. `repost` and `follow` are someone in the cast passing along what they wrote, or following them.",
+    "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator. `warn` means a moderator warned them, and `reason` is what it said. `label` means a moderator labeled it, and `reason` is the label. `answer` means a moderator answered their flag, and `reason` is what it said. A `remove` following a flag is about what they flagged, not something they wrote. An `answer` or `ban` following a report has `target_actor` instead of a post or comment. `hold` and `approve` are a rule holding what they wrote, with `dueAt` when it's decided. `uphold` and `restore` answer an appeal. `restore` puts back what was removed, and takes off its labels. `repost` and `follow` are someone in the cast passing along what they wrote, or following them.",
   "moderation.warning_acknowledged":
     "They pressed the button on a moderator's warning, which stays on every page until they do. It names what the warning was about, and doesn't say they read it.",
   "space.joined": "They joined a space, so its posts show in their home feed. Names it by key.",
@@ -1141,6 +1204,8 @@ const EVENT_NOTES: Record<string, string> = {
   "space.flair_chosen":
     "They chose the flair they show in a space, or took it off if `flair` is empty. It shows on what they've written there.",
   "content.saved": "They saved a post to their list. content.unsaved takes it back.",
+  "content.label_shown":
+    "They pressed Show on a post or comment a moderator's label covered. `label` is what the label said. It's covered again on a different page, so this can repeat.",
   "content.hidden":
     "They hid a post. It stops appearing in their feeds and on profiles, so it won't be in impressions.csv for those until content.unhidden. Its absence there isn't the study's doing.",
   "content.shared":

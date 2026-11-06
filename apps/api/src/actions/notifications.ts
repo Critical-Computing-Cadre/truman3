@@ -55,6 +55,7 @@ export async function scheduleReactions(
       (reaction.type === "read" && !features.notifications) ||
       (reaction.type === "remove" && !features.removal) ||
       (reaction.type === "warn" && !features.warnings) ||
+      (reaction.type === "label" && !features.labels) ||
       (reaction.type === "repost" && !features.reposts) ||
       (reaction.type === "follow" && !features.following)
     ) {
@@ -105,7 +106,9 @@ export async function scheduleReactions(
       type: reaction.type,
       targetContentId: trigger.contentId,
       replyContentId,
-      ...(reaction.type === "remove" || reaction.type === "warn" ? { reason: reaction.body } : {}),
+      ...(reaction.type === "remove" || reaction.type === "warn" || reaction.type === "label"
+        ? { reason: reaction.body }
+        : {}),
       dueAt,
     });
 
@@ -120,10 +123,12 @@ export async function scheduleReactions(
           | "down"
           | "remove"
           | "warn"
+          | "label"
           | "repost"
           | "follow",
         dueAt: dueAt.toISOString(),
-        ...((reaction.type === "remove" || reaction.type === "warn") && reaction.body
+        ...((reaction.type === "remove" || reaction.type === "warn" || reaction.type === "label") &&
+        reaction.body
           ? { reason: reaction.body }
           : {}),
       },
@@ -397,6 +402,7 @@ export interface NotificationItem {
     | "reply"
     | "remove"
     | "warn"
+    | "label"
     | "answer"
     | "ban"
     | "approve"
@@ -417,8 +423,10 @@ export interface NotificationItem {
   commentId: string | null;
   targetImageUrl: string | null;
   replyBody: string | null;
-  /** Why a moderator removed it, if they said. */
+  /** Why a moderator removed it, if they said, or the label they gave it. */
   reason: string | null;
+  /** For an answer to an appeal, whether the appeal was of a removal or a label. */
+  appealOf?: "removal" | "label";
   at: string;
   unread: boolean;
 }
@@ -430,6 +438,7 @@ const SHOWN_TO_PARTICIPANTS = [
   "reply",
   "remove",
   "warn",
+  "label",
   "answer",
   "ban",
   "approve",
@@ -444,6 +453,7 @@ const SHOWN_ALONE = [
   "reply",
   "remove",
   "warn",
+  "label",
   "answer",
   "ban",
   "approve",
@@ -552,6 +562,24 @@ export async function listNotifications(
     );
   const muted = new Set(mutes.map(({ actorId }) => actorId));
   const mutedPosts = await mutedThreads(db, context);
+  // An answer to an appeal says what was appealed, which the appeal recorded.
+  const appealOf = new Map<string, "removal" | "label">();
+  if (rows.some(({ type }) => type === "uphold" || type === "restore")) {
+    const appeals = await db
+      .select({ targetContentId: schema.events.targetContentId, payload: schema.events.payload })
+      .from(schema.events)
+      .where(
+        and(
+          eq(schema.events.worldId, context.worldId),
+          eq(schema.events.type, "moderation.appealed"),
+        ),
+      );
+    for (const { targetContentId, payload } of appeals) {
+      if (targetContentId) {
+        appealOf.set(targetContentId, (payload as { of?: "label" }).of ?? "removal");
+      }
+    }
+  }
   const groups = new Map<string, NotificationItem>();
   for (const row of rows) {
     // Muting a thread stops hearing about it from the cast, as muting someone does.
@@ -620,6 +648,9 @@ export async function listNotifications(
           : null,
       replyBody: row.replyContentId ? (contentById.get(row.replyContentId)?.body ?? null) : null,
       reason: row.reason,
+      ...((row.type === "uphold" || row.type === "restore") && row.targetContentId
+        ? { appealOf: appealOf.get(row.targetContentId) ?? "removal" }
+        : {}),
       at,
       unread,
     });

@@ -115,6 +115,10 @@ export async function openDraft(
       .select()
       .from(schema.scriptedRemovals)
       .where(eq(schema.scriptedRemovals.studyVersionId, versionId));
+    const labels = await tx
+      .select()
+      .from(schema.scriptedLabels)
+      .where(eq(schema.scriptedLabels.studyVersionId, versionId));
     const flagAnswers = await tx
       .select()
       .from(schema.scriptedFlagAnswers)
@@ -311,6 +315,23 @@ export async function openDraft(
           ...optional("reason", removal.reason),
           conditions: removal.conditions,
           ...optional("class", removal.class),
+        },
+      })),
+      ...labels.map((labeling, position) => ({
+        draftId: created.id,
+        kind: "label",
+        position,
+        provenance: fromFile,
+        data: {
+          on: contentKinds.get(labeling.contentId),
+          targetId: asId(labeling.contentId),
+          actorId: asId(labeling.actorId),
+          timeMs: labeling.offsetMs,
+          label: labeling.label,
+          hides: labeling.hides,
+          ...optional("reason", labeling.reason),
+          conditions: labeling.conditions,
+          ...optional("class", labeling.class),
         },
       })),
       ...content
@@ -733,6 +754,7 @@ export async function createItem(
     | "actor"
     | "space"
     | "removal"
+    | "label"
     | "reaction"
     | "flagAnswer"
     | "ban"
@@ -760,6 +782,7 @@ export async function createItem(
       if (
         kind === "actor" ||
         kind === "removal" ||
+        kind === "label" ||
         kind === "reaction" ||
         kind === "flagAnswer" ||
         kind === "ban" ||
@@ -1170,7 +1193,7 @@ export async function moveItem(
     moving.push(
       ...rows.filter(
         (row) =>
-          (row.kind === "removal" || row.kind === "contextNote") &&
+          (row.kind === "removal" || row.kind === "label" || row.kind === "contextNote") &&
           movingIds.has((row.data as { targetId: string }).targetId),
       ),
     );
@@ -1282,7 +1305,10 @@ export async function deleteItem(
     for (const row of rows) {
       const { targetId } = row.data as { targetId?: string };
       if (
-        (row.kind === "removal" || row.kind === "flagAnswer" || row.kind === "contextNote") &&
+        (row.kind === "removal" ||
+          row.kind === "label" ||
+          row.kind === "flagAnswer" ||
+          row.kind === "contextNote") &&
         targetId &&
         removingIds.has(targetId)
       ) {

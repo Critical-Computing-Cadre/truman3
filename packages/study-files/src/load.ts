@@ -10,6 +10,8 @@ import {
   type FlagAnswerDefinition,
   type Flair,
   hasErrors,
+  type LabelDefinition,
+  MAX_LABEL_LENGTH,
   PIN_PLACES,
   POST_TAGS,
   type PostDefinition,
@@ -146,6 +148,10 @@ const CONTEXT_NOTES: CsvSpec = {
 const REMOVALS: CsvSpec = {
   required: ["on", "target", "actor", "time"],
   optional: ["reason", "condition", "class"],
+};
+const LABELS: CsvSpec = {
+  required: ["on", "target", "actor", "time", "label"],
+  optional: ["hides", "reason", "condition", "class"],
 };
 
 export const MEDIA_FOLDERS = {
@@ -530,13 +536,14 @@ export function readStudyTables(
       type !== "down" &&
       type !== "remove" &&
       type !== "warn" &&
+      type !== "label" &&
       type !== "repost" &&
       type !== "follow"
     ) {
       rowError(
         file,
         row,
-        `"${type}" in type has to be read, like, reply, up, down, remove, warn, repost, or follow.`,
+        `"${type}" in type has to be read, like, reply, up, down, remove, warn, label, repost, or follow.`,
       );
       continue;
     }
@@ -564,6 +571,30 @@ export function readStudyTables(
       target: cells.target || `(row ${row})`,
       actor: cells.actor || `(row ${row})`,
       timeMs: time(cells.time, "time", file, row),
+      ...optional("reason", cells.reason || undefined),
+      ...targeting(cells, file, row),
+    });
+  }
+
+  const labels: LabelDefinition[] = [];
+  for (const { row, cells } of readTable("labels.csv", LABELS, false)) {
+    const file = "labels.csv";
+    const on = cells.on;
+    if (on !== "post" && on !== "comment") {
+      rowError(file, row, `"${on}" in on has to be post or comment.`);
+      continue;
+    }
+    if ((cells.label ?? "").length > MAX_LABEL_LENGTH) {
+      rowError(file, row, `A label can be at most ${MAX_LABEL_LENGTH} characters.`);
+      continue;
+    }
+    labels.push({
+      on,
+      target: cells.target || `(row ${row})`,
+      actor: cells.actor || `(row ${row})`,
+      timeMs: time(cells.time, "time", file, row),
+      label: cells.label || `(row ${row})`,
+      hides: yesOrNo(cells.hides, "hides", file, row) ?? false,
       ...optional("reason", cells.reason || undefined),
       ...targeting(cells, file, row),
     });
@@ -764,6 +795,7 @@ export function readStudyTables(
       comments,
       reactions,
       removals,
+      labels,
       flagAnswers,
       bans,
       reportAnswers,

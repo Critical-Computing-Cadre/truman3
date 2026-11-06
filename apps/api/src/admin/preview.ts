@@ -17,6 +17,7 @@ import {
   type FeedActor,
   type FeedContent,
   hiddenByBan,
+  type Label,
   loadAuthors,
   type Removal,
   type ShownNote,
@@ -98,6 +99,16 @@ export async function previewContent(
     baseNotHelpful: number;
     conditions: string[];
   }[] = [],
+  /** What the study labels. The draft's editor leaves these out, as it does removals. */
+  scriptedLabels: readonly {
+    contentId: string;
+    actorId: string;
+    offsetMs: number;
+    label: string;
+    hides: boolean;
+    reason: string | null;
+    conditions: string[];
+  }[] = [],
 ) {
   const worldStartMs = now.getTime() - elapsedMs;
   const features = featuresFor(version.settings, conditionKey);
@@ -111,6 +122,25 @@ export async function previewContent(
           reason: removal.reason,
           at: new Date(worldStartMs + removal.offsetMs),
         });
+      }
+    }
+  }
+
+  const labels = new Map<string, Label[]>();
+  if (features.labels) {
+    for (const row of [...scriptedLabels].sort((a, b) => a.offsetMs - b.offsetMs)) {
+      const applies = row.conditions.length === 0 || row.conditions.includes(conditionKey);
+      if (applies && row.offsetMs <= elapsedMs) {
+        labels.set(row.contentId, [
+          ...(labels.get(row.contentId) ?? []),
+          {
+            text: row.label,
+            actorId: row.actorId,
+            hides: row.hides,
+            reason: row.reason,
+            at: new Date(worldStartMs + row.offsetMs),
+          },
+        ]);
       }
     }
   }
@@ -208,6 +238,7 @@ export async function previewContent(
     viewerVotes: new Map(),
     features,
     removals,
+    labels,
     bans,
     contextNotes,
     repostsAsThemselves,
@@ -282,5 +313,9 @@ export async function previewFeed(
       .select()
       .from(schema.scriptedContextNotes)
       .where(eq(schema.scriptedContextNotes.studyVersionId, version.id)),
+    await db
+      .select()
+      .from(schema.scriptedLabels)
+      .where(eq(schema.scriptedLabels.studyVersionId, version.id)),
   );
 }

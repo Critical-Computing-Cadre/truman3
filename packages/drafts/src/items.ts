@@ -3,6 +3,7 @@ import {
   flairSchema,
   linkSchema,
   MAX_ATTACHMENTS,
+  MAX_LABEL_LENGTH,
   MAX_PLACE_LENGTH,
   MAX_RULE_MATCH_LENGTH,
   MAX_TITLE_LENGTH,
@@ -105,7 +106,18 @@ export const itemDataSchemas = {
   reaction: z.strictObject({
     on: z.enum(["post", "comment", "story"]),
     nth: z.number().int().nonnegative(),
-    type: z.enum(["read", "like", "reply", "up", "down", "remove", "warn", "repost", "follow"]),
+    type: z.enum([
+      "read",
+      "like",
+      "reply",
+      "up",
+      "down",
+      "remove",
+      "warn",
+      "label",
+      "repost",
+      "follow",
+    ]),
     actorId: z.uuid(),
     afterMs: z.number().int().nonnegative(),
     body: z.string().optional(),
@@ -175,6 +187,16 @@ export const itemDataSchemas = {
     message: z.string().min(1).optional(),
     ...targeting,
   }),
+  label: z.strictObject({
+    on: z.enum(["post", "comment"]),
+    targetId: z.uuid(),
+    actorId: z.uuid(),
+    timeMs: z.number().int(),
+    label: z.string().min(1).max(MAX_LABEL_LENGTH),
+    hides: z.boolean().default(false),
+    reason: z.string().min(1).optional(),
+    ...targeting,
+  }),
   removal: z.strictObject({
     on: z.enum(["post", "comment"]),
     targetId: z.uuid(),
@@ -192,6 +214,7 @@ export type PostData = z.infer<typeof itemDataSchemas.post>;
 export type CommentData = z.infer<typeof itemDataSchemas.comment>;
 export type ReactionData = z.infer<typeof itemDataSchemas.reaction>;
 export type RemovalData = z.infer<typeof itemDataSchemas.removal>;
+export type LabelData = z.infer<typeof itemDataSchemas.label>;
 export type FlagAnswerData = z.infer<typeof itemDataSchemas.flagAnswer>;
 export type BanData = z.infer<typeof itemDataSchemas.ban>;
 export type ContextNoteData = z.infer<typeof itemDataSchemas.contextNote>;

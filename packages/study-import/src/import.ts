@@ -65,6 +65,7 @@ function hashStudy(study: StudyDefinition, mediaKeys: Map<string, string>): stri
     comments: withoutSource(study.comments),
     reactions: withoutSource(study.reactions),
     ...(study.removals.length > 0 ? { removals: withoutSource(study.removals) } : {}),
+    ...(study.labels.length > 0 ? { labels: withoutSource(study.labels) } : {}),
     ...(study.flagAnswers.length > 0 ? { flagAnswers: withoutSource(study.flagAnswers) } : {}),
     ...(study.bans.length > 0 ? { bans: withoutSource(study.bans) } : {}),
     ...(study.reportAnswers.length > 0
@@ -490,6 +491,22 @@ export async function freezeStudy(
           reason: removal.reason,
           conditions: removal.conditions,
           class: removal.class,
+        })),
+      );
+    }
+
+    for (const batch of chunks(study.labels, INSERT_BATCH_SIZE)) {
+      await tx.insert(schema.scriptedLabels).values(
+        batch.map((labeling) => ({
+          studyVersionId,
+          contentId: (labeling.on === "post" ? postIds : commentIds).get(labeling.target) as string,
+          actorId: actorId(labeling.actor),
+          offsetMs: labeling.timeMs,
+          label: labeling.label,
+          hides: labeling.hides,
+          reason: labeling.reason,
+          conditions: labeling.conditions,
+          class: labeling.class,
         })),
       );
     }

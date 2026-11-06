@@ -102,6 +102,7 @@ export interface NotificationItem {
     | "reply"
     | "remove"
     | "warn"
+    | "label"
     | "answer"
     | "ban"
     | "approve"
@@ -120,6 +121,8 @@ export interface NotificationItem {
   targetImageUrl: string | null;
   replyBody: string | null;
   reason: string | null;
+  /** For an answer to an appeal, whether the appeal was of a removal or a label. */
+  appealOf?: "removal" | "label";
   at: string;
   unread: boolean;
 }

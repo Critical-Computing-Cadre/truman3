@@ -438,6 +438,7 @@ export const scriptedReactions = pgTable(
         "down",
         "remove",
         "warn",
+        "label",
         "repost",
         "follow",
       ]),
@@ -465,6 +466,31 @@ export const scriptedRemovals = pgTable(
     class: text(),
   },
   (table) => [index("scripted_removals_version").on(table.studyVersionId)],
+);
+
+/** A moderator labeling something the study wrote, such as "Spam", at a set time after someone starts. */
+export const scriptedLabels = pgTable(
+  "scripted_labels",
+  {
+    id: id(),
+    studyVersionId: uuid("study_version_id")
+      .notNull()
+      .references(() => studyVersions.id),
+    contentId: uuid("content_id")
+      .notNull()
+      .references(() => content.id),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => actors.id),
+    offsetMs: bigint("offset_ms", { mode: "number" }).notNull(),
+    label: text().notNull(),
+    /** Whether it covers what it's on until someone presses Show. */
+    hides: boolean().notNull().default(false),
+    reason: text(),
+    conditions: text().array().notNull().default(sql`'{}'`),
+    class: text(),
+  },
+  (table) => [index("scripted_labels_version").on(table.studyVersionId)],
 );
 
 /** What a moderator does when someone flags something. Without a content ID, it's for any flag. */
@@ -767,6 +793,7 @@ export const notifications = pgTable(
         "down",
         "remove",
         "warn",
+        "label",
         "answer",
         "ban",
         "hold",
@@ -970,6 +997,7 @@ export const draftItems = pgTable(
         "comment",
         "reaction",
         "removal",
+        "label",
         "flagAnswer",
         "ban",
         "reportAnswer",

@@ -6,6 +6,7 @@ import {
   flairSchema,
   linkSchema,
   MAX_ATTACHMENTS,
+  MAX_LABEL_LENGTH,
   MAX_PLACE_LENGTH,
   MAX_RULE_MATCH_LENGTH,
   MAX_TITLE_LENGTH,
@@ -29,6 +30,7 @@ import {
   type FlagAnswerData,
   freezeDraft,
   frozenSpaceKeys,
+  type LabelData,
   type LoadedDraft,
   listChanges,
   loadDraft,
@@ -309,7 +311,11 @@ const fieldsSchema = z.strictObject({
   /** Null gives no reason. */
   reason: z.string().trim().min(1).max(2000).nullable().optional(),
   nth: z.number().int().nonnegative().optional(),
-  type: z.enum(["remove", "warn"]).optional(),
+  type: z.enum(["remove", "warn", "label"]).optional(),
+  /** A label's text, such as "Spam". */
+  label: z.string().trim().min(1).max(MAX_LABEL_LENGTH).optional(),
+  /** Whether a label covers what it's on until someone presses Show. */
+  hides: z.boolean().optional(),
   afterMs: z.number().int().nonnegative().optional(),
   /** A flag's answer. It's for any flag without `targetId`, and null takes one away. */
   action: z
@@ -391,6 +397,7 @@ const createItemRoute = createRoute({
           "actor",
           "space",
           "removal",
+          "label",
           "reaction",
           "flagAnswer",
           "ban",
@@ -788,6 +795,22 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               conditions: data.conditions,
             };
           }),
+        labels: items
+          .filter((item) => item.kind === "label")
+          .map((item) => {
+            const data = item.data as LabelData;
+            return {
+              id: item.id,
+              on: data.on,
+              targetId: data.targetId,
+              actorId: data.actorId,
+              timeMs: data.timeMs,
+              label: data.label,
+              hides: data.hides,
+              reason: data.reason ?? "",
+              conditions: data.conditions,
+            };
+          }),
         stories: items
           .filter((item) => item.kind === "story")
           .map((item) => {
@@ -897,7 +920,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           .filter(
             (item) =>
               item.kind === "reaction" &&
-              ["remove", "warn"].includes((item.data as ReactionData).type),
+              ["remove", "warn", "label"].includes((item.data as ReactionData).type),
           )
           .map((item) => {
             const data = item.data as ReactionData;
@@ -905,7 +928,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               id: item.id,
               on: data.on,
               nth: data.nth,
-              type: data.type as "remove" | "warn",
+              type: data.type as "remove" | "warn" | "label",
               actorId: data.actorId,
               afterMs: data.afterMs,
               body: data.body ?? "",

@@ -36,6 +36,21 @@ export const feedRemovedSchema = z.object({
 });
 export type FeedRemoved = z.infer<typeof feedRemovedSchema>;
 
+/**
+ * A moderator's label on a post or comment, such as "Spam". One that hides covers what it's on
+ * until someone presses Show. A participant's own post is never covered for them.
+ */
+export const feedLabelSchema = z.object({
+  text: z.string(),
+  /** The moderator's name. */
+  by: z.string(),
+  hides: z.boolean(),
+  reason: z.string().optional(),
+  /** On a platform with appeals, whether its author can still appeal, or already has. */
+  appeal: z.enum(["open", "sent"]).optional(),
+});
+export type FeedLabel = z.infer<typeof feedLabelSchema>;
+
 /** A moderator's warning to this participant, waiting for them to acknowledge it. */
 export const feedWarningSchema = z.object({
   id: z.string(),
@@ -86,6 +101,8 @@ export const feedCommentSchema = z.object({
   vote: z.enum(["up", "down"]).nullable(),
   flagged: z.boolean(),
   removed: feedRemovedSchema.optional(),
+  /** What moderators have labeled it, on a platform with labels. */
+  labels: z.array(feedLabelSchema).optional(),
   /** Waiting for a moderator's approval. Only its author sees this. Only ever true. */
   held: z.literal(true).optional(),
 });
@@ -214,6 +231,8 @@ export const feedPostSchema = z.object({
   vote: z.enum(["up", "down"]).nullable(),
   flagged: z.boolean(),
   removed: feedRemovedSchema.optional(),
+  /** What moderators have labeled it, on a platform with labels. */
+  labels: z.array(feedLabelSchema).optional(),
   /** Waiting for a moderator's approval. Only its author sees this. Only ever true. */
   held: z.literal(true).optional(),
   comments: z.array(feedCommentSchema),
