@@ -16,6 +16,7 @@ import { type Database, recordEvent, schema } from "@truman3/db";
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { actionMetaSchema } from "../actions/request.ts";
 import { participantEvent } from "../actions/routes.ts";
+import { catchUp } from "../director/director.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { type ParticipantContext, participantFromRequest } from "../participants/session.ts";
 import { buildFeed, loadSpacesFor, mediaUrl } from "./build.ts";
@@ -256,6 +257,8 @@ export function createFeedRoutes({ db, mediaPublicUrl }: ParticipantRouteDepende
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
+    // What Christof has made happen by now shows in this feed.
+    await catchUp(db, context);
 
     const { visit, surface, space: spaceKey, post, tag, place, username } = c.req.valid("query");
     const on = (feature: FeatureKey) => featureOn(context.settings, context.conditionKey, feature);

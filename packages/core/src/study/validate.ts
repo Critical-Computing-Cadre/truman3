@@ -1,5 +1,6 @@
 import { ruleTerms } from "../auto-rules.ts";
 import { MAX_ATTACHMENTS } from "../feed.ts";
+import { BEATS_FILE } from "./beats.ts";
 import { hasPlaceholderConsent } from "./consent.ts";
 import { MAX_LABEL_LENGTH, PARTICIPANT_TAG, type StudyDefinition } from "./definition.ts";
 import { LINK_PLACEHOLDERS } from "./links.ts";
@@ -78,6 +79,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       shownIn(arm.key, study.appealAnswers),
       shownIn(arm.key, study.contextNotes),
       shownIn(arm.key, study.stories),
+      shownIn(arm.key, study.beats),
     ]);
     const same = conditionLooks.get(looks);
     if (same) {
@@ -919,6 +921,115 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
   }
 
+  // Beats come from beats.yaml, so their problems point at the file and the beat's id.
+  const beatProblem = (severity: "error" | "warning", message: string) =>
+    issues.push({ severity, message, file: BEATS_FILE });
+  const beatIds = new Map<string, StudyDefinition["beats"][number]>();
+  for (const beat of study.beats) {
+    if (beatIds.has(beat.id)) {
+      beatProblem("error", `The beat id "${beat.id}" is used more than once.`);
+    }
+    beatIds.set(beat.id, beat);
+  }
+  const beatLengthMs = settings.length.days * 24 * HOUR_MS;
+  for (const beat of study.beats) {
+    const label = `The beat "${beat.id}"`;
+    const { when, do: action } = beat;
+    if (!usernames.has(action.actor)) {
+      beatProblem(
+        "error",
+        `${label} is done by "${action.actor}", who isn't in the list of actors.`,
+      );
+    }
+    for (const condition of beat.conditions) {
+      if (!armKeys.has(condition)) {
+        beatProblem(
+          "error",
+          `${label} uses the condition "${condition}", which isn't in study.yaml.`,
+        );
+      }
+    }
+    const checkBeat = (id: string, what: string) => {
+      if (!beatIds.has(id)) {
+        beatProblem("error", `${label} ${what} "${id}", which isn't a beat in this study.`);
+      } else if (id === beat.id) {
+        beatProblem("error", `${label} ${what} itself.`);
+      }
+    };
+    if ("time" in when && when.time >= beatLengthMs) {
+      beatProblem("warning", `${label} is set for after the study ends, so it won't happen.`);
+    }
+    if ("participant" in when) {
+      if (when.on && !usernames.has(when.on)) {
+        beatProblem(
+          "error",
+          `${label} waits for something on "${when.on}", who isn't in the list of actors.`,
+        );
+      }
+      if (when.under) {
+        checkBeat(when.under, "waits for something under");
+      }
+    }
+    if ("beat" in when) {
+      checkBeat(when.beat, "comes after");
+    }
+    if ("on" in action) {
+      const target = action.on;
+      if (target === "trigger" && "time" in when) {
+        beatProblem(
+          "error",
+          `${label} acts on what set it off, but a time doesn't point at anything.`,
+        );
+      } else if (typeof target === "object" && "beat" in target) {
+        checkBeat(target.beat, "acts on what was made by");
+      } else if (typeof target === "object" && "post" in target && !posts.has(target.post)) {
+        beatProblem(
+          "error",
+          `${label} acts on the post "${target.post}", which isn't in this study.`,
+        );
+      }
+    }
+    for (const id of beat.unless) {
+      checkBeat(id, "is skipped after");
+    }
+    if (beat.delay.minMs > beat.delay.maxMs) {
+      beatProblem("error", `${label} has a delay whose min is after its max.`);
+    }
+    if (beat.delay.minMs < 0) {
+      beatProblem("error", `${label} has a delay before its trigger, which can't happen.`);
+    }
+    // A beat that can't work where it's used is worth knowing about before launch.
+    const needs = {
+      comment: "comments",
+      like: "likes",
+      repost: "reposts",
+      follow: "following",
+    } as const;
+    const feature = action.action === "post" ? "posting" : needs[action.action];
+    for (const arm of settings.conditions.arms) {
+      const inArm = beat.conditions.length === 0 || beat.conditions.includes(arm.key);
+      if (inArm && !featuresFor(settings, arm.key)[feature]) {
+        beatProblem(
+          "warning",
+          `${label} needs ${feature}, which is off in "${arm.key}", so it won't happen there.`,
+        );
+      }
+    }
+  }
+  // One beat following another can't go round in a circle, or it would never stop.
+  for (const beat of study.beats) {
+    const seen = new Set<string>();
+    let current: StudyDefinition["beats"][number] | undefined = beat;
+    while (current && "beat" in current.when) {
+      if (seen.has(current.id)) {
+        beatProblem("error", `The beats after "${beat.id}" go round in a circle.`);
+        break;
+      }
+      seen.add(current.id);
+      current = beatIds.get(current.when.beat);
+    }
+  }
+
   const targeted = new Set(
     [
       ...study.actors,
@@ -935,6 +1046,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       ...study.appealAnswers,
       ...study.contextNotes,
       ...study.stories,
+      ...study.beats,
     ].flatMap((item) => item.conditions),
   );
   const hasOverrides = settings.conditions.arms.some((arm) => arm.feed);

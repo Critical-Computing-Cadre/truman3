@@ -1,0 +1,548 @@
+import { createHash } from "node:crypto";
+import {
+  BEATS_FILE,
+  type BeatDefinition,
+  type BeatTarget,
+  createRandom,
+  featuresFor,
+} from "@truman3/core";
+import { type Database, schema, type Transaction } from "@truman3/db";
+import { parseBeats } from "@truman3/study-files";
+import { and, asc, eq, inArray, isNull, lte } from "drizzle-orm";
+import type { ParticipantContext } from "../participants/session.ts";
+
+/**
+ * Christof, the director: what makes each beat in beats.yaml happen in a participant's world. See
+ * ADR 51.
+ *
+ * Nothing runs in the background. When the participant does something, the beats it sets off are
+ * written down as `pending`, with when they're due. Whenever anything is loaded, `catchUp` decides
+ * each pending beat that has come due, as of when it was due, and does what it says. What it makes
+ * appears at the time it was due, so a beat looks the same whether someone loads the page a second
+ * after it's due or an hour later. Every decision is a row in `beat_runs`, which is its trace.
+ */
+
+/** Something the participant did that can set a beat off. */
+export interface ParticipantAct {
+  action: "post" | "comment" | "like" | "follow" | "repost";
+  /** What they made, for a post or comment, or what they acted on, for a like or repost. */
+  contentId?: string;
+  /** Whose content it was, or who they followed. */
+  targetActorId?: string;
+  /** Their nth of this kind of action, from 0. */
+  nth: number;
+}
+
+/** What set a run off, as `beat_runs.trigger` keeps it. */
+type Trigger =
+  | { kind: "time" }
+  | ({ kind: "participant" } & ParticipantAct)
+  | { kind: "beat"; beat: string; runId: string; contentId?: string };
+
+type Db = Database | Transaction;
+
+const beatsByVersion = new Map<string, Promise<BeatDefinition[]>>();
+
+/** A version's beats, read once per server, since a version never changes. */
+export function beatsFor(db: Db, studyVersionId: string): Promise<BeatDefinition[]> {
+  const known = beatsByVersion.get(studyVersionId);
+  if (known) {
+    return known;
+  }
+  const loading = (async () => {
+    const [version] = await db
+      .select({ pages: schema.studyVersions.pages })
+      .from(schema.studyVersions)
+      .where(eq(schema.studyVersions.id, studyVersionId));
+    const text = (version?.pages as Record<string, string> | undefined)?.[BEATS_FILE];
+    // A version is checked before it's saved, so a beat that can't be read here never ran anyway.
+    return text ? parseBeats(text).beats : [];
+  })();
+  beatsByVersion.set(studyVersionId, loading);
+  loading.catch(() => beatsByVersion.delete(studyVersionId));
+  return loading;
+}
+
+const inCondition = (beat: BeatDefinition, context: ParticipantContext) =>
+  beat.conditions.length === 0 || beat.conditions.includes(context.conditionKey);
+
+/**
+ * How long after its trigger a run is due. A range is drawn from the same way every time for the
+ * same world, beat, and run, so what happened can be worked out again.
+ */
+function delayOf(beat: BeatDefinition, context: ParticipantContext, run: number) {
+  const { minMs, maxMs } = beat.delay;
+  if (minMs === maxMs) {
+    return minMs;
+  }
+  const salt = Number.parseInt(
+    createHash("sha256").update(`${beat.id}:${run}`).digest("hex").slice(0, 8),
+    16,
+  );
+  const random = createRandom((context.seed ^ salt) >>> 0);
+  return Math.round(minMs + random() * (maxMs - minMs));
+}
+
+/** Writes a beat down as pending, unless it's already used up its runs in this world. */
+async function schedule(
+  tx: Transaction,
+  context: ParticipantContext,
+  beat: BeatDefinition,
+  trigger: Trigger,
+  at: Date,
+) {
+  const runs = await tx
+    .select({ run: schema.beatRuns.run })
+    .from(schema.beatRuns)
+    .where(and(eq(schema.beatRuns.worldId, context.worldId), eq(schema.beatRuns.beat, beat.id)));
+  if (runs.length >= beat.max) {
+    return;
+  }
+  const run = runs.length;
+  await tx
+    .insert(schema.beatRuns)
+    .values({
+      worldId: context.worldId,
+      beat: beat.id,
+      run,
+      status: "pending",
+      trigger,
+      triggeredAt: at,
+      dueAt: new Date(at.getTime() + delayOf(beat, context, run)),
+    })
+    // Two loads at once can both get here. The first one wins.
+    .onConflictDoNothing();
+}
+
+/** What a beat made in this world, newest first, to find what `under` and `{ beat }` point at. */
+async function madeBy(tx: Db, context: ParticipantContext, beatId: string, before: Date) {
+  return tx
+    .select({ contentId: schema.beatRuns.contentId })
+    .from(schema.beatRuns)
+    .where(
+      and(
+        eq(schema.beatRuns.worldId, context.worldId),
+        eq(schema.beatRuns.beat, beatId),
+        eq(schema.beatRuns.status, "fired"),
+        lte(schema.beatRuns.dueAt, before),
+      ),
+    )
+    .orderBy(asc(schema.beatRuns.dueAt));
+}
+
+/** Whether this content is what a beat made, or anywhere under it. */
+async function isUnder(
+  tx: Db,
+  context: ParticipantContext,
+  contentId: string,
+  beatId: string,
+  now: Date,
+) {
+  const made = new Set(
+    (await madeBy(tx, context, beatId, now)).flatMap(({ contentId: id }) => (id ? [id] : [])),
+  );
+  let current: string | null = contentId;
+  for (let step = 0; current && step < 50; step++) {
+    if (made.has(current)) {
+      return true;
+    }
+    const [row] = await tx
+      .select({ parentId: schema.content.parentId })
+      .from(schema.content)
+      .where(eq(schema.content.id, current));
+    current = row?.parentId ?? null;
+  }
+  return false;
+}
+
+/**
+ * Notes the beats something the participant did sets off. Called in the same transaction as what
+ * they did, so a beat is never set off by something that didn't save.
+ */
+export async function onParticipantAct(
+  tx: Transaction,
+  context: ParticipantContext,
+  act: ParticipantAct,
+  now: Date,
+) {
+  const beats = (await beatsFor(tx, context.studyVersionId)).filter(
+    (beat) =>
+      inCondition(beat, context) &&
+      "participant" in beat.when &&
+      beat.when.participant === act.action &&
+      (beat.when.nth === undefined || beat.when.nth === act.nth),
+  );
+  // A comment is on whatever it replies to, so whose that is decides `on`.
+  let targetActorId = act.targetActorId;
+  if (act.action === "comment" && !targetActorId && act.contentId && beats.length > 0) {
+    const [comment] = await tx
+      .select({ parentId: schema.content.parentId })
+      .from(schema.content)
+      .where(eq(schema.content.id, act.contentId));
+    const [parent] = comment?.parentId
+      ? await tx
+          .select({ authorActorId: schema.content.authorActorId })
+          .from(schema.content)
+          .where(eq(schema.content.id, comment.parentId))
+      : [];
+    targetActorId = parent?.authorActorId;
+  }
+  for (const beat of beats) {
+    const when = beat.when as Extract<BeatDefinition["when"], { participant: string }>;
+    if (when.on) {
+      const [actor] = await tx
+        .select({ id: schema.actors.id })
+        .from(schema.actors)
+        .where(
+          and(
+            eq(schema.actors.studyVersionId, context.studyVersionId),
+            eq(schema.actors.username, when.on),
+            isNull(schema.actors.worldId),
+          ),
+        );
+      if (!actor || actor.id !== targetActorId) {
+        continue;
+      }
+    }
+    if (
+      when.under &&
+      !(act.contentId && (await isUnder(tx, context, act.contentId, when.under, now)))
+    ) {
+      continue;
+    }
+    await schedule(
+      tx,
+      context,
+      beat,
+      { kind: "participant", ...act, ...(targetActorId ? { targetActorId } : {}) },
+      now,
+    );
+  }
+}
+
+/** The person in the cast doing an action, by username. */
+async function castMember(tx: Db, context: ParticipantContext, username: string) {
+  const [actor] = await tx
+    .select({ id: schema.actors.id })
+    .from(schema.actors)
+    .where(
+      and(
+        eq(schema.actors.studyVersionId, context.studyVersionId),
+        eq(schema.actors.username, username),
+        isNull(schema.actors.worldId),
+      ),
+    );
+  return actor?.id ?? null;
+}
+
+/** What an action is done to, as of when it's due. Null if there's nothing there to act on. */
+async function targetOf(
+  tx: Db,
+  context: ParticipantContext,
+  target: BeatTarget,
+  trigger: Trigger,
+  dueAt: Date,
+): Promise<string | null> {
+  if (target === "trigger") {
+    return trigger.kind === "time" ? null : (trigger.contentId ?? null);
+  }
+  if ("beat" in target) {
+    const made = await madeBy(tx, context, target.beat, dueAt);
+    return made.at(-1)?.contentId ?? null;
+  }
+  const [post] = await tx
+    .select({ id: schema.content.id })
+    .from(schema.content)
+    .where(
+      and(
+        eq(schema.content.studyVersionId, context.studyVersionId),
+        eq(schema.content.sourceRef, target.post),
+        isNull(schema.content.worldId),
+      ),
+    );
+  return post?.id ?? null;
+}
+
+/** Does what a beat says, at the time it's due. Returns what it made, or why it couldn't. */
+async function perform(
+  tx: Transaction,
+  context: ParticipantContext,
+  beat: BeatDefinition,
+  trigger: Trigger,
+  dueAt: Date,
+): Promise<
+  | { done: true; actorId: string; contentId: string | null; targetContentId: string | null }
+  | { done: false; reason: string }
+> {
+  const action = beat.do;
+  const features = featuresFor(context.settings, context.conditionKey);
+  const needs = {
+    post: "posting",
+    comment: "comments",
+    like: "likes",
+    repost: "reposts",
+    follow: "following",
+  } as const;
+  if (!features[needs[action.action]]) {
+    return { done: false, reason: `${needs[action.action]} is off in this condition` };
+  }
+  const actorId = await castMember(tx, context, action.actor);
+  if (!actorId) {
+    return { done: false, reason: `"${action.actor}" isn't in the cast` };
+  }
+  const base = {
+    studyVersionId: context.studyVersionId,
+    worldId: context.worldId,
+    authorActorId: actorId,
+    visibleAt: dueAt,
+  };
+
+  if (action.action === "post") {
+    const [made] = await tx
+      .insert(schema.content)
+      .values({ ...base, kind: "post", body: action.text })
+      .returning({ id: schema.content.id });
+    return { done: true, actorId, contentId: made?.id ?? null, targetContentId: null };
+  }
+
+  if (action.action === "follow") {
+    await tx.insert(schema.notifications).values({
+      worldId: context.worldId,
+      recipientActorId: context.actorId,
+      actorId,
+      type: "follow",
+      targetActorId: context.actorId,
+      dueAt,
+    });
+    return { done: true, actorId, contentId: null, targetContentId: null };
+  }
+
+  const targetId = await targetOf(tx, context, action.on, trigger, dueAt);
+  const [target] = targetId
+    ? await tx.select().from(schema.content).where(eq(schema.content.id, targetId))
+    : [];
+  if (!target) {
+    return { done: false, reason: "there was nothing there to act on" };
+  }
+  const theirs = target.authorActorId === context.actorId;
+
+  if (action.action === "comment") {
+    // Without threads, a reply to a comment goes on the post, as it would for anyone.
+    let parentId = target.id;
+    if (target.kind === "comment" && !features.threads) {
+      let current = target;
+      while (current.parentId) {
+        const [parent] = await tx
+          .select()
+          .from(schema.content)
+          .where(eq(schema.content.id, current.parentId));
+        if (!parent) {
+          break;
+        }
+        current = parent;
+      }
+      parentId = current.id;
+    }
+    const [made] = await tx
+      .insert(schema.content)
+      .values({ ...base, kind: "comment", body: action.text, parentId })
+      .returning({ id: schema.content.id });
+    if (theirs) {
+      await tx.insert(schema.notifications).values({
+        worldId: context.worldId,
+        recipientActorId: context.actorId,
+        actorId,
+        type: "reply",
+        targetContentId: target.id,
+        replyContentId: made?.id ?? null,
+        dueAt,
+      });
+    }
+    return { done: true, actorId, contentId: made?.id ?? null, targetContentId: target.id };
+  }
+
+  if (action.action === "repost") {
+    const [made] = await tx
+      .insert(schema.content)
+      .values({ ...base, kind: "post", repostOf: target.id })
+      .returning({ id: schema.content.id });
+    if (theirs) {
+      await tx.insert(schema.notifications).values({
+        worldId: context.worldId,
+        recipientActorId: context.actorId,
+        actorId,
+        type: "repost",
+        targetContentId: target.id,
+        dueAt,
+      });
+    }
+    return { done: true, actorId, contentId: made?.id ?? null, targetContentId: target.id };
+  }
+
+  // A like counts wherever it is, and tells the participant if it's on what they wrote.
+  await tx.insert(schema.notifications).values({
+    worldId: context.worldId,
+    recipientActorId: target.authorActorId,
+    actorId,
+    type: "like",
+    targetContentId: target.id,
+    dueAt,
+  });
+  return { done: true, actorId, contentId: null, targetContentId: target.id };
+}
+
+/** Beats with a set time that have come due and haven't been written down yet. */
+async function scheduleTimed(tx: Transaction, context: ParticipantContext, now: Date) {
+  const startMs = context.worldStartedAt.getTime();
+  const timed = (await beatsFor(tx, context.studyVersionId)).filter(
+    (beat) => inCondition(beat, context) && "time" in beat.when,
+  );
+  if (timed.length === 0) {
+    return;
+  }
+  const started = new Set(
+    (
+      await tx
+        .select({ beat: schema.beatRuns.beat })
+        .from(schema.beatRuns)
+        .where(
+          and(
+            eq(schema.beatRuns.worldId, context.worldId),
+            inArray(
+              schema.beatRuns.beat,
+              timed.map(({ id }) => id),
+            ),
+          ),
+        )
+    ).map(({ beat }) => beat),
+  );
+  for (const beat of timed) {
+    const at = startMs + (beat.when as { time: number }).time;
+    if (!started.has(beat.id) && at <= now.getTime()) {
+      await schedule(tx, context, beat, { kind: "time" }, new Date(at));
+    }
+  }
+}
+
+/**
+ * Decides every beat that has come due in this world, oldest first, and does what each says. A
+ * beat that follows another is written down as that one happens, so a chain plays out in one go.
+ * Called before anything is loaded and after the participant does something.
+ */
+export async function catchUp(db: Database, context: ParticipantContext, now = new Date()) {
+  const beats = await beatsFor(db, context.studyVersionId);
+  if (beats.length === 0) {
+    return;
+  }
+  const byId = new Map(beats.map((beat) => [beat.id, beat]));
+
+  await db.transaction(async (tx) => {
+    await scheduleTimed(tx, context, now);
+  });
+
+  // A chain can only be as long as there are beats, which bounds the loop.
+  for (let round = 0; round <= beats.length * 4; round++) {
+    const due = await db
+      .select()
+      .from(schema.beatRuns)
+      .where(
+        and(
+          eq(schema.beatRuns.worldId, context.worldId),
+          eq(schema.beatRuns.status, "pending"),
+          lte(schema.beatRuns.dueAt, now),
+        ),
+      )
+      .orderBy(asc(schema.beatRuns.dueAt), asc(schema.beatRuns.id))
+      .limit(1);
+    const [run] = due;
+    if (!run) {
+      return;
+    }
+    await db.transaction(async (tx) => {
+      // Only one load decides a run, even if two arrive at once.
+      const [claimed] = await tx
+        .update(schema.beatRuns)
+        .set({ status: "skipped", decidedAt: now })
+        .where(and(eq(schema.beatRuns.id, run.id), eq(schema.beatRuns.status, "pending")))
+        .returning({ id: schema.beatRuns.id });
+      if (!claimed) {
+        return;
+      }
+      const beat = byId.get(run.beat);
+      const trigger = run.trigger as Trigger;
+      const decide = (values: Partial<typeof schema.beatRuns.$inferInsert>) =>
+        tx.update(schema.beatRuns).set(values).where(eq(schema.beatRuns.id, run.id));
+      if (!beat) {
+        await decide({ reason: "the beat isn't in this version" });
+        return;
+      }
+      const blockers = beat.unless.length
+        ? await tx
+            .select({ beat: schema.beatRuns.beat })
+            .from(schema.beatRuns)
+            .where(
+              and(
+                eq(schema.beatRuns.worldId, context.worldId),
+                eq(schema.beatRuns.status, "fired"),
+                inArray(schema.beatRuns.beat, beat.unless),
+                lte(schema.beatRuns.dueAt, run.dueAt),
+              ),
+            )
+            .limit(1)
+        : [];
+      if (blockers[0]) {
+        await decide({ reason: `"${blockers[0].beat}" had already happened` });
+        return;
+      }
+      const done = await perform(tx, context, beat, trigger, run.dueAt);
+      if (!done.done) {
+        await decide({ reason: done.reason });
+        return;
+      }
+      await decide({
+        status: "fired",
+        actorId: done.actorId,
+        contentId: done.contentId,
+        targetContentId: done.targetContentId,
+      });
+      // What follows this beat counts from when it happened.
+      for (const next of beats) {
+        if (inCondition(next, context) && "beat" in next.when && next.when.beat === beat.id) {
+          await schedule(
+            tx,
+            context,
+            next,
+            {
+              kind: "beat",
+              beat: beat.id,
+              runId: run.id,
+              ...((done.contentId ?? done.targetContentId)
+                ? { contentId: (done.contentId ?? done.targetContentId) as string }
+                : {}),
+            },
+            run.dueAt,
+          );
+        }
+      }
+    });
+  }
+}
+
+/** How many times the participant has done this, counting the one just recorded, from 0. */
+export async function nthOf(
+  tx: Transaction,
+  context: ParticipantContext,
+  type: "content.liked" | "content.reposted" | "actor.followed",
+) {
+  const rows = await tx
+    .select({ id: schema.events.id })
+    .from(schema.events)
+    .where(
+      and(
+        eq(schema.events.worldId, context.worldId),
+        eq(schema.events.participantId, context.participantId),
+        eq(schema.events.type, type),
+      ),
+    );
+  return Math.max(0, rows.length - 1);
+}

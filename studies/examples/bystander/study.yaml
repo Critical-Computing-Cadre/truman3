@@ -1,0 +1,24 @@
+# Reference study #2: bystanders and a pile-on, written as beats for Christof (ADR 51).
+# It's made up for testing, and isn't from a published study. Someone mocks another person's
+# painting. In "defended", someone else in the cast steps in, unless the participant already has.
+# In "silent", nobody does, and someone likes the mocking comment instead.
+schemaVersion: 1
+slug: bystander
+title: Bystander (reference study)
+site: { name: Commons }
+length: { days: 1 }
+entry: { idParam: PROLIFIC_PID, idLabel: Prolific ID, source: prolific }
+conditions:
+  assignment: { method: blocked, blockSize: 2 }
+  arms: [{ key: defended }, { key: silent }]
+platform:
+  style: mixed
+  template: classic
+  # Replies to a comment stay under it, so a reply to the mocking comment can be told apart.
+  features: { threads: true }
+feed: { ranker: chronological }
+flow:
+  - { step: consent, page: pages/consent.md }
+  - { step: account }
+  - { step: feed }
+  - { step: exit }

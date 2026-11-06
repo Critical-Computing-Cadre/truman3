@@ -1,6 +1,7 @@
 import { featureOn, featuresFor } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, gt, inArray, lte } from "drizzle-orm";
+import { onParticipantAct } from "../director/director.ts";
 import { bannedAt, loadBans, loadRemovals, mediaUrl } from "../feed/build.ts";
 import type { ParticipantContext } from "../participants/session.ts";
 
@@ -30,6 +31,16 @@ export async function scheduleReactions(
     startAt?: Date;
   },
 ) {
+  // Beats wait for posts and comments the same way reactions do, after any hold.
+  if (trigger.on !== "story") {
+    await onParticipantAct(
+      tx,
+      context,
+      { action: trigger.on, contentId: trigger.contentId, nth: trigger.nth },
+      trigger.startAt ?? trigger.now,
+    );
+  }
+
   const reactions = await tx
     .select()
     .from(schema.scriptedReactions)

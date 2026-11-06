@@ -310,3 +310,35 @@ test("a study can start with sample content for its kind of platform", async ({
   await page.getByText("1 thing to check").click();
   await page.screenshot({ path: testInfo.outputPath("sample-forum.png"), fullPage: true });
 });
+
+test("a researcher writes beats in the builder, and sees what's wrong with them", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+  await signIn(page);
+  await startStudy(page, `Beats ${Date.now() % 1_000_000}`, async () => {
+    await page.getByRole("radio", { name: "Forum", exact: true }).check();
+    await page.getByRole("radio", { name: /Sample content for Forum/ }).check();
+  });
+  await page.getByRole("link", { name: "Beats" }).click();
+  await expect(page.getByText("This study has no beats yet.")).toBeVisible();
+
+  const beats = page.getByLabel("Beats", { exact: true });
+  const beat = (actor: string) => `beats:
+  - id: welcome
+    when: { participant: post, nth: 0 }
+    delay: "0:01"
+    do: { action: comment, actor: ${actor}, on: trigger, text: Welcome! }
+`;
+  await beats.fill(beat("nobody"));
+  await page.getByRole("button", { name: "Save beats" }).click();
+  await expect(page.getByTestId("beat-problems")).toContainText(
+    'The beat "welcome" is done by "nobody", who isn\'t in the list of actors.',
+  );
+
+  await beats.fill(beat("trailhead"));
+  await page.getByRole("button", { name: "Save beats" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "No problems found." })).toBeVisible();
+  await page.reload();
+  await expect(beats).toHaveValue(/actor: trailhead/);
+});

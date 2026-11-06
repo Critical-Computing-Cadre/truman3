@@ -1,0 +1,59 @@
+# What Christof makes happen in each participant's world. Times are hours:minutes from when they
+# start. See docs/guides/writing-beats.md.
+beats:
+  - id: jake-mocks
+    note: A few minutes in, Jake mocks Maya's painting.
+    when: { time: "0:03" }
+    do:
+      action: comment
+      actor: jake
+      on: { post: maya-art }
+      text: lol my little brother paints better than this
+
+  - id: jake-piles-on
+    note: Then he keeps going.
+    when: { beat: jake-mocks }
+    delay: { min: "0:01", max: "0:02" }
+    do:
+      action: comment
+      actor: jake
+      on: { post: maya-art }
+      text: seriously why would you even post this
+
+  - id: leo-likes-mocking
+    note: In "silent", someone likes the mocking comment, as if agreeing.
+    conditions: [silent]
+    when: { beat: jake-mocks }
+    delay: { min: "0:00", max: "0:01" }
+    do: { action: like, actor: leo, on: { beat: jake-mocks } }
+
+  - id: sam-defends
+    note: In "defended", Sam steps in, unless the participant already answered Jake.
+    conditions: [defended]
+    when: { beat: jake-piles-on }
+    delay: { min: "0:01", max: "0:03" }
+    unless: [jake-answers-participant]
+    do:
+      action: comment
+      actor: sam
+      on: { post: maya-art }
+      text: Not cool, Jake. It's her first painting. Maya, I love the colors!
+
+  - id: jake-answers-participant
+    note: If the participant replies to Jake, he answers them.
+    when: { participant: comment, under: jake-mocks }
+    delay: { min: "0:01", max: "0:02" }
+    do: { action: comment, actor: jake, on: trigger, text: "relax, it's a joke" }
+
+  - id: maya-thanks
+    note: If the participant comments on Maya's post, she thanks them.
+    when: { participant: comment, on: maya }
+    delay: { min: "0:01", max: "0:03" }
+    do: { action: comment, actor: maya, on: trigger, text: "Thank you, that really means a lot" }
+
+  - id: sam-agrees
+    note: In "defended", Sam likes what the participant said to Maya.
+    conditions: [defended]
+    when: { participant: comment, on: maya }
+    delay: "0:01"
+    do: { action: like, actor: sam, on: trigger }

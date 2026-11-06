@@ -1,3 +1,4 @@
+export { parseBeats } from "./beats.ts";
 export { convertLegacyStudy } from "./convert.ts";
 export {
   folderFiles,

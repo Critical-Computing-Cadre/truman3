@@ -54,9 +54,9 @@ function validate(folder: string): number {
     return 1;
   }
 
-  const { actors, posts, comments, reactions, settings } = definition;
+  const { actors, posts, comments, reactions, settings, beats } = definition;
   console.log(
-    `\n"${settings.title}" is valid: ${settings.conditions.arms.length} conditions, ${actors.length} actors, ${posts.length} posts, ${comments.length} comments, ${reactions.length} reactions.`,
+    `\n"${settings.title}" is valid: ${settings.conditions.arms.length} conditions, ${actors.length} actors, ${posts.length} posts, ${comments.length} comments, ${reactions.length} reactions${beats.length > 0 ? `, ${beats.length} beats` : ""}.`,
   );
   return 0;
 }

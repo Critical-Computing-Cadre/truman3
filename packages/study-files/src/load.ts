@@ -5,6 +5,8 @@ import {
   type AppealAnswerDefinition,
   type AutoRuleDefinition,
   type BanDefinition,
+  BEATS_FILE,
+  type BeatDefinition,
   type CommentDefinition,
   type ContextNoteDefinition,
   type FlagAnswerDefinition,
@@ -29,6 +31,7 @@ import {
   validateStudy,
 } from "@truman3/core";
 import { parse as parseYaml } from "yaml";
+import { parseBeats } from "./beats.ts";
 import { type CsvRow, type CsvSpec, parseCsv } from "./csv.ts";
 
 export const ACTORS: CsvSpec = {
@@ -748,6 +751,17 @@ export function readStudyTables(
     }
   }
 
+  // Beats are written by hand in YAML, so the file is kept as written, among the pages, and read
+  // into what Christof uses. Adding sheets to a draft leaves them alone.
+  const beatsText = only ? null : source.read(BEATS_FILE);
+  let beats: BeatDefinition[] = [];
+  if (beatsText !== null) {
+    pages[BEATS_FILE] = beatsText;
+    const read = parseBeats(beatsText);
+    beats = read.beats;
+    issues.push(...read.issues);
+  }
+
   if (!settings.media.baseUrl) {
     const checkMedia = (file: string, name: string | undefined, from?: CsvRowSource) => {
       if (name && !source.has(path.join(file, name))) {
@@ -803,6 +817,7 @@ export function readStudyTables(
       appealAnswers,
       contextNotes,
       stories,
+      beats,
     },
     issues,
   };
