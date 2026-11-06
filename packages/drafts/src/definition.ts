@@ -1,5 +1,10 @@
 import path from "node:path";
-import { type StudyDefinition, type StudySettings, studyDefinitionSchema } from "@truman3/core";
+import {
+  PARTICIPANT_TAG,
+  type StudyDefinition,
+  type StudySettings,
+  studyDefinitionSchema,
+} from "@truman3/core";
 import { MEDIA_FOLDERS } from "@truman3/study-files";
 import type {
   ActorData,
@@ -125,13 +130,21 @@ export function draftToDefinition(
           quoteOfId,
           likedById,
           taggedIds,
+          tagsParticipant,
           ...post
         },
       }) => ({
         ...post,
         actor: usernameOf(actorId),
         ...(likedById ? { likedBy: usernameOf(likedById) } : {}),
-        ...(taggedIds?.length ? { tagged: taggedIds.map(usernameOf) } : {}),
+        ...(taggedIds?.length || tagsParticipant
+          ? {
+              tagged: [
+                ...(taggedIds ?? []).map(usernameOf),
+                ...(tagsParticipant ? [PARTICIPANT_TAG] : []),
+              ],
+            }
+          : {}),
         ...(repostOfId ? { repostOf: postRefs.get(repostOfId) ?? "(missing post)" } : {}),
         ...(quoteOfId ? { quoteOf: postRefs.get(quoteOfId) ?? "(missing post)" } : {}),
         ...(crosspostOfId ? { crosspostOf: postRefs.get(crosspostOfId) ?? "(missing post)" } : {}),

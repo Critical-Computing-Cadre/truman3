@@ -253,6 +253,13 @@
       "when": 1793941932098,
       "tag": "0035_places_tags_highlights",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793944681089,
+      "tag": "0036_tagging_participants",
+      "breakpoints": true
     }
   ]
 }

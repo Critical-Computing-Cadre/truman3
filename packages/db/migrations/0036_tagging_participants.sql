@@ -1,0 +1,3 @@
+ALTER TABLE "notifications" DROP CONSTRAINT "notifications_type";--> statement-breakpoint
+ALTER TABLE "content" ADD COLUMN "tags_participant" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_type" CHECK ("notifications"."type" in ('read', 'like', 'reply', 'up', 'down', 'remove', 'warn', 'answer', 'ban', 'hold', 'approve', 'uphold', 'restore', 'repost', 'follow', 'tag'));

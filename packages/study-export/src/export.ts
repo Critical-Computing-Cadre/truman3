@@ -6,6 +6,7 @@ import {
   FEATURES,
   featuresFor,
   layoutFor,
+  PARTICIPANT_TAG,
   type StudySettings,
   studySettingsSchema,
   TEMPLATES,
@@ -805,7 +806,10 @@ export async function exportStudy(
         lasts_ms: item.lastsMs ?? "",
         liked_by: item.likedByActorId ? actorLabel(item.likedByActorId) : "",
         place: safeText(item.place),
-        tagged: item.taggedActorIds.map(actorLabel).join("|"),
+        tagged: [
+          ...item.taggedActorIds.map(actorLabel),
+          ...(item.tagsParticipant ? [PARTICIPANT_TAG] : []),
+        ].join("|"),
         highlight: safeText(item.highlight),
         close_friends: item.closeFriends ? "true" : "",
         media: item.attachments.map(({ key }) => key).join("|"),
@@ -1061,7 +1065,10 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ["lasts_ms", "For a story, how long it lasts. Empty is a day"],
     ["liked_by", 'Someone in the cast a post says liked it, as in "Liked by ... and others"'],
     ["place", "Where a post says it was, written by the study or by a participant"],
-    ["tagged", "People in the cast tagged in a post, separated by |"],
+    [
+      "tagged",
+      "People tagged in a post, separated by |. {participant} is whoever took part, tagged by the study",
+    ],
     ["highlight", "For a story, the highlight that keeps it on its poster's profile"],
     [
       "close_friends",

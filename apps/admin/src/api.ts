@@ -309,6 +309,7 @@ export interface DraftItemDetails {
   likedById: string | null;
   place: string | null;
   taggedIds: string[];
+  tagsParticipant: boolean;
   origin: string;
 }
 

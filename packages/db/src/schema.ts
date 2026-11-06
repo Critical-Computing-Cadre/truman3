@@ -357,6 +357,8 @@ export const content = pgTable(
     place: text(),
     /** People in the cast tagged in it. Each is checked against the cast when a study is saved. */
     taggedActorIds: uuid("tagged_actor_ids").array().notNull().default(sql`'{}'`),
+    /** Whether a study tagged whoever is taking part. Each participant gets a notification. */
+    tagsParticipant: boolean("tags_participant").notNull().default(false),
     /** For a story, the highlight on its poster's profile that keeps it. */
     highlight: text(),
     /** For a story, whether it's only for its poster's close friends. */
@@ -772,6 +774,7 @@ export const notifications = pgTable(
         "restore",
         "repost",
         "follow",
+        "tag",
       ]),
     ),
     check(

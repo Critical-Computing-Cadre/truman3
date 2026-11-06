@@ -55,6 +55,7 @@ export type FeedContent = Pick<
   | "likedByActorId"
   | "place"
   | "taggedActorIds"
+  | "tagsParticipant"
   | "baseViews"
   | "body"
   | "attachments"
@@ -667,7 +668,10 @@ export async function shapeFeedPosts({
         return shown.likedByActorId && features.likes ? [shown.likedByActorId] : [];
       }),
       ...(features.photoTags
-        ? feed.posts.flatMap((post) => shownAs(byId.get(post.id) as FeedContent).taggedActorIds)
+        ? feed.posts.flatMap((post) => {
+            const shown = shownAs(byId.get(post.id) as FeedContent);
+            return [...shown.taggedActorIds, ...(shown.tagsParticipant ? [viewerActorId] : [])];
+          })
         : []),
       ...feed.posts.flatMap((post) => {
         const listed = byId.get(post.id) as FeedContent;
@@ -852,15 +856,22 @@ export async function shapeFeedPosts({
           }
         : {}),
       ...(item.place && features.places && !removals.has(item.id) ? { place: item.place } : {}),
-      ...(features.photoTags && item.taggedActorIds.length > 0 && !removals.has(item.id)
+      ...(features.photoTags &&
+      (item.taggedActorIds.length > 0 || item.tagsParticipant) &&
+      !removals.has(item.id)
         ? {
-            tagged: item.taggedActorIds.flatMap((id) => {
+            // A study's tag of the participant names whoever is looking, after the cast it tags.
+            tagged: [
+              ...item.taggedActorIds,
+              ...(item.tagsParticipant ? [viewerActorId] : []),
+            ].flatMap((id) => {
               const person = authorById.get(id);
               return person
                 ? [
                     {
                       username: person.username,
                       name: (person.profile as ActorProfile).name ?? person.username,
+                      ...(id === viewerActorId ? { isViewer: true } : {}),
                     },
                   ]
                 : [];
@@ -1141,7 +1152,9 @@ export async function buildFeed(
     (!row.adLabel || features.ads) &&
     (!tag || hasHashtag(postOf(row).body, tag)) &&
     (!place || postOf(row).place === place) &&
-    (!taggedActorId || postOf(row).taggedActorIds.includes(taggedActorId)) &&
+    (!taggedActorId ||
+      postOf(row).taggedActorIds.includes(taggedActorId) ||
+      (taggedActorId === context.actorId && postOf(row).tagsParticipant)) &&
     (!explore || discoverable(postOf(row))) &&
     (!following ||
       postOf(row).authorActorId === context.actorId ||

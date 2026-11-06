@@ -277,6 +277,8 @@ const fieldsSchema = z.strictObject({
   place: z.string().trim().min(1).max(MAX_PLACE_LENGTH).nullable().optional(),
   /** People in the cast tagged in a post. */
   taggedIds: z.array(z.uuid()).optional(),
+  /** Whether a post tags whoever is taking part. */
+  tagsParticipant: z.boolean().optional(),
   caption: z.string().max(500).nullable().optional(),
   lastsHours: z.number().positive().nullable().optional(),
   /** The highlight that keeps a story on its poster's profile. Null takes it out. */
@@ -585,6 +587,7 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
         likedByActorId: data.likedById ?? null,
         place: data.place ?? null,
         taggedActorIds: data.taggedIds ?? [],
+        tagsParticipant: data.tagsParticipant ?? false,
         baseViews: data.views ?? 0,
         body: data.body,
         attachments: (data.pictures ?? []).map((key) => ({ type: "image" as const, key })),
@@ -1069,6 +1072,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
         likedById: string | null;
         place: string | null;
         taggedIds: string[];
+        tagsParticipant: boolean;
         origin: string;
       }
     > = {};
@@ -1100,6 +1104,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           likedById: data.likedById ?? null,
           place: data.place ?? null,
           taggedIds: data.taggedIds ?? [],
+          tagsParticipant: data.tagsParticipant ?? false,
           origin: (item.provenance as Provenance).origin,
         };
       }

@@ -167,8 +167,16 @@ test("places, tags, Explore, highlights, and close friends", async ({ page }, te
     buffer: PNG,
   });
   await newPost.getByLabel("Add a place (optional)").fill("Lima");
+  // And tag people in the cast.
+  await newPost.locator("summary", { hasText: "Tag people" }).click();
+  await newPost.getByRole("checkbox", { name: /^Ann/ }).check();
   await newPost.getByRole("button", { name: "Post", exact: true }).click();
   await expect(newPost).toBeHidden();
   const market = page.locator("article").filter({ hasText: "At the market" });
   await expect(market.getByRole("link", { name: "Lima" })).toBeVisible();
+  await expect(market.getByRole("button", { name: "Tagged: Ann" })).toBeVisible();
+
+  // The study tagged them in Cleo's post, and that's a notification.
+  await page.goto(`${app}/notifications`);
+  await expect(page.getByText("Cleo tagged you in a post")).toBeVisible();
 });

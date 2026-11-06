@@ -16,6 +16,7 @@ export {
   flagAnswerDefinitionSchema,
   MAX_PLACE_LENGTH,
   MAX_TITLE_LENGTH,
+  PARTICIPANT_TAG,
   type PostDefinition,
   postDefinitionSchema,
   type ReactionDefinition,

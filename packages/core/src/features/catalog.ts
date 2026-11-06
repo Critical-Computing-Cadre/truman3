@@ -218,9 +218,9 @@ export const FEATURES = {
   photoTags: {
     name: "Tagging people",
     description:
-      "A post can tag people from the cast, shown on its photo, and a profile has a tab of posts they're tagged in.",
-    version: 1,
-    events: [],
+      "A post can tag people, shown on its photo, and a profile has a tab of posts they're tagged in. A study can tag the participant, which notifies them, and participants can tag people in the cast when they post.",
+    version: 2,
+    events: ["content.created"],
   },
   exploreGrid: {
     name: "An Explore grid",

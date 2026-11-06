@@ -79,6 +79,8 @@ export const itemDataSchemas = {
     place: z.string().min(1).max(MAX_PLACE_LENGTH).optional(),
     /** People in the cast tagged in it. */
     taggedIds: z.array(z.uuid()).optional(),
+    /** Whether it tags whoever is taking part. */
+    tagsParticipant: z.boolean().optional(),
     views: z.number().int().nonnegative().optional(),
     timeMs: z.number().int(),
     likes: z.number().int().nonnegative(),

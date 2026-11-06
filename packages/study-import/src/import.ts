@@ -5,6 +5,7 @@ import {
   createRandom,
   freezePlatform,
   hasErrors,
+  PARTICIPANT_TAG,
   pickFrom,
   type StudyDefinition,
   type StudyIssue,
@@ -404,7 +405,10 @@ export async function freezeStudy(
           adLabel: post.ad,
           likedByActorId: post.likedBy ? actorId(post.likedBy) : null,
           place: post.place ?? null,
-          taggedActorIds: (post.tagged ?? []).map(actorId),
+          taggedActorIds: (post.tagged ?? [])
+            .filter((username) => username !== PARTICIPANT_TAG)
+            .map(actorId),
+          tagsParticipant: (post.tagged ?? []).includes(PARTICIPANT_TAG),
           baseViews: post.views ?? 0,
           body: post.body,
           attachments: post.pictures.map((picture) => ({
