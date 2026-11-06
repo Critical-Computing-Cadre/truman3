@@ -42,9 +42,12 @@ export {
   type PackSummary,
   packContents,
   type SavePack,
+  STARTERS_FOLDER,
+  type Starter,
   type StartStudy,
   savePack,
   savePackFromFolder,
+  starterFor,
   startStudy,
 } from "./packs.ts";
 export {

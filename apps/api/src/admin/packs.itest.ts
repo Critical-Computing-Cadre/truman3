@@ -410,3 +410,56 @@ describe("the cast", () => {
     expect((await team.call("DELETE", `${url}/${id}`)).status).not.toBe(200);
   });
 });
+
+describe("sample content for each kind of platform", () => {
+  it("is listed for every kind, with what's in it", async () => {
+    const team = await lab();
+    const { starters } = (await (await team.call("GET", "/admin/packs")).json()) as {
+      starters: { template: string; posts: number; imageUrls: string[] }[];
+    };
+    expect(starters.map(({ template }) => template).sort()).toEqual(
+      ["classic", "forum", "photo", "shortPosts"].sort(),
+    );
+    for (const starter of starters) {
+      expect(starter.posts).toBeGreaterThan(5);
+    }
+    expect(starters.find(({ template }) => template === "photo")?.imageUrls.length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it.each(["classic", "forum", "shortPosts", "photo"])(
+    "starts a %s study with nothing to fix, on that kind of platform",
+    async (template) => {
+      const team = await lab();
+      const draftId = await startedDraft(team, { starter: true, template });
+      const draft = await info(team, draftId);
+      expect(draft.posts.length).toBeGreaterThan(5);
+      expect(draft.issues.filter(({ severity }) => severity === "error")).toEqual([]);
+      const posts = await itemsOf(draftId, "post");
+      expect(posts[0]?.provenance).toMatchObject({
+        origin: "pack",
+        pack: { id: `starter:${template}` },
+      });
+      const [settings] = await database.db
+        .select({ settings: schema.studyDrafts.settings })
+        .from(schema.studyDrafts)
+        .where(eq(schema.studyDrafts.id, draftId));
+      expect(
+        (settings?.settings as { platform?: { template?: string } } | undefined)?.platform
+          ?.template,
+      ).toBe(template);
+    },
+  );
+
+  it("brings what each kind has, such as communities, stories, and labels", async () => {
+    const team = await lab();
+    const forum = await startedDraft(team, { starter: true, template: "forum" });
+    expect((await itemsOf(forum, "space")).length).toBeGreaterThan(1);
+    expect((await itemsOf(forum, "removal")).length).toBeGreaterThan(0);
+    const photo = await startedDraft(team, { starter: true, template: "photo" });
+    expect((await itemsOf(photo, "story")).length).toBeGreaterThan(1);
+    const short = await startedDraft(team, { starter: true, template: "shortPosts" });
+    expect((await itemsOf(short, "label")).length).toBeGreaterThan(0);
+  });
+});

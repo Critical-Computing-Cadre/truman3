@@ -1,0 +1,21 @@
+id,postID,actor,time,body,replyToID,ups,downs
+r1,f1,trailhead,-39:00,Great report. Thanks for packing out your trash!,,240,1
+r2,f1,quietfern,-38:00,How long did the climb take?,,88,0
+r3,f1,saltlake_sam,-37:30,About two hours with breaks.,r2,95,0
+r4,f2,saltlake_sam,-29:00,"Extra socks. Always extra socks.",,310,2
+r5,f2,trailhead,-28:00,And a map. Phones die.,,280,1
+r6,f2,quietfern,-27:30,Adding both. Thank you!,r4,40,0
+r7,f3,chef_ines,-37:00,That's a beautiful crumb. What hydration?,,520,3
+r8,f3,crumbs_and_co,-36:30,About 78%.,r7,410,1
+r9,f3,midnight_owl,-35:00,Mine still comes out like a brick.,,120,2
+r10,f3,crumbs_and_co,-34:00,Try a longer cold proof. Overnight at least.,r9,200,0
+r11,f4,crumbs_and_co,-25:00,Chef's knife. Everything else is a luxury.,,330,4
+r12,f6,rustbucket,-33:00,Check for a stuck process. Also clean the vents.,,140,0
+r13,f6,pixel_pusher,-32:00,"It was dust. So much dust. Thank you!",r12,90,0
+r14,f7,pixel_pusher,-21:00,Painful lesson. Sorry.,,60,0
+r15,f8,rustbucket,-11:00,Replace the battery and keep the phone.,,180,3
+r16,f9,quietfern,-15:00,I'm still not over it.,,45,0
+r17,f9,saltlake_sam,-14:30,Who could have guessed?,r16,30,1
+r18,f10,trailhead,-7:00,Stunning.,,150,0
+r19,f12,chef_ines,-1:30,Add toasted almonds. Trust me.,,70,0
+r20,f5,automod,-19:59,"Reminder: recipes go in the comments, per rule 2.",,5,10

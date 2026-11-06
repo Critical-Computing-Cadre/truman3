@@ -1,0 +1,6 @@
+on,nth,type,actor,after,body
+post,0,like,maya_r,0:02,
+post,0,like,rosa_m,0:05,
+post,0,reply,grace_o,0:08,Welcome! Glad you're here.
+post,1,like,sam_w,0:10,
+comment,0,like,lina_k,0:04,

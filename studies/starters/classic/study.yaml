@@ -1,0 +1,18 @@
+# A starter: sample content for trying out the Classic kind of platform. The New Study page offers
+# it as "Start with sample content". Its people, posts, and pictures are made up.
+schemaVersion: 1
+slug: classic-starter
+title: Classic sample
+site: { name: Commons }
+length: { days: 2 }
+entry: { idParam: PROLIFIC_PID, idLabel: Prolific ID, source: prolific }
+conditions:
+  assignment: { method: uniform }
+  arms: [{ key: control }]
+platform: { style: mixed, template: classic }
+likes: { posts: [3, 8, 12, 25, 40], comments: [0, 1, 2, 4] }
+flow:
+  - { step: consent, page: pages/consent.md }
+  - { step: account }
+  - { step: feed }
+  - { step: exit }

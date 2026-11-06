@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import type { TemplateKey } from "@truman3/core";
+import { TEMPLATES, type TemplateKey } from "@truman3/core";
 import { type FormEvent, useState } from "react";
 import { type ContentPack, get, post } from "../api.ts";
 import { TemplateCards } from "../components/TemplateCards.tsx";
@@ -55,18 +55,74 @@ function PackChoice({
   );
 }
 
+interface Starter {
+  template: TemplateKey;
+  actors: number;
+  posts: number;
+  comments: number;
+  imageUrls: string[];
+}
+
+/** Made-up content for the kind of platform chosen, to try it out without building anything. */
+function SampleChoice({
+  starter,
+  chosen,
+  onChoose,
+}: {
+  starter: Starter;
+  chosen: boolean;
+  onChoose: () => void;
+}) {
+  return (
+    <label
+      className={`block cursor-pointer rounded-lg border bg-white p-3 ${chosen ? "border-stone-900" : "border-stone-200"}`}
+    >
+      <span className="flex items-baseline gap-2">
+        <input type="radio" name="start" checked={chosen} onChange={onChoose} />
+        <span className="font-medium">Sample content for {TEMPLATES[starter.template].name}</span>
+      </span>
+      <p className="mt-1 text-sm text-stone-600">
+        Made-up people, posts, and pictures that use what this kind of platform has, to try it out
+        or start from. It's copied in, so you can change or delete any of it.
+      </p>
+      <p className="mt-1 text-xs text-stone-500">
+        {starter.actors} people, {starter.posts} posts, {starter.comments} comments
+      </p>
+      {starter.imageUrls.length > 0 && (
+        <span className="mt-2 flex gap-1">
+          {starter.imageUrls.map((url) => (
+            <img
+              key={url}
+              src={url}
+              alt=""
+              loading="lazy"
+              className="h-16 w-16 rounded object-cover"
+            />
+          ))}
+        </span>
+      )}
+    </label>
+  );
+}
+
 export function NewStudyPage() {
   const navigate = useNavigate();
   const list = useQuery({
     queryKey: ["packs"],
     queryFn: () =>
-      get<{ teams: { id: string; name: string }[]; packs: ContentPack[] }>("/admin/packs"),
+      get<{
+        teams: { id: string; name: string }[];
+        packs: ContentPack[];
+        starters: Starter[];
+      }>("/admin/packs"),
   });
 
   const [title, setTitle] = useState("");
   const [typedSlug, setTypedSlug] = useState<string | null>(null);
   const [teamChoice, setTeamChoice] = useState<string | null>(null);
   const [packId, setPackId] = useState<string | null>(null);
+  /** Sample content for the kind of platform chosen, instead of a pack or nothing. */
+  const [sample, setSample] = useState(false);
   const [keep, setKeep] = useState<"everything" | "background">("everything");
   const [assignment, setAssignment] = useState<"uniform" | "blocked" | null>(null);
   /** Left alone, a pack keeps the platform it came with, and anything else is Classic. */
@@ -75,7 +131,9 @@ export function NewStudyPage() {
   const slug = typedSlug ?? toLinkName(title);
   const teams = list.data?.teams ?? [];
   const teamId = teamChoice ?? teams[0]?.id ?? "";
-  const pack = list.data?.packs.find(({ id }) => id === packId);
+  const pack = sample ? undefined : list.data?.packs.find(({ id }) => id === packId);
+  const starter = list.data?.starters.find((item) => item.template === (template ?? "classic"));
+  const withSample = sample && starter !== undefined;
 
   const start = useMutation({
     mutationFn: () =>
@@ -84,7 +142,8 @@ export function NewStudyPage() {
         title,
         slug,
         assignment,
-        packId,
+        packId: withSample ? null : packId,
+        ...(withSample ? { starter: true } : {}),
         ...(pack ? { keep } : {}),
         ...(template ? { template } : {}),
       }),
@@ -171,15 +230,28 @@ export function NewStudyPage() {
             A pack is copied into your study, and then it's yours to change. Nothing that happens to
             the pack later can affect your study.
           </p>
+          {starter && (
+            <SampleChoice
+              starter={starter}
+              chosen={withSample}
+              onChoose={() => {
+                setSample(true);
+                setPackId(null);
+              }}
+            />
+          )}
           <label
-            className={`block cursor-pointer rounded-lg border bg-white p-3 ${packId === null ? "border-stone-900" : "border-stone-200"}`}
+            className={`block cursor-pointer rounded-lg border bg-white p-3 ${packId === null && !withSample ? "border-stone-900" : "border-stone-200"}`}
           >
             <span className="flex items-baseline gap-2">
               <input
                 type="radio"
                 name="start"
-                checked={packId === null}
-                onChange={() => setPackId(null)}
+                checked={packId === null && !withSample}
+                onChange={() => {
+                  setSample(false);
+                  setPackId(null);
+                }}
               />
               <span className="font-medium">Start with nothing</span>
             </span>
@@ -189,8 +261,11 @@ export function NewStudyPage() {
             <PackChoice
               key={item.id}
               pack={item}
-              chosen={packId === item.id}
-              onChoose={() => setPackId(item.id)}
+              chosen={!withSample && packId === item.id}
+              onChoose={() => {
+                setSample(false);
+                setPackId(item.id);
+              }}
             />
           ))}
         </fieldset>

@@ -1,0 +1,16 @@
+id,actor,space,time,title,body,picture,link,flair,ups,downs,pinned,locked,tags,poll
+f0,trailhead,hiking,-47:00,Welcome! Read the rules before posting,"Trip reports, gear questions, and photos all welcome. Be kind, and leave no trace.",,,,512,4,space,yes,,
+f1,saltlake_sam,hiking,-40:00,Lake trail at sunrise: worth the 4am alarm,Got to the top just as the sun came up. Full report in the comments.,lake-trail.png,,Trip report,1840,22,,,,
+f2,quietfern,hiking,-30:00,First overnight trip. What am I forgetting?,"Tent, bag, stove, water filter, headlamp. Going out for one night next weekend.",,,Question,236,3,,,,
+f3,crumbs_and_co,cooking,-38:00,My sourdough finally has an open crumb,Three months of flat loaves. The trick was a wetter dough and a longer cold proof.,,,Recipe,3120,41,,,,
+f4,chef_ines,cooking,-26:00,What's the one knife you'd keep?,Line cook here. Curious what home cooks actually reach for.,,,Question,890,12,,,,Chef's knife=420|Paring knife=95|Bread knife=130|Cleaver=48
+f5,midnight_owl,cooking,-20:00,Dinner tonight,Simple pasta. Nothing fancy.,pasta.png,,,412,8,,,,
+f6,pixel_pusher,tech,-34:00,"Laptop fan running constantly, nothing open","Fan is loud even when idle. Checked for updates, restarted. Any ideas?",,,Question,154,2,,,,
+f7,rustbucket,tech,-22:00,PSA: back up before updating,"Lost a week of work to an update gone wrong. Learn from me.",,https://example.org/backups,,2210,30,,,,
+f8,pixel_pusher,tech,-12:00,Is it worth upgrading to the new phone?,Mine is three years old and works fine. Battery is the only complaint.,,,Question,98,5,,,,Yes=40|No=72|Just replace the battery=133
+f9,midnight_owl,offtopic,-16:00,The finale last night (spoilers),Did NOT see that ending coming.,,,,640,18,,,spoiler,
+f10,saltlake_sam,hiking,-8:00,Sunset from the ridge,Stayed later than planned. No regrets.,hills-dusk.png,,Trip report,920,6,,,,
+f11,quietfern,offtopic,-5:00,Free plant cuttings in the Denver area,DM me if you want some pothos.,,,,74,1,,,,
+f12,crumbs_and_co,cooking,-2:00,Weeknight salad that actually fills you up,"Chickpeas, feta, and a lot of lemon.",salad.png,,Recipe,330,4,,,,
+f13,rustbucket,tech,2:00,Old desktop won't boot after moving it,Probably a loose cable. Will report back.,,,Question,40,1,,,,
+f14,chef_ines,cooking,6:00,Knife sharpening myths,Let's talk about it.,,,,120,3,,,,

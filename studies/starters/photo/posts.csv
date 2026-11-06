@@ -1,0 +1,10 @@
+id,actor,time,body,picture,place,tagged,likes,likedBy
+p1,sunny.trails,-40:00,Up before the sun. Worth it. #hiking,lake-trail.png,"Lake Trail, Colorado",ravi.k,1840,ravi.k
+p2,eats.with.ellie,-34:00,Sunday pasta. Recipe saved in highlights.,pasta.png,"Ellie's Kitchen",,3120,dana.m
+p3,nightcity,-30:00,The city never really sleeps.,city-night.png,"Downtown Chicago",,960,sunny.trails
+p4,coastal.co,-26:00,Golden hour at the beach.,beach.png,"Santa Monica, California",,410,
+p5,sunny.trails,-20:00,Ridge walk at dusk with this one,hills-dusk.png,"Ridge Trail, Colorado",dana.m,2210,eats.with.ellie
+p6,eats.with.ellie,-15:00,Salad that actually keeps you full,salad.png,,,1520,nightcity
+p7,ravi.k,-10:00,Morning hills,hills-dawn.png,"Boulder, Colorado",sunny.trails,640,sunny.trails
+p8,dana.m,-4:00,Weekend views,beach.png,"Malibu, California",coastal.co,120,
+p9,nightcity,2:00,New spot for night shots,city-night.png,"River North, Chicago",,300,
