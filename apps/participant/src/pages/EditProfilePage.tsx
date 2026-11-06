@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { usePlatform } from "@truman3/ui";
 import { meQuery, postForm } from "../api.ts";
 import { ProfileForm } from "../components/ProfileForm.tsx";
 
@@ -8,11 +9,13 @@ export function EditProfilePage() {
   const client = useQueryClient();
   const navigate = useNavigate();
   const me = useQuery(meQuery);
+  // Only profiles that show a banner ask for one.
+  const banners = usePlatform().layout === "short-posts";
 
   if (!me.data) {
     return null;
   }
-  const { username, name, location, bio, pictureUrl } = me.data;
+  const { username, name, location, bio, pictureUrl, bannerUrl } = me.data;
 
   return (
     <div className="mx-auto max-w-xl bg-white p-6 sm:rounded-lg sm:shadow-sm">
@@ -20,6 +23,7 @@ export function EditProfilePage() {
       <ProfileForm
         initial={{ username, name, location, bio }}
         pictureUrl={{ url: pictureUrl, seed: username }}
+        {...(banners ? { bannerUrl: { url: bannerUrl } } : {})}
         submitLabel="Save"
         save={async (fields) => {
           await postForm("/me/profile", { ...fields });

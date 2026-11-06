@@ -67,6 +67,7 @@ function Person({
   followingOn,
   badgesOn,
   whoToFollowOn,
+  bannerOn,
   flairSpaces,
   edits,
 }: {
@@ -82,9 +83,12 @@ function Person({
   badgesOn: boolean;
   /** Whether anyone in this study sees suggestions for who to follow. */
   whoToFollowOn: boolean;
+  /** Whether profiles have a banner across the top, as in Short posts. */
+  bannerOn: boolean;
   edits: DraftEdits;
 }) {
   const file = useRef<HTMLInputElement>(null);
+  const bannerFile = useRef<HTMLInputElement>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const save = (changes: object) => {
     setProblem(null);
@@ -134,6 +138,59 @@ function Person({
         )}
       </div>
       <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
+        {bannerOn && (
+          <div className="flex items-center gap-3 sm:col-span-2">
+            {actor.bannerUrl ? (
+              <img
+                src={actor.bannerUrl}
+                alt=""
+                data-testid="cast-banner"
+                className="h-12 w-40 rounded object-cover"
+              />
+            ) : (
+              <span className="flex h-12 w-40 items-center justify-center rounded bg-stone-100 text-xs text-stone-500">
+                No banner
+              </span>
+            )}
+            {canEdit && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => bannerFile.current?.click()}
+                  className="text-xs underline"
+                >
+                  {actor.bannerUrl ? "Change banner" : "Add a banner"}
+                </button>
+                {actor.bannerUrl && (
+                  <button
+                    type="button"
+                    onClick={() => save({ banner: null })}
+                    className="text-xs underline"
+                  >
+                    Remove banner
+                  </button>
+                )}
+                <input
+                  ref={bannerFile}
+                  aria-label={`Banner of ${actor.name}`}
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(event) => {
+                    const chosen = event.target.files?.[0];
+                    if (chosen) {
+                      setProblem(null);
+                      edits.setActorPicture.mutate(
+                        { itemId: actor.id, file: chosen, field: "banner" },
+                        { onError: (error) => setProblem(error.message) },
+                      );
+                    }
+                  }}
+                />
+              </>
+            )}
+          </div>
+        )}
         <CastField
           label="Name"
           required
@@ -366,6 +423,7 @@ export function CastPage() {
             followingOn={info.data.conditions.some(({ features }) => features.following)}
             badgesOn={info.data.conditions.some(({ features }) => features.badges)}
             whoToFollowOn={info.data.conditions.some(({ features }) => features.whoToFollow)}
+            bannerOn={info.data.conditions.some(({ layout }) => layout === "short-posts")}
             flairSpaces={
               info.data.conditions.some(({ features }) => features.flair)
                 ? info.data.spaces.filter(({ userFlair }) => userFlair.length > 0)

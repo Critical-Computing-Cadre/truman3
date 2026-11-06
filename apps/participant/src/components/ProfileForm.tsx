@@ -13,6 +13,7 @@ export interface ProfileFields {
 export function ProfileForm({
   initial,
   pictureUrl,
+  bannerUrl,
   submitLabel,
   save,
   children,
@@ -20,16 +21,20 @@ export function ProfileForm({
   initial: ProfileFields;
   /** Their picture now, if they already have a profile to change. */
   pictureUrl?: { url: string | null; seed: string };
+  /** Their banner now, on a layout whose profiles have one. Leave out where they don't. */
+  bannerUrl?: { url: string | null };
   submitLabel: string;
-  save: (fields: ProfileFields & { picture?: File }) => Promise<void>;
+  save: (fields: ProfileFields & { picture?: File; banner?: File }) => Promise<void>;
   /** Anything to put beside the save button. */
   children?: ReactNode;
 }) {
   const [fields, setFields] = useState(initial);
   const [picture, setPicture] = useState<File | null>(null);
+  const [banner, setBanner] = useState<File | null>(null);
 
   const saving = useMutation({
-    mutationFn: () => save({ ...fields, ...(picture ? { picture } : {}) }),
+    mutationFn: () =>
+      save({ ...fields, ...(picture ? { picture } : {}), ...(banner ? { banner } : {}) }),
   });
 
   const submit = (event: FormEvent) => {
@@ -96,6 +101,22 @@ export function ProfileForm({
           onChange={(event) => setPicture(event.target.files?.[0] ?? null)}
         />
       </label>
+      {bannerUrl && (
+        <label className={labelClass}>
+          Banner
+          <span className="text-sm font-normal text-stone-500">
+            Optional. A wide picture across the top of your profile.
+          </span>
+          {bannerUrl.url && !banner && (
+            <img src={bannerUrl.url} alt="" className="h-20 w-full rounded object-cover" />
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(event) => setBanner(event.target.files?.[0] ?? null)}
+          />
+        </label>
+      )}
       {saving.error && (
         <p role="alert" className="text-sm text-rose-700">
           {saving.error.message}

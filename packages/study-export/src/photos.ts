@@ -5,8 +5,8 @@ export interface ParticipantPhoto {
   key: string;
   /** The same ID the data uses for them. */
   participantId: string;
-  kind: "post" | "profile";
-  /** The post it's on. Empty for a profile picture. */
+  kind: "post" | "profile" | "banner";
+  /** The post it's on. Empty for a profile picture or banner. */
   contentId: string;
 }
 
@@ -35,9 +35,12 @@ export async function listParticipantPhotos(
 
   const photos: ParticipantPhoto[] = [];
   for (const { profile, participantId } of members) {
-    const { picture } = profile as { picture?: string };
+    const { picture, banner } = profile as { picture?: string; banner?: string };
     if (picture?.startsWith("uploads/")) {
       photos.push({ key: picture, participantId, kind: "profile", contentId: "" });
+    }
+    if (banner?.startsWith("uploads/")) {
+      photos.push({ key: banner, participantId, kind: "banner", contentId: "" });
     }
   }
 

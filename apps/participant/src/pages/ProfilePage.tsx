@@ -154,10 +154,14 @@ export function ProfilePage() {
   const grid = gridOn && pagesOn;
   const [reason, setReason] = useState<string | null>(null);
   const [openList, setOpenList] = useState<"saved" | "hidden" | null>(null);
-  const [tab, setTab] = useState<"posts" | "media" | "tagged">("posts");
-  // A grid of photos is already their media, so only a list gets a tab of it.
+  const commentsOn = useFeature("comments");
+  const [tab, setTab] = useState<"posts" | "replies" | "media" | "tagged">("posts");
+  // A grid of photos is already their media, so only a list gets a tab of it. Replies are where
+  // they live on a post's own page, as on Bluesky and Reddit, rather than open under each post.
+  const repliesTab = commentsOn && pagesOn && !grid;
   const tabs = [
     ["posts", "Posts"] as const,
+    ...(repliesTab ? [["replies", "Replies"] as const] : []),
     ...(grid ? [] : [["media", "Media"] as const]),
     ...(tagsOn ? [["tagged", "Tagged"] as const] : []),
   ];
@@ -166,6 +170,12 @@ export function ProfilePage() {
     queryFn: () =>
       get<FeedResponse>(`/feed?surface=tagged&username=${encodeURIComponent(username)}`),
     enabled: tagsOn && tab === "tagged",
+  });
+  const replies = useQuery({
+    queryKey: ["feed", "replies", username],
+    queryFn: () =>
+      get<FeedResponse>(`/feed?surface=replies&username=${encodeURIComponent(username)}`),
+    enabled: repliesTab && tab === "replies",
   });
 
   const page = useQuery({
@@ -351,14 +361,16 @@ export function ProfilePage() {
           posts={
             tab === "tagged"
               ? (tagged.data?.posts ?? [])
-              : tab === "media"
-                ? actor.posts.filter((post) => post.attachments.length > 0)
-                : actor.posts
+              : tab === "replies"
+                ? (replies.data?.posts ?? [])
+                : tab === "media"
+                  ? actor.posts.filter((post) => post.attachments.length > 0)
+                  : actor.posts
           }
-          loading={tab === "tagged" && !tagged.data}
+          loading={(tab === "tagged" && !tagged.data) || (tab === "replies" && !replies.data)}
           grid={grid}
           label={tabs.find(([key]) => key === tab)?.[1] ?? "Posts"}
-          surface={tab === "tagged" ? "tagged" : "profile"}
+          surface={tab === "tagged" || tab === "replies" ? tab : "profile"}
         />
       )}
     </div>

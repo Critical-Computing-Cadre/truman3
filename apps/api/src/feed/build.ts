@@ -1112,6 +1112,8 @@ export interface BuildFeedOptions {
   taggedActorId?: string | undefined;
   /** Only photo posts from people this person doesn't follow, for the Explore grid. */
   explore?: boolean | undefined;
+  /** Only posts this actor replied to, with only their replies, on their profile's Replies tab. */
+  repliedBy?: string | undefined;
 }
 
 /** Works out what a participant sees now, and records that it was shown. */
@@ -1134,6 +1136,7 @@ export async function buildFeed(
     place,
     taggedActorId,
     explore,
+    repliedBy,
   }: BuildFeedOptions = {},
 ): Promise<FeedPost[]> {
   const worldStartMs = context.worldStartedAt.getTime();
@@ -1248,6 +1251,20 @@ export async function buildFeed(
     }
     return !post && row.repostOf ? state.mutedActorIds.has(rootOf(row).authorActorId) : false;
   };
+  /** The posts with a reply from them that's there by now, for their Replies tab. */
+  const repliedTo = new Set(
+    repliedBy
+      ? rows
+          .filter(
+            (row) =>
+              row.kind === "comment" &&
+              row.authorActorId === repliedBy &&
+              inCondition(row) &&
+              appeared(row),
+          )
+          .map((row) => postOf(row).id)
+      : [],
+  );
   const inScope = (row: ContentRow) =>
     !hiddenByBan(row, rowsById, bans, worldStartMs) &&
     repostShows(row) &&
@@ -1259,6 +1276,7 @@ export async function buildFeed(
       postOf(row).taggedActorIds.includes(taggedActorId) ||
       (taggedActorId === context.actorId && postOf(row).tagsParticipant)) &&
     (!explore || discoverable(postOf(row))) &&
+    (!repliedBy || repliedTo.has(postOf(row).id)) &&
     (!following ||
       postOf(row).authorActorId === context.actorId ||
       state.followedActorIds.has(postOf(row).authorActorId)) &&
@@ -1268,7 +1286,14 @@ export async function buildFeed(
     inSpaces(row);
   // A pin belongs to a list, so a post pinned in its community isn't also on top at home.
   const pinPlace =
-    features.pinning && !post && !authorActorId && !list && !place && !taggedActorId && !explore
+    features.pinning &&
+    !post &&
+    !authorActorId &&
+    !list &&
+    !place &&
+    !taggedActorId &&
+    !explore &&
+    !repliedBy
       ? space
         ? "space"
         : "home"
@@ -1278,15 +1303,18 @@ export async function buildFeed(
     ...conditionSettings,
     ranker:
       sort ??
-      (list ? "new" : undefined) ??
+      (list || repliedBy ? "new" : undefined) ??
       (space ? conditionSettings.spaceRanker : undefined) ??
       (following ? (conditionSettings.followingRanker ?? "new") : undefined) ??
       conditionSettings.ranker,
     commentOrder: commentSort ?? conditionSettings.commentOrder,
   };
   // Comments that wait for a post's own page aren't shown here, so they aren't recorded as shown.
+  // Their replies are what the Replies tab is for, so they're shown even where comments wait.
   const commentsHere =
-    post !== undefined || !featureOn(context.settings, context.conditionKey, "postPages");
+    post !== undefined ||
+    repliedBy !== undefined ||
+    !featureOn(context.settings, context.conditionKey, "postPages");
   const seed =
     feedSettings.reshuffleEachVisit && visit !== undefined
       ? (context.seed ^ visit) >>> 0
@@ -1352,8 +1380,20 @@ export async function buildFeed(
     },
   );
 
+  // Whole threads were needed to place each reply, and then only theirs are kept, side by side.
+  if (repliedBy) {
+    feed.posts = feed.posts.map((item) => {
+      const theirs = item.commentIds.filter((id) => rowsById.get(id)?.authorActorId === repliedBy);
+      return {
+        ...item,
+        commentIds: theirs,
+        commentDepths: Object.fromEntries(theirs.map((id) => [id, 0])),
+      };
+    });
+  }
+
   // Ads go every so many posts in a list, not on someone's page or a post's own page.
-  if (features.ads && feedSettings.adEvery && !post && !authorActorId && !list) {
+  if (features.ads && feedSettings.adEvery && !post && !authorActorId && !list && !repliedBy) {
     feed.posts = placeAds(
       feed.posts,
       ({ id }) => Boolean(rowsById.get(id)?.adLabel),

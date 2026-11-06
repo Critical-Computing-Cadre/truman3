@@ -825,6 +825,8 @@ const profileRoute = createRoute({
             bio: z.string().trim().max(500).optional(),
             location: z.string().trim().max(100).optional(),
             picture: z.instanceof(File).optional().openapi({ type: "string", format: "binary" }),
+            /** The wide picture across the top of their profile, on a layout that shows one. */
+            banner: z.instanceof(File).optional().openapi({ type: "string", format: "binary" }),
           }),
         },
       },
@@ -2618,18 +2620,14 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
     }
     const form = c.req.valid("form");
 
-    let picture: string | undefined;
-    if (form.picture) {
-      const key = await storeUploadedImage(
-        storage,
-        context.worldId,
-        context.participantId,
-        form.picture,
-      );
-      if (!key) {
-        return c.json({ error: "That photo can't be used." }, 400);
-      }
-      picture = key;
+    const stored = async (file: File | undefined) =>
+      file
+        ? await storeUploadedImage(storage, context.worldId, context.participantId, file)
+        : undefined;
+    const picture = await stored(form.picture);
+    const banner = await stored(form.banner);
+    if (picture === null || banner === null) {
+      return c.json({ error: "That photo can't be used." }, 400);
     }
 
     if (form.username) {
@@ -2654,6 +2652,7 @@ export function createActionRoutes({ db, storage, mediaPublicUrl }: ParticipantR
       ...changed("bio"),
       ...changed("location"),
       ...(picture === undefined ? {} : { picture }),
+      ...(banner === undefined ? {} : { banner }),
     };
     const newUsername = form.username && form.username !== actor?.username ? form.username : null;
 

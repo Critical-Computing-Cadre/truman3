@@ -140,6 +140,8 @@ export interface DraftInfo {
     bio: string;
     location: string;
     pictureUrl: string | null;
+    /** The wide picture across the top of their profile, on a layout that has one. */
+    bannerUrl: string | null;
     moderator: boolean;
     karma: number;
     followers: number;

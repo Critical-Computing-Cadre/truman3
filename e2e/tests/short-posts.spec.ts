@@ -8,6 +8,10 @@ const { otherLabEmail, otherLabPassword } = JSON.parse(
 ) as { otherLabEmail: string; otherLabPassword: string };
 
 const SHOTS = process.env.FORUM_SHOTS;
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
 const shot = async (page: Page, project: string, name: string) => {
   if (SHOTS) {
     mkdirSync(SHOTS, { recursive: true });
@@ -176,6 +180,14 @@ test("a researcher builds a short posts study, with a repost and a badge", async
   await casey.getByLabel("Followers").blur();
   await casey.getByLabel("Participants start out following them").check();
   await saved();
+  // Short posts profiles have a banner, so the cast can have one.
+  await casey.getByLabel("Banner of Casey Jones").setInputFiles({
+    name: "banner.png",
+    mimeType: "image/png",
+    buffer: PNG,
+  });
+  await expect(casey.getByTestId("cast-banner")).toBeVisible();
+  await saved();
   await page.getByRole("link", { name: "Back to the feed" }).click();
 
   const feed = page.getByRole("main").or(page.locator("body")).first();
@@ -232,6 +244,10 @@ test("a researcher builds a short posts study, with a repost and a badge", async
   await expect(participant.getByText("The first thing Casey said").first()).toBeVisible();
   await participant.goto(`http://localhost:${APP_PORT}/u/casey`);
   await expect(participant.getByTestId("follow-counts")).toContainText("501 followers");
+  await expect(participant.getByTestId("profile-banner")).toHaveAttribute("style", /url\(/);
+  // Casey hasn't replied to anything, and the tab says so.
+  await participant.getByRole("tab", { name: "Replies" }).click();
+  await expect(participant.getByText("No posts to show.")).toBeVisible();
 });
 
 test("a study that follows the device is dark on a device set to dark", async ({
