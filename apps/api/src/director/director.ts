@@ -564,6 +564,7 @@ export async function catchUp(
             prepared.actorId,
             prepared.target?.id ?? null,
             writer,
+            `${beat.id}:${run.run}`,
           )
         : { text: null, writing: null };
 

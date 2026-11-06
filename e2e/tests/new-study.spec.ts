@@ -341,6 +341,26 @@ test("a researcher writes beats in the builder, and sees what's wrong with them"
   await expect(page.getByRole("status").filter({ hasText: "No problems found." })).toBeVisible();
   await page.reload();
   await expect(beats).toHaveValue(/actor: trailhead/);
+
+  // A beat that improvises can be rehearsed. This server has no model key, so it says so.
+  await beats.fill(`beats:
+  - id: welcome
+    when: { participant: post, nth: 0 }
+    do:
+      action: comment
+      actor: trailhead
+      on: trigger
+      improvise: Welcome them
+      fallback: Welcome!
+      lines: [Hey there, Glad you're here]
+`);
+  await page.getByRole("button", { name: "Save beats" }).click();
+  const rehearse = page.getByRole("region", { name: "Rehearse" });
+  await expect(rehearse).toContainText("welcome");
+  await expect(rehearse).toContainText("comment by trailhead, 2 lines");
+  await expect(rehearse).toContainText("This server has no model key");
+  await expect(rehearse.getByRole("button", { name: "Rehearse" })).toBeDisabled();
+  await page.screenshot({ path: testInfo.outputPath("rehearse.png"), fullPage: true });
 });
 
 test("a researcher approves a beat's line, as in a Wizard of Oz study, and it's posted", async ({

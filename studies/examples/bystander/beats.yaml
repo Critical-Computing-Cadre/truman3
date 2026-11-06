@@ -1,8 +1,8 @@
 # What Christof makes happen in each participant's world. Times are hours:minutes from when they
 # start. See docs/guides/writing-beats.md.
 
-# Live writing is off, so improvised replies use their fallback lines. To have Jake and Maya write
-# their own words, set enabled: true, on a server with ANTHROPIC_API_KEY set.
+# Live writing is off, so improvised replies use their rehearsed or fallback lines. To have Jake
+# and Maya write their own words, set enabled: true, on a server with ANTHROPIC_API_KEY set.
 live:
   enabled: false
   budgetUsd: 5
@@ -82,6 +82,12 @@ beats:
       on: trigger
       improvise: Thank them for what they said, in your own words
       fallback: "Thank you, that really means a lot"
+      # Rehearsed lines: with live writing off, each participant's world gets one of these. With it
+      # on, Maya's model picks the one that fits. Add more with Rehearse on the Beats page.
+      lines:
+        - "Thank you, that really means a lot"
+        - "omg thank you, I almost didn't post it"
+        - "this made my day, thank you!!"
 
   - id: sam-agrees
     note: In "defended", Sam likes what the participant said to Maya.

@@ -113,15 +113,24 @@ const wording = {
   text: z.string().min(1).optional(),
   improvise: z.string().min(1).max(1000).optional(),
   fallback: z.string().min(1).optional(),
+  /**
+   * Rehearsed lines for an improvised beat: written before launch, reviewed, and frozen with the
+   * version. `live.stray` says whether a model may write something else.
+   */
+  lines: z.array(z.string().min(1).max(5000)).max(50).optional(),
 };
 const checkWording = (
   action: {
     text?: string | undefined;
     improvise?: string | undefined;
     fallback?: string | undefined;
+    lines?: string[] | undefined;
   },
   ctx: z.RefinementCtx,
 ) => {
+  if (action.lines !== undefined && action.improvise === undefined) {
+    ctx.addIssue({ code: "custom", message: "Rehearsed lines only go with improvise." });
+  }
   if ((action.text === undefined) === (action.improvise === undefined)) {
     ctx.addIssue({ code: "custom", message: "Give either text or improvise." });
   }
@@ -218,6 +227,11 @@ export const liveWritingSchema = z.strictObject({
   approvalTimeout: z
     .union([z.literal("never").transform(() => null), studyTime])
     .default(10 * 60_000),
+  /**
+   * For beats with rehearsed lines, how far a model may stray from them: never (it picks one),
+   * choose (it picks one, or writes its own if none fits), or always (it writes its own every time).
+   */
+  stray: z.enum(["never", "choose", "always"]).default("choose"),
 });
 
 export const beatsFileSchema = z.strictObject({
@@ -229,6 +243,7 @@ export const beatsFileSchema = z.strictObject({
     redLines: [],
     approval: "none",
     approvalTimeout: 10 * 60_000,
+    stray: "choose",
   }),
   /** Persona cards, by username. */
   cast: z.record(z.string(), personaSchema).default({}),

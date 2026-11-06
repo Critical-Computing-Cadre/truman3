@@ -237,6 +237,25 @@ beats:
     ]);
   });
 
+  it("reads rehearsed lines, only on improvised beats, and doesn't warn about live writing for them", () => {
+    expect(
+      problems(`
+beats:
+  - id: hi
+    when: { time: "0:01" }
+    do: { action: post, actor: ann, improvise: Say hi, fallback: Hi!, lines: [Hello, Hey] }
+`),
+    ).toEqual([]);
+    expect(
+      parseBeats(`
+beats:
+  - { id: a, when: { time: "0:01" }, do: { action: post, actor: ann, text: Hi, lines: [Hey] } }
+`).issues.map(({ message }) => message),
+    ).toEqual(['The beat "a" (do): Rehearsed lines only go with improvise.']);
+    expect(parseBeats("beats: []").live.stray).toBe("choose");
+    expect(parseBeats("live: { stray: never }\nbeats: []").live.stray).toBe("never");
+  });
+
   it("reads approval settings: none by default, ten minutes to wait, or never", () => {
     expect(parseBeats("beats: []").live).toMatchObject({
       approval: "none",

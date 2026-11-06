@@ -19,7 +19,7 @@ interface ChristofState {
     dueAt: string;
     actor: string | null;
     pilot: boolean;
-    mode: "live" | "fallback" | "fixed" | null;
+    mode: "live" | "rehearsed" | "fallback" | "fixed" | null;
     output: string | null;
     model: string | null;
     costUsd: number | null;
@@ -229,9 +229,11 @@ export function ChristofCard({ studyId, canEdit }: { studyId: string; canEdit: b
                     <span className="text-stone-500">
                       {run.mode === "live"
                         ? `written by ${run.model}`
-                        : run.mode === "fixed"
-                          ? "fixed line"
-                          : "fallback line"}
+                        : run.mode === "rehearsed"
+                          ? `rehearsed line${run.model ? `, chosen by ${run.model}` : ""}`
+                          : run.mode === "fixed"
+                            ? "fixed line"
+                            : "fallback line"}
                       {run.costUsd ? `, ${dollars(run.costUsd)}` : ""}
                     </span>
                   )}

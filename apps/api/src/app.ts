@@ -8,6 +8,7 @@ import { createLaunchRoutes } from "./admin/launch.ts";
 import { createMonitorRoutes } from "./admin/monitor.ts";
 import { createPackRoutes } from "./admin/packs.ts";
 import { createProlificRoutes } from "./admin/prolific.ts";
+import { createRehearseRoutes } from "./admin/rehearse.ts";
 import { createAdminRoutes } from "./admin/routes.ts";
 import { createSheetRoutes } from "./admin/sheets.ts";
 import { describeError } from "./errors.ts";
@@ -97,6 +98,7 @@ export function createApp({
   app.route("/", createSheetRoutes(participantDependencies));
   app.route("/", createMonitorRoutes(participantDependencies));
   app.route("/", createChristofRoutes(participantDependencies));
+  app.route("/", createRehearseRoutes(participantDependencies));
   app.route("/", createLaunchRoutes(participantDependencies));
   app.route("/", createProlificRoutes(participantDependencies));
 

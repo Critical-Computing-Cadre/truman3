@@ -20,11 +20,12 @@
     "@truman3/storage": "workspace:*",
     "@truman3/study-export": "workspace:*",
     "@truman3/study-files": "workspace:*",
-    "@truman3/writer": "workspace:*",
     "@truman3/study-import": "workspace:*",
+    "@truman3/writer": "workspace:*",
     "drizzle-orm": "0.45.4",
     "fflate": "0.8.2",
     "hono": "4.13.14",
+    "yaml": "2.9.1",
     "zod": "4.6.7"
   },
   "devDependencies": {

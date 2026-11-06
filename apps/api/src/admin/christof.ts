@@ -73,7 +73,7 @@ const stateRoute = createRoute({
                 dueAt: z.iso.datetime(),
                 actor: z.string().nullable(),
                 pilot: z.boolean(),
-                mode: z.enum(["live", "fallback", "fixed"]).nullable(),
+                mode: z.enum(["live", "rehearsed", "fallback", "fixed"]).nullable(),
                 output: z.string().nullable(),
                 model: z.string().nullable(),
                 costUsd: z.number().nullable(),

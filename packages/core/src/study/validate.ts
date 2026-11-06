@@ -1034,7 +1034,10 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       }
     }
   }
-  const improvised = study.beats.filter((beat) => "improvise" in beat.do && beat.do.improvise);
+  // With rehearsed lines, live writing off is a way to run a study: one is drawn for each world.
+  const improvised = study.beats.filter(
+    (beat) => "improvise" in beat.do && beat.do.improvise && !beat.do.lines?.length,
+  );
   if (improvised.length > 0 && !christof?.live.enabled) {
     beatProblem(
       "warning",

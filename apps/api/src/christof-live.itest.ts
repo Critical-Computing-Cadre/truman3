@@ -6,6 +6,7 @@ import { setUpTeam } from "@truman3/accounts";
 import type { FeedPost, FeedResponse } from "@truman3/core";
 import { schema } from "@truman3/db";
 import { createTestDatabase } from "@truman3/db/testing";
+import { loadDraft, openDraft } from "@truman3/drafts";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { importStudyFolder } from "@truman3/study-import";
 import { standInWriter, type WriteRequest } from "@truman3/writer";
@@ -458,5 +459,132 @@ beats:
       mode: "fallback",
       reason: "nobody approved it within 0:05",
     });
+  });
+});
+
+describe("rehearsed lines", () => {
+  const rehearsed = (live: string) => `
+${live}
+beats:
+  - id: reply
+    when: { participant: post, nth: 0 }
+    do:
+      action: comment
+      actor: ann
+      on: trigger
+      improvise: Reply warmly
+      fallback: Thanks for posting!
+      lines: ["Hello aboard, friend", "Kayaking is the best"]
+`;
+
+  it("are drawn the same way for a world when live writing is off, instead of the fallback", async () => {
+    const person = participant(app, await study("", undefined, rehearsed("")));
+    await person.join();
+    const id = await person.write("Hello");
+    await person.poll();
+    const writing = await writingOf("reply");
+    expect(writing).toMatchObject({
+      mode: "rehearsed",
+      reason: "live writing is off for this study",
+    });
+    const lines = ["Hello aboard, friend", "Kayaking is the best"];
+    expect((await person.post(id)).comments.map(({ body }) => body)).toEqual([
+      lines[writing.choice as number],
+    ]);
+  });
+
+  it("are chosen by the model to fit what's happening", async () => {
+    const person = participant(app, await study("", undefined, rehearsed(LIVE_ON)));
+    await person.join();
+    const id = await person.write("Kayaking at dawn today");
+    await person.poll();
+    expect((await person.post(id)).comments[0]?.body).toBe("Kayaking is the best");
+    expect(await writingOf("reply")).toMatchObject({
+      mode: "rehearsed",
+      choice: 1,
+      model: "stand-in",
+      costUsd: 0.01,
+    });
+  });
+
+  it("let the model write its own when none fits, checked like any other, unless it can't stray", async () => {
+    nextLine = () => "Morning swims are great";
+    const strays = participant(app, await study("", undefined, rehearsed(LIVE_ON)));
+    await strays.join();
+    const id = await strays.write("Swimming this morning");
+    await strays.poll();
+    expect((await strays.post(id)).comments[0]?.body).toBe("Morning swims are great");
+    expect(await writingOf("reply")).toMatchObject({ mode: "live", strayed: true });
+
+    const live = "live: { enabled: true, budgetUsd: 1, stray: never }";
+    const stays = participant(app, await study("", undefined, rehearsed(live)));
+    await stays.join();
+    const other = await stays.write("Swimming this morning");
+    await stays.poll();
+    expect((await stays.post(other)).comments[0]?.body).toBe("Hello aboard, friend");
+    expect(await writingOf("reply")).toMatchObject({ mode: "rehearsed", choice: 0 });
+  });
+
+  it("are rehearsed into the draft's beats.yaml, keeping its comments", async () => {
+    const id = randomUUID().slice(0, 8);
+    const email = `${id}@example.edu`;
+    const { teamId, password } = await setUpTeam(database.db, {
+      teamName: `lab-${id}`,
+      slug: `lab-${id}`,
+      email,
+      name: "Rehearser",
+    });
+    const beats = `# Our beats\n${rehearsed("")}`;
+    const slug = await study("", teamId, beats);
+    const [version] = await database.db
+      .select({ id: schema.studyVersions.id })
+      .from(schema.studyVersions)
+      .innerJoin(schema.studies, eq(schema.studies.id, schema.studyVersions.studyId))
+      .where(eq(schema.studies.slug, slug));
+    const [researcher] = await database.db
+      .select({ id: schema.researchers.id })
+      .from(schema.researchers)
+      .where(eq(schema.researchers.email, email));
+    const opened = await openDraft(database.db, version?.id as string, researcher?.id as string);
+    const url = `/admin/drafts/${opened?.draftId}/beats/rehearse`;
+
+    const signIn = async (on: ReturnType<typeof createApp>) => {
+      const login = await on.request("/admin/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const cookie = (login.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+      return (method: string, body?: object) =>
+        on.request(url, {
+          method,
+          headers: { "content-type": "application/json", cookie },
+          ...(body ? { body: JSON.stringify(body) } : {}),
+        });
+    };
+    const call = await signIn(app);
+
+    expect(await (await call("GET")).json()).toEqual({
+      hasModel: true,
+      beats: [{ id: "reply", actor: "ann", action: "comment", lines: 2 }],
+    });
+    const response = await call("POST", { beat: "reply", count: 3 });
+    expect(await response.json()).toMatchObject({
+      lines: ["Rehearsed line 1", "Rehearsed line 2", "Rehearsed line 3"],
+      model: "stand-in",
+      costUsd: 0.02,
+    });
+    const request = writer.calls.at(-1) as WriteRequest;
+    expect(request.system).toContain("You are Ann Lee (@ann).");
+    expect(request.prompt).toContain("Reply warmly");
+
+    const draft = await loadDraft(database.db, opened?.draftId as string);
+    const text = draft?.pages["beats.yaml"] ?? "";
+    expect(text).toContain("# Our beats");
+    expect(text).toContain("Rehearsed line 3");
+    expect(text).toContain("Kayaking is the best");
+
+    expect((await call("POST", { beat: "nope" })).status).toBe(404);
+    expect((await (await signIn(appWithoutModel))("POST", { beat: "reply" })).status).toBe(409);
   });
 });

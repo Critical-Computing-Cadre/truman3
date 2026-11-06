@@ -110,6 +110,33 @@ cast:
     redLines: [Never swears]
 ```
 
+### Rehearsed lines
+
+A beat that improvises can also have `lines`: what the actor might say, written ahead. Write them yourself, or press **Rehearse** beside a beat on the Beats page. Rehearse has the actor's model draft five more and adds them to the beat in `beats.yaml`, keeping your comments, so you can read, change, or delete them before saving a version.
+
+```yaml
+do:
+  action: comment
+  actor: maya
+  on: trigger
+  improvise: Thank them for what they said, in your own words
+  fallback: "Thank you, that really means a lot"
+  lines:
+    - "omg thank you, that made my day"
+    - "this is so kind, thank you!!"
+```
+
+How rehearsed lines are used:
+- **Live writing off:** one is drawn for each participant's world. The same world always gets the same line. No model is called, so there's no cost, and every line was read before launch.
+- **Live writing on:** the model picks the line that fits what's happening.
+- **When none fits:** `stray` in `live` decides.
+  - `choose` (the default) lets the model write its own line, which is checked like any other.
+  - `never` keeps it to the rehearsed lines.
+  - `always` ignores them and always writes live.
+- **When writing live fails:** a rehearsed line is used instead of the fallback line.
+
+`beat_runs.csv` records which line was used, by number from 0, and whether the model strayed.
+
 ### What the model sees
 
 The model is told:
@@ -123,7 +150,7 @@ It sees nothing else in the database.
 
 ### When the fallback line is used
 
-The fallback line is used, and the reason is recorded, when:
+The fallback line, or a rehearsed line if the beat has them, is used, and the reason is recorded, when:
 - live writing is off
 - the server has no key
 - a researcher paused it, for the study or for that actor, from the Monitor page

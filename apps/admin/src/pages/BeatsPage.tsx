@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { BEATS_FILE } from "@truman3/core";
 import { useState } from "react";
-import { type DraftSettings, get, send } from "../api.ts";
+import { type DraftSettings, get, post, send } from "../api.ts";
 import { SaveStatus, useDraftPresence } from "./DraftPage.tsx";
 
 /** What a study with no beats starts from: one beat to copy, which does nothing until it's saved. */
@@ -71,6 +71,14 @@ function Reference() {
             </td>
           </tr>
           <tr>
+            <th className={`${row} font-mono`}>lines</th>
+            <td className={row}>
+              With <code>improvise</code>: lines written ahead, for the model to choose from. Add
+              them yourself or with Rehearse. <code>live: {"{ stray: never }"}</code> keeps it to
+              them
+            </td>
+          </tr>
+          <tr>
             <th className={`${row} font-mono`}>approve</th>
             <td className={row}>
               Waits for a researcher on the Monitor page to approve, change, or skip it. Or{" "}
@@ -80,6 +88,78 @@ function Reference() {
         </tbody>
       </table>
     </details>
+  );
+}
+
+interface Rehearsable {
+  hasModel: boolean;
+  beats: { id: string; actor: string; action: "post" | "comment"; lines: number }[];
+}
+
+/**
+ * Rehearsing: the actor's model drafts lines for an improvised beat before launch, and they're
+ * added to the beat's `lines` above, to read and edit like the rest. See ADR 54.
+ */
+function Rehearse({ draftId, disabled }: { draftId: string; disabled: boolean }) {
+  const client = useQueryClient();
+  const list = useQuery({
+    queryKey: ["draft", draftId, "rehearse"],
+    queryFn: () => get<Rehearsable>(`/admin/drafts/${draftId}/beats/rehearse`),
+  });
+  const rehearse = useMutation({
+    mutationFn: (beat: string) =>
+      post<{ lines: string[]; costUsd: number }>(`/admin/drafts/${draftId}/beats/rehearse`, {
+        beat,
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["draft", draftId] }),
+  });
+  if (!list.data || list.data.beats.length === 0) {
+    return null;
+  }
+  return (
+    <section aria-label="Rehearse" className="space-y-2 rounded-lg bg-white p-3 text-sm shadow-sm">
+      <h2 className="font-medium">Rehearse lines</h2>
+      <p className="text-xs text-stone-500">
+        The actor's model drafts five lines for a beat that improvises. They're added to its{" "}
+        <code>lines</code> above, for you to read and change. In the study, the model picks the one
+        that fits, or, with live writing off, one is picked at random.
+      </p>
+      {!list.data.hasModel && (
+        <p className="text-xs text-amber-800">
+          This server has no model key, so it can't rehearse.
+        </p>
+      )}
+      <ul className="space-y-1">
+        {list.data.beats.map((beat) => (
+          <li key={beat.id} className="flex items-center gap-2">
+            <span className="mr-auto">
+              <span className="font-mono">{beat.id}</span>{" "}
+              <span className="text-xs text-stone-500">
+                {beat.action} by {beat.actor}, {beat.lines} {beat.lines === 1 ? "line" : "lines"}
+              </span>
+            </span>
+            <button
+              type="button"
+              disabled={disabled || !list.data.hasModel || rehearse.isPending}
+              onClick={() => rehearse.mutate(beat.id)}
+              className="rounded border border-stone-300 px-2 py-1 text-xs disabled:opacity-40"
+            >
+              {rehearse.isPending && rehearse.variables === beat.id ? "Rehearsing…" : "Rehearse"}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {rehearse.error && (
+        <p role="alert" className="text-rose-700">
+          {rehearse.error.message}
+        </p>
+      )}
+      {rehearse.data && (
+        <p role="status" className="text-emerald-800">
+          Added {rehearse.data.lines.length} lines, for ${rehearse.data.costUsd.toFixed(2)}.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -199,7 +279,10 @@ export function BeatsPage() {
             </div>
           )}
         </div>
-        <Reference />
+        <div className="space-y-4">
+          {canEdit && <Rehearse draftId={draftId} disabled={dirty || save.isPending} />}
+          <Reference />
+        </div>
       </div>
     </div>
   );
