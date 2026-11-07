@@ -110,6 +110,33 @@ cast:
     redLines: [Never swears]
 ```
 
+### Rehearsed lines
+
+A beat that improvises can also have `lines`: what the actor might say, written ahead. Write them yourself, or press **Rehearse** beside a beat on the Beats page. Rehearse has the actor's model draft five more and adds them to the beat in `beats.yaml`, keeping your comments, so you can read, change, or delete them before saving a version.
+
+```yaml
+do:
+  action: comment
+  actor: maya
+  on: trigger
+  improvise: Thank them for what they said, in your own words
+  fallback: "Thank you, that really means a lot"
+  lines:
+    - "omg thank you, that made my day"
+    - "this is so kind, thank you!!"
+```
+
+How rehearsed lines are used:
+- **Live writing off:** one is drawn for each participant's world. The same world always gets the same line. No model is called, so there's no cost, and every line was read before launch.
+- **Live writing on:** the model picks the line that fits what's happening.
+- **When none fits:** `stray` in `live` decides.
+  - `choose` (the default) lets the model write its own line, which is checked like any other.
+  - `never` keeps it to the rehearsed lines.
+  - `always` ignores them and always writes live.
+- **When writing live fails:** a rehearsed line is used instead of the fallback line.
+
+`beat_runs.csv` records which line was used, by number from 0, and whether the model strayed.
+
 ### What the model sees
 
 The model is told:
@@ -123,7 +150,7 @@ It sees nothing else in the database.
 
 ### When the fallback line is used
 
-The fallback line is used, and the reason is recorded, when:
+The fallback line, or a rehearsed line if the beat has them, is used, and the reason is recorded, when:
 - live writing is off
 - the server has no key
 - a researcher paused it, for the study or for that actor, from the Monitor page
@@ -145,3 +172,19 @@ For each improvised beat, `beat_runs.csv` and the Monitor page record whether it
 ### Waiting for a line
 
 A page someone is looking at never waits for a model. A beat that's writing live is written by the app's background check, which runs every 30 seconds, so it can appear up to that much later than it was due. It's placed at the time it was due.
+
+## Approving beats, for Wizard of Oz studies
+
+A beat can wait for a researcher to approve it, change its line, or skip it before it happens. Do this for every beat with `approval: all` in `live`, or for one beat with `approve: true`. A beat can also say `approve: false` to leave itself out of `approval: all`.
+
+```yaml
+live:
+  approval: all
+  approvalTimeout: "0:05" # or never
+```
+
+- The beat waits on the **Monitor** page, under "Waiting for you". You see what it's about, such as the participant's post, and a suggested line: the model's, if live writing is on, or else the fallback or fixed text.
+- You can **approve** it, **post your own version**, or **skip** it. Approving works with live writing off, so a researcher can write every line themselves.
+- **When it posts:** an approved line appears when it's approved, and beats after it count from then.
+- **If nobody decides** within `approvalTimeout` (ten minutes unless a study says), the fallback or fixed line is used, as of when the time ran out, so a participant never waits forever. `never` waits as long as it takes.
+- **What's recorded:** `beat_runs.csv` records who decided, the suggested line, and whether it was changed.

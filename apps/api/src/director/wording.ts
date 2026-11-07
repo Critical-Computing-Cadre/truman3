@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { BeatDefinition, BeatsFile, Persona } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { ALWAYS_OFF_LIMITS, NothingWritten, type Writer } from "@truman3/writer";
@@ -13,7 +14,12 @@ import type { ParticipantContext } from "../participants/session.ts";
  */
 
 export interface Writing {
-  mode: "live" | "fallback";
+  /** Written by a model, a rehearsed line, the fallback line, or a beat's fixed text. */
+  mode: "live" | "rehearsed" | "fallback" | "fixed";
+  /** For a rehearsed line, which one, from 0. */
+  choice?: number;
+  /** For a line a model wrote when it could have picked a rehearsed one: it didn't fit. */
+  strayed?: boolean;
   /** Why the fallback was used. */
   reason?: string;
   model?: string;
@@ -22,6 +28,13 @@ export interface Writing {
   output?: string;
   check?: { allowed: boolean; reason: string };
   costUsd: number;
+  /** For a beat that waits for approval: the line suggested to the researcher. */
+  draft?: string | null;
+  /** Who approved or skipped it. */
+  decidedBy?: string;
+  /** Whether they changed the line, and what it became. */
+  edited?: boolean;
+  final?: string;
 }
 
 type Script = Pick<BeatsFile, "live" | "cast">;
@@ -185,14 +198,38 @@ export async function chooseWords(
   actorId: string,
   targetId: string | null,
   writer: Writer | null,
+  /** What makes this run's pick of a rehearsed line its own, such as the beat and run. */
+  salt = "",
 ): Promise<{ text: string; writing: Writing | null }> {
   if (action.text !== undefined) {
     return { text: action.text, writing: null };
   }
-  const fallback = (reason: string, extra: Partial<Writing> = {}) => ({
-    text: action.fallback as string,
-    writing: { mode: "fallback" as const, reason, costUsd: 0, ...extra },
-  });
+  const rehearsed = action.lines ?? [];
+  /**
+   * When live writing can't be used: a rehearsed line, drawn the same way each time for this
+   * world, if there are any, or else the fallback line.
+   */
+  const fallback = (reason: string, extra: Partial<Writing> = {}) => {
+    if (rehearsed.length > 0) {
+      const hash = createHash("sha256").update(`${context.seed}:${salt}`).digest();
+      const choice = hash.readUInt32BE(0) % rehearsed.length;
+      return {
+        text: rehearsed[choice] as string,
+        writing: {
+          mode: "rehearsed" as const,
+          reason,
+          choice,
+          costUsd: 0,
+          ...extra,
+          output: rehearsed[choice] as string,
+        },
+      };
+    }
+    return {
+      text: action.fallback as string,
+      writing: { mode: "fallback" as const, reason, costUsd: 0, ...extra },
+    };
+  };
   if (!script.live.enabled) {
     return fallback("live writing is off for this study");
   }
@@ -213,6 +250,68 @@ export async function chooseWords(
 
   const { system, user, limits } = await promptFor(db, context, script, action, actorId, targetId);
   const prompt = { system, user };
+  const request = {
+    model: script.live.model,
+    system,
+    prompt: user,
+    maxLength: script.live.maxLength,
+  };
+
+  // With rehearsed lines, the model picks the one that fits, and only writes its own if allowed.
+  if (rehearsed.length > 0 && script.live.stray !== "always") {
+    let chosen: Awaited<ReturnType<Writer["choose"]>>;
+    try {
+      chosen = await writer.choose({
+        ...request,
+        lines: rehearsed,
+        allowNew: script.live.stray === "choose",
+      });
+    } catch (error) {
+      const why = error instanceof NothingWritten ? error.message : "the model couldn't be reached";
+      return fallback(why, { model: script.live.model, prompt });
+    }
+    if (chosen.choice !== null) {
+      return {
+        text: chosen.text,
+        writing: {
+          mode: "rehearsed",
+          choice: chosen.choice,
+          model: chosen.model,
+          prompt,
+          output: chosen.text,
+          costUsd: chosen.costUsd,
+        },
+      };
+    }
+    // None fitted, so it wrote its own, which is checked like any other.
+    const checked = await writer.check(chosen.text, limits, script.live.model).catch(() => null);
+    const costUsd = chosen.costUsd + (checked?.costUsd ?? 0);
+    if (!checked?.allowed) {
+      return fallback(
+        checked ? `the check stopped it: ${checked.reason}` : "the check couldn't be run",
+        {
+          model: chosen.model,
+          prompt,
+          output: chosen.text,
+          strayed: true,
+          costUsd,
+          ...(checked ? { check: { allowed: false, reason: checked.reason } } : {}),
+        },
+      );
+    }
+    return {
+      text: chosen.text,
+      writing: {
+        mode: "live",
+        strayed: true,
+        model: chosen.model,
+        prompt,
+        output: chosen.text,
+        check: { allowed: true, reason: checked.reason },
+        costUsd,
+      },
+    };
+  }
   let written: Awaited<ReturnType<Writer["write"]>>;
   try {
     written = await writer.write({
@@ -257,4 +356,37 @@ export async function chooseWords(
       costUsd,
     },
   };
+}
+
+/**
+ * What a model is told to rehearse a beat's line before launch: who the actor is and what the beat
+ * asks for. Nobody has taken part yet, so there's no thread or memory to show it.
+ */
+export function rehearsalPrompt(
+  script: Script,
+  action: Wording,
+  name: string,
+): { system: string; user: string } {
+  const persona = script.cast[action.actor];
+  const limits = [...ALWAYS_OFF_LIMITS, ...script.live.redLines, ...(persona?.redLines ?? [])];
+  const system = [
+    "You write posts and comments for one person on a social media platform, in a research study. The study's script decides what happens; you decide only the wording, in this person's voice.",
+    ...personaLines(name, action.actor, persona),
+    `Each line is only the ${action.action} itself: no quotation marks, no name, no explanation. Keep each under ${script.live.maxLength} characters, and write them the way people write on social media.`,
+    `Never write any of these:\n${limits.map((limit) => `- ${limit}`).join("\n")}`,
+  ].join("\n\n");
+  const relationships = Object.entries(persona?.relationships ?? {});
+  const user = [
+    relationships.length > 0 &&
+      `How you feel about people here:\n${relationships
+        .map(
+          ([username, feeling]) =>
+            `- ${username === "participant" ? "the participant" : username}: ${feeling}`,
+        )
+        .join("\n")}`,
+    `${action.action === "post" ? "A new post." : "A comment."} What happens: ${action.improvise}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  return { system, user };
 }

@@ -772,6 +772,10 @@ export const beatRuns = pgTable(
     beat: text().notNull(),
     /** Which time this beat has run in this world, from 0, since a beat can have a limit. */
     run: integer().notNull(),
+    /**
+     * pending until it's due, then fired or skipped. A beat that needs a researcher's approval waits
+     * as awaiting in between, with its draft in `writing`.
+     */
     status: text().notNull(),
     /** What set it off: a time, something the participant did, or another beat. */
     trigger: jsonb().notNull(),
@@ -795,7 +799,7 @@ export const beatRuns = pgTable(
   (table) => [
     uniqueIndex("beat_runs_once").on(table.worldId, table.beat, table.run),
     index("beat_runs_due").on(table.worldId, table.status, table.dueAt),
-    check("beat_runs_status", inList(table.status, ["pending", "fired", "skipped"])),
+    check("beat_runs_status", inList(table.status, ["pending", "awaiting", "fired", "skipped"])),
   ],
 );
 

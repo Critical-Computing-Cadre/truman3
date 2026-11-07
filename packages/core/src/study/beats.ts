@@ -113,15 +113,24 @@ const wording = {
   text: z.string().min(1).optional(),
   improvise: z.string().min(1).max(1000).optional(),
   fallback: z.string().min(1).optional(),
+  /**
+   * Rehearsed lines for an improvised beat: written before launch, reviewed, and frozen with the
+   * version. `live.stray` says whether a model may write something else.
+   */
+  lines: z.array(z.string().min(1).max(5000)).max(50).optional(),
 };
 const checkWording = (
   action: {
     text?: string | undefined;
     improvise?: string | undefined;
     fallback?: string | undefined;
+    lines?: string[] | undefined;
   },
   ctx: z.RefinementCtx,
 ) => {
+  if (action.lines !== undefined && action.improvise === undefined) {
+    ctx.addIssue({ code: "custom", message: "Rehearsed lines only go with improvise." });
+  }
   if ((action.text === undefined) === (action.improvise === undefined)) {
     ctx.addIssue({ code: "custom", message: "Give either text or improvise." });
   }
@@ -175,6 +184,11 @@ export const beatSchema = z.strictObject({
   max: z.number().int().positive().default(1),
   /** Not if any of these beats has already happened by the time this one is due. */
   unless: z.array(idSchema).default([]),
+  /**
+   * Whether a researcher approves it before it happens, as in a Wizard of Oz study. Leave out to
+   * follow the study's `live.approval`.
+   */
+  approve: z.boolean().optional(),
 });
 
 /**
@@ -201,6 +215,23 @@ export const liveWritingSchema = z.strictObject({
   maxLength: z.number().int().positive().max(5000).default(500),
   /** Things nobody in the cast ever writes, on top of each person's own red lines. */
   redLines: z.array(z.string().min(1).max(500)).default([]),
+  /**
+   * Which beats wait for a researcher to approve, edit, or skip them: none, or all. A beat can say
+   * otherwise with `approve`. It works with live writing off too, so a researcher writes the line.
+   */
+  approval: z.enum(["none", "all"]).default("none"),
+  /**
+   * How long a beat waits for a researcher before its fallback or fixed line is used instead, so
+   * nobody waits forever. "never" waits as long as it takes. Ten minutes unless a study says.
+   */
+  approvalTimeout: z
+    .union([z.literal("never").transform(() => null), studyTime])
+    .default(10 * 60_000),
+  /**
+   * For beats with rehearsed lines, how far a model may stray from them: never (it picks one),
+   * choose (it picks one, or writes its own if none fits), or always (it writes its own every time).
+   */
+  stray: z.enum(["never", "choose", "always"]).default("choose"),
 });
 
 export const beatsFileSchema = z.strictObject({
@@ -210,6 +241,9 @@ export const beatsFileSchema = z.strictObject({
     model: "claude-opus-5-5",
     maxLength: 500,
     redLines: [],
+    approval: "none",
+    approvalTimeout: 10 * 60_000,
+    stray: "choose",
   }),
   /** Persona cards, by username. */
   cast: z.record(z.string(), personaSchema).default({}),

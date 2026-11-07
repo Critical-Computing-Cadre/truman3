@@ -219,7 +219,13 @@ describe("the bystander reference study", () => {
     const mine = byBody(await feed(defended), "Finished my first real painting! Be nice lol");
     const kind = mine.comments.find(({ body }) => body === "This is lovely!");
     expect(kind?.likes).toBe(1);
-    expect(mine.comments.map(({ body }) => body)).toContain("Thank you, that really means a lot");
+    // With live writing off, Maya's world draws one of her rehearsed lines.
+    expect(mine.comments.map(({ body }) => body)).toContainEqual(
+      expect.stringMatching(/thank you/i),
+    );
+    expect(
+      mine.comments.filter(({ body }) => /thank you/i.test(body) && body !== "This is lovely!"),
+    ).toHaveLength(1);
 
     const folder = mkdtempSync(path.join(tmpdir(), "truman-bystander-export-"));
     dirs.push(folder);

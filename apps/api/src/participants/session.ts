@@ -97,3 +97,49 @@ export async function participantFromRequest(
   const token = getCookie(c, SESSION_COOKIE);
   return token ? loadParticipantContext(db, token) : null;
 }
+
+/**
+ * Someone's context from their world rather than their session, for what a researcher does in it,
+ * such as approving a beat. Null if nobody is in that world now.
+ */
+export async function loadWorldContext(
+  db: Database,
+  worldId: string,
+): Promise<ParticipantContext | null> {
+  const [row] = await db
+    .select({
+      participantId: schema.worldMemberships.participantId,
+      externalId: schema.participants.externalId,
+      worldId: schema.worldMemberships.worldId,
+      actorId: schema.worldMemberships.actorId,
+      studyVersionId: schema.worlds.studyVersionId,
+      worldStartedAt: schema.worlds.startedAt,
+      seed: schema.worlds.seed,
+      flowPosition: schema.participants.flowPosition,
+      settings: schema.studyVersions.settings,
+    })
+    .from(schema.worldMemberships)
+    .innerJoin(schema.worlds, eq(schema.worlds.id, schema.worldMemberships.worldId))
+    .innerJoin(schema.studyVersions, eq(schema.studyVersions.id, schema.worlds.studyVersionId))
+    .innerJoin(
+      schema.participants,
+      eq(schema.participants.id, schema.worldMemberships.participantId),
+    )
+    .where(
+      and(eq(schema.worldMemberships.worldId, worldId), isNull(schema.worldMemberships.leftAt)),
+    )
+    .limit(1);
+  if (!row) {
+    return null;
+  }
+  const [assignment] = await db
+    .select({ conditionId: schema.assignments.conditionId, conditionKey: schema.conditions.key })
+    .from(schema.assignments)
+    .innerJoin(schema.conditions, eq(schema.conditions.id, schema.assignments.conditionId))
+    .where(eq(schema.assignments.participantId, row.participantId))
+    .orderBy(desc(schema.assignments.id))
+    .limit(1);
+  return assignment
+    ? { ...row, ...assignment, settings: studySettingsSchema.parse(row.settings) }
+    : null;
+}

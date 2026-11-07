@@ -35,10 +35,34 @@ export interface Checked {
   costUsd: number;
 }
 
+/** Picking among rehearsed lines: the one that fits, or, if allowed, a new line instead. */
+export interface ChooseRequest extends WriteRequest {
+  lines: readonly string[];
+  /** Whether it may write its own line when none fits. */
+  allowNew: boolean;
+}
+
+export interface Chosen {
+  /** Which rehearsed line, from 0, or null for a new one. */
+  choice: number | null;
+  text: string;
+  model: string;
+  costUsd: number;
+}
+
+export interface Rehearsed {
+  lines: string[];
+  model: string;
+  costUsd: number;
+}
+
 export interface Writer {
   write(request: WriteRequest): Promise<Written>;
   /** Whether this line can be posted, given the limits it must stay within. */
   check(text: string, limits: readonly string[], model: string): Promise<Checked>;
+  choose(request: ChooseRequest): Promise<Chosen>;
+  /** Several different lines for a beat, written ahead of time for a researcher to review. */
+  rehearse(request: WriteRequest & { count: number }): Promise<Rehearsed>;
 }
 
 /** The model declined, or said nothing usable, so the beat's fallback line is used instead. */
@@ -76,6 +100,26 @@ export const ALWAYS_OFF_LIMITS = [
 const CHECK_SYSTEM = `You check one line written for a character in a social media research simulation, before it's posted. The study's script decides what happens, and some studies deliberately include rudeness or conflict, such as studies of online harassment, so don't block a line for being unkind or wrong. Block it only if it crosses one of the limits you're given. Answer with whether it's allowed and, if not, which limit it crosses, in a short sentence.`;
 
 const verdictSchema = z.object({ allowed: z.boolean(), reason: z.string() });
+const choiceSchema = z.object({
+  /** Which line fits, from 1, or 0 for none. */
+  line: z.number().int(),
+  /** A new line, only when none fits and writing one is allowed. */
+  newLine: z.string(),
+});
+const rehearsalSchema = z.object({ lines: z.array(z.string()) });
+
+/** The line to use from a choice, or null if the choice can't be used. */
+export function lineFromChoice(
+  { line, newLine }: { line: number; newLine: string },
+  lines: readonly string[],
+  allowNew: boolean,
+  maxLength: number,
+): { choice: number | null; text: string } | null {
+  if (line >= 1 && line <= lines.length) {
+    return { choice: line - 1, text: lines[line - 1] as string };
+  }
+  return allowNew && newLine.trim() ? { choice: null, text: cleanLine(newLine, maxLength) } : null;
+}
 
 /** Trims what a model wrote down to the line itself, within the length allowed. */
 export function cleanLine(text: string, maxLength: number) {
@@ -145,6 +189,66 @@ export function anthropicWriter(apiKey: string): Writer {
         ? { allowed: verdict.allowed, reason: verdict.reason, model: response.model, costUsd }
         : { allowed: false, reason: "The check couldn't decide.", model: response.model, costUsd };
     },
+    async choose({ model, system, prompt, maxLength, lines, allowNew }) {
+      const response = await client.beta.messages.parse({
+        model,
+        max_tokens: 4000,
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        output_config: { effort: "low", format: betaZodOutputFormat(choiceSchema) },
+        system,
+        messages: [
+          {
+            role: "user",
+            content: `${prompt}\n\nLines rehearsed for this moment:\n${lines.map((line, index) => `${index + 1}. ${line}`).join("\n")}\n\nGive the number of the line that fits what's happening best. ${
+              allowNew
+                ? "If none of them fits, give 0, and write your own line in newLine."
+                : "One of them has to be used, so pick the closest. Leave newLine empty."
+            }`,
+          },
+        ],
+      });
+      const costUsd = costOf(
+        response.model,
+        response.usage.input_tokens,
+        response.usage.output_tokens,
+      );
+      const picked =
+        response.stop_reason === "refusal" || !response.parsed_output
+          ? null
+          : lineFromChoice(response.parsed_output, lines, allowNew, maxLength);
+      if (!picked) {
+        throw new NothingWritten("The model couldn't choose a line.");
+      }
+      return { ...picked, model: response.model, costUsd };
+    },
+    async rehearse({ model, system, prompt, maxLength, count }) {
+      const response = await client.beta.messages.parse({
+        model,
+        max_tokens: 8000,
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        output_config: { effort: "medium", format: betaZodOutputFormat(rehearsalSchema) },
+        system,
+        messages: [
+          {
+            role: "user",
+            content: `${prompt}\n\nThis is a rehearsal, before anyone takes part. Write ${count} different versions of this line. What the participant does can't be known yet, so each should work for the different ways they might act, and they should differ from each other in wording and tone.`,
+          },
+        ],
+      });
+      if (response.stop_reason === "refusal" || !response.parsed_output) {
+        throw new NothingWritten("The model declined to rehearse this.");
+      }
+      return {
+        lines: response.parsed_output.lines
+          .map((line) => cleanLine(line, maxLength))
+          .filter(Boolean)
+          .slice(0, count),
+        model: response.model,
+        costUsd: costOf(response.model, response.usage.input_tokens, response.usage.output_tokens),
+      };
+    },
   };
 }
 
@@ -174,6 +278,29 @@ export function standInWriter(
       return text.includes("BLOCK")
         ? { allowed: false, reason: "It crosses a limit.", model: "stand-in", costUsd: 0 }
         : { allowed: true, reason: "", model: "stand-in", costUsd: 0 };
+    },
+    // Picks the first rehearsed line that shares a word with what's happening, or writes its own.
+    async choose(request) {
+      calls.push(request);
+      const words = new Set(request.prompt.toLowerCase().match(/[a-z]{4,}/g) ?? []);
+      const fits = request.lines.findIndex((line) =>
+        (line.toLowerCase().match(/[a-z]{4,}/g) ?? []).some((word) => words.has(word)),
+      );
+      const picked = lineFromChoice(
+        { line: fits + 1, newLine: write(request) },
+        request.lines,
+        request.allowNew,
+        request.maxLength,
+      ) ?? { choice: 0, text: request.lines[0] as string };
+      return { ...picked, model: "stand-in", costUsd: 0.01 };
+    },
+    async rehearse(request) {
+      calls.push(request);
+      return {
+        lines: Array.from({ length: request.count }, (_, index) => `Rehearsed line ${index + 1}`),
+        model: "stand-in",
+        costUsd: 0.02,
+      };
     },
   };
 }

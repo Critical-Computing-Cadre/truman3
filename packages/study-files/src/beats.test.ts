@@ -192,7 +192,7 @@ beats:
 
   it("reads live writing settings and persona cards, with live writing off by default", () => {
     const off = parseBeats("beats: []");
-    expect(off.live).toEqual({
+    expect(off.live).toMatchObject({
       enabled: false,
       budgetUsd: 5,
       model: "claude-opus-5-5",
@@ -235,5 +235,41 @@ beats:
       'warning: ann\'s persona card mentions "zed", who isn\'t in the list of actors. Use "participant" for whoever takes part.',
       'warning: Live writing is off, so the beat "hi" uses its fallback line. Turn it on with live: { enabled: true } in beats.yaml.',
     ]);
+  });
+
+  it("reads rehearsed lines, only on improvised beats, and doesn't warn about live writing for them", () => {
+    expect(
+      problems(`
+beats:
+  - id: hi
+    when: { time: "0:01" }
+    do: { action: post, actor: ann, improvise: Say hi, fallback: Hi!, lines: [Hello, Hey] }
+`),
+    ).toEqual([]);
+    expect(
+      parseBeats(`
+beats:
+  - { id: a, when: { time: "0:01" }, do: { action: post, actor: ann, text: Hi, lines: [Hey] } }
+`).issues.map(({ message }) => message),
+    ).toEqual(['The beat "a" (do): Rehearsed lines only go with improvise.']);
+    expect(parseBeats("beats: []").live.stray).toBe("choose");
+    expect(parseBeats("live: { stray: never }\nbeats: []").live.stray).toBe("never");
+  });
+
+  it("reads approval settings: none by default, ten minutes to wait, or never", () => {
+    expect(parseBeats("beats: []").live).toMatchObject({
+      approval: "none",
+      approvalTimeout: 10 * 60_000,
+    });
+    expect(parseBeats('live: { approval: all, approvalTimeout: "0:02" }').live).toMatchObject({
+      approval: "all",
+      approvalTimeout: 2 * 60_000,
+    });
+    expect(parseBeats("live: { approvalTimeout: never }").live.approvalTimeout).toBeNull();
+    const [beat] = parseBeats(`
+beats:
+  - { id: a, approve: true, when: { time: "0:01" }, do: { action: post, actor: ann, text: Hi } }
+`).beats;
+    expect(beat?.approve).toBe(true);
   });
 });

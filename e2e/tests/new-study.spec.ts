@@ -341,4 +341,92 @@ test("a researcher writes beats in the builder, and sees what's wrong with them"
   await expect(page.getByRole("status").filter({ hasText: "No problems found." })).toBeVisible();
   await page.reload();
   await expect(beats).toHaveValue(/actor: trailhead/);
+
+  // A beat that improvises can be rehearsed. This server has no model key, so it says so.
+  await beats.fill(`beats:
+  - id: welcome
+    when: { participant: post, nth: 0 }
+    do:
+      action: comment
+      actor: trailhead
+      on: trigger
+      improvise: Welcome them
+      fallback: Welcome!
+      lines: [Hey there, Glad you're here]
+`);
+  await page.getByRole("button", { name: "Save beats" }).click();
+  const rehearse = page.getByRole("region", { name: "Rehearse" });
+  await expect(rehearse).toContainText("welcome");
+  await expect(rehearse).toContainText("comment by trailhead, 2 lines");
+  await expect(rehearse).toContainText("This server has no model key");
+  await expect(rehearse.getByRole("button", { name: "Rehearse" })).toBeDisabled();
+  await page.screenshot({ path: testInfo.outputPath("rehearse.png"), fullPage: true });
+});
+
+test("a researcher approves a beat's line, as in a Wizard of Oz study, and it's posted", async ({
+  page,
+  browser,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+  const stamp = Date.now() % 1_000_000;
+  const title = `Wizard ${stamp}`;
+  await signIn(page);
+  await startStudy(page, title, async () => {
+    await page.getByRole("radio", { name: "Short posts", exact: true }).check();
+    await page.getByRole("radio", { name: /Sample content for Short posts/ }).check();
+  });
+  await page.getByRole("link", { name: "Beats" }).click();
+  await page.getByLabel("Beats", { exact: true }).fill(`live: { approval: all }
+beats:
+  - id: jules-replies
+    note: Jules answers their first post.
+    when: { participant: post, nth: 0 }
+    do: { action: comment, actor: jules, on: trigger, text: "Welcome!" }
+`);
+  await page.getByRole("button", { name: "Save beats" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "No problems found." })).toBeVisible();
+  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("button", { name: "Save as new version" }).click();
+  await page.getByRole("button", { name: "Save version" }).click();
+  const listed = page.getByRole("listitem").filter({ hasText: title }).first();
+  await listed.getByRole("button", { name: "Launch", exact: true }).click();
+  const launching = page.getByRole("dialog", { name: /Launch version/ });
+  await launching.getByLabel(/only a test/).check();
+  await launching.getByRole("button", { name: "Launch it" }).click();
+  await expect(listed.getByText("Open to participants")).toBeVisible();
+  const slug = title.toLowerCase().replace(/\s+/g, "-");
+
+  const participant = await browser.newPage();
+  await participant.goto(`http://localhost:${APP_PORT}/join/${slug}?PROLIFIC_PID=WIZ-${stamp}`);
+  await participant.getByRole("button", { name: "I agree" }).click();
+  await participant.getByLabel("Username").fill(`wiz_${stamp}`);
+  await participant.getByLabel("Name", { exact: true }).fill("Someone");
+  await participant.getByRole("button", { name: "Save and continue" }).click();
+  await participant.getByRole("button", { name: /Create a post/ }).click();
+  const composer = participant.getByRole("dialog", { name: "Add a New Post" });
+  await composer.getByLabel("Write a post").fill("Hello, wizard!");
+  await composer.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(participant.getByText("Hello, wizard!").first()).toBeVisible();
+  // Christof decides at the participant's next page load, or their next check in the background.
+  await participant.reload();
+  await expect(participant.getByText("Hello, wizard!").first()).toBeVisible();
+
+  // It waits for the researcher, who changes the line before it's posted.
+  await listed.getByRole("link", { name: "Monitor and download" }).click();
+  const waiting = page.getByRole("listitem", { name: "Waiting: jules-replies" });
+  await expect(waiting).toContainText("Hello, wizard!");
+  await waiting.getByLabel("The line, which you can change").fill("Welcome aboard, wizard!");
+  await page.screenshot({ path: testInfo.outputPath("waiting.png"), fullPage: true });
+  await waiting.getByRole("button", { name: "Post my version" }).click();
+  await expect(page.getByText("Waiting for you")).toHaveCount(0);
+
+  await participant.reload();
+  await participant
+    .getByRole("article")
+    .filter({ hasText: "Hello, wizard!" })
+    .first()
+    .getByRole("link", { name: /comment|repl/i })
+    .first()
+    .click();
+  await expect(participant.getByText("Welcome aboard, wizard!")).toBeVisible();
 });
