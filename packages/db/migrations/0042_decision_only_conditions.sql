@@ -1,0 +1,2 @@
+ALTER TABLE "conditions" DROP CONSTRAINT "conditions_weight_positive";--> statement-breakpoint
+ALTER TABLE "conditions" ADD CONSTRAINT "conditions_weight_nonnegative" CHECK ("conditions"."weight" >= 0);

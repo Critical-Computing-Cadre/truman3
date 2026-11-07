@@ -79,6 +79,13 @@ function Reference() {
             </td>
           </tr>
           <tr>
+            <th className={`${row} font-mono`}>decide</th>
+            <td className={row}>
+              Decision points, for adaptive designs: at a time or event, measures from what they did
+              choose a group, which moves them to another condition or keeps them
+            </td>
+          </tr>
+          <tr>
             <th className={`${row} font-mono`}>approve</th>
             <td className={row}>
               Waits for a researcher on the Monitor page to approve, change, or skip it. Or{" "}

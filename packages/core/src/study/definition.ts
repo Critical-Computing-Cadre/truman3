@@ -121,7 +121,11 @@ const armSchema = z.strictObject({
   key: keySchema,
   /** Labels for multi-factor designs, so exports can split by factor. */
   factors: z.record(z.string(), z.string()).default({}),
-  weight: z.number().int().positive().default(1),
+  /**
+   * How often it's assigned when someone joins, relative to the others. 0 for a condition someone
+   * only reaches at a decision point, in an adaptive design.
+   */
+  weight: z.number().int().nonnegative().default(1),
   /** Settings that differ in this condition. */
   feed: feedOverridesSchema.optional(),
   platform: z
@@ -573,9 +577,9 @@ export const studyDefinitionSchema = z.object({
   stories: z.array(storyDefinitionSchema).default([]),
   /** What Christof makes happen, read from beats.yaml, which is kept among the pages as written. */
   beats: z.array(z.custom<BeatDefinition>((value) => typeof value === "object")).default([]),
-  /** The rest of beats.yaml: whether actors write live, and their persona cards. */
+  /** The rest of beats.yaml: live writing, persona cards, and decision points. */
   christof: z
-    .custom<Pick<BeatsFile, "live" | "cast">>((value) => typeof value === "object")
+    .custom<Pick<BeatsFile, "live" | "cast" | "decide">>((value) => typeof value === "object")
     .optional(),
 });
 
