@@ -2,7 +2,7 @@
 
 ## Context
 
-Dominic found it slow to build a study from nothing every time he wanted to try a kind of platform or see a change. Packs (ADR 22) can hold content, but they're added from the command line, and staging had none.
+Dominic found it slow to build a study from nothing every time he wanted to try a kind of platform or see a change. Packs (ADR 15) can hold content, but they're added from the command line, and staging had none.
 
 ## Decision
 

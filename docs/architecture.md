@@ -199,16 +199,16 @@ Participant screens never say this is a research platform unless the study does,
 
 ## Christof, the director
 
-Christof makes things happen in each participant's world, from what the study wrote. [Writing beats](guides/writing-beats.md) is the guide for researchers. ADRs 51 to 56 explain each part.
+Christof makes things happen in each participant's world, from what the study wrote. [Writing beats](guides/writing-beats.md) is the guide for researchers. ADRs 51 to 57 explain each part.
 
-| Part            | What it does                                                                                                                   | Read                                                     |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| Beats           | `beats.yaml` says what happens (a post, comment, like, repost, or follow), set off by a time, the participant, or another beat | [ADR 51](adr/0051-christof-beats-and-the-director.md)    |
-| Live writing    | A beat can `improvise`, and a model writes the words, within a budget, and checked by a second call                            | [ADR 52](adr/0052-christof-actors-write-live.md)         |
-| Approval        | Beats wait for a researcher on the Monitor page, for Wizard of Oz studies, with a timeout                                      | [ADR 53](adr/0053-christof-approval-for-wizard-of-oz.md) |
-| Rehearsed lines | Lines written ahead, drafted by the model from the Beats page, and read before launch                                          | [ADR 54](adr/0054-christof-rehearsed-lines.md)           |
-| Decision points | Under `decide:`, re-randomize someone partway through, from what they've done                                                  | [ADR 55](adr/0055-christof-decision-points.md)           |
-| Scenario tests  | `scenarios.yaml`: made-up participants who act at set times, with what should be true                                          | [ADR 56](adr/0056-scenario-tests-and-the-api-clock.md)   |
+| Part            | What it does                                                                                                                      | Read                                                                                                          |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Beats           | `beats.yaml` says what happens (a post, comment, like, repost, or follow), set off by a time, the participant, or another beat    | [ADR 51](adr/0051-christof-beats-and-the-director.md)                                                         |
+| Live writing    | A beat can `improvise`, and a model writes the words, within a budget, and checked by a second call                               | [ADR 52](adr/0052-christof-actors-write-live.md)                                                              |
+| Approval        | Beats wait for a researcher on the Monitor page, for Wizard of Oz studies, with a timeout                                         | [ADR 53](adr/0053-christof-approval-for-wizard-of-oz.md)                                                      |
+| Rehearsed lines | Lines written ahead, drafted by the model from the Beats page, and read before launch                                             | [ADR 54](adr/0054-christof-rehearsed-lines.md)                                                                |
+| Decision points | Under `decide:`, re-randomize someone partway through, from what they've done                                                     | [ADR 55](adr/0055-christof-decision-points.md)                                                                |
+| Scenario tests  | `scenarios.yaml`: made-up participants who act at set times, with what should be true. Run from the command line or the admin app | [ADR 56](adr/0056-scenario-tests-and-the-api-clock.md), [ADR 57](adr/0057-scenario-tests-in-the-admin-app.md) |
 
 ### How the director runs: `catchUp`
 
@@ -242,8 +242,8 @@ Beats act through the same tables as scripted reactions, such as `content` with 
 - **`pnpm study test <folder>`** runs a study's scenarios in a database made for the run and dropped after. It goes through the API's routes, moving the clock forward step by step, with no model. It needs the Docker services.
 - **The example studies' scenarios** run in the integration tests (`apps/api/src/scenarios.itest.ts`).
 - **The runner** is `apps/api/src/scenarios/run.ts`. [Testing studies](guides/testing-studies.md) is the guide.
-
-Running scenarios from the admin app isn't on `main` yet.
+- **In the admin app,** scenarios are written on the builder's Tests page. They run on the server, in the background, when a version is saved, and again from **Run tests again** on the Studies page (`apps/api/src/admin/scenarios.ts`). Each run's results are a row in `scenario_runs`. Its test participants are deleted afterward ([ADR 57](adr/0057-scenario-tests-in-the-admin-app.md)).
+- **Launching warns** when a version's scenarios haven't passed. A study can turn the warning off (`studies.warn_untested`).
 
 ## Researchers
 
@@ -292,6 +292,13 @@ The Monitor page shows counts, never IDs. It also has Christof's latest decision
 - **They all call `deleteParticipant`** (`packages/study-import/src/withdraw.ts`). It runs the database function `delete_participant_data`, which deletes their rows, including events, and records the deletion in `data_deletions`. Then it deletes their uploads under `uploads/<world>/<participant>/`.
 - **The function is the only way to delete events.** It runs with its owner's rights, and the API's login may only call it ([ADR 21](adr/0021-the-api-has-its-own-login-and-admin-lives-under-a-path.md)).
 - **Logs can't be cleaned,** so production logs and AWS's edge logs leave out IDs, paths, and queries.
+
+### Archiving and deleting studies
+
+- **Archiving** hides a study from the Studies page until it's restored. Nothing is deleted. It's `studies.archived_at`.
+- **Deleting for good** is for an archived study that only test participants took part in, by a team's owner, who types its address to confirm. Real participants, withdrawals, and Prolific payments keep a study from being deleted ([ADR 58](adr/0058-archiving-and-deleting-studies.md)).
+- **The database function `delete_study`** does it, with its owner's rights, and checks those rules again. The protection rules let a delete through only when it's running. Each deletion is recorded in `study_deletions`.
+- **A new table that refers to a study or its versions** has to be added to `delete_study` (in a new migration), or deleting a study fails. `apps/api/src/archive.itest.ts` would show it.
 
 ### Files
 

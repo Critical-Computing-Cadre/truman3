@@ -1,6 +1,6 @@
 # 23. Staging runs on AWS, written in CDK
 
-**Status:** Written, and never deployed. Nothing here has run on AWS yet, so some of it may need correcting at the first deployment.
+**Status:** Deployed. Staging has run from this since November 2026. The first deployment needed fixes, which are in the commits after it. [Cloud architecture](../cloud.md) describes it as it runs now.
 
 ## Decision
 

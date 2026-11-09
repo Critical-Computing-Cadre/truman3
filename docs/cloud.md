@@ -169,7 +169,7 @@ ADR 21 explains why there are two.
 | `truman_app`   | The database update, the first time it runs, with the password from `truman3-staging/database-app-password` | The API and the admin task | Read and write rows. Only add to `events` and `assignments`. No changing tables, truncating, or turning off triggers |
 
 - **After every migration, the update starts `truman_app`'s rights from nothing** and grants them again, so a new table is always covered (`packages/db/src/app-role.ts`). It also sets its password each time.
-- **Withdrawal is the one way `truman_app` can delete events,** through `delete_participant_data`, which runs with its owner's rights.
+- **Two functions are the only ways `truman_app` can delete protected rows,** and both run with their owner's rights: `delete_participant_data` for a withdrawal, and `delete_study` for a study only test participants took part in (ADR 58).
 - **The API won't start in production if it's logged in as an owner,** so a wrong setting shows up at once.
 
 ## Secrets
