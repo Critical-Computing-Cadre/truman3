@@ -494,7 +494,10 @@ test("a researcher writes scenario tests, sees them run when a version is saved,
   // Launching warns, and the warning can be turned off for this study.
   await study.getByRole("button", { name: "Launch", exact: true }).click();
   const launching = page.getByRole("dialog", { name: /Launch version/ });
-  await expect(launching.getByRole("alert")).toContainText("didn't all pass");
+  // The sample also has placeholder consent, which is a warning of its own.
+  await expect(
+    launching.getByRole("alert").filter({ hasText: "scenario tests didn't all pass" }),
+  ).toBeVisible();
   await launching.getByLabel("Don't warn me about tests for this study").check();
   await expect(launching.getByText("didn't all pass")).toHaveCount(0);
   await launching.getByRole("button", { name: "Not yet" }).click();
