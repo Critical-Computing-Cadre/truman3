@@ -79,7 +79,9 @@ test("tabs, following, reposts, quotes, a limit, and badges", async ({ page }, t
   await quoting.getByLabel("What do you want to say?").fill("Agreed");
   await shot(page, project, "2-quote");
   await quoting.getByRole("button", { name: "Post", exact: true }).click();
-  await expect(page.getByText("Agreed")).toBeVisible();
+  // The quote is their first post, so the study's scripted repost of it may show up beside it,
+  // depending on whether the feed has refreshed yet.
+  await expect(page.getByText("Agreed").first()).toBeVisible();
 
   // Writing a post brings the scripted repost and follow.
   await page.getByRole("button", { name: /Create a post/ }).click();
