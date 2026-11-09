@@ -178,6 +178,102 @@ function useTestWarning(study: StudySummary) {
   });
 }
 
+/** Hides a study from this page, or brings it back. */
+function ArchiveButton({ study }: { study: StudySummary }) {
+  const client = useQueryClient();
+  const archive = useMutation({
+    mutationFn: () =>
+      send("PUT", `/admin/studies/${study.id}/archived`, { archived: !study.archived }),
+    onSettled: () => client.invalidateQueries({ queryKey: ["studies"] }),
+  });
+  return (
+    <>
+      <button
+        type="button"
+        disabled={archive.isPending}
+        onClick={() => archive.mutate()}
+        className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+      >
+        {study.archived ? "Restore" : "Archive"}
+      </button>
+      {archive.error && (
+        <p role="alert" className="w-full text-sm text-rose-800">
+          {archive.error.message}
+        </p>
+      )}
+    </>
+  );
+}
+
+/** Deletes an archived study for good, once its address is typed to confirm. */
+function DeleteButton({ study }: { study: StudySummary }) {
+  const client = useQueryClient();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [typed, setTyped] = useState("");
+  const remove = useMutation({
+    mutationFn: () =>
+      send("DELETE", `/admin/studies/${study.id}?confirm=${encodeURIComponent(typed)}`),
+    onSuccess: async () => {
+      dialog.current?.close();
+      await client.invalidateQueries({ queryKey: ["studies"] });
+    },
+  });
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => dialog.current?.showModal()}
+        className="rounded border border-rose-300 px-3 py-1.5 text-sm text-rose-800"
+      >
+        Delete for good
+      </button>
+      <dialog
+        ref={dialog}
+        aria-label={`Delete ${study.slug}`}
+        className="m-auto w-[min(90vw,30rem)] rounded-lg p-6 backdrop:bg-black/50"
+      >
+        <h2 className="mb-2 text-lg font-semibold">Delete this study for good?</h2>
+        <p className="mb-3 text-sm">
+          Its versions, drafts, and test participants are deleted, and it can't be brought back.
+          Nobody real took part in it.
+        </p>
+        <label className="mb-4 flex flex-col gap-1 text-sm">
+          <span>
+            Type <code className="font-semibold">{study.slug}</code> to confirm
+          </span>
+          <input
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+            className="rounded border border-stone-300 px-2 py-1"
+          />
+        </label>
+        {remove.error && (
+          <p role="alert" className="mb-4 text-sm text-rose-800">
+            {remove.error.message}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => dialog.current?.close()}
+            className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+          >
+            Keep it
+          </button>
+          <button
+            type="button"
+            disabled={typed.trim() !== study.slug || remove.isPending}
+            onClick={() => remove.mutate()}
+            className="rounded bg-rose-700 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+          >
+            Delete it
+          </button>
+        </div>
+      </dialog>
+    </>
+  );
+}
+
 /** Says the launch warning about tests is off for a study, with a way to turn it back on. */
 function WarningsOff({ study }: { study: StudySummary }) {
   const warning = useTestWarning(study);
@@ -385,9 +481,13 @@ function StopButton({ study }: { study: StudySummary }) {
 }
 
 export function StudiesPage() {
+  const [showArchived, setShowArchived] = useState(false);
   const list = useQuery({
-    queryKey: ["studies"],
-    queryFn: () => get<{ studies: StudySummary[] }>("/admin/studies"),
+    queryKey: ["studies", showArchived],
+    queryFn: () =>
+      get<{ studies: StudySummary[]; archivedCount: number }>(
+        `/admin/studies${showArchived ? "?archived=true" : ""}`,
+      ),
     // Often while tests run, so their results show when they're done.
     refetchInterval: (query) =>
       query.state.data?.studies.some((study) =>
@@ -400,12 +500,27 @@ export function StudiesPage() {
   return (
     <main className="mx-auto max-w-3xl p-4">
       <div className="mb-4 flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Studies</h1>
+        <h1 className="mr-auto text-2xl font-semibold">
+          {showArchived ? "Archived studies" : "Studies"}
+        </h1>
+        {(showArchived || (list.data?.archivedCount ?? 0) > 0) && (
+          <button
+            type="button"
+            onClick={() => setShowArchived(!showArchived)}
+            className="text-sm underline"
+          >
+            {showArchived ? "Back to studies" : `Archived (${list.data?.archivedCount})`}
+          </button>
+        )}
         <Link to="/studies/new" className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white">
           New study
         </Link>
       </div>
-      {list.data?.studies.length === 0 && <p className="text-stone-600">No studies yet.</p>}
+      {list.data?.studies.length === 0 && (
+        <p className="text-stone-600">
+          {showArchived ? "No archived studies." : "No studies yet."}
+        </p>
+      )}
       <ul className="space-y-3">
         {list.data?.studies.map((study) => {
           const canChange = study.role !== "viewer";
@@ -443,12 +558,22 @@ export function StudiesPage() {
                   >
                     Monitor and download
                   </Link>
-                  <EditButton study={study} />
+                  {!study.archived && <EditButton study={study} />}
+                  {canChange && !study.liveVersionId && <ArchiveButton study={study} />}
+                  {study.archived && study.role === "owner" && !study.notDeletable && (
+                    <DeleteButton study={study} />
+                  )}
                 </div>
               </div>
+              {study.archived && study.notDeletable && (
+                <p className="mt-1 text-xs text-stone-500">{study.notDeletable}</p>
+              )}
 
               {!study.warnUntested && canChange && <WarningsOff study={study} />}
-              <ul className="mt-3 divide-y divide-stone-200 border-t border-stone-200">
+              <ul
+                hidden={study.archived}
+                className="mt-3 divide-y divide-stone-200 border-t border-stone-200"
+              >
                 {study.versions.map((version) => {
                   const isLive = version.id === study.liveVersionId;
                   return (

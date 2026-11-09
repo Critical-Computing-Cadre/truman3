@@ -508,3 +508,31 @@ test("a researcher writes scenario tests, sees them run when a version is saved,
   await expect(tests).toContainText("run by", { timeout: 15_000 });
   await expect(tests).toContainText("1 of 2 tests failed");
 });
+
+test("a researcher archives a study to tidy the list, and deletes one only they tried", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+  const title = `Clutter ${Date.now() % 1_000_000}`;
+  await signIn(page);
+  await startStudy(page, title, async () => {
+    await page.getByRole("radio", { name: "Forum", exact: true }).check();
+    await page.getByRole("radio", { name: /Sample content for Forum/ }).check();
+  });
+  await saveAndLaunch(page);
+  const study = page.getByRole("listitem").filter({ hasText: title }).first();
+  await study.getByRole("button", { name: "Archive" }).click();
+  await expect(page.getByText(title)).toHaveCount(0);
+
+  await page.getByRole("button", { name: /^Archived \(\d+\)$/ }).click();
+  await expect(page.getByRole("heading", { name: "Archived studies" })).toBeVisible();
+  const archived = page.getByRole("listitem").filter({ hasText: title }).first();
+  await archived.getByRole("button", { name: "Delete for good" }).click();
+  const slug = title.toLowerCase().replace(/\s+/g, "-");
+  const confirm = page.getByRole("dialog", { name: `Delete ${slug}` });
+  await expect(confirm.getByRole("button", { name: "Delete it" })).toBeDisabled();
+  await confirm.getByLabel(/to confirm/).fill(slug);
+  await page.screenshot({ path: testInfo.outputPath("delete-study.png"), fullPage: true });
+  await confirm.getByRole("button", { name: "Delete it" }).click();
+  await expect(page.getByText(title)).toHaveCount(0);
+});

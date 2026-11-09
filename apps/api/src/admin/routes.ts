@@ -9,6 +9,7 @@ import {
 import { type Database, schema } from "@truman3/db";
 import { feedSettingsFor } from "@truman3/feed";
 import { parseScenarios } from "@truman3/study-files";
+import { whyNotDeletable } from "@truman3/study-import";
 import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { mediaUrl } from "../feed/build.ts";
@@ -83,13 +84,18 @@ const meRoute = createRoute({
 const studiesRoute = createRoute({
   method: "get",
   path: "/admin/studies",
-  summary: "The studies this researcher's teams have",
+  summary: "The studies this researcher's teams have, or the ones archived",
+  request: {
+    query: z.object({ archived: z.enum(["true", "false"]).optional() }),
+  },
   responses: {
     200: {
       description: "Each study and its versions, newest version first",
       content: {
         "application/json": {
           schema: z.object({
+            /** How many are archived, which aren't listed unless asked for. */
+            archivedCount: z.number(),
             studies: z.array(
               z.object({
                 id: z.string(),
@@ -119,6 +125,9 @@ const studiesRoute = createRoute({
                 ),
                 /** Whether launching an untested version warns first. */
                 warnUntested: z.boolean(),
+                archived: z.boolean(),
+                /** For an archived study, why it can't be deleted for good, or null if it can. */
+                notDeletable: z.string().nullable(),
               }),
             ),
           }),
@@ -287,7 +296,13 @@ export function createAdminRoutes({
       return c.json(pleaseSignIn, 401);
     }
 
-    const rows = await studiesForResearcher(db, researcher.id);
+    const showArchived = c.req.valid("query").archived === "true";
+    const all = await studiesForResearcher(db, researcher.id);
+    const rows = all.filter(({ study }) => (study.archivedAt !== null) === showArchived);
+    const notDeletable = new Map<string, string | null>();
+    for (const { study } of showArchived ? rows : []) {
+      notDeletable.set(study.id, await whyNotDeletable(db, study.id));
+    }
     const studyIds = rows.map(({ study }) => study.id);
     const versions = studyIds.length
       ? await db
@@ -338,6 +353,7 @@ export function createAdminRoutes({
 
     return c.json(
       {
+        archivedCount: all.filter(({ study }) => study.archivedAt !== null).length,
         studies: rows.map(({ study, teamName, role }) => ({
           id: study.id,
           slug: study.slug,
@@ -349,6 +365,8 @@ export function createAdminRoutes({
           participantUrl: participantAppUrl,
           role,
           warnUntested: study.warnUntested,
+          archived: study.archivedAt !== null,
+          notDeletable: notDeletable.get(study.id) ?? null,
           openDraftId: drafts.find((draft) => draft.studyId === study.id)?.id ?? null,
           draftTitle:
             (

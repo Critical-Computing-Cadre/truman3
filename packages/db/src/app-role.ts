@@ -4,7 +4,14 @@ import type { Database } from "./client.ts";
 /** The login the running API uses. It doesn't own anything. See ADR 21. */
 export const DEFAULT_APP_ROLE = "truman_app";
 
-const WITHDRAWAL_FUNCTION = "delete_participant_data(uuid, text, text)";
+/**
+ * The only ways to delete rows the rules otherwise protect: withdrawing a participant, and deleting
+ * a study that never had real ones (ADR 58). They run with their owner's rights.
+ */
+const OWNER_RIGHTS_FUNCTIONS = [
+  "delete_participant_data(uuid, text, text)",
+  "delete_study(uuid, text)",
+];
 
 type Rows<T> = readonly T[];
 
@@ -80,15 +87,16 @@ export async function applyAppRole(
       );
     }
 
-    // Withdrawal is the one way to delete those rows, so it runs with its owner's rights. A function
-    // like that has to fix its search path, or a caller could point its table names elsewhere.
-    await tx.execute(
-      sql.raw(
-        `ALTER FUNCTION ${WITHDRAWAL_FUNCTION} SECURITY DEFINER SET search_path = public, pg_temp`,
-      ),
-    );
-    await tx.execute(sql.raw(`REVOKE EXECUTE ON FUNCTION ${WITHDRAWAL_FUNCTION} FROM PUBLIC`));
-    await run(`GRANT EXECUTE ON FUNCTION ${WITHDRAWAL_FUNCTION} TO %I`);
+    // These are the only ways to delete those rows, so they run with their owner's rights. A
+    // function like that has to fix its search path, or a caller could point its table names
+    // elsewhere.
+    for (const fn of OWNER_RIGHTS_FUNCTIONS) {
+      await tx.execute(
+        sql.raw(`ALTER FUNCTION ${fn} SECURITY DEFINER SET search_path = public, pg_temp`),
+      );
+      await tx.execute(sql.raw(`REVOKE EXECUTE ON FUNCTION ${fn} FROM PUBLIC`));
+      await run(`GRANT EXECUTE ON FUNCTION ${fn} TO %I`);
+    }
     return true;
   });
 }

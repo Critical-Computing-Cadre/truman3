@@ -80,3 +80,15 @@ describe("API health", () => {
     );
   });
 });
+
+describe("a request the API can't read", () => {
+  it("is answered as the sender's mistake, not as the server's", async () => {
+    const response = await appWith().request("/admin/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "this isn't JSON",
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "That request couldn't be read." });
+  });
+});

@@ -101,6 +101,9 @@ export interface StudySummary {
   }[];
   /** Whether launching a version whose scenario tests haven't passed warns first. */
   warnUntested: boolean;
+  archived: boolean;
+  /** For an archived study, why it can't be deleted for good, or null if it can. */
+  notDeletable: string | null;
 }
 
 /** One run of a version's scenario tests. */

@@ -90,6 +90,8 @@ export const studies = pgTable("studies", {
   pausedActors: text("paused_actors").array().notNull().default(sql`'{}'`),
   /** Whether launching a version whose scenario tests haven't passed shows a warning. ADR 57. */
   warnUntested: boolean("warn_untested").notNull().default(true),
+  /** When it was archived: hidden from the Studies page until it's restored. ADR 58. */
+  archivedAt: time("archived_at"),
   createdAt: time("created_at").notNull().defaultNow(),
 });
 
@@ -756,6 +758,20 @@ export const actorRelations = pgTable(
     ),
   ],
 );
+
+/**
+ * A record of each study deleted for good, kept after the study is gone. Only a study that never had
+ * real participants can be deleted. See ADR 58.
+ */
+export const studyDeletions = pgTable("study_deletions", {
+  id: id(),
+  /** Not a reference, since the study no longer exists. */
+  studyId: uuid("study_id").notNull(),
+  slug: text().notNull(),
+  title: text().notNull(),
+  requestedBy: text("requested_by").notNull(),
+  deletedAt: time("deleted_at").notNull().defaultNow(),
+});
 
 /**
  * Each time a version's scenario tests ran on the server, and what came of them. The test
