@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@truman3/accounts": "workspace:*",
+    "@truman3/api": "workspace:*",
     "@truman3/core": "workspace:*",
     "@truman3/db": "workspace:*",
     "@truman3/drafts": "workspace:*",

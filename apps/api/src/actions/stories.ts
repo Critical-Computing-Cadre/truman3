@@ -20,7 +20,7 @@ export async function findLiveStory(
   db: Database,
   context: ParticipantContext,
   id: string,
-  now = new Date(),
+  now: Date,
   orHighlighted = false,
 ) {
   const [story] = await db
@@ -59,7 +59,7 @@ export async function listStories(
   db: Database,
   context: ParticipantContext,
   mediaPublicUrl: string,
-  now = new Date(),
+  now: Date,
 ): Promise<StoryGroup[]> {
   if (!featureOn(context.settings, context.conditionKey, "stories")) {
     return [];
@@ -167,7 +167,7 @@ export async function highlightsOf(
   context: ParticipantContext,
   actorId: string,
   mediaPublicUrl: string,
-  now = new Date(),
+  now: Date,
 ): Promise<Highlight[]> {
   if (
     !featureOn(context.settings, context.conditionKey, "stories") ||
@@ -255,7 +255,7 @@ export async function storyViewers(
   context: ParticipantContext,
   storyId: string,
   mediaPublicUrl: string,
-  now = new Date(),
+  now: Date,
   closeFriendsOnly = false,
 ) {
   const friends = closeFriendsOnly

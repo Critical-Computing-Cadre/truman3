@@ -18,7 +18,11 @@ import { actionMetaSchema } from "../actions/request.ts";
 import { participantEvent } from "../actions/routes.ts";
 import { catchUp } from "../director/director.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
-import { type ParticipantContext, participantFromRequest } from "../participants/session.ts";
+import {
+  type ParticipantContext,
+  participantFromRequest,
+  realClock,
+} from "../participants/session.ts";
 import { buildFeed, loadSpacesFor, mediaUrl } from "./build.ts";
 
 const errorResponse = (description: string) => ({
@@ -249,16 +253,21 @@ const pleaseSignIn = { error: "Please sign in." };
 const featureOff = { error: "This isn't part of this platform." };
 const notAvailable = { error: "This isn't available." };
 
-export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRouteDependencies) {
+export function createFeedRoutes({
+  db,
+  mediaPublicUrl,
+  writer,
+  clock = realClock,
+}: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
 
   app.openapi(feedRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
     // What Christof has made happen by now shows in this feed.
-    await catchUp(db, context, { writer });
+    await catchUp(db, context, { writer, now: clock() });
 
     const { visit, surface, space: spaceKey, post, tag, place, username } = c.req.valid("query");
     const on = (feature: FeatureKey) => featureOn(context.settings, context.conditionKey, feature);
@@ -269,7 +278,11 @@ export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRout
       if (!place) {
         return c.json(notAvailable, 404);
       }
-      const posts = await buildFeed({ db, mediaPublicUrl }, context, { surface: "place", place });
+      const posts = await buildFeed({ db, mediaPublicUrl }, context, {
+        now: clock(),
+        surface: "place",
+        place,
+      });
       return c.json({ posts, sort: null, commentSort: null }, 200);
     }
     if (surface === "tagged" || surface === "replies") {
@@ -292,6 +305,7 @@ export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRout
         return c.json(notAvailable, 404);
       }
       const posts = await buildFeed({ db, mediaPublicUrl }, context, {
+        now: clock(),
         surface,
         ...(surface === "tagged" ? { taggedActorId: actor.id } : { repliedBy: actor.id }),
       });
@@ -302,6 +316,7 @@ export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRout
         return c.json(featureOff, 403);
       }
       const posts = await buildFeed({ db, mediaPublicUrl }, context, {
+        now: clock(),
         visit,
         surface: "explore",
         explore: true,
@@ -315,7 +330,11 @@ export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRout
       if (!tag) {
         return c.json(notAvailable, 404);
       }
-      const posts = await buildFeed({ db, mediaPublicUrl }, context, { surface: "tag", tag });
+      const posts = await buildFeed({ db, mediaPublicUrl }, context, {
+        now: clock(),
+        surface: "tag",
+        tag,
+      });
       return c.json({ posts, sort: null, commentSort: null }, 200);
     }
 
@@ -332,6 +351,7 @@ export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRout
         return c.json(notAvailable, 404);
       }
       const posts = await buildFeed({ db, mediaPublicUrl }, context, {
+        now: clock(),
         surface: "post",
         post,
         commentSort: commentSort ?? undefined,
@@ -348,6 +368,7 @@ export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRout
         return c.json(featureOff, 403);
       }
       const posts = await buildFeed({ db, mediaPublicUrl }, context, {
+        now: clock(),
         surface,
         list: surface,
         commentSort: commentSort ?? undefined,
@@ -375,6 +396,7 @@ export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRout
     }
     const sort = await chosenSort(db, context, surface);
     const posts = await buildFeed({ db, mediaPublicUrl }, context, {
+      now: clock(),
       visit,
       sort: sort ?? undefined,
       commentSort: commentSort ?? undefined,
@@ -387,7 +409,7 @@ export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRout
   });
 
   app.openapi(spacesRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -436,7 +458,7 @@ export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRout
   });
 
   app.openapi(flairRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -489,7 +511,7 @@ export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRout
   });
 
   app.openapi(membershipRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -536,7 +558,7 @@ export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRout
   });
 
   app.openapi(sortRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -553,7 +575,7 @@ export function createFeedRoutes({ db, mediaPublicUrl, writer }: ParticipantRout
   });
 
   app.openapi(commentSortRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }

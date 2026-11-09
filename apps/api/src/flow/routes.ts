@@ -20,6 +20,7 @@ import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import {
   type ParticipantContext,
   participantFromRequest,
+  realClock,
   SESSION_COOKIE,
 } from "../participants/session.ts";
 import { prolificDeclineUrl, prolificFinishUrl } from "./prolific-exit.ts";
@@ -228,7 +229,7 @@ async function advance(
   db: Database,
   context: ParticipantContext,
   body: { position: number; clientEventId: string; occurredAt: string },
-  now = new Date(),
+  now: Date,
 ): Promise<
   | { outcome: "conflict"; message: string }
   | { outcome: "moved"; finished: boolean; redirectUrl: string | null }
@@ -282,12 +283,17 @@ async function advance(
   });
 }
 
-export function createFlowRoutes({ db, storage, mediaPublicUrl }: ParticipantRouteDependencies) {
+export function createFlowRoutes({
+  db,
+  storage,
+  mediaPublicUrl,
+  clock = realClock,
+}: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const pleaseSignIn = { error: "Please sign in." };
 
   app.openapi(flowRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -298,7 +304,7 @@ export function createFlowRoutes({ db, storage, mediaPublicUrl }: ParticipantRou
       .where(eq(schema.studyVersions.id, context.studyVersionId));
     const pages = (version?.pages ?? {}) as Record<string, string>;
 
-    const elapsedMs = Date.now() - context.worldStartedAt.getTime();
+    const elapsedMs = clock().getTime() - context.worldStartedAt.getTime();
     const { step, position } = currentFlowStep(context.settings, context.flowPosition, elapsedMs);
     const { site } = context.settings;
     const feedSettings = feedSettingsFor(context.settings, context.conditionKey);
@@ -327,12 +333,12 @@ export function createFlowRoutes({ db, storage, mediaPublicUrl }: ParticipantRou
   });
 
   app.openapi(advanceRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
 
-    const result = await advance(db, context, c.req.valid("json"));
+    const result = await advance(db, context, c.req.valid("json"), clock());
     if (result.outcome === "conflict") {
       return c.json({ error: result.message }, 409);
     }
@@ -340,12 +346,12 @@ export function createFlowRoutes({ db, storage, mediaPublicUrl }: ParticipantRou
   });
 
   app.openapi(declineRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
 
-    const elapsedMs = Date.now() - context.worldStartedAt.getTime();
+    const elapsedMs = clock().getTime() - context.worldStartedAt.getTime();
     const { step, position } = currentFlowStep(context.settings, context.flowPosition, elapsedMs);
     if (step?.step !== "consent" || c.req.valid("json").position !== position) {
       return c.json({ error: "This can't be declined now." }, 409);
@@ -368,12 +374,12 @@ export function createFlowRoutes({ db, storage, mediaPublicUrl }: ParticipantRou
   });
 
   app.openapi(reportRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
 
-    const now = new Date();
+    const now = clock();
     const common = {
       worldId: context.worldId,
       studyVersionId: context.studyVersionId,

@@ -18,6 +18,7 @@ pnpm db:migrate         # bring your database up to date
 pnpm db:generate        # create a migration after changing packages/db/src/schema.ts
 pnpm build
 pnpm study validate <folder>   # check a study; see also: pnpm study convert
+pnpm study test <folder>       # run its scenarios.yaml in a throwaway database; needs Docker services
 pnpm study import <folder>     # save it as a frozen version
 pnpm study launch <slug> [n]   # open it to participants; pnpm study stop closes it
 pnpm study export <slug> <folder>   # write CSVs and a codebook

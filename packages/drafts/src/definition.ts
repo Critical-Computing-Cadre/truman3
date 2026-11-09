@@ -2,12 +2,13 @@ import path from "node:path";
 import {
   BEATS_FILE,
   PARTICIPANT_TAG,
+  SCENARIOS_FILE,
   type StudyDefinition,
   type StudyIssue,
   type StudySettings,
   studyDefinitionSchema,
 } from "@truman3/core";
-import { MEDIA_FOLDERS, parseBeats } from "@truman3/study-files";
+import { MEDIA_FOLDERS, parseBeats, parseScenarios } from "@truman3/study-files";
 import type {
   ActorData,
   AppealAnswerData,
@@ -115,18 +116,23 @@ export function draftToDefinition(
   const beatsText = pages[BEATS_FILE];
   const read = beatsText ? parseBeats(beatsText) : null;
   const beats = read?.beats ?? [];
-  const beatIssues = read?.issues ?? [];
+  const scenariosText = pages[SCENARIOS_FILE];
+  const tests = scenariosText ? parseScenarios(scenariosText) : null;
+  const beatIssues = [...(read?.issues ?? []), ...(tests?.issues ?? [])];
   const definition = studyDefinitionSchema.parse({
     settings,
     // A step can be removed, and its page stay behind so it can be undone. It shouldn't be frozen.
-    // Beats are kept with the pages, as written.
+    // Beats and scenario tests are kept with the pages, as written.
     pages: Object.fromEntries(
       Object.entries(pages).filter(
         ([key]) =>
-          key === BEATS_FILE || settings.flow.some((step) => "page" in step && step.page === key),
+          key === BEATS_FILE ||
+          key === SCENARIOS_FILE ||
+          settings.flow.some((step) => "page" in step && step.page === key),
       ),
     ),
     beats,
+    scenarios: tests?.scenarios ?? [],
     ...(read ? { christof: { live: read.live, cast: read.cast, decide: read.decide } } : {}),
     actors: actors.map(({ data: { spaceFlair, ...actor } }) => {
       // A space that's been removed takes what people showed in it with it.

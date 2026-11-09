@@ -304,6 +304,9 @@ importers:
       '@truman3/accounts':
         specifier: workspace:*
         version: link:../../packages/accounts
+      '@truman3/api':
+        specifier: workspace:*
+        version: link:../api
       '@truman3/core':
         specifier: workspace:*
         version: link:../../packages/core

@@ -41,7 +41,11 @@ import {
   participantKarma,
 } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
-import { type ParticipantContext, participantFromRequest } from "../participants/session.ts";
+import {
+  type ParticipantContext,
+  participantFromRequest,
+  realClock,
+} from "../participants/session.ts";
 import { MAX_IMAGE_BYTES, storeUploadedImage } from "./images.ts";
 import {
   applyAutoRule,
@@ -999,6 +1003,7 @@ export function createActionRoutes({
   storage,
   mediaPublicUrl,
   writer,
+  clock = realClock,
 }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
 
@@ -1069,7 +1074,7 @@ export function createActionRoutes({
               ...(liked ? { targetActorId: liked.authorActorId } : {}),
               nth: await nthOf(tx, context, "content.liked"),
             },
-            new Date(),
+            clock(),
           );
         }
       });
@@ -1084,7 +1089,7 @@ export function createActionRoutes({
   const wasRemoved = { error: "A moderator removed this." };
   /** Whether a moderator has taken this down, as far as this person is concerned, by now. */
   const isRemoved = async (context: ParticipantContext, id: string) =>
-    (await loadRemovals(db, context, new Date())).has(id);
+    (await loadRemovals(db, context, clock())).has(id);
 
   /** What a browser gets when a rule asks someone if they're sure. */
   const askedBy = async ({
@@ -1137,7 +1142,7 @@ export function createActionRoutes({
         and(
           eq(schema.notifications.worldId, context.worldId),
           eq(schema.notifications.type, "follow"),
-          lte(schema.notifications.dueAt, new Date()),
+          lte(schema.notifications.dueAt, clock()),
         ),
       );
     return {
@@ -1149,7 +1154,7 @@ export function createActionRoutes({
 
   /** Where a moderator has banned someone, for their profile. */
   const bansOf = async (context: ParticipantContext, actorId: string) => {
-    const mine = (await loadBans(db, context, new Date())).filter(
+    const mine = (await loadBans(db, context, clock())).filter(
       ({ bannedActorId }) => bannedActorId === actorId,
     );
     if (mine.length === 0) {
@@ -1178,12 +1183,12 @@ export function createActionRoutes({
 
   /** The post this acts on, if it's a post this person can see. */
   const visiblePost = async (context: ParticipantContext, id: string) => {
-    const item = await findVisibleContent(db, context, id, new Date());
+    const item = await findVisibleContent(db, context, id, clock());
     return item?.kind === "post" ? item : null;
   };
 
   app.openapi(saveRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -1199,7 +1204,7 @@ export function createActionRoutes({
   });
 
   app.openapi(muteThreadRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -1215,7 +1220,7 @@ export function createActionRoutes({
   });
 
   app.openapi(hideRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -1231,7 +1236,7 @@ export function createActionRoutes({
   });
 
   app.openapi(shareRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -1253,7 +1258,7 @@ export function createActionRoutes({
   });
 
   app.openapi(linkOpenedRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -1276,7 +1281,7 @@ export function createActionRoutes({
   });
 
   app.openapi(revealRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -1286,7 +1291,7 @@ export function createActionRoutes({
     // A crosspost shows its original, so it's covered by whatever covers that too.
     const original =
       item?.crosspostOf && !isOff(context, "crossposting")
-        ? await findVisibleContent(db, context, item.crosspostOf, new Date())
+        ? await findVisibleContent(db, context, item.crosspostOf, clock())
         : null;
     const tags = [...new Set([...(item?.tags ?? []), ...(original?.tags ?? [])])].filter(
       (tag) =>
@@ -1307,7 +1312,7 @@ export function createActionRoutes({
   });
 
   app.openapi(pollVoteRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -1362,14 +1367,14 @@ export function createActionRoutes({
   });
 
   app.openapi(crosspostRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
     if (isOff(context, "crossposting") || isOff(context, "posting") || isOff(context, "spaces")) {
       return c.json(featureOff, 403);
     }
-    const now = new Date();
+    const now = clock();
     const body = c.req.valid("json");
 
     const repeat = await findRepeat(db, context.worldId, body.clientEventId);
@@ -1461,7 +1466,7 @@ export function createActionRoutes({
   });
 
   app.openapi(likeRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -1469,7 +1474,7 @@ export function createActionRoutes({
       return c.json(featureOff, 403);
     }
     const { id } = c.req.valid("param");
-    if (!(await findVisibleContent(db, context, id, new Date()))) {
+    if (!(await findVisibleContent(db, context, id, clock()))) {
       return c.json(notAvailable, 404);
     }
     if (await isRemoved(context, id)) {
@@ -1480,7 +1485,7 @@ export function createActionRoutes({
   });
 
   app.openapi(openRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -1488,7 +1493,7 @@ export function createActionRoutes({
       return c.json(featureOff, 403);
     }
     const { id: contentId } = c.req.valid("param");
-    if (!(await findVisibleContent(db, context, contentId, new Date()))) {
+    if (!(await findVisibleContent(db, context, contentId, clock()))) {
       return c.json(notAvailable, 404);
     }
     const body = c.req.valid("json");
@@ -1502,7 +1507,7 @@ export function createActionRoutes({
   });
 
   app.openapi(voteRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -1510,7 +1515,7 @@ export function createActionRoutes({
       return c.json(featureOff, 403);
     }
     const { id: contentId } = c.req.valid("param");
-    if (!(await findVisibleContent(db, context, contentId, new Date()))) {
+    if (!(await findVisibleContent(db, context, contentId, clock()))) {
       return c.json(notAvailable, 404);
     }
     if (await isRemoved(context, contentId)) {
@@ -1551,7 +1556,7 @@ export function createActionRoutes({
   });
 
   app.openapi(flagRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -1559,7 +1564,7 @@ export function createActionRoutes({
       return c.json(featureOff, 403);
     }
     const { id } = c.req.valid("param");
-    const now = new Date();
+    const now = clock();
     const target = await findVisibleContent(db, context, id, now);
     if (!target) {
       return c.json(notAvailable, 404);
@@ -1577,14 +1582,14 @@ export function createActionRoutes({
   });
 
   app.openapi(commentRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
     if (isOff(context, "comments")) {
       return c.json(featureOff, 403);
     }
-    const now = new Date();
+    const now = clock();
     const { id: targetId } = c.req.valid("param");
     const body = c.req.valid("json");
 
@@ -1706,14 +1711,14 @@ export function createActionRoutes({
   });
 
   app.openapi(postRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
     if (isOff(context, "posting")) {
       return c.json(featureOff, 403);
     }
-    const now = new Date();
+    const now = clock();
     const form = c.req.valid("form");
     const text = form.body.trim();
 
@@ -1955,7 +1960,7 @@ export function createActionRoutes({
       );
 
   app.openapi(peopleRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -2003,7 +2008,7 @@ export function createActionRoutes({
   };
 
   app.openapi(relationRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -2033,7 +2038,7 @@ export function createActionRoutes({
         return;
       }
       if (body.action === "report") {
-        await scheduleReportAnswer(tx, context, actor.id, new Date());
+        await scheduleReportAnswer(tx, context, actor.id, clock());
       }
 
       const row = {
@@ -2053,7 +2058,7 @@ export function createActionRoutes({
               targetActorId: actor.id,
               nth: await nthOf(tx, context, "actor.followed"),
             },
-            new Date(),
+            clock(),
           );
         }
       } else {
@@ -2073,7 +2078,7 @@ export function createActionRoutes({
   });
 
   app.openapi(actorRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -2095,6 +2100,7 @@ export function createActionRoutes({
     const has = (kind: string) => relations.some((relation) => relation.kind === kind);
 
     const posts = await buildFeed({ db, mediaPublicUrl }, context, {
+      now: clock(),
       surface: "profile",
       authorActorId: actor.id,
       // A profile shows all of someone's posts, newest first, whatever the feed's rules are.
@@ -2115,13 +2121,13 @@ export function createActionRoutes({
       : {
           karma:
             actor.id === context.actorId
-              ? await participantKarma(db, context)
+              ? await participantKarma(db, context, clock())
               : castKarma(
                   context.settings,
                   context.conditionKey,
                   actor.username,
                   profile.karma,
-                  Date.now() - context.worldStartedAt.getTime(),
+                  clock().getTime() - context.worldStartedAt.getTime(),
                 ),
         };
     return c.json(
@@ -2142,7 +2148,7 @@ export function createActionRoutes({
         muted: has("mute"),
         closeFriend: has("closeFriend"),
         bans: await bansOf(context, actor.id),
-        highlights: await highlightsOf(db, context, actor.id, mediaPublicUrl),
+        highlights: await highlightsOf(db, context, actor.id, mediaPublicUrl, clock()),
         posts,
       },
       200,
@@ -2150,34 +2156,37 @@ export function createActionRoutes({
   });
 
   app.openapi(notificationsRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
     if (isOff(context, "notifications")) {
       return c.json(featureOff, 403);
     }
-    await catchUp(db, context, { writer });
-    return c.json({ notifications: await listNotifications(db, context, mediaPublicUrl) }, 200);
+    await catchUp(db, context, { writer, now: clock() });
+    return c.json(
+      { notifications: await listNotifications(db, context, mediaPublicUrl, clock()) },
+      200,
+    );
   });
 
   app.openapi(storiesRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
-    return c.json({ stories: await listStories(db, context, mediaPublicUrl) }, 200);
+    return c.json({ stories: await listStories(db, context, mediaPublicUrl, clock()) }, 200);
   });
 
   app.openapi(newStoryRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
     if (isOff(context, "stories") || isOff(context, "posting")) {
       return c.json(featureOff, 403);
     }
-    const now = new Date();
+    const now = clock();
     const form = c.req.valid("form");
     const closeFriends = form.audience === "closeFriends";
     if (closeFriends && isOff(context, "closeFriends")) {
@@ -2240,7 +2249,7 @@ export function createActionRoutes({
   });
 
   app.openapi(storyViewedRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -2253,7 +2262,7 @@ export function createActionRoutes({
     if (fromHighlight && isOff(context, "highlights")) {
       return c.json(featureOff, 403);
     }
-    if (!(await findLiveStory(db, context, id, new Date(), fromHighlight))) {
+    if (!(await findLiveStory(db, context, id, clock(), fromHighlight))) {
       return c.json(notAvailable, 404);
     }
     await db.transaction(async (tx) => {
@@ -2283,33 +2292,33 @@ export function createActionRoutes({
   });
 
   app.openapi(storyViewersRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
     const { id } = c.req.valid("param");
-    const story = await findLiveStory(db, context, id);
+    const story = await findLiveStory(db, context, id, clock());
     if (!story || story.authorActorId !== context.actorId) {
       return c.json(notAvailable, 404);
     }
     const closeFriendsOnly = story.closeFriends && !isOff(context, "closeFriends");
     return c.json(
       {
-        viewers: await storyViewers(db, context, id, mediaPublicUrl, new Date(), closeFriendsOnly),
+        viewers: await storyViewers(db, context, id, mediaPublicUrl, clock(), closeFriendsOnly),
       },
       200,
     );
   });
 
   app.openapi(noteRatingRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
     if (isOff(context, "contextNotes")) {
       return c.json(featureOff, 403);
     }
-    const now = new Date();
+    const now = clock();
     const { id } = c.req.valid("param");
     const note = (await loadContextNotes(db, context, now, new Map())).get(id);
     if (!note || !(await visiblePost(context, id)) || (await isRemoved(context, id))) {
@@ -2349,7 +2358,7 @@ export function createActionRoutes({
   });
 
   app.openapi(exploreRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -2358,7 +2367,7 @@ export function createActionRoutes({
       : trendingFor(
           context.settings,
           context.conditionKey,
-          Date.now() - context.worldStartedAt.getTime(),
+          clock().getTime() - context.worldStartedAt.getTime(),
         ).map(({ tag, note }) => ({ tag, ...(note ? { note } : {}) }));
     if (isOff(context, "whoToFollow") || isOff(context, "following")) {
       return c.json({ trending, suggested: [] }, 200);
@@ -2406,14 +2415,14 @@ export function createActionRoutes({
   });
 
   app.openapi(repostRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
     if (isOff(context, "reposts")) {
       return c.json(featureOff, 403);
     }
-    const now = new Date();
+    const now = clock();
     const { id } = c.req.valid("param");
     let target = await visiblePost(context, id);
     // It always points at the first post, so someone's own act isn't part of anyone's chain.
@@ -2473,7 +2482,7 @@ export function createActionRoutes({
   });
 
   app.openapi(confirmAnsweredRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -2490,14 +2499,14 @@ export function createActionRoutes({
   });
 
   app.openapi(labelShownRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
     if (isOff(context, "labels")) {
       return c.json(featureOff, 403);
     }
-    const now = new Date();
+    const now = clock();
     const { id } = c.req.valid("param");
     const body = c.req.valid("json");
     const item = await findVisibleContent(db, context, id, now);
@@ -2517,14 +2526,14 @@ export function createActionRoutes({
   });
 
   app.openapi(appealRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
     if (isOff(context, "appeals")) {
       return c.json(featureOff, 403);
     }
-    const now = new Date();
+    const now = clock();
     const { id } = c.req.valid("param");
     const item = await findVisibleContent(db, context, id, now);
     const removed = await isRemoved(context, id);
@@ -2562,18 +2571,18 @@ export function createActionRoutes({
   });
 
   app.openapi(warningsRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
     if (isOff(context, "warnings")) {
       return c.json(featureOff, 403);
     }
-    return c.json({ warnings: await listWarnings(db, context) }, 200);
+    return c.json({ warnings: await listWarnings(db, context, clock()) }, 200);
   });
 
   app.openapi(acknowledgeWarningRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -2590,7 +2599,7 @@ export function createActionRoutes({
           eq(schema.notifications.worldId, context.worldId),
           eq(schema.notifications.recipientActorId, context.actorId),
           eq(schema.notifications.type, "warn"),
-          lte(schema.notifications.dueAt, new Date()),
+          lte(schema.notifications.dueAt, clock()),
         ),
       );
     if (!warning) {
@@ -2611,7 +2620,7 @@ export function createActionRoutes({
       if (recorded) {
         await tx
           .update(schema.notifications)
-          .set({ acknowledgedAt: new Date() })
+          .set({ acknowledgedAt: clock() })
           .where(eq(schema.notifications.id, id));
       }
     });
@@ -2619,7 +2628,7 @@ export function createActionRoutes({
   });
 
   app.openapi(modLogRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -2627,11 +2636,11 @@ export function createActionRoutes({
       return c.json(featureOff, 403);
     }
     const { space } = c.req.valid("query");
-    return c.json({ entries: await listModLog(db, context, space) }, 200);
+    return c.json({ entries: await listModLog(db, context, space, clock()) }, 200);
   });
 
   app.openapi(notificationsViewedRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
@@ -2648,7 +2657,7 @@ export function createActionRoutes({
       if (recorded) {
         await tx
           .update(schema.worldMemberships)
-          .set({ notificationsViewedAt: new Date() })
+          .set({ notificationsViewedAt: clock() })
           .where(
             and(
               eq(schema.worldMemberships.worldId, context.worldId),
@@ -2661,7 +2670,7 @@ export function createActionRoutes({
   });
 
   app.openapi(profileRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json(pleaseSignIn, 401);
     }
