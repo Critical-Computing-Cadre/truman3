@@ -1,6 +1,6 @@
 # Truman 3
 
-A social media simulation platform for research. Start with `docs/architecture.md` for the map and `docs/adr/` for why things are the way they are.
+A social media simulation platform for research. Start with `docs/architecture.md` for the map, `docs/cloud.md` for how it runs on AWS, and `docs/adr/` for why things are the way they are.
 
 ## Commands
 
