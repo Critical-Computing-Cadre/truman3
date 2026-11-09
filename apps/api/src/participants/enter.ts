@@ -118,10 +118,10 @@ async function assignCondition(
 }
 
 /** A new participant's own world, and an actor to act as. */
-async function createWorld(tx: Transaction, version: VersionRow, participantId: string) {
+async function createWorld(tx: Transaction, version: VersionRow, participantId: string, now: Date) {
   const [world] = await tx
     .insert(schema.worlds)
-    .values({ studyVersionId: version.id, seed: randomInt(MAX_SEED) })
+    .values({ studyVersionId: version.id, seed: randomInt(MAX_SEED), startedAt: now })
     .returning();
   if (!world) {
     throw new Error("The world wasn't created.");
@@ -196,9 +196,10 @@ async function enroll(
   version: VersionRow,
   settings: StudySettings,
   participantId: string,
+  now: Date,
 ) {
   const condition = await assignCondition(tx, version, settings, participantId);
-  const world = await createWorld(tx, version, participantId);
+  const world = await createWorld(tx, version, participantId, now);
 
   // Who someone starts out following is the study's choice. After this it's theirs.
   if (featureOn(settings, condition.key, "following")) {
@@ -232,7 +233,7 @@ async function enroll(
  * Starts a test participant for a researcher, in a condition they choose, on any version. It goes
  * around assignment, so it doesn't use up a block position, and it's kept out of exports.
  */
-export async function startPilot(db: Database, versionId: string, conditionKey: string) {
+export async function startPilot(db: Database, versionId: string, conditionKey: string, now: Date) {
   return db.transaction(async (tx) => {
     const [version] = await tx
       .select()
@@ -269,7 +270,7 @@ export async function startPilot(db: Database, versionId: string, conditionKey: 
       method: "pilot",
       probability: 1,
     });
-    const place = await createWorld(tx, version, participantId);
+    const place = await createWorld(tx, version, participantId, now);
 
     const settings = studySettingsSchema.parse(version.settings);
     await notifyTags(tx, version.id, settings, condition.key, place);
@@ -277,7 +278,7 @@ export async function startPilot(db: Database, versionId: string, conditionKey: 
     await tx.insert(schema.sessions).values({
       tokenHash: hashSessionToken(token),
       participantId,
-      expiresAt: new Date(Date.now() + (settings.length.days + SESSION_GRACE_DAYS) * DAY_MS),
+      expiresAt: new Date(now.getTime() + (settings.length.days + SESSION_GRACE_DAYS) * DAY_MS),
     });
     await recordEvent(tx, {
       type: "session.started",
@@ -288,7 +289,7 @@ export async function startPilot(db: Database, versionId: string, conditionKey: 
       conditionId: condition.id,
       actorId: place.actorId,
       source: "researcher",
-      occurredAt: new Date(),
+      occurredAt: now,
     });
     return { token };
   });
@@ -364,7 +365,7 @@ export async function enterStudy(db: Database, request: EnterRequest): Promise<E
       participantId = created.id;
       version = live.version;
       settings = live.settings;
-      place = await enroll(tx, version, settings, participantId);
+      place = await enroll(tx, version, settings, participantId, now);
     } else {
       const [existing] = await tx
         .select({

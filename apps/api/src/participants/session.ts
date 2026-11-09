@@ -34,11 +34,14 @@ export interface ParticipantContext {
   settings: StudySettings;
 }
 
+/** The real time, which is what participants' clock is outside scenario tests. */
+export const realClock = () => new Date();
+
 /** Finds who a session token belongs to. Returns null if it's unknown, expired, or they're out. */
 export async function loadParticipantContext(
   db: Database,
   token: string,
-  now = new Date(),
+  now: Date,
 ): Promise<ParticipantContext | null> {
   const [row] = await db
     .select({
@@ -93,9 +96,10 @@ export async function loadParticipantContext(
 export async function participantFromRequest(
   c: Context,
   db: Database,
+  now: Date,
 ): Promise<ParticipantContext | null> {
   const token = getCookie(c, SESSION_COOKIE);
-  return token ? loadParticipantContext(db, token) : null;
+  return token ? loadParticipantContext(db, token, now) : null;
 }
 
 /**

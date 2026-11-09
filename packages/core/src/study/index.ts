@@ -78,5 +78,13 @@ export {
   startingKarmaFor,
   trendingFor,
 } from "./platform.ts";
+export {
+  SCENARIOS_FILE,
+  type Scenario,
+  type ScenarioStep,
+  type ScenarioTarget,
+  scenarioSchema,
+  scenariosFileSchema,
+} from "./scenarios.ts";
 export { formatStudyTime, parseStudyTime } from "./time.ts";
 export { hasErrors, type StudyIssue, validateStudy } from "./validate.ts";

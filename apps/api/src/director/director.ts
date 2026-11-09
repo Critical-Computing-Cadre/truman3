@@ -472,7 +472,7 @@ async function scheduleTimed(tx: Transaction, context: ParticipantContext, now: 
 
 /** How catchUp may decide beats. */
 export interface CatchUpOptions {
-  now?: Date;
+  now: Date;
   /** What writes improvised lines. Without one, fallback lines are used. */
   writer?: Writer | null | undefined;
   /**
@@ -491,7 +491,7 @@ export interface CatchUpOptions {
 export async function catchUp(
   db: Database,
   context: ParticipantContext,
-  { now = new Date(), writer = null, mayWrite = false }: CatchUpOptions = {},
+  { now, writer = null, mayWrite = false }: CatchUpOptions,
 ) {
   const script = await scriptFor(db, context.studyVersionId);
   const cues = cuesOf(script);
@@ -755,7 +755,7 @@ export async function decideAwaiting(
   context: ParticipantContext,
   runId: string,
   approval: Approval,
-  now = new Date(),
+  now: Date,
 ): Promise<"fired" | "skipped" | null> {
   const [run] = await db
     .update(schema.beatRuns)

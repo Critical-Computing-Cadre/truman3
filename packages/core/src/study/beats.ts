@@ -11,7 +11,7 @@ import { parseStudyTime } from "./time.ts";
  */
 
 /** hours:minutes, like "0:05" or "-2:00". Kept as text in the file, and as milliseconds here. */
-const studyTime = z.string().transform((text, ctx) => {
+export const studyTime = z.string().transform((text, ctx) => {
   const ms = parseStudyTime(text);
   if (ms === null) {
     ctx.addIssue({
@@ -26,7 +26,7 @@ const studyTime = z.string().transform((text, ctx) => {
 /** What a participant does that can set a beat off. */
 export const PARTICIPANT_ACTIONS = ["post", "comment", "like", "follow", "repost"] as const;
 
-const idSchema = z
+export const idSchema = z
   .string()
   .regex(
     /^[a-z0-9][a-z0-9_-]*$/,

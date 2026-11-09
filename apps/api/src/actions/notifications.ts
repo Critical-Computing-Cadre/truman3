@@ -368,7 +368,7 @@ async function postsAbove(db: Database, ids: string[]): Promise<Map<string, stri
 export async function countUnreadNotifications(
   db: Database,
   context: ParticipantContext,
-  now = new Date(),
+  now: Date,
 ): Promise<number> {
   const viewedAt = await lastViewedAt(db, context);
   const unread = and(
@@ -481,7 +481,7 @@ export async function listNotifications(
   db: Database,
   context: ParticipantContext,
   mediaPublicUrl: string,
-  now = new Date(),
+  now: Date,
 ): Promise<NotificationItem[]> {
   const viewedAt = await lastViewedAt(db, context);
   const rows = await db

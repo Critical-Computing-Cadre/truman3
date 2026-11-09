@@ -190,7 +190,7 @@ export async function loadSpacesFor(db: Database, context: ParticipantContext) {
 export async function participantKarma(
   db: Database,
   context: ParticipantContext,
-  now = new Date(),
+  now: Date,
 ): Promise<number> {
   const [row] = await db
     .select({
@@ -1083,7 +1083,7 @@ export async function shapeFeedPosts({
 }
 
 export interface BuildFeedOptions {
-  now?: Date;
+  now: Date;
   /** Where this is being shown, for the record of what participants saw. */
   surface?: string;
   /** Only this actor's posts, as on a profile page. */
@@ -1121,7 +1121,7 @@ export async function buildFeed(
   { db, mediaPublicUrl }: FeedDependencies,
   context: ParticipantContext,
   {
-    now = new Date(),
+    now,
     surface = "feed",
     authorActorId,
     settings,
@@ -1137,7 +1137,7 @@ export async function buildFeed(
     taggedActorId,
     explore,
     repliedBy,
-  }: BuildFeedOptions = {},
+  }: BuildFeedOptions,
 ): Promise<FeedPost[]> {
   const worldStartMs = context.worldStartedAt.getTime();
 

@@ -5,6 +5,7 @@ import { hasPlaceholderConsent } from "./consent.ts";
 import { MAX_LABEL_LENGTH, PARTICIPANT_TAG, type StudyDefinition } from "./definition.ts";
 import { LINK_PLACEHOLDERS } from "./links.ts";
 import { featuresFor } from "./platform.ts";
+import { SCENARIOS_FILE, type ScenarioTarget } from "./scenarios.ts";
 import { HOUR_MS } from "./time.ts";
 
 export interface StudyIssue {
@@ -1066,6 +1067,13 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
   }
 
   checkDecisions(study, decisions, beatIds, beatLengthMs, usernames, beatProblem);
+  checkScenarios(
+    study,
+    new Set([...beatIds.keys(), ...decisionIds]),
+    new Set(posts.keys()),
+    usernames,
+    (message) => issues.push({ severity: "error", message, file: SCENARIOS_FILE }),
+  );
 
   // One beat following another can't go round in a circle, or it would never stop.
   const followers = new Map<string, { id: string; when: StudyDefinition["beats"][number]["when"] }>(
@@ -1217,5 +1225,50 @@ function checkDecisions(
         `The condition "${arm.key}" has weight 0, and no decision point moves anyone there, so nobody will be in it.`,
       );
     }
+  }
+}
+
+/** Scenario tests, from scenarios.yaml: everything they name has to be in the study. */
+function checkScenarios(
+  study: StudyDefinition,
+  cues: ReadonlySet<string>,
+  posts: ReadonlySet<string>,
+  usernames: ReadonlySet<string>,
+  problem: (message: string) => void,
+) {
+  const arms = new Set(study.settings.conditions.arms.map(({ key }) => key));
+  for (const scenario of study.scenarios) {
+    const label = `The scenario "${scenario.name}"`;
+    if (!arms.has(scenario.condition)) {
+      problem(`${label} starts in "${scenario.condition}", which isn't a condition in study.yaml.`);
+    }
+    scenario.steps.forEach((step, index) => {
+      const where = `${label}, step ${index + 1},`;
+      const checkTarget = (target: ScenarioTarget | undefined) => {
+        if (target && "post" in target && !posts.has(target.post)) {
+          problem(`${where} uses the post "${target.post}", which isn't in this study.`);
+        }
+        if (target && "beat" in target && !cues.has(target.beat)) {
+          problem(`${where} uses what "${target.beat}" made, but there's no beat called that.`);
+        }
+      };
+      checkTarget(step.on);
+      checkTarget(step.like);
+      checkTarget(step.repost);
+      if (step.follow !== undefined && !usernames.has(step.follow)) {
+        problem(`${where} follows "${step.follow}", who isn't in the list of actors.`);
+      }
+      const expected = step.expect;
+      for (const id of [...(expected?.happened ?? []), ...(expected?.notHappened ?? [])]) {
+        if (!cues.has(id)) {
+          problem(`${where} expects "${id}", which isn't a beat or decision point.`);
+        }
+      }
+      if (expected?.condition !== undefined && !arms.has(expected.condition)) {
+        problem(
+          `${where} expects the condition "${expected.condition}", which isn't in study.yaml.`,
+        );
+      }
+    });
   }
 }

@@ -12,7 +12,7 @@ import { catchUp } from "../director/director.ts";
 import { mediaUrl, participantKarma } from "../feed/build.ts";
 import { summarizeDevice } from "./device.ts";
 import { enterStudy, entrySettings } from "./enter.ts";
-import { participantFromRequest, SESSION_COOKIE } from "./session.ts";
+import { participantFromRequest, realClock, SESSION_COOKIE } from "./session.ts";
 
 const errorSchema = z.object({ error: z.string() });
 
@@ -132,13 +132,25 @@ export interface ParticipantRouteDependencies {
   participantAppUrl?: string;
   /** What writes improvised lines for Christof. Without one, beats use their fallback lines. */
   writer?: Writer | null;
+  /**
+   * What time it is for participants. The real time, unless a scenario test is fast-forwarding
+   * their world. See ADR 56.
+   */
+  clock?: () => Date;
   /** How to reach Prolific. Leave out and researchers can't connect to it. */
   prolific?: ProlificConfig;
 }
 
 export function createParticipantRoutes(dependencies: ParticipantRouteDependencies) {
-  const { db, mediaPublicUrl, getClientIp, secureCookies, allowEntryAttempt, writer } =
-    dependencies;
+  const {
+    db,
+    mediaPublicUrl,
+    getClientIp,
+    secureCookies,
+    allowEntryAttempt,
+    writer,
+    clock = realClock,
+  } = dependencies;
   const app = new OpenAPIHono();
 
   // The same message for every unknown study, and it doesn't use the word "study" for participants.
@@ -172,6 +184,7 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
       externalId: c.req.valid("json").externalId,
       device: summarizeDevice(c.req.header("user-agent")),
       getIpAddress: () => getClientIp(c),
+      now: clock(),
     });
     if (!result) {
       return c.json(notFound, 404);
@@ -195,13 +208,13 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
   });
 
   app.openapi(meRoute, async (c) => {
-    const context = await participantFromRequest(c, db);
+    const context = await participantFromRequest(c, db, clock());
     if (!context) {
       return c.json({ error: "Please sign in." }, 401);
     }
     // Checked often, in the background, for the unread count, so it's where a beat that needs a
     // model gets its words written. A page someone's looking at never waits for one.
-    await catchUp(db, context, { writer, mayWrite: true });
+    await catchUp(db, context, { writer, mayWrite: true, now: clock() });
 
     const [row] = await db
       .select({ username: schema.actors.username, profile: schema.actors.profile })
@@ -222,10 +235,10 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
         bannerUrl: profile.banner ? mediaUrl(profile.banner, mediaPublicUrl) : null,
         siteName: context.settings.site.name,
         ...(featureOn(context.settings, context.conditionKey, "karma")
-          ? { karma: await participantKarma(db, context) }
+          ? { karma: await participantKarma(db, context, clock()) }
           : {}),
         unreadNotifications: featureOn(context.settings, context.conditionKey, "notifications")
-          ? await countUnreadNotifications(db, context)
+          ? await countUnreadNotifications(db, context, clock())
           : 0,
       },
       200,

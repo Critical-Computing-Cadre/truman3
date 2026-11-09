@@ -18,7 +18,7 @@ const nameOf = (actor: { username: string; profile: unknown } | undefined) =>
 export async function listWarnings(
   db: Database,
   context: ParticipantContext,
-  now = new Date(),
+  now: Date,
 ): Promise<FeedWarning[]> {
   const rows = await db
     .select({ warning: schema.notifications, kind: schema.content.kind })
@@ -52,8 +52,8 @@ export async function listWarnings(
 export async function listModLog(
   db: Database,
   context: ParticipantContext,
-  spaceKey?: string,
-  now = new Date(),
+  spaceKey: string | undefined,
+  now: Date,
 ): Promise<ModLogEntry[]> {
   const removals = await loadRemovals(db, context, now);
   const bans = await loadBans(db, context, now);

@@ -59,7 +59,8 @@ test("two researchers work on the same draft at once", async ({ browser }, testI
   await thirdPost.getByRole("button", { name: /Text of this post/ }).click();
   await thirdPost.getByLabel("Text of this post").fill(other);
   await thirdPost.getByLabel("Text of this post").blur();
-  await expect(secondFeed.getByText(other)).toBeVisible();
+  // It arrives with the other person's next check, every 2 seconds, which a busy machine can delay.
+  await expect(secondFeed.getByText(other)).toBeVisible({ timeout: 15_000 });
   await expect(secondPost.getByLabel("Text of this post")).toHaveValue("Still typing this");
   await second.keyboard.press("Escape");
 

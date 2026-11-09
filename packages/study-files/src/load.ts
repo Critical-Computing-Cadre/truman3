@@ -22,6 +22,8 @@ import {
   type ReactionDefinition,
   type RemovalDefinition,
   type ReportAnswerDefinition,
+  SCENARIOS_FILE,
+  type Scenario,
   type SpaceDefinition,
   type StoryDefinition,
   type StudyDefinition,
@@ -34,6 +36,7 @@ import {
 import { parse as parseYaml } from "yaml";
 import { parseBeats } from "./beats.ts";
 import { type CsvRow, type CsvSpec, parseCsv } from "./csv.ts";
+import { parseScenarios } from "./scenarios.ts";
 
 export const ACTORS: CsvSpec = {
   required: ["username", "name"],
@@ -764,6 +767,15 @@ export function readStudyTables(
     christof = { live: read.live, cast: read.cast, decide: read.decide };
     issues.push(...read.issues);
   }
+  // Scenario tests are kept the same way, so they're frozen with the version they test.
+  const scenariosText = only ? null : source.read(SCENARIOS_FILE);
+  let scenarios: Scenario[] = [];
+  if (scenariosText !== null) {
+    pages[SCENARIOS_FILE] = scenariosText;
+    const read = parseScenarios(scenariosText);
+    scenarios = read.scenarios;
+    issues.push(...read.issues);
+  }
 
   if (!settings.media.baseUrl) {
     const checkMedia = (file: string, name: string | undefined, from?: CsvRowSource) => {
@@ -822,6 +834,7 @@ export function readStudyTables(
       stories,
       beats,
       ...(christof ? { christof } : {}),
+      scenarios,
     },
     issues,
   };

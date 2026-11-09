@@ -6,7 +6,7 @@ import { decideAwaiting, scriptFor } from "../director/director.ts";
 import type { Writing } from "../director/wording.ts";
 import { spentOn } from "../director/wording.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
-import { loadWorldContext } from "../participants/session.ts";
+import { loadWorldContext, realClock } from "../participants/session.ts";
 import { researcherFromRequest } from "./session.ts";
 
 const errorSchema = z.object({ error: z.string() });
@@ -135,7 +135,11 @@ const controlRoute = createRoute({
   },
 });
 
-export function createChristofRoutes({ db, writer }: ParticipantRouteDependencies) {
+export function createChristofRoutes({
+  db,
+  writer,
+  clock = realClock,
+}: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const pleaseSignIn = { error: "Please sign in." };
   const notAvailable = { error: "This isn't available." };
@@ -299,11 +303,17 @@ export function createChristofRoutes({ db, writer }: ParticipantRouteDependencie
       return c.json(notAvailable, 404);
     }
     const { action, text } = c.req.valid("json");
-    const status = await decideAwaiting(db, context, runId, {
-      action,
-      text,
-      by: researcher.name,
-    });
+    const status = await decideAwaiting(
+      db,
+      context,
+      runId,
+      {
+        action,
+        text,
+        by: researcher.name,
+      },
+      clock(),
+    );
     return status
       ? c.json({ status }, 200)
       : c.json({ error: "Someone else decided it, or its time ran out." }, 409);

@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { researcherFromRequest } from "./admin/session.ts";
 import type { ParticipantRouteDependencies } from "./participants/routes.ts";
-import { participantFromRequest } from "./participants/session.ts";
+import { participantFromRequest, realClock } from "./participants/session.ts";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const UPLOAD_PATH = new RegExp(`^(uploads/(${UUID})/(?:${UUID}/)?${UUID}\\.(jpg|png|gif|webp))$`);
@@ -19,7 +19,11 @@ const IMAGE_TYPES: Record<string, string> = {
  * researchers on the team that owns the study. Everyone else gets the same 404 whether or not the
  * file exists. CloudFront doesn't cache /api, so a deleted photo stops being served at once. See ADR 25.
  */
-export function createMediaRoutes({ db, storage }: ParticipantRouteDependencies) {
+export function createMediaRoutes({
+  db,
+  storage,
+  clock = realClock,
+}: ParticipantRouteDependencies) {
   const app = new Hono();
 
   async function teamCanSee(researcherId: string, worldId: string) {
@@ -43,7 +47,7 @@ export function createMediaRoutes({ db, storage }: ParticipantRouteDependencies)
     }
     const [, key, worldId, extension] = match as unknown as [string, string, string, string];
 
-    const participant = await participantFromRequest(c, db);
+    const participant = await participantFromRequest(c, db, clock());
     let allowed = participant?.worldId === worldId;
     if (!allowed) {
       const researcher = await researcherFromRequest(c, db);

@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { setCookie } from "hono/cookie";
 import { startPilot } from "../participants/enter.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
-import { hashSessionToken, SESSION_COOKIE } from "../participants/session.ts";
+import { hashSessionToken, realClock, SESSION_COOKIE } from "../participants/session.ts";
 import { researcherFromRequest } from "./session.ts";
 
 const errorSchema = z.object({ error: z.string() });
@@ -89,7 +89,11 @@ const pilotSessionRoute = createRoute({
   },
 });
 
-export function createLaunchRoutes({ db, secureCookies }: ParticipantRouteDependencies) {
+export function createLaunchRoutes({
+  db,
+  secureCookies,
+  clock = realClock,
+}: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const pleaseSignIn = { error: "Please sign in." };
   const notAvailable = { error: "This isn't available." };
@@ -153,7 +157,7 @@ export function createLaunchRoutes({ db, secureCookies }: ParticipantRouteDepend
       return c.json(notAvailable, 404);
     }
 
-    const pilot = await startPilot(db, versionId, c.req.valid("json").condition);
+    const pilot = await startPilot(db, versionId, c.req.valid("json").condition, clock());
     return pilot ? c.json({ token: pilot.token }, 200) : c.json(notAvailable, 404);
   });
 
