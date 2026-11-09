@@ -32,7 +32,7 @@ afterAll(async () => {
 async function run(folder: string) {
   const id = randomUUID().slice(0, 8);
   const email = `${id}@example.edu`;
-  const { teamId, password } = await setUpTeam(database.db, {
+  const { teamId } = await setUpTeam(database.db, {
     teamName: `lab-${id}`,
     slug: `lab-${id}`,
     email,
@@ -48,7 +48,6 @@ async function run(folder: string) {
     storage,
     versionId: imported.studyVersionId,
     scenarios: definition?.scenarios ?? [],
-    researcher: { email, password: password as string },
   });
 }
 

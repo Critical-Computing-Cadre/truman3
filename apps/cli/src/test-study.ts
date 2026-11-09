@@ -1,12 +1,9 @@
-import { setUpTeam } from "@truman3/accounts";
 import { runScenarios } from "@truman3/api/scenarios";
 import { hasErrors, type StudyIssue } from "@truman3/core";
 import { createTestDatabase } from "@truman3/db/testing";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { loadStudyFolder } from "@truman3/study-files";
 import { importStudyFolder } from "@truman3/study-import";
-
-const EMAIL = "scenarios@example.invalid";
 
 /**
  * Runs a study folder's scenarios.yaml in a database made for the run and dropped after it, so
@@ -31,13 +28,7 @@ export async function testStudy(
   const storage = createStorage(storageConfigFromEnv());
   try {
     await storage.ensureBucket();
-    const { teamId, password } = await setUpTeam(database.db, {
-      teamName: "Scenario tests",
-      slug: "scenario-tests",
-      email: EMAIL,
-      name: "Scenario tests",
-    });
-    const imported = await importStudyFolder(database.db, storage, folder, { teamId });
+    const imported = await importStudyFolder(database.db, storage, folder);
     if (imported.status === "failed") {
       printIssues(imported.issues);
       return 1;
@@ -47,7 +38,6 @@ export async function testStudy(
       storage,
       versionId: imported.studyVersionId,
       scenarios: definition.scenarios,
-      researcher: { email: EMAIL, password: password as string },
     });
     for (const result of results) {
       console.log(`${result.passed ? "✓" : "✗"} ${result.name}`);

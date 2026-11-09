@@ -59,6 +59,7 @@ import { MAX_IMAGE_BYTES, storeStudyImage } from "../actions/images.ts";
 import { type FeedActor, type FeedContent, mediaUrl } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { previewContent } from "./preview.ts";
+import { startScenarioRun } from "./scenarios.ts";
 import { researcherFromRequest } from "./session.ts";
 
 const errorSchema = z.object({ error: z.string() });
@@ -1306,6 +1307,10 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
     if (result.status === "invalid") {
       const errors = result.issues.filter(({ severity }) => severity === "error");
       return c.json({ error: errors.map(({ message }) => message).join(" ") }, 400);
+    }
+    // Its scenario tests start by themselves, so results are ready by the time it's launched.
+    if (result.status === "frozen") {
+      await startScenarioRun({ db, storage }, result.studyVersionId, "saving the version");
     }
     return c.json({ status: result.status, version: result.version }, 200);
   });

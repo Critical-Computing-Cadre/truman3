@@ -11,4 +11,10 @@ export {
   launchVersion,
   stopNewParticipants,
 } from "./launch.ts";
-export { deleteParticipant, type WithdrawResult, withdrawParticipant } from "./withdraw.ts";
+export {
+  deleteParticipant,
+  deleteStudy,
+  type WithdrawResult,
+  whyNotDeletable,
+  withdrawParticipant,
+} from "./withdraw.ts";

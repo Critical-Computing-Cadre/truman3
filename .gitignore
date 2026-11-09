@@ -10,3 +10,6 @@ playwright-report/
 test-results/
 .e2e-state.json
 cdk.out/
+
+# Worktrees Claude Code makes for background agents.
+.claude/worktrees/

@@ -97,7 +97,22 @@ export interface StudySummary {
     frozenAt: string | null;
     participants: number;
     conditions: string[];
+    tests: { scenarios: number; latest: ScenarioRun | null };
   }[];
+  /** Whether launching a version whose scenario tests haven't passed warns first. */
+  warnUntested: boolean;
+  archived: boolean;
+  /** For an archived study, why it can't be deleted for good, or null if it can. */
+  notDeletable: string | null;
+}
+
+/** One run of a version's scenario tests. */
+export interface ScenarioRun {
+  status: "running" | "passed" | "failed" | "error";
+  results: { name: string; passed: boolean; problems: string[] }[];
+  startedBy: string;
+  startedAt: string;
+  finishedAt: string | null;
 }
 
 export interface PreviewInfo {

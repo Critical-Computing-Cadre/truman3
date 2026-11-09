@@ -1,14 +1,22 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { findResearcherByEmail, hashPassword, verifyPassword } from "@truman3/accounts";
-import { feedResponseSchema, hasPlaceholderConsent, platformFor } from "@truman3/core";
+import {
+  feedResponseSchema,
+  hasPlaceholderConsent,
+  platformFor,
+  SCENARIOS_FILE,
+} from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { feedSettingsFor } from "@truman3/feed";
+import { parseScenarios } from "@truman3/study-files";
+import { whyNotDeletable } from "@truman3/study-import";
 import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { mediaUrl } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { hashSessionToken } from "../participants/session.ts";
 import { loadVersion, previewFeed, scriptedContent } from "./preview.ts";
+import { latestRuns, scenarioRunSchema } from "./scenarios.ts";
 import { createResearcherSession, RESEARCHER_COOKIE, researcherFromRequest } from "./session.ts";
 
 const errorSchema = z.object({ error: z.string() });
@@ -76,13 +84,18 @@ const meRoute = createRoute({
 const studiesRoute = createRoute({
   method: "get",
   path: "/admin/studies",
-  summary: "The studies this researcher's teams have",
+  summary: "The studies this researcher's teams have, or the ones archived",
+  request: {
+    query: z.object({ archived: z.enum(["true", "false"]).optional() }),
+  },
   responses: {
     200: {
       description: "Each study and its versions, newest version first",
       content: {
         "application/json": {
           schema: z.object({
+            /** How many are archived, which aren't listed unless asked for. */
+            archivedCount: z.number(),
             studies: z.array(
               z.object({
                 id: z.string(),
@@ -103,8 +116,18 @@ const studiesRoute = createRoute({
                     frozenAt: z.iso.datetime().nullable(),
                     participants: z.number(),
                     conditions: z.array(z.string()),
+                    /** How many scenario tests it has, and how the latest run went. */
+                    tests: z.object({
+                      scenarios: z.number(),
+                      latest: scenarioRunSchema.nullable(),
+                    }),
                   }),
                 ),
+                /** Whether launching an untested version warns first. */
+                warnUntested: z.boolean(),
+                archived: z.boolean(),
+                /** For an archived study, why it can't be deleted for good, or null if it can. */
+                notDeletable: z.string().nullable(),
               }),
             ),
           }),
@@ -273,7 +296,13 @@ export function createAdminRoutes({
       return c.json(pleaseSignIn, 401);
     }
 
-    const rows = await studiesForResearcher(db, researcher.id);
+    const showArchived = c.req.valid("query").archived === "true";
+    const all = await studiesForResearcher(db, researcher.id);
+    const rows = all.filter(({ study }) => (study.archivedAt !== null) === showArchived);
+    const notDeletable = new Map<string, string | null>();
+    for (const { study } of showArchived ? rows : []) {
+      notDeletable.set(study.id, await whyNotDeletable(db, study.id));
+    }
     const studyIds = rows.map(({ study }) => study.id);
     const versions = studyIds.length
       ? await db
@@ -313,9 +342,18 @@ export function createAdminRoutes({
       : [];
     const participantsOn = (versionId: string) =>
       counts.find((item) => item.versionId === versionId)?.total ?? 0;
+    const runs = await latestRuns(
+      db,
+      versions.map(({ id }) => id),
+    );
+    const scenarioCount = (pages: unknown) => {
+      const text = (pages as Record<string, string>)[SCENARIOS_FILE];
+      return text ? parseScenarios(text).scenarios.length : 0;
+    };
 
     return c.json(
       {
+        archivedCount: all.filter(({ study }) => study.archivedAt !== null).length,
         studies: rows.map(({ study, teamName, role }) => ({
           id: study.id,
           slug: study.slug,
@@ -326,6 +364,9 @@ export function createAdminRoutes({
           liveVersionId: study.liveVersionId,
           participantUrl: participantAppUrl,
           role,
+          warnUntested: study.warnUntested,
+          archived: study.archivedAt !== null,
+          notDeletable: notDeletable.get(study.id) ?? null,
           openDraftId: drafts.find((draft) => draft.studyId === study.id)?.id ?? null,
           draftTitle:
             (
@@ -345,6 +386,10 @@ export function createAdminRoutes({
               conditions: (
                 version.settings as { conditions: { arms: { key: string }[] } }
               ).conditions.arms.map(({ key }) => key),
+              tests: {
+                scenarios: scenarioCount(version.pages),
+                latest: runs.get(version.id) ?? null,
+              },
             })),
         })),
       },

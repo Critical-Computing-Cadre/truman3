@@ -1,7 +1,9 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { healthResponseSchema } from "@truman3/core";
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { createActionRoutes } from "./actions/routes.ts";
+import { createArchiveRoutes } from "./admin/archive.ts";
 import { createChristofRoutes } from "./admin/christof.ts";
 import { createDraftRoutes } from "./admin/drafts.ts";
 import { createLaunchRoutes } from "./admin/launch.ts";
@@ -10,6 +12,7 @@ import { createPackRoutes } from "./admin/packs.ts";
 import { createProlificRoutes } from "./admin/prolific.ts";
 import { createRehearseRoutes } from "./admin/rehearse.ts";
 import { createAdminRoutes } from "./admin/routes.ts";
+import { createScenarioRoutes } from "./admin/scenarios.ts";
 import { createSheetRoutes } from "./admin/sheets.ts";
 import { describeError } from "./errors.ts";
 import { createFeedRoutes } from "./feed/routes.ts";
@@ -71,6 +74,10 @@ export function createApp({
   };
 
   app.onError((error, c) => {
+    // A request the API couldn't read, such as one that isn't JSON, is the sender's mistake.
+    if (error instanceof HTTPException && error.status < 500) {
+      return c.json({ error: "That request couldn't be read." }, error.status);
+    }
     logError(`${c.req.method} request failed:`, error);
     return c.json({ error: "Something went wrong." }, 500);
   });
@@ -99,6 +106,8 @@ export function createApp({
   app.route("/", createMonitorRoutes(participantDependencies));
   app.route("/", createChristofRoutes(participantDependencies));
   app.route("/", createRehearseRoutes(participantDependencies));
+  app.route("/", createScenarioRoutes(participantDependencies));
+  app.route("/", createArchiveRoutes(participantDependencies));
   app.route("/", createLaunchRoutes(participantDependencies));
   app.route("/", createProlificRoutes(participantDependencies));
 

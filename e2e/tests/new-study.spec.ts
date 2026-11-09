@@ -430,3 +430,112 @@ beats:
     .click();
   await expect(participant.getByText("Welcome aboard, wizard!")).toBeVisible();
 });
+
+test("a researcher writes scenario tests, sees them run when a version is saved, and is warned before launching", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+  const title = `Tested ${Date.now() % 1_000_000}`;
+  await signIn(page);
+  await startStudy(page, title, async () => {
+    await page.getByRole("radio", { name: "Short posts", exact: true }).check();
+    await page.getByRole("radio", { name: /Sample content for Short posts/ }).check();
+  });
+  await page.getByRole("link", { name: "Beats" }).click();
+  await page.getByLabel("Beats", { exact: true }).fill(`beats:
+  - id: jules-welcomes
+    when: { participant: post, nth: 0 }
+    delay: "0:01"
+    do: { action: comment, actor: jules, on: trigger, text: "Welcome aboard!" }
+`);
+  await page.getByRole("button", { name: "Save beats" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "No problems found." })).toBeVisible();
+
+  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Tests" }).click();
+  await expect(page.getByText("This study has no scenario tests yet.")).toBeVisible();
+  const scenarios = page.getByLabel("Scenarios", { exact: true });
+  // A mistake is caught as it's saved.
+  await scenarios.fill(`scenarios:
+  - name: Nobody
+    condition: nowhere
+    steps:
+      - { at: "0:01", post: Hi }
+`);
+  await page.getByRole("button", { name: "Save scenarios" }).click();
+  await expect(page.getByTestId("scenario-problems")).toContainText(
+    'The scenario "Nobody" starts in "nowhere", which isn\'t a condition in study.yaml.',
+  );
+  await scenarios.fill(`scenarios:
+  - name: Jules welcomes their first post
+    condition: control
+    steps:
+      - { at: "0:01", post: Hello! }
+      - { at: "0:05", expect: { happened: [jules-welcomes], sees: ["Welcome aboard!"] } }
+  - name: Expects too much
+    condition: control
+    steps:
+      - { at: "0:01", expect: { happened: [jules-welcomes] } }
+`);
+  await page.getByRole("button", { name: "Save scenarios" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "No problems found." })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("scenarios-page.png"), fullPage: true });
+
+  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("button", { name: "Save as new version" }).click();
+  await page.getByRole("button", { name: "Save version" }).click();
+  const study = page.getByRole("listitem").filter({ hasText: title }).first();
+  const tests = study.getByTestId("tests-1");
+  await expect(tests).toContainText("1 of 2 tests failed", { timeout: 15_000 });
+  await expect(tests).toContainText("Expects too much");
+  await expect(tests).toContainText('At 0:01, "jules-welcomes" should have happened');
+  await page.screenshot({ path: testInfo.outputPath("scenario-results.png"), fullPage: true });
+
+  // Launching warns, and the warning can be turned off for this study.
+  await study.getByRole("button", { name: "Launch", exact: true }).click();
+  const launching = page.getByRole("dialog", { name: /Launch version/ });
+  // The sample also has placeholder consent, which is a warning of its own.
+  await expect(
+    launching.getByRole("alert").filter({ hasText: "scenario tests didn't all pass" }),
+  ).toBeVisible();
+  await launching.getByLabel("Don't warn me about tests for this study").check();
+  await expect(launching.getByText("didn't all pass")).toHaveCount(0);
+  await launching.getByRole("button", { name: "Not yet" }).click();
+  await expect(study.getByText("Launching doesn't warn about scenario tests")).toBeVisible();
+  await study.getByRole("button", { name: "Warn me again" }).click();
+  await expect(study.getByText("Launching doesn't warn about scenario tests")).toHaveCount(0);
+
+  // Running them again shows the same.
+  await expect(tests).toContainText("when the version was saved");
+  await tests.getByRole("button", { name: "Run tests again" }).click();
+  await expect(tests).toContainText("run by", { timeout: 15_000 });
+  await expect(tests).toContainText("1 of 2 tests failed");
+});
+
+test("a researcher archives a study to tidy the list, and deletes one only they tried", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+  const title = `Clutter ${Date.now() % 1_000_000}`;
+  await signIn(page);
+  await startStudy(page, title, async () => {
+    await page.getByRole("radio", { name: "Forum", exact: true }).check();
+    await page.getByRole("radio", { name: /Sample content for Forum/ }).check();
+  });
+  await saveAndLaunch(page);
+  const study = page.getByRole("listitem").filter({ hasText: title }).first();
+  await study.getByRole("button", { name: "Archive" }).click();
+  await expect(page.getByText(title)).toHaveCount(0);
+
+  await page.getByRole("button", { name: /^Archived \(\d+\)$/ }).click();
+  await expect(page.getByRole("heading", { name: "Archived studies" })).toBeVisible();
+  const archived = page.getByRole("listitem").filter({ hasText: title }).first();
+  await archived.getByRole("button", { name: "Delete for good" }).click();
+  const slug = title.toLowerCase().replace(/\s+/g, "-");
+  const confirm = page.getByRole("dialog", { name: `Delete ${slug}` });
+  await expect(confirm.getByRole("button", { name: "Delete it" })).toBeDisabled();
+  await confirm.getByLabel(/to confirm/).fill(slug);
+  await page.screenshot({ path: testInfo.outputPath("delete-study.png"), fullPage: true });
+  await confirm.getByRole("button", { name: "Delete it" }).click();
+  await expect(page.getByText(title)).toHaveCount(0);
+});

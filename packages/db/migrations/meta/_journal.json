@@ -302,6 +302,27 @@
       "when": 1794016926625,
       "tag": "0042_decision_only_conditions",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794238707028,
+      "tag": "0043_scenario_runs",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794239996782,
+      "tag": "0044_archive_studies",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1794240007436,
+      "tag": "0045_delete_study",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { get, type PreviewInfo, post, type StudySummary } from "../api.ts";
+import { get, type PreviewInfo, post, type StudySummary, send } from "../api.ts";
 import { postsThatNeverAppear } from "../timeline.ts";
 
 type StudyVersion = StudySummary["versions"][number];
@@ -88,6 +88,210 @@ function TryIt({ version, participantUrl }: { version: StudyVersion; participant
 }
 
 /** Launching is what participants feel, so it says exactly what will happen first. */
+/** The latest run of a version's scenario tests, what failed, and a button to run them again. */
+function Tests({ version, canRun }: { version: StudyVersion; canRun: boolean }) {
+  const client = useQueryClient();
+  const run = useMutation({
+    mutationFn: () => post(`/admin/versions/${version.id}/scenarios`),
+    onSettled: () => client.invalidateQueries({ queryKey: ["studies"] }),
+  });
+  const { scenarios, latest } = version.tests;
+  if (scenarios === 0) {
+    return null;
+  }
+  const passed = latest?.results.filter((result) => result.passed).length ?? 0;
+  const failed = latest?.results.filter((result) => !result.passed) ?? [];
+  const summary = !latest
+    ? "Tests haven't run"
+    : latest.status === "running"
+      ? "Running tests…"
+      : latest.status === "error"
+        ? "The tests couldn't finish"
+        : latest.results.length === 1
+          ? `The test ${latest.status}`
+          : latest.status === "passed"
+            ? `All ${latest.results.length} tests passed`
+            : `${failed.length} of ${latest.results.length} tests failed`;
+  return (
+    <div className="w-full text-sm" data-testid={`tests-${version.version}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={
+            latest?.status === "passed"
+              ? "text-emerald-800"
+              : latest?.status === "failed" || latest?.status === "error"
+                ? "text-rose-800"
+                : "text-stone-600"
+          }
+        >
+          {summary}
+          {latest?.status === "failed" && passed > 0 && ` (${passed} passed)`}
+        </span>
+        {latest && latest.status !== "running" && (
+          <span className="text-xs text-stone-500">
+            {latest.startedBy === "saving the version"
+              ? "when the version was saved"
+              : `run by ${latest.startedBy}`}
+          </span>
+        )}
+        {canRun && latest?.status !== "running" && (
+          <button
+            type="button"
+            disabled={run.isPending}
+            onClick={() => run.mutate()}
+            className="rounded border border-stone-300 px-2 py-0.5 text-xs"
+          >
+            {latest ? "Run tests again" : "Run tests"}
+          </button>
+        )}
+      </div>
+      {failed.length > 0 && latest?.status !== "running" && (
+        <ul className="mt-1 space-y-1 rounded bg-rose-50 p-2 text-xs text-rose-900">
+          {failed.map((result) => (
+            <li key={result.name}>
+              <p className="font-medium">{result.name}</p>
+              <ul className="list-disc pl-4">
+                {result.problems.map((problem) => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
+      {run.error && (
+        <p role="alert" className="text-xs text-rose-800">
+          {run.error.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Turns the launch warning about scenario tests on or off, for one study. */
+function useTestWarning(study: StudySummary) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (warn: boolean) =>
+      send("PUT", `/admin/studies/${study.id}/scenario-warning`, { warn }),
+    onSettled: () => client.invalidateQueries({ queryKey: ["studies"] }),
+  });
+}
+
+/** Hides a study from this page, or brings it back. */
+function ArchiveButton({ study }: { study: StudySummary }) {
+  const client = useQueryClient();
+  const archive = useMutation({
+    mutationFn: () =>
+      send("PUT", `/admin/studies/${study.id}/archived`, { archived: !study.archived }),
+    onSettled: () => client.invalidateQueries({ queryKey: ["studies"] }),
+  });
+  return (
+    <>
+      <button
+        type="button"
+        disabled={archive.isPending}
+        onClick={() => archive.mutate()}
+        className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+      >
+        {study.archived ? "Restore" : "Archive"}
+      </button>
+      {archive.error && (
+        <p role="alert" className="w-full text-sm text-rose-800">
+          {archive.error.message}
+        </p>
+      )}
+    </>
+  );
+}
+
+/** Deletes an archived study for good, once its address is typed to confirm. */
+function DeleteButton({ study }: { study: StudySummary }) {
+  const client = useQueryClient();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [typed, setTyped] = useState("");
+  const remove = useMutation({
+    mutationFn: () =>
+      send("DELETE", `/admin/studies/${study.id}?confirm=${encodeURIComponent(typed)}`),
+    onSuccess: async () => {
+      dialog.current?.close();
+      await client.invalidateQueries({ queryKey: ["studies"] });
+    },
+  });
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => dialog.current?.showModal()}
+        className="rounded border border-rose-300 px-3 py-1.5 text-sm text-rose-800"
+      >
+        Delete for good
+      </button>
+      <dialog
+        ref={dialog}
+        aria-label={`Delete ${study.slug}`}
+        className="m-auto w-[min(90vw,30rem)] rounded-lg p-6 backdrop:bg-black/50"
+      >
+        <h2 className="mb-2 text-lg font-semibold">Delete this study for good?</h2>
+        <p className="mb-3 text-sm">
+          Its versions, drafts, and test participants are deleted, and it can't be brought back.
+          Nobody real took part in it.
+        </p>
+        <label className="mb-4 flex flex-col gap-1 text-sm">
+          <span>
+            Type <code className="font-semibold">{study.slug}</code> to confirm
+          </span>
+          <input
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+            className="rounded border border-stone-300 px-2 py-1"
+          />
+        </label>
+        {remove.error && (
+          <p role="alert" className="mb-4 text-sm text-rose-800">
+            {remove.error.message}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => dialog.current?.close()}
+            className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+          >
+            Keep it
+          </button>
+          <button
+            type="button"
+            disabled={typed.trim() !== study.slug || remove.isPending}
+            onClick={() => remove.mutate()}
+            className="rounded bg-rose-700 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+          >
+            Delete it
+          </button>
+        </div>
+      </dialog>
+    </>
+  );
+}
+
+/** Says the launch warning about tests is off for a study, with a way to turn it back on. */
+function WarningsOff({ study }: { study: StudySummary }) {
+  const warning = useTestWarning(study);
+  return (
+    <p className="mt-1 text-xs text-stone-500">
+      Launching doesn't warn about scenario tests for this study.{" "}
+      <button
+        type="button"
+        disabled={warning.isPending}
+        onClick={() => warning.mutate(true)}
+        className="underline"
+      >
+        Warn me again
+      </button>
+    </p>
+  );
+}
+
 function LaunchButton({ study, version }: { study: StudySummary; version: StudyVersion }) {
   const client = useQueryClient();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -108,6 +312,9 @@ function LaunchButton({ study, version }: { study: StudySummary; version: StudyV
   );
 
   const [placeholderAccepted, setPlaceholderAccepted] = useState(false);
+  const warning = useTestWarning(study);
+  const { tests } = version;
+  const untested = study.warnUntested && tests.scenarios > 0 && tests.latest?.status !== "passed";
   const placeholderConsent = info.data?.placeholderConsent ?? false;
 
   const launch = useMutation({
@@ -153,6 +360,28 @@ function LaunchButton({ study, version }: { study: StudySummary; version: StudyV
             </li>
           )}
         </ul>
+        {untested && (
+          <div role="alert" className="mb-4 rounded bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-medium">
+              {!tests.latest
+                ? "This version's scenario tests haven't run."
+                : tests.latest.status === "running"
+                  ? "This version's scenario tests are still running."
+                  : "This version's scenario tests didn't all pass."}
+            </p>
+            <p className="mt-1">
+              They check that its beats happen when they should. You can still launch it.
+            </p>
+            <label className="mt-2 flex items-baseline gap-2">
+              <input
+                type="checkbox"
+                disabled={warning.isPending}
+                onChange={(event) => warning.mutate(!event.target.checked)}
+              />
+              Don't warn me about tests for this study
+            </label>
+          </div>
+        )}
         {placeholderConsent && (
           <div role="alert" className="mb-4 rounded bg-amber-50 p-3 text-sm text-amber-900">
             <p className="font-medium">The consent page still has the placeholder text.</p>
@@ -252,20 +481,46 @@ function StopButton({ study }: { study: StudySummary }) {
 }
 
 export function StudiesPage() {
+  const [showArchived, setShowArchived] = useState(false);
   const list = useQuery({
-    queryKey: ["studies"],
-    queryFn: () => get<{ studies: StudySummary[] }>("/admin/studies"),
+    queryKey: ["studies", showArchived],
+    queryFn: () =>
+      get<{ studies: StudySummary[]; archivedCount: number }>(
+        `/admin/studies${showArchived ? "?archived=true" : ""}`,
+      ),
+    // Often while tests run, so their results show when they're done.
+    refetchInterval: (query) =>
+      query.state.data?.studies.some((study) =>
+        study.versions.some((version) => version.tests.latest?.status === "running"),
+      )
+        ? 2_000
+        : false,
   });
 
   return (
     <main className="mx-auto max-w-3xl p-4">
       <div className="mb-4 flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Studies</h1>
+        <h1 className="mr-auto text-2xl font-semibold">
+          {showArchived ? "Archived studies" : "Studies"}
+        </h1>
+        {(showArchived || (list.data?.archivedCount ?? 0) > 0) && (
+          <button
+            type="button"
+            onClick={() => setShowArchived(!showArchived)}
+            className="text-sm underline"
+          >
+            {showArchived ? "Back to studies" : `Archived (${list.data?.archivedCount})`}
+          </button>
+        )}
         <Link to="/studies/new" className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white">
           New study
         </Link>
       </div>
-      {list.data?.studies.length === 0 && <p className="text-stone-600">No studies yet.</p>}
+      {list.data?.studies.length === 0 && (
+        <p className="text-stone-600">
+          {showArchived ? "No archived studies." : "No studies yet."}
+        </p>
+      )}
       <ul className="space-y-3">
         {list.data?.studies.map((study) => {
           const canChange = study.role !== "viewer";
@@ -303,11 +558,22 @@ export function StudiesPage() {
                   >
                     Monitor and download
                   </Link>
-                  <EditButton study={study} />
+                  {!study.archived && <EditButton study={study} />}
+                  {canChange && !study.liveVersionId && <ArchiveButton study={study} />}
+                  {study.archived && study.role === "owner" && !study.notDeletable && (
+                    <DeleteButton study={study} />
+                  )}
                 </div>
               </div>
+              {study.archived && study.notDeletable && (
+                <p className="mt-1 text-xs text-stone-500">{study.notDeletable}</p>
+              )}
 
-              <ul className="mt-3 divide-y divide-stone-200 border-t border-stone-200">
+              {!study.warnUntested && canChange && <WarningsOff study={study} />}
+              <ul
+                hidden={study.archived}
+                className="mt-3 divide-y divide-stone-200 border-t border-stone-200"
+              >
                 {study.versions.map((version) => {
                   const isLive = version.id === study.liveVersionId;
                   return (
@@ -335,6 +601,7 @@ export function StudiesPage() {
                       <TryIt version={version} participantUrl={study.participantUrl} />
                       {canChange && !isLive && <LaunchButton study={study} version={version} />}
                       {canChange && isLive && <StopButton study={study} />}
+                      <Tests version={version} canRun={canChange} />
                     </li>
                   );
                 })}

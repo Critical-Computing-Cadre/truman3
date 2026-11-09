@@ -1,6 +1,6 @@
 # Deploying
 
-What it takes to run Truman 3 somewhere other than your laptop. [ADR 19](../adr/0019-how-truman-runs-in-production.md), [ADR 21](../adr/0021-the-api-has-its-own-login-and-admin-lives-under-a-path.md), and [ADR 23](../adr/0023-staging-runs-on-aws-from-cdk.md) explain why it's like this. To run it on AWS, see [Running it on AWS](#running-it-on-aws).
+What it takes to run Truman 3 somewhere other than your laptop. [ADR 19](../adr/0019-how-truman-runs-in-production.md), [ADR 21](../adr/0021-the-api-has-its-own-login-and-admin-lives-under-a-path.md), and [ADR 23](../adr/0023-staging-runs-on-aws-from-cdk.md) explain why it's like this. To run it on AWS, see [Running it on AWS](#running-it-on-aws). [Cloud architecture](../cloud.md) describes each piece on AWS and how they connect.
 
 ## The pieces
 
@@ -97,7 +97,7 @@ The image sets `NODE_ENV=production`, which turns on secure cookies and the shor
 | `/api/media/uploads/*` | The API, then S3            | What participants upload. The API checks who's asking, and CloudFront keeps no copy      |
 | The API                | Fargate, in a public subnet | Its firewall lets in only the balancer. It can reach out, with no NAT gateway to pay for |
 | Postgres               | RDS, in a private subnet    | Lets in only the API's firewall                                                          |
-| Passwords and the key  | Secrets Manager             | Containers get them by reference                                                         |
+| Passwords and keys     | Secrets Manager             | Containers get them by reference, when they start                                        |
 
 ### Before the first deployment
 
@@ -136,7 +136,27 @@ To create the first team, run the `AdminCommand` that printed, with `--profile` 
 
 ### Later deployments
 
-If a change includes a migration, stop the API, update the database, and start it again, as above. If it doesn't, `pnpm run deploy --profile <profile>` is enough. CI doesn't deploy yet.
+If a change includes a migration, stop the API, update the database, and start it again, as above. If it doesn't, `pnpm run deploy --profile <profile>` is enough. CI doesn't deploy yet. [Cloud architecture](../cloud.md#when-a-change-includes-a-migration) says why it takes these steps.
+
+**A deploy that widens access stops and asks.** `infra/cdk.json` sets `requireApproval: broadening`, so a change that adds an IAM permission or lets more through a firewall waits for you to type `y`. Read what it lists first. Anything you didn't expect is worth asking about.
+
+The API's output is in `/truman3-staging/api`.
+
+### The Claude key
+
+Christof's actors write live only if the API has an Anthropic key (ADR 52). On AWS it's a secret you make by hand, so the key never passes through the repo or a deploy.
+
+1. In the Secrets Manager console, in the stage's account and region, store a new secret as plain text: only the key, with no JSON around it.
+2. Name it what the stage's `anthropicKeySecret` says. Staging's is `truman3-staging/anthropic-api-key`.
+3. Deploy. The API's containers read it when they start.
+
+Make the secret before the deploy that names it, or the API's containers can't start. To change the key later, update the secret, then start new containers, since running ones keep the old key:
+
+```
+aws ecs update-service --cluster truman3-staging --service truman3-staging-api --force-new-deployment --profile <profile>
+```
+
+To turn live writing off for a stage, remove `anthropicKeySecret` from it and deploy. Improvised beats then use their fallback lines.
 
 ### Costing less, and removing it
 

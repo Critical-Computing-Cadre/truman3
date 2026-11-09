@@ -2,15 +2,17 @@ import { randomUUID } from "node:crypto";
 import { formatStudyTime, type Scenario, type ScenarioTarget } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
+import { deleteParticipant } from "@truman3/study-import";
 import type { Writer } from "@truman3/writer";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { createApp } from "../app.ts";
 import { scriptFor } from "../director/director.ts";
+import { startPilot } from "../participants/enter.ts";
 import { hashSessionToken } from "../participants/session.ts";
 
 /**
- * Runs a study's scenario tests. Each scenario is a test participant, started the way a researcher
- * starts one, in the condition it names. Their world runs on a clock the runner moves forward, so
+ * Runs a study's scenario tests. Each scenario is a test participant, started as a researcher's
+ * "Try it" starts one, in the condition it names. Their world runs on a clock the runner moves forward, so
  * a day takes a moment. Everything they do goes through the API, the same as a real participant.
  * See ADR 56.
  */
@@ -27,10 +29,13 @@ export interface RunScenariosOptions {
   storage: Storage;
   versionId: string;
   scenarios: readonly Scenario[];
-  /** A researcher on the study's team, who starts the test participants. */
-  researcher: { email: string; password: string };
   /** What writes improvised lines. Leave out to use fallback and rehearsed lines. */
   writer?: Writer | null;
+  /**
+   * Whether to delete each test participant after their scenario. On a real server their world
+   * runs ahead of the real time, so it shouldn't stay where researchers look.
+   */
+  cleanUp?: boolean;
 }
 
 export async function runScenarios({
@@ -38,8 +43,8 @@ export async function runScenarios({
   storage,
   versionId,
   scenarios,
-  researcher,
   writer = null,
+  cleanUp = false,
 }: RunScenariosOptions): Promise<ScenarioResult[]> {
   let now = new Date();
   const app = createApp({
@@ -66,12 +71,6 @@ export async function runScenarios({
   };
   const cookieOf = (header: string) => header.split(";")[0] ?? "";
 
-  const login = await send("POST", "/admin/login", "", researcher);
-  if (!login.ok) {
-    throw new Error("The researcher couldn't sign in to run the scenarios.");
-  }
-  const admin = cookieOf(login.cookie);
-
   const script = await scriptFor(db, versionId);
   const cues = [...script.beats, ...script.decide];
   const results: ScenarioResult[] = [];
@@ -79,10 +78,8 @@ export async function runScenarios({
     const problems: string[] = [];
     const start = new Date();
     now = start;
-    const started = await send("POST", `/admin/versions/${versionId}/pilot`, admin, {
-      condition: scenario.condition,
-    });
-    const token = started.json.token as string | undefined;
+    const started = await startPilot(db, versionId, scenario.condition, now);
+    const token = started?.token;
     if (!token) {
       results.push({
         name: scenario.name,
@@ -245,19 +242,34 @@ export async function runScenarios({
       if (expect.sees.length > 0 || expect.doesNotSee.length > 0) {
         const feed = await send("GET", "/feed", cookie);
         const texts = bodiesIn(feed.json);
+        // Some platforms show comments only on a post's own page, so open the ones that have them.
+        const posts = (feed.json.posts ?? []) as {
+          id: string;
+          comments: unknown[];
+          commentCount: number;
+        }[];
+        for (const post of posts) {
+          if (post.commentCount > post.comments.length) {
+            const opened = await send("GET", `/feed?surface=post&post=${post.id}`, cookie);
+            texts.push(...bodiesIn(opened.json));
+          }
+        }
         for (const text of expect.sees) {
           if (!texts.some((body) => body.includes(text))) {
-            problems.push(`${when}, they should see "${text}" in their feed, but they don't.`);
+            problems.push(`${when}, they should see "${text}", but they don't.`);
           }
         }
         for (const text of expect.doesNotSee) {
           if (texts.some((body) => body.includes(text))) {
-            problems.push(`${when}, they shouldn't see "${text}" in their feed, but they do.`);
+            problems.push(`${when}, they shouldn't see "${text}", but they do.`);
           }
         }
       }
     }
     results.push({ name: scenario.name, passed: problems.length === 0, problems });
+    if (cleanUp) {
+      await deleteParticipant(db, storage, participantId, "scenario test", "Truman");
+    }
   }
   return results;
 }
