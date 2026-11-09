@@ -800,7 +800,7 @@ function ConditionsForm({
                 Weight
                 <input
                   type="number"
-                  min="1"
+                  min="0"
                   step="1"
                   value={arm.weight}
                   onChange={(event) =>
@@ -810,9 +810,11 @@ function ConditionsForm({
                 />
               </label>
               <p className="pb-2 text-xs text-stone-500">
-                {totalWeight > 0
-                  ? `${Math.round((arm.weight / totalWeight) * 100)}% of people`
-                  : ""}
+                {arm.weight === 0
+                  ? "Only at a decision point"
+                  : totalWeight > 0
+                    ? `${Math.round((arm.weight / totalWeight) * 100)}% of people`
+                    : ""}
               </p>
               <button
                 type="button"

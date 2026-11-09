@@ -7,7 +7,11 @@ export {
   type BeatTrigger,
   beatSchema,
   beatsFileSchema,
+  COUNTABLE,
+  type DecisionDefinition,
+  decisionSchema,
   type LiveWriting,
+  type Measure,
   PARTICIPANT_ACTIONS,
   type Persona,
 } from "./beats.ts";

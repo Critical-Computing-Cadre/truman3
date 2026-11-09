@@ -188,3 +188,42 @@ live:
 - **When it posts:** an approved line appears when it's approved, and beats after it count from then.
 - **If nobody decides** within `approvalTimeout` (ten minutes unless a study says), the fallback or fixed line is used, as of when the time ran out, so a participant never waits forever. `never` waits as long as it takes.
 - **What's recorded:** `beat_runs.csv` records who decided, the suggested line, and whether it was changed.
+
+## Decision points, for adaptive designs
+
+Beats decide what happens within a condition. Decision points decide which condition someone is in. Use them for SMART designs, or for just-in-time adaptive interventions: someone who hasn't posted by day 2 gets a stronger nudge, and someone who has stays where they are.
+
+They go under `decide:` in `beats.yaml`:
+
+```yaml
+decide:
+  - id: day-2
+    note: Re-randomize people who haven't posted by the end of day 2.
+    when: { time: "48:00" }
+    conditions: [gentle-nudge] # who it's for; leave out for everyone
+    measure:
+      posts: { count: post }
+      lately: { count: comment, within: "24:00" } # only in the 24 hours before
+      minutes: { activeMinutes: true }
+      nudged: { fired: nudge-1 } # 1 if the beat happened, or 0
+    groups:
+      - name: non-responders
+        if: { posts: { atMost: 0 } }
+        to: { strong-nudge: 1, peer-nudge: 1 } # re-randomized, by weight
+      - name: responders
+        to: stay
+```
+
+- **When:** `when` works like a beat's: a time, something the participant does, or after a beat. Each decision point happens once for each participant.
+- **Measures** are taken from their own actions, as of when the decision point was due:
+  - **`count`** counts how many times they did something: `post`, `comment`, `like`, `repost`, `follow`, or `flag`. It can also count any event type in the event log, like `content.opened`.
+  - **`activeMinutes`** is how long they were active on the site.
+  - **`fired`** is 1 if a beat happened for them, or 0.
+  - **`within`** limits a measure to the time before the decision.
+- **Groups** are checked in order, and the first one whose tests all pass decides.
+  - A test gives `atLeast`, `atMost`, or both, and both ends count.
+  - A group with no `if` is for everyone left.
+  - `to` either re-randomizes by weight, or says `stay`. Someone in no group stays.
+- **Conditions they move to:** a condition only a decision point reaches has `weight: 0` in `study.yaml`, so nobody starts in it. People only move forward. A decision point can move them to a weight-0 condition, or among the conditions it's for, but never back to where people start.
+- **After the move:** they're in their new condition right away, and everything in it, like its posts and feed settings, applies to them. Beats for the condition they left don't happen. A beat can follow the decision point with `when: { beat: day-2 }`, and use `conditions` to happen only in one of the new conditions.
+- **What's recorded:** every assignment is in `assignments` with its chance, so a standard SMART analysis can weight it. That includes staying, which has a chance of 1. The export's `assignments.csv` has each participant's assignments in order, with the decision point, their group, and their measures. `participants.csv` has where they ended up. `beat_runs.csv` says in plain words what each decision point decided.

@@ -756,12 +756,12 @@ export function readStudyTables(
   // into what Christof uses. Adding sheets to a draft leaves them alone.
   const beatsText = only ? null : source.read(BEATS_FILE);
   let beats: BeatDefinition[] = [];
-  let christof: Pick<BeatsFile, "live" | "cast"> | undefined;
+  let christof: Pick<BeatsFile, "live" | "cast" | "decide"> | undefined;
   if (beatsText !== null) {
     pages[BEATS_FILE] = beatsText;
     const read = parseBeats(beatsText);
     beats = read.beats;
-    christof = { live: read.live, cast: read.cast };
+    christof = { live: read.live, cast: read.cast, decide: read.decide };
     issues.push(...read.issues);
   }
 

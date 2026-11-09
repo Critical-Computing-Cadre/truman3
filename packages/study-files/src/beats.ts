@@ -23,14 +23,18 @@ export function parseBeats(text: string): BeatsFile & { issues: StudyIssue[] } {
   if (parsed.success) {
     return { ...parsed.data, issues: [] };
   }
-  const listed = (raw as { beats?: { id?: unknown }[] } | null)?.beats;
+  const listed = raw as { beats?: { id?: unknown }[]; decide?: { id?: unknown }[] } | null;
   return {
     ...empty,
     issues: parsed.error.issues.map((issue) => {
       const [top, index, ...rest] = issue.path;
-      if (top === "beats" && typeof index === "number") {
-        const id = listed?.[index]?.id;
-        const which = typeof id === "string" ? `The beat "${id}"` : `Beat ${index + 1}`;
+      if ((top === "beats" || top === "decide") && typeof index === "number") {
+        const id = listed?.[top]?.[index]?.id;
+        const noun = top === "beats" ? "beat" : "decision point";
+        const which =
+          typeof id === "string"
+            ? `The ${noun} "${id}"`
+            : `${noun === "beat" ? "Beat" : "Decision point"} ${index + 1}`;
         const where = rest.length > 0 ? ` (${rest.join(".")})` : "";
         return problem(`${which}${where}: ${issue.message}`);
       }

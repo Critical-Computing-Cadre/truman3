@@ -127,7 +127,7 @@ export function draftToDefinition(
       ),
     ),
     beats,
-    ...(read ? { christof: { live: read.live, cast: read.cast } } : {}),
+    ...(read ? { christof: { live: read.live, cast: read.cast, decide: read.decide } } : {}),
     actors: actors.map(({ data: { spaceFlair, ...actor } }) => {
       // A space that's been removed takes what people showed in it with it.
       const flair = Object.entries(spaceFlair ?? {}).flatMap(([spaceId, text]) => {

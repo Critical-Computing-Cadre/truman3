@@ -295,6 +295,13 @@
       "when": 1793996288340,
       "tag": "0041_beat_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1794016926625,
+      "tag": "0042_decision_only_conditions",
+      "breakpoints": true
     }
   ]
 }

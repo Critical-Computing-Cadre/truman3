@@ -477,6 +477,9 @@ export async function exportStudy(
           "actor",
           "content_id",
           "target_content_id",
+          "wording",
+          "cost_usd",
+          "writing",
         ],
         beatRuns.map((run) => ({
           participant_id: participantByWorld.get(run.worldId) ?? "",
@@ -491,6 +494,9 @@ export async function exportStudy(
           actor: run.actorId ? safeText(actorById.get(run.actorId)?.username) : "",
           content_id: run.contentId ?? "",
           target_content_id: run.targetContentId ?? "",
+          wording: safeText((run.writing as { mode?: string } | null)?.mode),
+          cost_usd: (run.writing as { costUsd?: number } | null)?.costUsd ?? "",
+          writing: run.writing ? safeText(JSON.stringify(run.writing)) : "",
         })),
       ),
     );
@@ -585,6 +591,45 @@ export async function exportStudy(
           conditions: space.conditions.join("|"),
           class: safeText(space.class),
         })),
+      ),
+    );
+  }
+
+  // Every assignment, in order, so an adaptive design's stages can each be analyzed.
+  if (assignments.some(({ decisionPoint }) => decisionPoint !== null)) {
+    files.push(
+      writeCsv(
+        folder,
+        "assignments.csv",
+        [
+          "participant_id",
+          "stage",
+          "decision_point",
+          "condition",
+          "method",
+          "probability",
+          "group",
+          "measures",
+          "assigned_at",
+        ],
+        participants.flatMap((participant) =>
+          assignments
+            .filter(({ participantId }) => participantId === participant.id)
+            .map((assignment, stage) => {
+              const details = assignment.details as { group?: string | null; measures?: object };
+              return {
+                participant_id: participant.id,
+                stage,
+                decision_point: assignment.decisionPoint ?? "",
+                condition: conditionById.get(assignment.conditionId)?.key ?? "",
+                method: assignment.method,
+                probability: assignment.probability,
+                group: safeText(details.group ?? ""),
+                measures: details.measures ? JSON.stringify(details.measures) : "",
+                assigned_at: iso(assignment.assignedAt),
+              };
+            }),
+        ),
       ),
     );
   }
@@ -1106,7 +1151,7 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ["run", "Which time this beat ran in this world, from 0, since a beat can run more than once"],
     [
       "status",
-      "fired if it happened, skipped if it didn't, and pending if it wasn't due yet when this was exported",
+      "fired if it happened, skipped if it didn't, pending if it wasn't due yet when this was exported, and awaiting if it was waiting for a researcher to approve it",
     ],
     [
       "trigger",
@@ -1114,12 +1159,40 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ],
     ["triggered_at, due_at", "When it was set off, and when it was due after its delay"],
     ["decided_at", "When it was decided, which is the first time anything loaded after it was due"],
-    ["reason", "Why it was skipped, in plain words"],
+    [
+      "reason",
+      "Why it was skipped, in plain words. For a decision point, which group they were in, their measures, and where they went",
+    ],
     ["actor", "Who in the cast did it, by username"],
     [
       "content_id, target_content_id",
-      "What it made, such as a comment, and what it acted on, in content.csv. What it made appeared at due_at",
+      "What it made, such as a comment, and what it acted on, in content.csv. What it made appeared at due_at, or when a researcher approved it",
     ],
+    [
+      "wording",
+      "For a post or comment that improvises: live (written by a model), rehearsed (one of its lines), or fallback. fixed for a fixed line that waited for approval",
+    ],
+    ["cost_usd", "What the model calls for it cost, in US dollars"],
+    [
+      "writing",
+      "How its words were chosen, as JSON: the prompt, the model, what it wrote, the check's answer, which rehearsed line, and, for a beat that waited for approval, the suggested line, who decided, and what was posted",
+    ],
+  ],
+  "assignments.csv": [
+    [
+      "stage",
+      "Every condition each participant was assigned, in order, from 0 when they joined. Only present if a decision point re-randomized anyone. participants.csv has their last one",
+    ],
+    ["decision_point", "Which decision point in beats.yaml assigned it. Empty for joining"],
+    ["condition", "The condition they were in from then on"],
+    ["method", "uniform or blocked when they joined, and decision at a decision point"],
+    [
+      "probability",
+      "The chance they had of this condition at this step, for weighting. 1 when they stayed without a draw",
+    ],
+    ["group", "Which of the decision point's groups they were in. Empty for none"],
+    ["measures", "Their measures at the decision point, as JSON"],
+    ["assigned_at", "When it took effect"],
   ],
   "removals.csv": [
     [

@@ -127,7 +127,7 @@ export const conditions = pgTable(
   (table) => [
     unique().on(table.studyVersionId, table.key),
     unique().on(table.id, table.studyVersionId),
-    check("conditions_weight_positive", sql`${table.weight} > 0`),
+    check("conditions_weight_nonnegative", sql`${table.weight} >= 0`),
   ],
 );
 

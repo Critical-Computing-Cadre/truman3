@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { eventPayloadSchemas } from "../events.ts";
 import { parseStudyTime } from "./time.ts";
 
 /**
@@ -234,6 +235,75 @@ export const liveWritingSchema = z.strictObject({
   stray: z.enum(["never", "choose", "always"]).default("choose"),
 });
 
+/**
+ * What a decision point can count, by a short name, and the event it counts. Anything else in the
+ * event log can be counted by its event type, like `content.opened`.
+ */
+export const COUNTABLE = {
+  post: { type: "content.created", kind: "post" },
+  comment: { type: "content.created", kind: "comment" },
+  like: { type: "content.liked" },
+  repost: { type: "content.reposted" },
+  follow: { type: "actor.followed" },
+  flag: { type: "content.flagged" },
+} as const satisfies Record<string, { type: keyof typeof eventPayloadSchemas; kind?: string }>;
+
+/**
+ * A tailoring variable: something about the participant, measured from the event log as of the
+ * decision. Each is a number, so a rule can compare it.
+ */
+const measureSchema = z.union([
+  /** How many times they did something, in the whole study or `within` the time before. */
+  z.strictObject({
+    count: z
+      .string()
+      .min(1)
+      .refine((what) => what in COUNTABLE || what in eventPayloadSchemas, {
+        message: `Count one of ${Object.keys(COUNTABLE).join(", ")}, or an event type like content.opened.`,
+      }),
+    within: studyTime.optional(),
+  }),
+  /** How many minutes they were active on the site. */
+  z.strictObject({ activeMinutes: z.literal(true), within: studyTime.optional() }),
+  /** 1 if a beat has happened for them, or 0. */
+  z.strictObject({ fired: idSchema }),
+]);
+
+/** A test of one measure. Both ends are included. */
+const boundsSchema = z
+  .strictObject({ atLeast: z.number().optional(), atMost: z.number().optional() })
+  .refine(({ atLeast, atMost }) => atLeast !== undefined || atMost !== undefined, {
+    message: "Give atLeast, atMost, or both.",
+  });
+
+/**
+ * A group at a decision point: who's in it, by their measures, and what happens to them. They're
+ * re-randomized among conditions by weight, or `stay` where they are.
+ */
+const groupSchema = z.strictObject({
+  name: idSchema,
+  /** Every test has to pass. Leave out for everyone not in an earlier group. */
+  if: z.record(z.string(), boundsSchema).default({}),
+  to: z.union([z.literal("stay"), z.record(z.string(), z.number().int().positive())]),
+});
+
+/**
+ * A decision point, as in a SMART design or a just-in-time adaptive intervention: when it's
+ * reached, the participant's measures are taken, the first group they fit decides their next
+ * condition, and the choice is recorded in `assignments` with its probability. See ADR 55.
+ */
+export const decisionSchema = z.strictObject({
+  id: idSchema,
+  /** A note for the research team. Participants never see it. */
+  note: z.string().optional(),
+  when: triggerSchema,
+  /** Who it's for, by their condition when it's reached. Leave out for everyone. */
+  conditions: z.array(z.string().min(1)).default([]),
+  measure: z.record(z.string().regex(/^[a-zA-Z][a-zA-Z0-9_]*$/), measureSchema).default({}),
+  /** In order. Someone in no group stays where they are. */
+  groups: z.array(groupSchema).min(1, "Give at least one group."),
+});
+
 export const beatsFileSchema = z.strictObject({
   live: liveWritingSchema.default({
     enabled: false,
@@ -248,11 +318,15 @@ export const beatsFileSchema = z.strictObject({
   /** Persona cards, by username. */
   cast: z.record(z.string(), personaSchema).default({}),
   beats: z.array(beatSchema).default([]),
+  /** Decision points for adaptive designs. */
+  decide: z.array(decisionSchema).default([]),
 });
 
 export type Persona = z.output<typeof personaSchema>;
 export type LiveWriting = z.output<typeof liveWritingSchema>;
 export type BeatsFile = z.output<typeof beatsFileSchema>;
+export type DecisionDefinition = z.output<typeof decisionSchema>;
+export type Measure = z.output<typeof measureSchema>;
 
 export type BeatDefinition = z.output<typeof beatSchema>;
 export type BeatTrigger = BeatDefinition["when"];

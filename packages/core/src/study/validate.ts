@@ -1,6 +1,6 @@
 import { ruleTerms } from "../auto-rules.ts";
 import { MAX_ATTACHMENTS } from "../feed.ts";
-import { BEATS_FILE } from "./beats.ts";
+import { BEATS_FILE, type DecisionDefinition } from "./beats.ts";
 import { hasPlaceholderConsent } from "./consent.ts";
 import { MAX_LABEL_LENGTH, PARTICIPANT_TAG, type StudyDefinition } from "./definition.ts";
 import { LINK_PLACEHOLDERS } from "./links.ts";
@@ -41,6 +41,11 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
   }
 
   const { assignment } = settings.conditions;
+  if (settings.conditions.arms.every((arm) => arm.weight === 0)) {
+    error(
+      "At least one condition needs a weight above 0, so people can be assigned when they join.",
+    );
+  }
   if (assignment.method === "blocked") {
     const totalWeight = settings.conditions.arms.reduce((sum, arm) => sum + arm.weight, 0);
     if (assignment.blockSize % totalWeight !== 0) {
@@ -931,6 +936,8 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
     beatIds.set(beat.id, beat);
   }
+  const decisions = study.christof?.decide ?? [];
+  const decisionIds = new Set(decisions.map(({ id }) => id));
   const beatLengthMs = settings.length.days * 24 * HOUR_MS;
   for (const beat of study.beats) {
     const label = `The beat "${beat.id}"`;
@@ -949,8 +956,16 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
         );
       }
     }
-    const checkBeat = (id: string, what: string) => {
-      if (!beatIds.has(id)) {
+    /** A beat can come after a decision point, or be skipped after one, but not act on one. */
+    const checkBeat = (id: string, what: string, decisionAllowed = false) => {
+      if (decisionIds.has(id)) {
+        if (!decisionAllowed) {
+          beatProblem(
+            "error",
+            `${label} ${what} "${id}", which is a decision point, so it doesn't make anything.`,
+          );
+        }
+      } else if (!beatIds.has(id)) {
         beatProblem("error", `${label} ${what} "${id}", which isn't a beat in this study.`);
       } else if (id === beat.id) {
         beatProblem("error", `${label} ${what} itself.`);
@@ -971,7 +986,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       }
     }
     if ("beat" in when) {
-      checkBeat(when.beat, "comes after");
+      checkBeat(when.beat, "comes after", true);
     }
     if ("on" in action) {
       const target = action.on;
@@ -979,6 +994,11 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
         beatProblem(
           "error",
           `${label} acts on what set it off, but a time doesn't point at anything.`,
+        );
+      } else if (target === "trigger" && "beat" in when && decisionIds.has(when.beat)) {
+        beatProblem(
+          "error",
+          `${label} acts on what set it off, but a decision point doesn't make anything.`,
         );
       } else if (typeof target === "object" && "beat" in target) {
         checkBeat(target.beat, "acts on what was made by");
@@ -990,7 +1010,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       }
     }
     for (const id of beat.unless) {
-      checkBeat(id, "is skipped after");
+      checkBeat(id, "is skipped after", true);
     }
     if (beat.delay.minMs > beat.delay.maxMs) {
       beatProblem("error", `${label} has a delay whose min is after its max.`);
@@ -1045,17 +1065,22 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     );
   }
 
+  checkDecisions(study, decisions, beatIds, beatLengthMs, usernames, beatProblem);
+
   // One beat following another can't go round in a circle, or it would never stop.
-  for (const beat of study.beats) {
+  const followers = new Map<string, { id: string; when: StudyDefinition["beats"][number]["when"] }>(
+    [...study.beats, ...decisions].map((item) => [item.id, item]),
+  );
+  for (const beat of [...study.beats, ...decisions]) {
     const seen = new Set<string>();
-    let current: StudyDefinition["beats"][number] | undefined = beat;
+    let current: { id: string; when: StudyDefinition["beats"][number]["when"] } | undefined = beat;
     while (current && "beat" in current.when) {
       if (seen.has(current.id)) {
         beatProblem("error", `The beats after "${beat.id}" go round in a circle.`);
         break;
       }
       seen.add(current.id);
-      current = beatIds.get(current.when.beat);
+      current = followers.get(current.when.beat);
     }
   }
 
@@ -1094,4 +1119,103 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
 
 export function hasErrors(issues: StudyIssue[]): boolean {
   return issues.some((issue) => issue.severity === "error");
+}
+
+/**
+ * Decision points, from beats.yaml. People only move forward: to a condition only decisions reach
+ * (weight 0), or among the conditions the decision is for. See ADR 55.
+ */
+function checkDecisions(
+  study: StudyDefinition,
+  decisions: readonly DecisionDefinition[],
+  beatIds: ReadonlyMap<string, unknown>,
+  beatLengthMs: number,
+  usernames: ReadonlySet<string>,
+  problem: (severity: "error" | "warning", message: string) => void,
+) {
+  const arms = new Map(study.settings.conditions.arms.map((arm) => [arm.key, arm]));
+  const reached = new Set<string>();
+  const seen = new Set<string>();
+  for (const decision of decisions) {
+    const label = `The decision point "${decision.id}"`;
+    if (beatIds.has(decision.id) || seen.has(decision.id)) {
+      problem("error", `The id "${decision.id}" is used more than once.`);
+    }
+    seen.add(decision.id);
+    for (const condition of decision.conditions) {
+      if (!arms.has(condition)) {
+        problem(
+          "error",
+          `${label} is for the condition "${condition}", which isn't in study.yaml.`,
+        );
+      }
+    }
+    const { when } = decision;
+    if ("time" in when && when.time >= beatLengthMs) {
+      problem("warning", `${label} is set for after the study ends, so it won't happen.`);
+    }
+    if ("participant" in when && when.on && !usernames.has(when.on)) {
+      problem(
+        "error",
+        `${label} waits for something on "${when.on}", who isn't in the list of actors.`,
+      );
+    }
+    if ("participant" in when && when.under && !beatIds.has(when.under)) {
+      problem("error", `${label} waits for something under "${when.under}", which isn't a beat.`);
+    }
+    const isBeatOrDecision = (id: string) =>
+      beatIds.has(id) || decisions.some((other) => other.id === id);
+    if ("beat" in when && (!isBeatOrDecision(when.beat) || when.beat === decision.id)) {
+      problem(
+        "error",
+        `${label} comes after "${when.beat}", which isn't another beat or decision point.`,
+      );
+    }
+    for (const [name, measure] of Object.entries(decision.measure)) {
+      if ("fired" in measure && !isBeatOrDecision(measure.fired)) {
+        problem("error", `${label} measures ${name} from "${measure.fired}", which isn't a beat.`);
+      }
+    }
+    decision.groups.forEach((group, index) => {
+      for (const name of Object.keys(group.if)) {
+        if (!(name in decision.measure)) {
+          problem(
+            "error",
+            `${label}'s group "${group.name}" tests ${name}, which isn't in its measure.`,
+          );
+        }
+      }
+      if (Object.keys(group.if).length === 0 && index < decision.groups.length - 1) {
+        problem(
+          "warning",
+          `${label}'s group "${group.name}" is for everyone, so the groups after it never happen.`,
+        );
+      }
+      if (group.to === "stay") {
+        return;
+      }
+      for (const key of Object.keys(group.to)) {
+        const arm = arms.get(key);
+        if (!arm) {
+          problem("error", `${label} moves people to "${key}", which isn't in study.yaml.`);
+          continue;
+        }
+        reached.add(key);
+        if (arm.weight > 0 && !decision.conditions.includes(key)) {
+          problem(
+            "error",
+            `${label} moves people to "${key}", where people start. Move them only to conditions with weight 0, or among the conditions it's for, so nobody goes back.`,
+          );
+        }
+      }
+    });
+  }
+  for (const arm of study.settings.conditions.arms) {
+    if (arm.weight === 0 && !reached.has(arm.key)) {
+      problem(
+        "warning",
+        `The condition "${arm.key}" has weight 0, and no decision point moves anyone there, so nobody will be in it.`,
+      );
+    }
+  }
 }

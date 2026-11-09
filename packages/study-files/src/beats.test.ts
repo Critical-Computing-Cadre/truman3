@@ -272,4 +272,98 @@ beats:
 `).beats;
     expect(beat?.approve).toBe(true);
   });
+
+  describe("decision points", () => {
+    const adaptive = studySettingsSchema.parse({
+      ...settings,
+      conditions: {
+        assignment: { method: "uniform" },
+        arms: [{ key: "a" }, { key: "b" }, { key: "c", weight: 0 }, { key: "d", weight: 0 }],
+      },
+    });
+    const decisionProblems = (yaml: string) => {
+      const { beats, issues, live, cast, decide } = parseBeats(yaml);
+      if (issues.length > 0) {
+        return issues.map(({ message }) => message);
+      }
+      const study = studyDefinitionSchema.parse({
+        settings: adaptive,
+        actors: [{ username: "ann", name: "Ann", conditions: [] }],
+        posts: [],
+        beats,
+        christof: { live, cast, decide },
+      });
+      return validateStudy(study)
+        .filter(({ file }) => file === "beats.yaml")
+        .map(({ severity, message }) => `${severity}: ${message}`);
+    };
+
+    it("passes a SMART design: non-responders re-randomized, responders stay", () => {
+      expect(
+        decisionProblems(`
+beats:
+  - { id: nudge, when: { beat: day-2 }, conditions: [c], do: { action: post, actor: ann, text: Hi } }
+decide:
+  - id: day-2
+    when: { time: "48:00" }
+    conditions: [a]
+    measure:
+      posts: { count: post }
+      opened: { count: content.opened, within: "24:00" }
+      minutes: { activeMinutes: true }
+      nudged: { fired: nudge }
+    groups:
+      - { name: quiet, if: { posts: { atMost: 0 }, minutes: { atLeast: 1 } }, to: { c: 1, d: 1 } }
+      - { name: active, to: stay }
+`),
+      ).toEqual([
+        'warning: The decision point "day-2" is set for after the study ends, so it won\'t happen.',
+      ]);
+    });
+
+    it("refuses moving anyone back to where people start, and tests of measures it doesn't take", () => {
+      expect(
+        decisionProblems(`
+decide:
+  - id: back
+    when: { time: "1:00" }
+    conditions: [c]
+    groups:
+      - { name: all, if: { posts: { atLeast: 1 } }, to: { a: 1, c: 1 } }
+`),
+      ).toEqual([
+        'error: The decision point "back"\'s group "all" tests posts, which isn\'t in its measure.',
+        'error: The decision point "back" moves people to "a", where people start. Move them only to conditions with weight 0, or among the conditions it\'s for, so nobody goes back.',
+        'warning: The condition "d" has weight 0, and no decision point moves anyone there, so nobody will be in it.',
+      ]);
+    });
+
+    it("names what can be counted, and needs a group", () => {
+      expect(
+        decisionProblems(`
+decide:
+  - id: x
+    when: { time: "1:00" }
+    measure: { n: { count: dances } }
+    groups: []
+`),
+      ).toEqual([
+        'The decision point "x" (measure.n.count): Count one of post, comment, like, repost, follow, flag, or an event type like content.opened.',
+        'The decision point "x" (groups): Give at least one group.',
+      ]);
+    });
+
+    it("lets a beat follow a decision point, but not act on what it made", () => {
+      expect(
+        decisionProblems(`
+beats:
+  - { id: r, when: { beat: d1 }, do: { action: like, actor: ann, on: trigger } }
+decide:
+  - { id: d1, when: { time: "1:00" }, groups: [{ name: all, to: { c: 1, d: 1 } }] }
+`),
+      ).toEqual([
+        'error: The beat "r" acts on what set it off, but a decision point doesn\'t make anything.',
+      ]);
+    });
+  });
 });

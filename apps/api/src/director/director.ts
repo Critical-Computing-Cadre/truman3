@@ -5,6 +5,7 @@ import {
   type BeatsFile,
   type BeatTarget,
   createRandom,
+  type DecisionDefinition,
   featuresFor,
   formatStudyTime,
 } from "@truman3/core";
@@ -13,6 +14,7 @@ import { parseBeats } from "@truman3/study-files";
 import type { Writer } from "@truman3/writer";
 import { and, asc, eq, inArray, isNull, lte } from "drizzle-orm";
 import type { ParticipantContext } from "../participants/session.ts";
+import { decide } from "./decisions.ts";
 import { chooseWords, mightWrite, type Writing } from "./wording.ts";
 
 /**
@@ -45,7 +47,23 @@ type Trigger =
 
 type Db = Database | Transaction;
 
-type Script = Pick<BeatsFile, "beats" | "live" | "cast">;
+type Script = Pick<BeatsFile, "beats" | "live" | "cast" | "decide">;
+
+/**
+ * Anything Christof schedules: a beat, or a decision point, which is reached the same way but
+ * changes the participant's condition instead of doing something in their world.
+ */
+type Cue = Pick<BeatDefinition, "id" | "when" | "conditions" | "max" | "delay" | "unless">;
+
+const asCue = (decision: DecisionDefinition): Cue => ({
+  ...decision,
+  max: 1,
+  delay: { minMs: 0, maxMs: 0 },
+  unless: [],
+});
+
+/** Beats and decision points together, for scheduling. */
+const cuesOf = (script: Script): Cue[] => [...script.beats, ...script.decide.map(asCue)];
 
 const scripts = new Map<string, Promise<Script>>();
 
@@ -62,27 +80,22 @@ export function scriptFor(db: Db, studyVersionId: string): Promise<Script> {
       .where(eq(schema.studyVersions.id, studyVersionId));
     const text = (version?.pages as Record<string, string> | undefined)?.[BEATS_FILE];
     // A version is checked before it's saved, so a file that can't be read here never ran anyway.
-    const { beats, live, cast } = parseBeats(text ?? "");
-    return { beats, live, cast };
+    const { beats, live, cast, decide } = parseBeats(text ?? "");
+    return { beats, live, cast, decide };
   })();
   scripts.set(studyVersionId, loading);
   loading.catch(() => scripts.delete(studyVersionId));
   return loading;
 }
 
-/** A version's beats. */
-export async function beatsFor(db: Db, studyVersionId: string) {
-  return (await scriptFor(db, studyVersionId)).beats;
-}
-
-const inCondition = (beat: BeatDefinition, context: ParticipantContext) =>
+const inCondition = (beat: Cue, context: ParticipantContext) =>
   beat.conditions.length === 0 || beat.conditions.includes(context.conditionKey);
 
 /**
  * How long after its trigger a run is due. A range is drawn from the same way every time for the
  * same world, beat, and run, so what happened can be worked out again.
  */
-function delayOf(beat: BeatDefinition, context: ParticipantContext, run: number) {
+function delayOf(beat: Cue, context: ParticipantContext, run: number) {
   const { minMs, maxMs } = beat.delay;
   if (minMs === maxMs) {
     return minMs;
@@ -99,7 +112,7 @@ function delayOf(beat: BeatDefinition, context: ParticipantContext, run: number)
 async function schedule(
   tx: Transaction,
   context: ParticipantContext,
-  beat: BeatDefinition,
+  beat: Cue,
   trigger: Trigger,
   at: Date,
 ) {
@@ -177,7 +190,7 @@ export async function onParticipantAct(
   act: ParticipantAct,
   now: Date,
 ) {
-  const beats = (await beatsFor(tx, context.studyVersionId)).filter(
+  const beats = cuesOf(await scriptFor(tx, context.studyVersionId)).filter(
     (beat) =>
       inCondition(beat, context) &&
       "participant" in beat.when &&
@@ -200,7 +213,7 @@ export async function onParticipantAct(
     targetActorId = parent?.authorActorId;
   }
   for (const beat of beats) {
-    const when = beat.when as Extract<BeatDefinition["when"], { participant: string }>;
+    const when = beat.when as Extract<Cue["when"], { participant: string }>;
     if (when.on) {
       const [actor] = await tx
         .select({ id: schema.actors.id })
@@ -427,7 +440,7 @@ async function perform(
 /** Beats with a set time that have come due and haven't been written down yet. */
 async function scheduleTimed(tx: Transaction, context: ParticipantContext, now: Date) {
   const startMs = context.worldStartedAt.getTime();
-  const timed = (await beatsFor(tx, context.studyVersionId)).filter(
+  const timed = cuesOf(await scriptFor(tx, context.studyVersionId)).filter(
     (beat) => inCondition(beat, context) && "time" in beat.when,
   );
   if (timed.length === 0) {
@@ -481,11 +494,12 @@ export async function catchUp(
   { now = new Date(), writer = null, mayWrite = false }: CatchUpOptions = {},
 ) {
   const script = await scriptFor(db, context.studyVersionId);
-  const { beats } = script;
-  if (beats.length === 0) {
+  const cues = cuesOf(script);
+  if (cues.length === 0) {
     return;
   }
-  const byId = new Map(beats.map((beat) => [beat.id, beat]));
+  const byId = new Map(script.beats.map((beat) => [beat.id, beat]));
+  const decisions = new Map(script.decide.map((decision) => [decision.id, decision]));
 
   await db.transaction(async (tx) => {
     await scheduleTimed(tx, context, now);
@@ -493,7 +507,7 @@ export async function catchUp(
   await timeOutApprovals(db, context, script, now);
 
   // A chain can only be as long as there are beats, which bounds the loop.
-  for (let round = 0; round <= beats.length * 4; round++) {
+  for (let round = 0; round <= cues.length * 4; round++) {
     const [run] = await db
       .select()
       .from(schema.beatRuns)
@@ -522,10 +536,31 @@ export async function catchUp(
     if (!claimed) {
       continue;
     }
-    const decide = (values: Partial<typeof schema.beatRuns.$inferInsert>) =>
+    const record = (values: Partial<typeof schema.beatRuns.$inferInsert>) =>
       db.update(schema.beatRuns).set(values).where(eq(schema.beatRuns.id, run.id));
+    const decision = decisions.get(run.beat);
+    if (decision) {
+      if (!inCondition(asCue(decision), context)) {
+        await record({ reason: `they're not in its conditions any more` });
+        continue;
+      }
+      await db.transaction(async (tx) => {
+        const reason = await decide(tx, context, decision, run.dueAt, now);
+        await tx
+          .update(schema.beatRuns)
+          .set({ status: "fired", reason })
+          .where(eq(schema.beatRuns.id, run.id));
+        await scheduleFollowers(tx, context, cues, decision.id, run.id, null, run.dueAt);
+      });
+      continue;
+    }
     if (!beat) {
-      await decide({ reason: "the beat isn't in this version" });
+      await record({ reason: "the beat isn't in this version" });
+      continue;
+    }
+    // A decision point may have moved them since this was written down.
+    if (!inCondition(beat, context)) {
+      await record({ reason: `it isn't in "${context.conditionKey}", their condition now` });
       continue;
     }
     const blockers = beat.unless.length
@@ -543,13 +578,13 @@ export async function catchUp(
           .limit(1)
       : [];
     if (blockers[0]) {
-      await decide({ reason: `"${blockers[0].beat}" had already happened` });
+      await record({ reason: `"${blockers[0].beat}" had already happened` });
       continue;
     }
     const trigger = run.trigger as Trigger;
     const prepared = await prepare(db, context, beat, trigger, run.dueAt);
     if (!prepared.ready) {
-      await decide({ reason: prepared.reason });
+      await record({ reason: prepared.reason });
       continue;
     }
     // Choosing words can wait on a model, so it happens outside any transaction.
@@ -569,7 +604,7 @@ export async function catchUp(
         : { text: null, writing: null };
 
     if (needsApproval(script, beat)) {
-      await decide({
+      await record({
         status: "awaiting",
         reason: "waiting for a researcher",
         actorId: prepared.actorId,
@@ -578,7 +613,7 @@ export async function catchUp(
       });
       continue;
     }
-    await fire(db, context, beats, beat, run, prepared, chosen.text, chosen.writing, run.dueAt);
+    await fire(db, context, cues, beat, run, prepared, chosen.text, chosen.writing, run.dueAt);
   }
 }
 
@@ -594,7 +629,7 @@ export function needsApproval(script: Script, beat: BeatDefinition) {
 async function fire(
   db: Database,
   context: ParticipantContext,
-  beats: readonly BeatDefinition[],
+  cues: readonly Cue[],
   beat: BeatDefinition,
   run: { id: string },
   prepared: Extract<Prepared, { ready: true }>,
@@ -615,20 +650,32 @@ async function fire(
         writing,
       })
       .where(eq(schema.beatRuns.id, run.id));
-    // What follows this beat counts from when it happened.
-    for (const next of beats) {
-      if (inCondition(next, context) && "beat" in next.when && next.when.beat === beat.id) {
-        const made = done.contentId ?? done.targetContentId;
-        await schedule(
-          tx,
-          context,
-          next,
-          { kind: "beat", beat: beat.id, runId: run.id, ...(made ? { contentId: made } : {}) },
-          at,
-        );
-      }
-    }
+    const made = done.contentId ?? done.targetContentId;
+    await scheduleFollowers(tx, context, cues, beat.id, run.id, made, at);
   });
+}
+
+/** Writes down what follows a beat or decision point. It counts from when that happened. */
+async function scheduleFollowers(
+  tx: Transaction,
+  context: ParticipantContext,
+  cues: readonly Cue[],
+  after: string,
+  runId: string,
+  made: string | null,
+  at: Date,
+) {
+  for (const next of cues) {
+    if (inCondition(next, context) && "beat" in next.when && next.when.beat === after) {
+      await schedule(
+        tx,
+        context,
+        next,
+        { kind: "beat", beat: after, runId, ...(made ? { contentId: made } : {}) },
+        at,
+      );
+    }
+  }
 }
 
 /** The line a beat uses when nobody approves it in time: its fallback, or its fixed text. */
@@ -685,7 +732,7 @@ async function timeOutApprovals(
         .where(eq(schema.beatRuns.id, run.id));
       continue;
     }
-    await fire(db, context, script.beats, beat, run, prepared, unattendedLine(beat), writing, at);
+    await fire(db, context, cuesOf(script), beat, run, prepared, unattendedLine(beat), writing, at);
   }
 }
 
@@ -751,7 +798,7 @@ export async function decideAwaiting(
     decidedBy: approval.by,
     ...(text !== draft ? { edited: true, final: text ?? "" } : {}),
   };
-  await fire(db, context, script.beats, beat, run, prepared, text, writing, now);
+  await fire(db, context, cuesOf(script), beat, run, prepared, text, writing, now);
   return "fired";
 }
 
