@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanLine, costOf, lineFromChoice, standInWriter } from "./index.ts";
+import { choiceInstruction, cleanLine, costOf, lineFromChoice, standInWriter } from "./index.ts";
 
 describe("the writer", () => {
   it("keeps only the line, without quotes, within the length allowed", () => {
@@ -36,6 +36,14 @@ describe("the writer", () => {
     });
     expect(lineFromChoice({ line: 0, newLine: "Mine" }, lines, false, 50)).toBeNull();
     expect(lineFromChoice({ line: 9, newLine: "" }, lines, true, 50)).toBeNull();
+  });
+
+  it("asks a model to prefer rehearsed lines, and to write its own only when allowed", () => {
+    const open = choiceInstruction(["Hi!", "Welcome"], true);
+    expect(open).toContain("1. Hi!\n2. Welcome");
+    expect(open).toContain("even if a line of your own could be more specific");
+    expect(open).toContain("Only if every one of them would be wrong or strange here, give 0");
+    expect(choiceInstruction(["Hi!"], false)).toContain("One of them has to be used");
   });
 
   it("has a stand-in that chooses the line that shares a word with what's happening", async () => {

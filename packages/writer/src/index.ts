@@ -108,6 +108,23 @@ const choiceSchema = z.object({
 });
 const rehearsalSchema = z.object({ lines: z.array(z.string()) });
 
+/**
+ * How a model is asked to choose among rehearsed lines. The research team wrote or read them, so
+ * they're preferred: a model left to judge "fits best" alone tends to write its own.
+ */
+export function choiceInstruction(lines: readonly string[], allowNew: boolean) {
+  return [
+    "Lines rehearsed for this moment, which the research team wrote or reviewed:",
+    ...lines.map((line, index) => `${index + 1}. ${line}`),
+    "",
+    `Use one of these whenever one makes sense here, even if a line of your own could be more specific. Give its number in line. ${
+      allowNew
+        ? "Only if every one of them would be wrong or strange here, give 0 and write your own line in newLine."
+        : "One of them has to be used, so pick the closest, and leave newLine empty."
+    }`,
+  ].join("\n");
+}
+
 /** The line to use from a choice, or null if the choice can't be used. */
 export function lineFromChoice(
   { line, newLine }: { line: number; newLine: string },
@@ -200,11 +217,7 @@ export function anthropicWriter(apiKey: string): Writer {
         messages: [
           {
             role: "user",
-            content: `${prompt}\n\nLines rehearsed for this moment:\n${lines.map((line, index) => `${index + 1}. ${line}`).join("\n")}\n\nGive the number of the line that fits what's happening best. ${
-              allowNew
-                ? "If none of them fits, give 0, and write your own line in newLine."
-                : "One of them has to be used, so pick the closest. Leave newLine empty."
-            }`,
+            content: `${prompt}\n\n${choiceInstruction(lines, allowNew)}`,
           },
         ],
       });
