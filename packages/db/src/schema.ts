@@ -88,6 +88,8 @@ export const studies = pgTable("studies", {
    */
   livePaused: boolean("live_paused").notNull().default(false),
   pausedActors: text("paused_actors").array().notNull().default(sql`'{}'`),
+  /** Whether launching a version whose scenario tests haven't passed shows a warning. ADR 57. */
+  warnUntested: boolean("warn_untested").notNull().default(true),
   createdAt: time("created_at").notNull().defaultNow(),
 });
 
@@ -754,6 +756,24 @@ export const actorRelations = pgTable(
     ),
   ],
 );
+
+/**
+ * Each time a version's scenario tests ran on the server, and what came of them. The test
+ * participants are deleted after each run, so this is all that's left of one. See ADR 57.
+ */
+export const scenarioRuns = pgTable("scenario_runs", {
+  id: id(),
+  studyVersionId: uuid("study_version_id")
+    .notNull()
+    .references(() => studyVersions.id),
+  status: text({ enum: ["running", "passed", "failed", "error"] }).notNull(),
+  /** Each scenario's name, whether it passed, and what wasn't as expected. */
+  results: jsonb().notNull().default([]),
+  /** Who started it, by name, or "saving a version" when it ran by itself. */
+  startedBy: text("started_by").notNull(),
+  startedAt: time("started_at").notNull().defaultNow(),
+  finishedAt: time("finished_at"),
+});
 
 /**
  * Each time Christof, the director, considers a beat in a participant's world: what set it off,

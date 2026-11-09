@@ -20,6 +20,7 @@ import { MonitorPage } from "./pages/MonitorPage.tsx";
 import { NewStudyPage } from "./pages/NewStudyPage.tsx";
 import { PreviewPage } from "./pages/PreviewPage.tsx";
 import { ProlificPage } from "./pages/ProlificPage.tsx";
+import { ScenariosPage } from "./pages/ScenariosPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { SpacesPage } from "./pages/SpacesPage.tsx";
 import { StoriesPage } from "./pages/StoriesPage.tsx";
@@ -122,6 +123,12 @@ const beatsRoute = createRoute({
   component: BeatsPage,
 });
 
+const scenariosRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/drafts/$draftId/scenarios",
+  component: ScenariosPage,
+});
+
 const storiesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/drafts/$draftId/stories",
@@ -153,6 +160,7 @@ const router = createRouter({
     spacesRoute,
     moderationRoute,
     beatsRoute,
+    scenariosRoute,
     storiesRoute,
     monitorRoute,
     prolificRoute,

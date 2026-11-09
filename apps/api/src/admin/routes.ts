@@ -1,14 +1,21 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { findResearcherByEmail, hashPassword, verifyPassword } from "@truman3/accounts";
-import { feedResponseSchema, hasPlaceholderConsent, platformFor } from "@truman3/core";
+import {
+  feedResponseSchema,
+  hasPlaceholderConsent,
+  platformFor,
+  SCENARIOS_FILE,
+} from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { feedSettingsFor } from "@truman3/feed";
+import { parseScenarios } from "@truman3/study-files";
 import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { mediaUrl } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { hashSessionToken } from "../participants/session.ts";
 import { loadVersion, previewFeed, scriptedContent } from "./preview.ts";
+import { latestRuns, scenarioRunSchema } from "./scenarios.ts";
 import { createResearcherSession, RESEARCHER_COOKIE, researcherFromRequest } from "./session.ts";
 
 const errorSchema = z.object({ error: z.string() });
@@ -103,8 +110,15 @@ const studiesRoute = createRoute({
                     frozenAt: z.iso.datetime().nullable(),
                     participants: z.number(),
                     conditions: z.array(z.string()),
+                    /** How many scenario tests it has, and how the latest run went. */
+                    tests: z.object({
+                      scenarios: z.number(),
+                      latest: scenarioRunSchema.nullable(),
+                    }),
                   }),
                 ),
+                /** Whether launching an untested version warns first. */
+                warnUntested: z.boolean(),
               }),
             ),
           }),
@@ -313,6 +327,14 @@ export function createAdminRoutes({
       : [];
     const participantsOn = (versionId: string) =>
       counts.find((item) => item.versionId === versionId)?.total ?? 0;
+    const runs = await latestRuns(
+      db,
+      versions.map(({ id }) => id),
+    );
+    const scenarioCount = (pages: unknown) => {
+      const text = (pages as Record<string, string>)[SCENARIOS_FILE];
+      return text ? parseScenarios(text).scenarios.length : 0;
+    };
 
     return c.json(
       {
@@ -326,6 +348,7 @@ export function createAdminRoutes({
           liveVersionId: study.liveVersionId,
           participantUrl: participantAppUrl,
           role,
+          warnUntested: study.warnUntested,
           openDraftId: drafts.find((draft) => draft.studyId === study.id)?.id ?? null,
           draftTitle:
             (
@@ -345,6 +368,10 @@ export function createAdminRoutes({
               conditions: (
                 version.settings as { conditions: { arms: { key: string }[] } }
               ).conditions.arms.map(({ key }) => key),
+              tests: {
+                scenarios: scenarioCount(version.pages),
+                latest: runs.get(version.id) ?? null,
+              },
             })),
         })),
       },

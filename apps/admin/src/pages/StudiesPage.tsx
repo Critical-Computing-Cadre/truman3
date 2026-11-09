@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { get, type PreviewInfo, post, type StudySummary } from "../api.ts";
+import { get, type PreviewInfo, post, type StudySummary, send } from "../api.ts";
 import { postsThatNeverAppear } from "../timeline.ts";
 
 type StudyVersion = StudySummary["versions"][number];
@@ -88,6 +88,114 @@ function TryIt({ version, participantUrl }: { version: StudyVersion; participant
 }
 
 /** Launching is what participants feel, so it says exactly what will happen first. */
+/** The latest run of a version's scenario tests, what failed, and a button to run them again. */
+function Tests({ version, canRun }: { version: StudyVersion; canRun: boolean }) {
+  const client = useQueryClient();
+  const run = useMutation({
+    mutationFn: () => post(`/admin/versions/${version.id}/scenarios`),
+    onSettled: () => client.invalidateQueries({ queryKey: ["studies"] }),
+  });
+  const { scenarios, latest } = version.tests;
+  if (scenarios === 0) {
+    return null;
+  }
+  const passed = latest?.results.filter((result) => result.passed).length ?? 0;
+  const failed = latest?.results.filter((result) => !result.passed) ?? [];
+  const summary = !latest
+    ? "Tests haven't run"
+    : latest.status === "running"
+      ? "Running tests…"
+      : latest.status === "error"
+        ? "The tests couldn't finish"
+        : latest.results.length === 1
+          ? `The test ${latest.status}`
+          : latest.status === "passed"
+            ? `All ${latest.results.length} tests passed`
+            : `${failed.length} of ${latest.results.length} tests failed`;
+  return (
+    <div className="w-full text-sm" data-testid={`tests-${version.version}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={
+            latest?.status === "passed"
+              ? "text-emerald-800"
+              : latest?.status === "failed" || latest?.status === "error"
+                ? "text-rose-800"
+                : "text-stone-600"
+          }
+        >
+          {summary}
+          {latest?.status === "failed" && passed > 0 && ` (${passed} passed)`}
+        </span>
+        {latest && latest.status !== "running" && (
+          <span className="text-xs text-stone-500">
+            {latest.startedBy === "saving the version"
+              ? "when the version was saved"
+              : `run by ${latest.startedBy}`}
+          </span>
+        )}
+        {canRun && latest?.status !== "running" && (
+          <button
+            type="button"
+            disabled={run.isPending}
+            onClick={() => run.mutate()}
+            className="rounded border border-stone-300 px-2 py-0.5 text-xs"
+          >
+            {latest ? "Run tests again" : "Run tests"}
+          </button>
+        )}
+      </div>
+      {failed.length > 0 && latest?.status !== "running" && (
+        <ul className="mt-1 space-y-1 rounded bg-rose-50 p-2 text-xs text-rose-900">
+          {failed.map((result) => (
+            <li key={result.name}>
+              <p className="font-medium">{result.name}</p>
+              <ul className="list-disc pl-4">
+                {result.problems.map((problem) => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
+      {run.error && (
+        <p role="alert" className="text-xs text-rose-800">
+          {run.error.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Turns the launch warning about scenario tests on or off, for one study. */
+function useTestWarning(study: StudySummary) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (warn: boolean) =>
+      send("PUT", `/admin/studies/${study.id}/scenario-warning`, { warn }),
+    onSettled: () => client.invalidateQueries({ queryKey: ["studies"] }),
+  });
+}
+
+/** Says the launch warning about tests is off for a study, with a way to turn it back on. */
+function WarningsOff({ study }: { study: StudySummary }) {
+  const warning = useTestWarning(study);
+  return (
+    <p className="mt-1 text-xs text-stone-500">
+      Launching doesn't warn about scenario tests for this study.{" "}
+      <button
+        type="button"
+        disabled={warning.isPending}
+        onClick={() => warning.mutate(true)}
+        className="underline"
+      >
+        Warn me again
+      </button>
+    </p>
+  );
+}
+
 function LaunchButton({ study, version }: { study: StudySummary; version: StudyVersion }) {
   const client = useQueryClient();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -108,6 +216,9 @@ function LaunchButton({ study, version }: { study: StudySummary; version: StudyV
   );
 
   const [placeholderAccepted, setPlaceholderAccepted] = useState(false);
+  const warning = useTestWarning(study);
+  const { tests } = version;
+  const untested = study.warnUntested && tests.scenarios > 0 && tests.latest?.status !== "passed";
   const placeholderConsent = info.data?.placeholderConsent ?? false;
 
   const launch = useMutation({
@@ -153,6 +264,28 @@ function LaunchButton({ study, version }: { study: StudySummary; version: StudyV
             </li>
           )}
         </ul>
+        {untested && (
+          <div role="alert" className="mb-4 rounded bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-medium">
+              {!tests.latest
+                ? "This version's scenario tests haven't run."
+                : tests.latest.status === "running"
+                  ? "This version's scenario tests are still running."
+                  : "This version's scenario tests didn't all pass."}
+            </p>
+            <p className="mt-1">
+              They check that its beats happen when they should. You can still launch it.
+            </p>
+            <label className="mt-2 flex items-baseline gap-2">
+              <input
+                type="checkbox"
+                disabled={warning.isPending}
+                onChange={(event) => warning.mutate(!event.target.checked)}
+              />
+              Don't warn me about tests for this study
+            </label>
+          </div>
+        )}
         {placeholderConsent && (
           <div role="alert" className="mb-4 rounded bg-amber-50 p-3 text-sm text-amber-900">
             <p className="font-medium">The consent page still has the placeholder text.</p>
@@ -255,6 +388,13 @@ export function StudiesPage() {
   const list = useQuery({
     queryKey: ["studies"],
     queryFn: () => get<{ studies: StudySummary[] }>("/admin/studies"),
+    // Often while tests run, so their results show when they're done.
+    refetchInterval: (query) =>
+      query.state.data?.studies.some((study) =>
+        study.versions.some((version) => version.tests.latest?.status === "running"),
+      )
+        ? 2_000
+        : false,
   });
 
   return (
@@ -307,6 +447,7 @@ export function StudiesPage() {
                 </div>
               </div>
 
+              {!study.warnUntested && canChange && <WarningsOff study={study} />}
               <ul className="mt-3 divide-y divide-stone-200 border-t border-stone-200">
                 {study.versions.map((version) => {
                   const isLive = version.id === study.liveVersionId;
@@ -335,6 +476,7 @@ export function StudiesPage() {
                       <TryIt version={version} participantUrl={study.participantUrl} />
                       {canChange && !isLive && <LaunchButton study={study} version={version} />}
                       {canChange && isLive && <StopButton study={study} />}
+                      <Tests version={version} canRun={canChange} />
                     </li>
                   );
                 })}

@@ -9,6 +9,17 @@ Use scenarios to check a study's logic before anyone real sees it. For example:
 
 ## Running them
 
+### In the admin app
+
+1. **Write them:** in the builder, open **Tests** and write them there. They're checked as you save, like beats.
+2. **Save a version:** they run by themselves on the server when the version is saved.
+3. **See the results:** they're on the Studies page beside the version, with what failed. **Run tests again** reruns them.
+4. **Launch:** if a version's tests haven't all passed, the Launch window warns you. You can still launch it. "Don't warn me about tests for this study" turns the warning off, and **Warn me again** on the Studies page turns it back on.
+
+The test participants are deleted after each run, so nothing is left in the study's data or on the Monitor page. Only the results are kept.
+
+### From the command line
+
 ```
 pnpm study test studies/examples/bystander
 ```
@@ -78,7 +89,7 @@ Steps run in order of `at`. Before each one, the runner loads the page as the pa
 
 ## How it works
 
-- **The participant** is a test participant, started the way a researcher starts one from the Launch page, so they're kept out of exports.
+- **The participant** is a test participant, the same kind "Try as a participant" starts, so they're kept out of exports.
 - **Their actions** go through the API, the same as a real participant's.
 - **The clock:** the API takes its clock as a setting. The server uses the real time, and the runner moves its own clock forward step by step, so every timestamp in the world agrees, including what a decision point measures. See ADR 56.
 
