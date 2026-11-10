@@ -16,7 +16,7 @@ import { simulateStudy, testStudy } from "./test-study.ts";
 const USAGE = `Usage:
   pnpm study validate <study folder>
   pnpm study test <study folder>
-  pnpm study simulate <study folder> [participants] [--seed N]
+  pnpm study simulate <study folder> [participants] [--seed N] [--personas id,id --budget USD]
   pnpm study import <study folder>
   pnpm study add-pack <study folder> [name] [description]
   pnpm study launch <slug> [version]

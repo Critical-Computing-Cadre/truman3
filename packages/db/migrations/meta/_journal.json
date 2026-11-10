@@ -330,6 +330,13 @@
       "when": 1794321140486,
       "tag": "0046_simulation_runs",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794325998234,
+      "tag": "0047_synthetic_participants",
+      "breakpoints": true
     }
   ]
 }

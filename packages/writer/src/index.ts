@@ -56,6 +56,29 @@ export interface Rehearsed {
   costUsd: number;
 }
 
+/** What a simulated participant can do at one look at their feed. */
+export const ACTS = ["nothing", "like", "comment", "repost", "follow", "post", "flag"] as const;
+
+/** A simulated participant's turn: who they are and what they see, numbered. */
+export interface ActRequest {
+  model: string;
+  system: string;
+  prompt: string;
+}
+
+/** What they chose, by the number of what they chose it on, in their own words. */
+export interface Acted {
+  action: (typeof ACTS)[number];
+  /** The number of the post or comment it's on, or whose author to follow. Null for none. */
+  item: number | null;
+  /** What they write, for a post or comment. */
+  text: string;
+  /** Why, in their own voice, for the researcher reading the transcript. */
+  why: string;
+  model: string;
+  costUsd: number;
+}
+
 export interface Writer {
   write(request: WriteRequest): Promise<Written>;
   /** Whether this line can be posted, given the limits it must stay within. */
@@ -63,6 +86,8 @@ export interface Writer {
   choose(request: ChooseRequest): Promise<Chosen>;
   /** Several different lines for a beat, written ahead of time for a researcher to review. */
   rehearse(request: WriteRequest & { count: number }): Promise<Rehearsed>;
+  /** A simulated participant's next move. See ADR 60. */
+  act(request: ActRequest): Promise<Acted>;
 }
 
 /** The model declined, or said nothing usable, so the beat's fallback line is used instead. */
@@ -107,6 +132,12 @@ const choiceSchema = z.object({
   newLine: z.string(),
 });
 const rehearsalSchema = z.object({ lines: z.array(z.string()) });
+const actSchema = z.object({
+  why: z.string(),
+  action: z.enum(ACTS),
+  item: z.number().int().nullable(),
+  text: z.string(),
+});
 
 /** The line to use from a choice, or null if the choice can't be used. */
 export function lineFromChoice(
@@ -249,6 +280,28 @@ export function anthropicWriter(apiKey: string): Writer {
         costUsd: costOf(response.model, response.usage.input_tokens, response.usage.output_tokens),
       };
     },
+    async act({ model, system, prompt }) {
+      const response = await client.beta.messages.parse({
+        model,
+        max_tokens: 4000,
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        output_config: { effort: "low", format: betaZodOutputFormat(actSchema) },
+        system,
+        messages: [{ role: "user", content: prompt }],
+      });
+      const costUsd = costOf(
+        response.model,
+        response.usage.input_tokens,
+        response.usage.output_tokens,
+      );
+      // Declining to play along is doing nothing this time, and it still costs what it cost.
+      const acted =
+        response.stop_reason === "refusal" || !response.parsed_output
+          ? { action: "nothing" as const, item: null, text: "", why: "(The model declined.)" }
+          : response.parsed_output;
+      return { ...acted, model: response.model, costUsd };
+    },
   };
 }
 
@@ -301,6 +354,28 @@ export function standInWriter(
         model: "stand-in",
         costUsd: 0.02,
       };
+    },
+    // Comments on the first thing it sees, then does nothing.
+    async act(request) {
+      calls.push({ ...request, maxLength: 0 });
+      const first = !calls.slice(0, -1).some((call) => call.system === request.system);
+      return first && request.prompt.includes("[1]")
+        ? {
+            action: "comment",
+            item: 1,
+            text: "A stand-in comment",
+            why: "It was the first thing I saw.",
+            model: "stand-in",
+            costUsd: 0.01,
+          }
+        : {
+            action: "nothing",
+            item: null,
+            text: "",
+            why: "Nothing grabbed me.",
+            model: "stand-in",
+            costUsd: 0.01,
+          };
     },
   };
 }

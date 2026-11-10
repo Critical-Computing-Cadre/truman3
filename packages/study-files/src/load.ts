@@ -15,6 +15,8 @@ import {
   hasErrors,
   type LabelDefinition,
   MAX_LABEL_LENGTH,
+  PERSONAS_FILE,
+  type PersonasFile,
   PIN_PLACES,
   POST_TAGS,
   type PostDefinition,
@@ -36,6 +38,7 @@ import {
 import { parse as parseYaml } from "yaml";
 import { parseBeats } from "./beats.ts";
 import { type CsvRow, type CsvSpec, parseCsv } from "./csv.ts";
+import { parsePersonas } from "./personas.ts";
 import { parseScenarios } from "./scenarios.ts";
 
 export const ACTORS: CsvSpec = {
@@ -776,6 +779,15 @@ export function readStudyTables(
     scenarios = read.scenarios;
     issues.push(...read.issues);
   }
+  // And so are personas, for simulated participants.
+  const personasText = only ? null : source.read(PERSONAS_FILE);
+  let personas: PersonasFile | undefined;
+  if (personasText !== null) {
+    pages[PERSONAS_FILE] = personasText;
+    const read = parsePersonas(personasText);
+    personas = read.personas ?? undefined;
+    issues.push(...read.issues);
+  }
 
   if (!settings.media.baseUrl) {
     const checkMedia = (file: string, name: string | undefined, from?: CsvRowSource) => {
@@ -835,6 +847,7 @@ export function readStudyTables(
       beats,
       ...(christof ? { christof } : {}),
       scenarios,
+      ...(personas ? { personas } : {}),
     },
     issues,
   };

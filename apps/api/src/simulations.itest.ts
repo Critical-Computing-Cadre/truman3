@@ -6,8 +6,10 @@ import { setUpTeam } from "@truman3/accounts";
 import { schema } from "@truman3/db";
 import { createTestDatabase } from "@truman3/db/testing";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
+import { exportStudy } from "@truman3/study-export";
 import { importStudyFolder } from "@truman3/study-import";
-import { eq } from "drizzle-orm";
+import { standInWriter } from "@truman3/writer";
+import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
 import { findings, simulate } from "./scenarios/simulate.ts";
@@ -55,6 +57,7 @@ async function importBystander() {
     versionId: imported.studyVersionId,
     email: `${id}@example.edu`,
     password: password as string,
+    slug: `simulated-${id}`,
   };
 }
 
@@ -152,7 +155,22 @@ describe("simulated participants", () => {
       canRun: true,
       latest: null,
       most: 200,
+      studyId: expect.any(String),
+      personas: [
+        expect.objectContaining({ id: "quiet-bystander" }),
+        expect.objectContaining({ id: "upstander" }),
+      ],
+      model: "claude-sonnet-5-5",
+      // This app has no model, so personas can't be played.
+      canPlay: false,
+      synthetic: 0,
     });
+    const refused = await call("POST", { personas: ["upstander"] });
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toEqual({
+      error: "Personas need a Claude key on the server, and this one doesn't have one.",
+    });
+    expect((await call("POST", { personas: ["nobody"] })).status).toBe(400);
     expect((await call("POST", { participants: 500 })).status).toBe(400);
     const started = await call("POST", { participants: 3, seed: 5 });
     expect(started.status).toBe(202);
@@ -172,5 +190,107 @@ describe("simulated participants", () => {
       report: { participants: 3 },
       startedBy: "Tester",
     });
+  });
+});
+
+describe("personas and synthetic data", () => {
+  it("a model plays each persona, and the report has what each saw and did", async () => {
+    const { versionId } = await importBystander();
+    const report = await simulate({
+      db: database.db,
+      storage,
+      versionId,
+      settings: {
+        participants: 2,
+        seed: 1,
+        personas: ["quiet-bystander", "upstander"],
+        budgetUsd: 5,
+      },
+      writer: standInWriter(),
+      cleanUp: true,
+    });
+    expect(report.participants).toBe(2);
+    expect(report.transcripts.map(({ persona, condition }) => [persona, condition])).toEqual([
+      ["quiet-bystander", "defended"],
+      // A persona can say which condition it starts in.
+      ["upstander", "silent"],
+    ]);
+    // The stand-in comments on the first thing it sees, then does nothing.
+    for (const transcript of report.transcripts) {
+      expect(transcript.entries[0]?.did).toMatch(/^Commented "A stand-in comment" on: /);
+      expect(transcript.entries.slice(1).every(({ did }) => did === null)).toBe(true);
+    }
+    const looks = report.transcripts.reduce((sum, { entries }) => sum + entries.length, 0);
+    expect(report.costUsd).toBeCloseTo(looks * 0.01);
+    expect(report.stopped).toBeNull();
+  });
+
+  it("stops at its budget, and says so", async () => {
+    const { versionId } = await importBystander();
+    const report = await simulate({
+      db: database.db,
+      storage,
+      versionId,
+      settings: {
+        participants: 2,
+        seed: 1,
+        personas: ["quiet-bystander", "upstander"],
+        budgetUsd: 0.02,
+      },
+      writer: standInWriter(),
+      cleanUp: true,
+    });
+    expect(report.transcripts).toHaveLength(1);
+    expect(report.transcripts[0]?.entries).toHaveLength(2);
+    expect(report.stopped).toBe("It reached its $0.02 budget during participant 1 of 2.");
+    expect(findings(report)).toContain(report.stopped);
+  });
+
+  it("keeps them as synthetic data, in the past, and only in the synthetic download", async () => {
+    const { versionId, slug } = await importBystander();
+    await simulate({
+      db: database.db,
+      storage,
+      versionId,
+      settings: { participants: 3, seed: 4, keep: true },
+      cleanUp: true,
+    });
+    const kept = await database.db
+      .select()
+      .from(schema.participants)
+      .innerJoin(
+        schema.studyVersions,
+        eq(schema.studyVersions.studyId, schema.participants.studyId),
+      )
+      .where(and(eq(schema.studyVersions.id, versionId), eq(schema.participants.synthetic, true)));
+    expect(kept).toHaveLength(3);
+    expect(kept.every(({ participants }) => participants.isPilot)).toBe(true);
+    // Their worlds ran through the study's day and ended by now.
+    const events = await database.db
+      .select({ at: schema.events.occurredAt })
+      .from(schema.events)
+      .where(eq(schema.events.studyVersionId, versionId));
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.every(({ at }) => at.getTime() <= Date.now())).toBe(true);
+
+    const folder = mkdtempSync(path.join(tmpdir(), "truman-synthetic-"));
+    dirs.push(folder);
+    const real = await exportStudy(database.db, slug, path.join(folder, "real"));
+    const synthetic = await exportStudy(database.db, slug, path.join(folder, "synthetic"), {
+      synthetic: true,
+    });
+    expect(real).toMatchObject({ status: "exported", participants: 0, events: 0 });
+    expect(synthetic).toMatchObject({ status: "exported", participants: 3 });
+    expect(readFileSync(path.join(folder, "synthetic", "codebook.md"), "utf8")).toContain(
+      "**This is synthetic data.** Nobody real took part.",
+    );
+
+    // A synthetic participant is always a test participant, in the database too.
+    await expect(
+      database.db
+        .update(schema.participants)
+        .set({ isPilot: false })
+        .where(eq(schema.participants.id, kept[0]?.participants.id as string)),
+    ).rejects.toThrow();
   });
 });

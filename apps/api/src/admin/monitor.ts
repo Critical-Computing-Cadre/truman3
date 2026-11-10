@@ -107,6 +107,8 @@ const exportRoute = createRoute({
             minDwellMs: z.number().nonnegative().optional(),
             maxDwellMs: z.number().positive().optional(),
             includeRecruitmentIds: z.boolean().optional(),
+            /** Only synthetic participants, kept from simulations. Never mixed with real data. */
+            synthetic: z.boolean().optional(),
           }),
         },
       },
@@ -419,6 +421,7 @@ export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencie
         ...(options.minDwellMs === undefined ? {} : { minDwellMs: options.minDwellMs }),
         ...(options.maxDwellMs === undefined ? {} : { maxDwellMs: options.maxDwellMs }),
         ...(options.includeRecruitmentIds ? { includeRecruitmentIds: true } : {}),
+        ...(options.synthetic ? { synthetic: true } : {}),
       });
       if (result.status === "not-found") {
         return c.json(notAvailable, 404);
@@ -434,11 +437,12 @@ export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencie
         studyId,
         by: researcher.email,
         includedRecruitmentIds: options.includeRecruitmentIds ?? false,
+        ...(options.synthetic ? { contents: "synthetic" } : {}),
       });
 
       return c.body(zipped.slice().buffer, 200, {
         "content-type": "application/zip",
-        "content-disposition": `attachment; filename="${study.slug}-${inferredDay(new Date())}.zip"`,
+        "content-disposition": `attachment; filename="${study.slug}${options.synthetic ? "-synthetic" : ""}-${inferredDay(new Date())}.zip"`,
       });
     } finally {
       rmSync(folder, { recursive: true, force: true });

@@ -1,11 +1,20 @@
 import { randomUUID } from "node:crypto";
-import { createRandom, type FeedResponse, pickFrom, type StudySettings } from "@truman3/core";
+import {
+  createRandom,
+  type FeedResponse,
+  PERSONAS_FILE,
+  pickFrom,
+  type StudySettings,
+} from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
+import { parsePersonas } from "@truman3/study-files";
 import { deleteParticipant } from "@truman3/study-import";
+import type { Writer } from "@truman3/writer";
 import { and, eq, gt, isNotNull } from "drizzle-orm";
 import { scriptFor } from "../director/director.ts";
 import { createHarness, type TestParticipant } from "./harness.ts";
+import { type Budget, BudgetSpent, personaBehavior, type Transcript } from "./personas.ts";
 
 /**
  * Simulated participants: many test participants who each go through a version on a fast-forwarded
@@ -131,6 +140,15 @@ export interface SimulationSettings {
   participants: number;
   /** Where their random choices start, so a run can be repeated exactly. */
   seed: number;
+  /**
+   * Personas from personas.yaml, by id, for a model to play: one participant each, in this order.
+   * Leave out for participants who behave at random. See ADR 60.
+   */
+  personas?: string[];
+  /** The most the model playing personas can spend on this run, in US dollars. */
+  budgetUsd?: number;
+  /** Keep them as synthetic data, instead of deleting them afterwards. See ADR 60. */
+  keep?: boolean;
 }
 
 export interface SimulationReport {
@@ -164,6 +182,14 @@ export interface SimulationReport {
   }[];
   /** What went wrong, which is worth a look: errors from the API, not refusals. */
   problems: { text: string; count: number; participant: number }[];
+  /** What the model playing personas cost, in US dollars. */
+  costUsd: number;
+  /** What the cast's live writing cost in their worlds, in US dollars. */
+  castCostUsd: number;
+  /** Why the run stopped before everyone went through, such as reaching its budget. */
+  stopped: string | null;
+  /** Each persona's run, in order, for a persona run. */
+  transcripts: Transcript[];
 }
 
 export interface SimulateOptions {
@@ -171,10 +197,15 @@ export interface SimulateOptions {
   storage: Storage;
   versionId: string;
   settings: SimulationSettings;
-  /** Chooses how participant `n` behaves. Random by default. */
+  /** Chooses how participant `n` behaves. Random by default, or the personas in the settings. */
   behaviorFor?: (n: number, random: () => number) => Behavior;
-  /** Whether to delete each participant afterwards, as on a real server. */
+  /** Whether to delete each participant afterwards, as on a real server. Kept ones never are. */
   cleanUp?: boolean;
+  /**
+   * What plays personas, and writes the cast's improvised lines if the study writes live. Without
+   * it, the cast uses rehearsed or fallback lines, and personas can't run.
+   */
+  writer?: Writer | null;
 }
 
 export async function simulate({
@@ -182,14 +213,29 @@ export async function simulate({
   storage,
   versionId,
   settings,
-  behaviorFor = (_, random) => randomBehavior(random),
+  behaviorFor,
   cleanUp = false,
+  writer = null,
 }: SimulateOptions): Promise<SimulationReport> {
   const [version] = await db
-    .select({ settings: schema.studyVersions.settings })
+    .select({ settings: schema.studyVersions.settings, pages: schema.studyVersions.pages })
     .from(schema.studyVersions)
     .where(eq(schema.studyVersions.id, versionId));
   const studySettings = version?.settings as StudySettings;
+  const personasText = (version?.pages as Record<string, string> | undefined)?.[PERSONAS_FILE];
+  const cast = personasText ? parsePersonas(personasText).personas : null;
+  const playing = (settings.personas ?? []).map((id) => {
+    const persona = cast?.personas.find((item) => item.id === id);
+    if (!persona) {
+      throw new Error(`There's no persona "${id}" in this version.`);
+    }
+    return persona;
+  });
+  if (playing.length > 0 && !writer) {
+    throw new Error("Personas need a model, and none is set up.");
+  }
+  const budget: Budget = { limitUsd: settings.budgetUsd ?? 2, spentUsd: 0 };
+  const lengthMs = studySettings.length.days * 24 * HOUR_MS;
   const conditionKeys = (
     await db
       .select({ key: schema.conditions.key })
@@ -198,7 +244,13 @@ export async function simulate({
       .where(and(eq(schema.conditions.studyVersionId, versionId), gt(schema.conditions.weight, 0)))
   ).map(({ key }) => key);
   const script = await scriptFor(db, versionId);
-  const harness = createHarness({ db, storage, versionId });
+  // The cast writes live only when personas play, since random participants are for checking logic.
+  const harness = createHarness({
+    db,
+    storage,
+    versionId,
+    writer: playing.length > 0 ? writer : null,
+  });
 
   const report: SimulationReport = {
     participants: 0,
@@ -215,6 +267,10 @@ export async function simulate({
     })),
     decisions: script.decide.map(({ id }) => ({ id, reached: 0, to: {}, groups: {} })),
     problems: [],
+    costUsd: 0,
+    castCostUsd: 0,
+    stopped: null,
+    transcripts: [],
   };
   const problem = (text: string, participant: number) => {
     const known = report.problems.find((item) => item.text === text);
@@ -225,19 +281,33 @@ export async function simulate({
     }
   };
 
-  for (let n = 0; n < settings.participants; n++) {
+  const count = playing.length > 0 ? playing.length : settings.participants;
+  for (let n = 0; n < count; n++) {
     const random = createRandom(settings.seed + n);
-    const condition = conditionKeys[n % conditionKeys.length] as string;
-    const start = new Date();
+    const persona = playing[n];
+    const condition = persona?.condition ?? (conditionKeys[n % conditionKeys.length] as string);
+    // Kept ones finish by now, so synthetic data has no times in the future.
+    const start = settings.keep ? new Date(Date.now() - lengthMs - 60_000) : new Date();
     harness.setNow(start);
     const participant = await harness.start(condition);
     if (!participant) {
       problem(`They couldn't start in "${condition}".`, n);
       continue;
     }
+    if (settings.keep) {
+      await db
+        .update(schema.participants)
+        .set({ synthetic: true })
+        .where(eq(schema.participants.id, participant.participantId));
+    }
     report.participants++;
     report.conditions[condition] = (report.conditions[condition] ?? 0) + 1;
-    const behavior = behaviorFor(n, random);
+    const playedBy =
+      persona && writer
+        ? personaBehavior({ persona, condition, writer, model: cast?.model ?? "", budget })
+        : null;
+    const behavior = behaviorFor?.(n, random) ?? playedBy ?? randomBehavior(random);
+    let spent = false;
     try {
       for (const at of visitTimes(studySettings, random)) {
         harness.setNow(new Date(start.getTime() + at));
@@ -264,13 +334,28 @@ export async function simulate({
         }
       }
     } catch (error) {
-      problem(`Something went wrong: ${error instanceof Error ? error.message : String(error)}`, n);
+      if (error instanceof BudgetSpent) {
+        spent = true;
+      } else {
+        problem(
+          `Something went wrong: ${error instanceof Error ? error.message : String(error)}`,
+          n,
+        );
+      }
     }
     await tally(db, participant, condition, report);
-    if (cleanUp) {
+    if (playedBy) {
+      report.transcripts.push(playedBy.transcript);
+    }
+    if (cleanUp && !settings.keep) {
       await deleteParticipant(db, storage, participant.participantId, "scenario test", "Truman");
     }
+    if (spent) {
+      report.stopped = `It reached its $${budget.limitUsd} budget during participant ${n + 1} of ${count}.`;
+      break;
+    }
   }
+  report.costUsd = budget.spentUsd;
   return report;
 }
 
@@ -326,12 +411,16 @@ async function tally(
 ) {
   const runs = await db
     .select({
+      writing: schema.beatRuns.writing,
       beat: schema.beatRuns.beat,
       status: schema.beatRuns.status,
       reason: schema.beatRuns.reason,
     })
     .from(schema.beatRuns)
     .where(eq(schema.beatRuns.worldId, participant.worldId));
+  for (const { writing } of runs) {
+    report.castCostUsd += Number((writing as { costUsd?: number } | null)?.costUsd ?? 0);
+  }
   for (const beat of report.beats) {
     const mine = runs.filter((run) => run.beat === beat.id);
     const fired = mine.filter(({ status }) => status === "fired").length;
@@ -395,6 +484,9 @@ export function findings(report: SimulationReport): string[] {
     if (decision.reached === 0 && report.participants > 0) {
       notes.push(`The decision "${decision.id}" was never made.`);
     }
+  }
+  if (report.stopped) {
+    notes.push(report.stopped);
   }
   for (const { text, count } of report.problems) {
     notes.push(`${text}${count > 1 ? ` (${count} times)` : ""}`);

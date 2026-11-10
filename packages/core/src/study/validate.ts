@@ -4,6 +4,7 @@ import { BEATS_FILE, type DecisionDefinition } from "./beats.ts";
 import { hasPlaceholderConsent } from "./consent.ts";
 import { MAX_LABEL_LENGTH, PARTICIPANT_TAG, type StudyDefinition } from "./definition.ts";
 import { LINK_PLACEHOLDERS } from "./links.ts";
+import { PERSONAS_FILE } from "./personas.ts";
 import { featuresFor } from "./platform.ts";
 import { SCENARIOS_FILE, type ScenarioTarget } from "./scenarios.ts";
 import { HOUR_MS } from "./time.ts";
@@ -1074,6 +1075,9 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     usernames,
     (message) => issues.push({ severity: "error", message, file: SCENARIOS_FILE }),
   );
+  checkPersonas(study, (message) =>
+    issues.push({ severity: "error", message, file: PERSONAS_FILE }),
+  );
 
   // One beat following another can't go round in a circle, or it would never stop.
   const followers = new Map<string, { id: string; when: StudyDefinition["beats"][number]["when"] }>(
@@ -1229,6 +1233,22 @@ function checkDecisions(
 }
 
 /** Scenario tests, from scenarios.yaml: everything they name has to be in the study. */
+function checkPersonas(study: StudyDefinition, problem: (message: string) => void) {
+  const arms = new Set(study.settings.conditions.arms.map(({ key }) => key));
+  const seen = new Set<string>();
+  for (const persona of study.personas?.personas ?? []) {
+    if (seen.has(persona.id)) {
+      problem(`There are two personas called "${persona.id}". Each needs its own id.`);
+    }
+    seen.add(persona.id);
+    if (persona.condition !== undefined && !arms.has(persona.condition)) {
+      problem(
+        `The persona "${persona.id}" starts in "${persona.condition}", which isn't a condition in study.yaml.`,
+      );
+    }
+  }
+}
+
 function checkScenarios(
   study: StudyDefinition,
   cues: ReadonlySet<string>,

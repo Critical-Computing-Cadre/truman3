@@ -165,11 +165,17 @@ export const participants = pgTable(
     flowPosition: integer("flow_position").notNull().default(0),
     /** A researcher trying a study. Kept out of exports and counts. */
     isPilot: boolean("is_pilot").notNull().default(false),
+    /**
+     * A simulated participant kept as synthetic data. Always a test participant too, so it's out of
+     * real exports and counts. It downloads only as synthetic data. See ADR 60.
+     */
+    synthetic: boolean().notNull().default(false),
     enrolledAt: time("enrolled_at").notNull().defaultNow(),
   },
   (table) => [
     unique().on(table.studyId, table.externalId),
     check("participants_status", inList(table.status, ["active", "completed", "withdrawn"])),
+    check("participants_synthetic_is_pilot", sql`not ${table.synthetic} or ${table.isPilot}`),
   ],
 );
 

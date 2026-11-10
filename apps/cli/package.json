@@ -15,7 +15,8 @@
     "@truman3/storage": "workspace:*",
     "@truman3/study-export": "workspace:*",
     "@truman3/study-files": "workspace:*",
-    "@truman3/study-import": "workspace:*"
+    "@truman3/study-import": "workspace:*",
+    "@truman3/writer": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

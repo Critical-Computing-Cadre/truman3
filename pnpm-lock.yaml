@@ -328,6 +328,9 @@ importers:
       '@truman3/study-import':
         specifier: workspace:*
         version: link:../../packages/study-import
+      '@truman3/writer':
+        specifier: workspace:*
+        version: link:../../packages/writer
     devDependencies:
       '@types/node':
         specifier: ^24.19.2

@@ -136,17 +136,47 @@ export interface SimulationReport {
     groups: Record<string, number>;
   }[];
   problems: { text: string; count: number; participant: number }[];
+  costUsd: number;
+  castCostUsd: number;
+  stopped: string | null;
+  transcripts: Transcript[];
+}
+
+/** One persona's run: what they saw and did, in order. See ADR 60. */
+export interface Transcript {
+  persona: string;
+  condition: string;
+  costUsd: number;
+  entries: {
+    at: number;
+    saw: { who: string; text: string }[];
+    did: string | null;
+    why: string;
+  }[];
+}
+
+export interface SimulationSettings {
+  participants: number;
+  seed: number;
+  personas?: string[];
+  budgetUsd?: number;
+  keep?: boolean;
 }
 
 /** A version's simulated participants, and how the latest run went. */
 export interface Simulations {
+  studyId: string;
   title: string;
   version: number;
   canRun: boolean;
   most: number;
+  personas: { id: string; about: string }[];
+  model: string | null;
+  canPlay: boolean;
+  synthetic: number;
   latest: {
     status: "running" | "done" | "error";
-    settings: { participants: number; seed: number };
+    settings: SimulationSettings;
     report: SimulationReport | null;
     findings: string[];
     startedBy: string;
