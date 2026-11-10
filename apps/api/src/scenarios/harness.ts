@@ -30,8 +30,11 @@ export interface Harness {
   /** The time the API sees. */
   now: () => Date;
   setNow: (date: Date) => void;
-  /** Starts a test participant in a condition, at the current time, or null if it can't. */
-  start: (condition: string) => Promise<TestParticipant | null>;
+  /**
+   * Starts a test participant in a condition, at the current time, or null if it can't. A world
+   * seed makes what's drawn at random in their world, like delays, the same each time.
+   */
+  start: (condition: string, worldSeed?: number) => Promise<TestParticipant | null>;
 }
 
 export function createHarness({
@@ -84,8 +87,8 @@ export function createHarness({
     setNow: (date) => {
       now = date;
     },
-    start: async (condition) => {
-      const started = await startPilot(db, versionId, condition, now);
+    start: async (condition, worldSeed) => {
+      const started = await startPilot(db, versionId, condition, now, worldSeed);
       if (!started?.token) {
         return null;
       }

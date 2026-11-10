@@ -10,7 +10,7 @@ This ADR covers (b), and the runner that (a) and (c) will use too.
 
 - **A simulated participant is a test participant, driven the way a scenario's is.** The scenario runner's setup (the API on a clock it moves, starting a test participant, sending requests as them) moved into `apps/api/src/scenarios/harness.ts`, which both runners use.
 - **A behavior decides what they do.** Each time they look at their feed, it's given what they see and returns one action or nothing. This PR has the random behavior. A model playing a persona will be another behavior, with the same runner and report.
-- **The random behavior is seeded.** A run has a seed, and participant `n` uses `seed + n`, so the same seed repeats a run exactly. The report gives the seed, and the admin app has "Repeat the last run exactly."
+- **The random behavior is seeded.** A run has a seed, and participant `n` uses `seed + n`, so the same seed repeats a run exactly. Their world's seed comes from the run's seed too, so delays, rehearsed lines, and re-randomizations repeat as well. The report gives the seed, and the admin app has "Repeat the last run."
 - **What they do:**
   - Each one is quiet, average, or busy.
   - They visit at the start, for 5 to 25 minutes, and on a study of a day or more, up to three more times a day.

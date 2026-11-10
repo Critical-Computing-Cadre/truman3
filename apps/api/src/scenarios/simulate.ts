@@ -74,6 +74,9 @@ const POSTS = [
  * do is spread across liking, commenting, replying, reposting, following, posting, and flagging,
  * on things they can see. The same random numbers always give the same choices.
  */
+/** Keeps world seeds apart from the participants' own random choices. */
+const WORLD_SEEDS = 1_000_003;
+
 export function randomBehavior(random: () => number): Behavior {
   const busy = pickFrom([0.1, 0.25, 0.5], random);
   return {
@@ -290,7 +293,9 @@ export async function simulate({
     // Kept ones finish by now, so synthetic data has no times in the future.
     const start = settings.keep ? new Date(Date.now() - lengthMs - 60_000) : new Date();
     harness.setNow(start);
-    const participant = await harness.start(condition);
+    // Their world's own draws, like delays and rehearsed lines, come from the run's seed too.
+    const worldSeed = Math.floor(createRandom(settings.seed + n + WORLD_SEEDS)() * 2 ** 31);
+    const participant = await harness.start(condition, worldSeed);
     if (!participant) {
       problem(`They couldn't start in "${condition}".`, n);
       continue;

@@ -10,7 +10,7 @@ The vault note `Agent runtime design` planned an approval mode for Wizard of Oz 
 - **A waiting beat is `awaiting` in `beat_runs`,** after it's due and decided as possible. Its suggested line is in `writing.draft`: the model's line if live writing is on, or else the fallback or fixed text. Nothing is posted yet.
 - **The Monitor page lists what's waiting:** the beat, its note, who acts, what it's on, a box with the line to change, and Approve or Skip. It checks every 5 seconds while anything waits.
 - **An approved line appears when it's approved,** not when it was due, since that's when the participant could first see it. Beats after it count from then. Who decided, the suggested line, and whether it was changed are recorded.
-- **Nobody waits forever.** If no researcher decides within `approvalTimeout` (ten minutes by default), the fallback or fixed line is used, as of when the time ran out. A study can say `never`.
+- **Nobody waits forever.** If no researcher decides within `approvalTimeout` (ten minutes by default), the fallback or fixed line is used, as of when the time ran out. A study can say `never`. If the draft was a rehearsed line, it's used instead, since a researcher read it when they saved the version (ADR 54).
 - **A researcher's own words aren't checked by the model.** They're the researcher's responsibility, and they're recorded as theirs.
 - **Each beat is decided once.** Deciding claims the beat, so two researchers, or a researcher and a timeout, can't both act on it. The second gets "Someone else decided it."
 - **Who decided is recorded by name,** not email, since the records are part of the study's data.

@@ -352,6 +352,35 @@ beats:
     expect(liked.sort()).toEqual(["A", "B"]);
   });
 
+  it("is decided again if the server stopped partway through deciding it", async () => {
+    const slug = await study(`
+beats:
+  - { id: later, when: { time: "0:10" }, do: { action: like, actor: bob, on: { post: p1 } } }
+`);
+    const cookie = await join(slug);
+    await feed(cookie);
+    await advance(cookie, 15);
+    const { worldId } = await worldOf(cookie);
+    // As if a request had claimed it, then the server stopped before recording what happened.
+    const stuck = (minutesAgo: number) =>
+      database.db
+        .update(schema.beatRuns)
+        .set({
+          status: "skipped",
+          reason: "being decided",
+          decidedAt: new Date(Date.now() - minutesAgo * 60_000),
+        })
+        .where(eq(schema.beatRuns.worldId, worldId));
+    await stuck(1);
+    await feed(cookie);
+    expect((await runsIn(cookie))[0]).toMatchObject({ status: "skipped", reason: "being decided" });
+
+    const before = byBody(await feed(cookie), "Hello from Ann").likes;
+    await stuck(11);
+    expect(byBody(await feed(cookie), "Hello from Ann").likes).toBe(before + 1);
+    expect((await runsIn(cookie))[0]).toMatchObject({ status: "fired" });
+  });
+
   it("is skipped, with a reason, when what it needs is off", async () => {
     const slug = await study(
       `

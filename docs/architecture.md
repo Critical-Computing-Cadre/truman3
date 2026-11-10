@@ -22,7 +22,7 @@ Truman 3 isn't ready for real participants yet. [Deploying](guides/deploying.md#
 | `apps/api`         | The Hono API ([ADR 3](adr/0003-hono-zod-openapi.md)). The only thing that changes study state. Serves its OpenAPI spec at `/openapi.json`                                              |
 | `apps/participant` | React app participants use: joining, consent and the study's pages, the feed, posts, profiles, spaces, stories, notifications                                                          |
 | `apps/admin`       | React app researchers use, always under `/admin/` ([ADR 21](adr/0021-the-api-has-its-own-login-and-admin-lives-under-a-path.md)): the studies list, the builder, Monitor, and Prolific |
-| `apps/cli`         | `pnpm study` (validate, test, import, add-pack, launch, stop, convert, export, withdraw) and `pnpm admin` (setup, add, reset-password)                                                 |
+| `apps/cli`         | `pnpm study` (validate, test, simulate, import, add-pack, launch, stop, convert, export, withdraw) and `pnpm admin` (setup, add, reset-password)                                       |
 
 Both web apps are built with Vite ([ADR 2](adr/0002-react-with-vite.md)) into static files. Neither has an address built in. Each one calls `/api` on whatever address it's on.
 
@@ -193,13 +193,13 @@ Participant screens never say this is a research platform unless the study does,
 
 - **Events are written only through `recordEvent`** in `packages/db/src/events.ts`. It checks the payload against the catalog in `packages/core/src/events.ts`, so new event types start there.
 - **The `events` table is append-only.** Triggers refuse updates, deletes, and truncation. The API's database login can only read and add to it ([ADR 21](adr/0021-the-api-has-its-own-login-and-admin-lives-under-a-path.md)).
-- **What goes in:** everything a participant does, reactions to them, and what the cast or a researcher does. Scripted content appearing on schedule isn't an event, since the frozen version already says when ([ADR 6](adr/0006-append-only-event-log.md)).
+- **What goes in:** everything a participant does, scripted reactions to them, and what a researcher does. Scripted content appearing on schedule isn't an event, since the frozen version already says when ([ADR 6](adr/0006-append-only-event-log.md)). What Christof's beats do is recorded in `beat_runs` instead, with why.
 - **The browser sends some events itself,** such as how long a post was on screen, to `POST /api/events`. Each has an ID, so a repeat is ignored.
 - **State and its event are written in the same transaction,** so they can't disagree.
 
 ## Christof, the director
 
-Christof makes things happen in each participant's world, from what the study wrote. [Writing beats](guides/writing-beats.md) is the guide for researchers. ADRs 51 to 57 explain each part.
+Christof makes things happen in each participant's world, from what the study wrote. [Writing beats](guides/writing-beats.md) is the guide for researchers. ADRs 51 to 57, 59, and 60 explain each part.
 
 | Part                        | What it does                                                                                                                                                                                          | Read                                                                                                          |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |

@@ -1,4 +1,4 @@
-import { randomInt } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
   armProbability,
   COUNTABLE,
@@ -19,6 +19,19 @@ import type { ParticipantContext } from "../participants/session.ts";
  */
 
 const RANDOM_RANGE = 2 ** 32;
+
+/**
+ * Where in [0, 1) a decision's draw falls, from the world's seed, the decision, and when it was
+ * due. The world's seed is random for a real participant, so this is as random as any draw, and
+ * what happened can be worked out again from the record, as beat delays can. A simulation sets the
+ * seed, so a run repeats exactly.
+ */
+function drawFor(context: ParticipantContext, decision: DecisionDefinition, dueAt: Date) {
+  const hash = createHash("sha256")
+    .update(`${context.seed}:decide:${decision.id}:${dueAt.getTime()}`)
+    .digest();
+  return hash.readUInt32BE(0) / RANDOM_RANGE;
+}
 
 type Db = Database | Transaction;
 
@@ -131,7 +144,7 @@ export async function decide(
   const { condition, probability } = destination(
     group?.to,
     from,
-    randomInt(RANDOM_RANGE) / RANDOM_RANGE,
+    drawFor(context, decision, dueAt),
   );
   const [row] = await tx
     .select({ id: schema.conditions.id })
