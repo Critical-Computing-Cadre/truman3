@@ -331,4 +331,4 @@ The README has the first-time setup.
 | Simulation     | `pnpm study simulate <folder> [n]` | Random participants through one study, with a report                                                        |
 
 - **Integration and browser tests connect as `truman_app`,** the login production uses, so something that only works as the owner fails here.
-- **CI** (`.github/workflows/ci.yml`) runs every layer but the last on each pull request and push to `main`, and proves `infra/` builds with no AWS credentials. It doesn't deploy.
+- **CI** (`.github/workflows/ci.yml`) runs every layer but the last on each pull request and push to `main`, and proves `infra/` builds with no AWS credentials. It doesn't deploy. The browser tests run in six jobs at once: in thirds (`--shard`), against the dev apps and against production builds. Each job has its own database, so a test file mustn't count on another having run first.

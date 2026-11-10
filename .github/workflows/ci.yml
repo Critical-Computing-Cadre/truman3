@@ -31,7 +31,7 @@ jobs:
       - run: sh scripts/check-container.sh
 
   # Tests that need real services: migrations, database rules, and the API reaching Postgres.
-  services:
+  integration:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -45,21 +45,56 @@ jobs:
       - run: docker compose up --detach --wait
       - run: pnpm db:migrate
       - run: pnpm test:integration
-      - run: pnpm exec playwright install --with-deps chromium
-        working-directory: e2e
-      - run: pnpm test:e2e
-      - run: pnpm test:e2e:built
-      - name: Keep what a failed browser test saw
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: e2e-results
-          path: e2e/test-results
-          if-no-files-found: ignore
       - name: Start the API
         run: pnpm --filter @truman3/api start &
       - name: Check the API is ready
         run: curl --fail --silent --show-error --retry 15 --retry-delay 1 --retry-connrefused --retry-all-errors http://localhost:3000/health/ready
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose logs
+
+  # The browser tests, in thirds at once, against the apps as `pnpm dev` serves them and as
+  # production builds. Each job has its own database, and every test file starts from its own
+  # setup, so a third can run alone.
+  e2e:
+    name: e2e (${{ matrix.apps }}, ${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        apps: [dev, built]
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: cp .env.example .env
+      - run: docker compose up --detach --wait
+      - run: pnpm db:migrate
+      # The browser download is kept between runs. Its system libraries still install each time.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: e2e
+      - if: matrix.apps == 'built'
+        run: pnpm build
+      - run: pnpm exec playwright test --shard=${{ matrix.shard }}/3
+        working-directory: e2e
+        env:
+          E2E_BUILT: ${{ matrix.apps == 'built' && '1' || '' }}
+      - name: Keep what a failed browser test saw
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results-${{ matrix.apps }}-${{ matrix.shard }}
+          path: e2e/test-results
+          if-no-files-found: ignore
       - name: Show service logs on failure
         if: failure()
         run: docker compose logs
