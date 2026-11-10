@@ -115,6 +115,46 @@ export interface ScenarioRun {
   finishedAt: string | null;
 }
 
+/** A report on simulated participants: what happened to them all. See ADR 59. */
+export interface SimulationReport {
+  participants: number;
+  conditions: Record<string, number>;
+  actions: Record<string, { done: number; refused: number }>;
+  beats: {
+    id: string;
+    conditions: string[];
+    happenedFor: Record<string, number>;
+    times: number;
+    mostForOne: number;
+    skipped: Record<string, number>;
+    stillDue: number;
+  }[];
+  decisions: {
+    id: string;
+    reached: number;
+    to: Record<string, number>;
+    groups: Record<string, number>;
+  }[];
+  problems: { text: string; count: number; participant: number }[];
+}
+
+/** A version's simulated participants, and how the latest run went. */
+export interface Simulations {
+  title: string;
+  version: number;
+  canRun: boolean;
+  most: number;
+  latest: {
+    status: "running" | "done" | "error";
+    settings: { participants: number; seed: number };
+    report: SimulationReport | null;
+    findings: string[];
+    startedBy: string;
+    startedAt: string;
+    finishedAt: string | null;
+  } | null;
+}
+
 export interface PreviewInfo {
   title: string;
   slug: string;

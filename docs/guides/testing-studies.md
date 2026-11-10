@@ -1,4 +1,4 @@
-# Testing a study with scenarios
+# Testing a study with scenarios and simulated participants
 
 A scenario is a made-up participant who does set things at set times. Each `expect` says what should be true by then: which beats have happened, which condition they're in, and what's in their feed. The scenario runs in a world that's fast-forwarded through the study, so two days take a moment.
 
@@ -94,3 +94,45 @@ Steps run in order of `at`. Before each one, the runner loads the page as the pa
 - **The clock:** the API takes its clock as a setting. The server uses the real time, and the runner moves its own clock forward step by step, so every timestamp in the world agrees, including what a decision point measures. See ADR 56.
 
 `scenarios.yaml` is saved with each version, like `beats.yaml`, so a version's tests are the ones written for it.
+
+## Simulated participants
+
+Scenarios check the paths you write down. Simulated participants look for the ones you didn't: many made-up participants go through a version at random, and a report says how often each beat happened in each condition. Use it to find a beat that never happens, or one that happens where it shouldn't.
+
+Each one is quiet, average, or busy. They visit at the start and, on a study of a day or more, a few more times a day. At each look at their feed they may like, comment, reply, repost, follow, post, or flag something they see. No model is used, so it costs nothing. See ADR 59.
+
+### In the admin app
+
+On the Studies page, press **Simulate** beside a saved version, choose how many participants (up to 200), and press **Simulate**. The report shows:
+
+- **Worth a look:** beats that never happened for anyone who could have had them, beats that happened in a condition they aren't in, decision points never reached, and errors.
+- **Each beat:** how many it happened for in each condition, the most times for one participant, why it was skipped, and whether it was still due when they finished.
+- **Each decision point:** how many it decided for, and where it sent them.
+
+The participants are deleted afterwards. **Repeat the last run exactly** runs it again with the same random choices, which is useful after changing something.
+
+### From the command line
+
+```
+pnpm study simulate studies/examples/bystander 100
+```
+
+```
+Participants: 50 in "defended", 50 in "silent"
+They did: 62 repost (62 refused), 45 follow, 185 like, 95 comment, 40 flag, 59 post
+
+Beats, and how many in each condition they happened for:
+  jake-mocks: defended 50/50, silent 50/50
+  leo-likes-mocking: silent 50/50
+  sam-defends: defended 49/50 (1 still due when they finished)
+  jake-answers-participant: defended 2/50, silent 4/50
+  ...
+
+Nothing stood out.
+
+To repeat this run exactly: pnpm study simulate studies/examples/bystander 100 --seed 3
+```
+
+"Refused" counts things the study doesn't allow, like reposting where reposts are off. That's expected, not a problem.
+
+A beat that's rare isn't necessarily wrong. Random participants seldom reply to one particular comment, for example. Run more participants, or write a scenario for that path.

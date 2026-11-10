@@ -510,6 +510,17 @@ test("a researcher writes scenario tests, sees them run when a version is saved,
   await tests.getByRole("button", { name: "Run tests again" }).click();
   await expect(tests).toContainText("run by", { timeout: 15_000 });
   await expect(tests).toContainText("1 of 2 tests failed");
+
+  // Simulated participants go through it at random, and the report says how often the beat happened.
+  await study.getByRole("link", { name: "Simulate" }).first().click();
+  await expect(page.getByText("No simulated participants yet.")).toBeVisible();
+  await page.getByLabel("How many participants").fill("6");
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
+  const beats = page.getByTestId("simulated-beats");
+  await expect(beats).toContainText("jules-welcomes", { timeout: 30_000 });
+  await expect(beats).toContainText(/\d of 6/);
+  await expect(page.getByTestId("simulation")).toContainText("6 participants, seed");
+  await page.screenshot({ path: testInfo.outputPath("simulation.png"), fullPage: true });
 });
 
 test("a researcher archives a study to tidy the list, and deletes one only they tried", async ({

@@ -5,10 +5,8 @@ import type { Storage } from "@truman3/storage";
 import { deleteParticipant } from "@truman3/study-import";
 import type { Writer } from "@truman3/writer";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { createApp } from "../app.ts";
 import { scriptFor } from "../director/director.ts";
-import { startPilot } from "../participants/enter.ts";
-import { hashSessionToken } from "../participants/session.ts";
+import { bodiesIn, createHarness } from "./harness.ts";
 
 /**
  * Runs a study's scenario tests. Each scenario is a test participant, started as a researcher's
@@ -46,41 +44,16 @@ export async function runScenarios({
   writer = null,
   cleanUp = false,
 }: RunScenariosOptions): Promise<ScenarioResult[]> {
-  let now = new Date();
-  const app = createApp({
-    pingDatabase: async () => {},
-    db,
-    storage,
-    mediaPublicUrl: "http://media.invalid",
-    getClientIp: () => undefined,
-    secureCookies: false,
-    writer,
-    clock: () => now,
-  });
-  const send = async (method: string, url: string, cookie: string, body?: object | FormData) => {
-    const response = await app.request(url, {
-      method,
-      headers: {
-        cookie,
-        ...(body && !(body instanceof FormData) ? { "content-type": "application/json" } : {}),
-      },
-      ...(body ? { body: body instanceof FormData ? body : JSON.stringify(body) } : {}),
-    });
-    const json = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-    return { ok: response.ok, json, cookie: response.headers.get("set-cookie") ?? "" };
-  };
-  const cookieOf = (header: string) => header.split(";")[0] ?? "";
-
+  const harness = createHarness({ db, storage, versionId, writer });
   const script = await scriptFor(db, versionId);
   const cues = [...script.beats, ...script.decide];
   const results: ScenarioResult[] = [];
   for (const scenario of scenarios) {
     const problems: string[] = [];
     const start = new Date();
-    now = start;
-    const started = await startPilot(db, versionId, scenario.condition, now);
-    const token = started?.token;
-    if (!token) {
+    harness.setNow(start);
+    const participant = await harness.start(scenario.condition);
+    if (!participant) {
       results.push({
         name: scenario.name,
         passed: false,
@@ -88,34 +61,13 @@ export async function runScenarios({
       });
       continue;
     }
-    const signedIn = await send("POST", "/pilot-session", "", { token });
-    const cookie = cookieOf(signedIn.cookie);
-    const [session] = await db
-      .select({ worldId: schema.worldMemberships.worldId })
-      .from(schema.sessions)
-      .innerJoin(
-        schema.worldMemberships,
-        eq(schema.worldMemberships.participantId, schema.sessions.participantId),
-      )
-      .where(eq(schema.sessions.tokenHash, hashSessionToken(token)));
-    const worldId = session?.worldId as string;
-    const [participant] = await db
-      .select({ participantId: schema.sessions.participantId })
-      .from(schema.sessions)
-      .where(eq(schema.sessions.tokenHash, hashSessionToken(token)));
-    const participantId = participant?.participantId as string;
-
-    const currentCondition = async () => {
-      const [assignment] = await db
-        .select({ key: schema.conditions.key })
-        .from(schema.assignments)
-        .innerJoin(schema.conditions, eq(schema.conditions.id, schema.assignments.conditionId))
-        .where(eq(schema.assignments.participantId, participantId))
-        .orderBy(desc(schema.assignments.id))
-        .limit(1);
-      return assignment?.key;
-    };
-    const meta = () => ({ clientEventId: randomUUID(), occurredAt: now.toISOString() });
+    const { participantId, worldId } = participant;
+    const send = participant.send;
+    const currentCondition = participant.condition;
+    const meta = () => ({
+      clientEventId: randomUUID(),
+      occurredAt: harness.now().toISOString(),
+    });
     const target = async (on: ScenarioTarget): Promise<string | null> => {
       if ("post" in on) {
         const [post] = await db
@@ -149,10 +101,10 @@ export async function runScenarios({
 
     const steps = [...scenario.steps].sort((a, b) => a.at - b.at);
     for (const step of steps) {
-      now = new Date(start.getTime() + step.at);
+      harness.setNow(new Date(start.getTime() + step.at));
       const when = `At ${formatStudyTime(step.at)}`;
       // Loading anything lets Christof catch up, as it would when a real participant comes back.
-      await send("GET", "/me", cookie);
+      await send("GET", "/me");
 
       let done: { ok: boolean; json: Record<string, unknown> } | null = null;
       if (step.post !== undefined) {
@@ -160,9 +112,9 @@ export async function runScenarios({
         for (const [key, value] of Object.entries({ ...meta(), body: step.post })) {
           form.set(key, value);
         }
-        done = await send("POST", "/posts", cookie, form);
+        done = await send("POST", "/posts", form);
       } else if (step.follow !== undefined) {
-        done = await send("POST", `/actors/${step.follow}/relation`, cookie, {
+        done = await send("POST", `/actors/${step.follow}/relation`, {
           ...meta(),
           action: "follow",
         });
@@ -175,11 +127,11 @@ export async function runScenarios({
         }
         done =
           step.comment !== undefined
-            ? await send("POST", `/content/${id}/comments`, cookie, {
+            ? await send("POST", `/content/${id}/comments`, {
                 ...meta(),
                 body: step.comment,
               })
-            : await send("POST", `/content/${id}/${step.like ? "like" : "repost"}`, cookie, {
+            : await send("POST", `/content/${id}/${step.like ? "like" : "repost"}`, {
                 ...meta(),
                 active: true,
               });
@@ -189,7 +141,7 @@ export async function runScenarios({
       }
       if (done) {
         // What they did can set beats off, and those might need a model, as a background check does.
-        await send("GET", "/me", cookie);
+        await send("GET", "/me");
         continue;
       }
 
@@ -240,7 +192,7 @@ export async function runScenarios({
         }
       }
       if (expect.sees.length > 0 || expect.doesNotSee.length > 0) {
-        const feed = await send("GET", "/feed", cookie);
+        const feed = await send("GET", "/feed");
         const texts = bodiesIn(feed.json);
         // Some platforms show comments only on a post's own page, so open the ones that have them.
         const posts = (feed.json.posts ?? []) as {
@@ -250,7 +202,7 @@ export async function runScenarios({
         }[];
         for (const post of posts) {
           if (post.commentCount > post.comments.length) {
-            const opened = await send("GET", `/feed?surface=post&post=${post.id}`, cookie);
+            const opened = await send("GET", `/feed?surface=post&post=${post.id}`);
             texts.push(...bodiesIn(opened.json));
           }
         }
@@ -272,19 +224,4 @@ export async function runScenarios({
     }
   }
   return results;
-}
-
-/** Every post and comment's text in a feed, however deeply comments are nested. */
-function bodiesIn(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.flatMap(bodiesIn);
-  }
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    return [
-      ...(typeof record.body === "string" ? [record.body] : []),
-      ...Object.values(record).flatMap(bodiesIn),
-    ];
-  }
-  return [];
 }
