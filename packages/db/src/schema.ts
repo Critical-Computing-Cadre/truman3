@@ -792,6 +792,26 @@ export const scenarioRuns = pgTable("scenario_runs", {
 });
 
 /**
+ * Each time simulated participants went through a version on the server, and the report on what
+ * happened to them. Like scenario tests, the participants are deleted afterwards. Runs go with
+ * their version, so deleting a study doesn't have to list them. See ADR 59.
+ */
+export const simulationRuns = pgTable("simulation_runs", {
+  id: id(),
+  studyVersionId: uuid("study_version_id")
+    .notNull()
+    .references(() => studyVersions.id, { onDelete: "cascade" }),
+  status: text({ enum: ["running", "done", "error"] }).notNull(),
+  /** How many participants, and the seed their choices came from, so a run can be repeated. */
+  settings: jsonb().notNull(),
+  /** The report: how often each beat happened in each condition, and what went wrong. */
+  report: jsonb(),
+  startedBy: text("started_by").notNull(),
+  startedAt: time("started_at").notNull().defaultNow(),
+  finishedAt: time("finished_at"),
+});
+
+/**
  * Each time Christof, the director, considers a beat in a participant's world: what set it off,
  * when it's due, and then whether it happened and why not. It's the decision trace for beats, and
  * goes with the world on withdrawal. A beat waits as `pending` until it's due, and is decided then,

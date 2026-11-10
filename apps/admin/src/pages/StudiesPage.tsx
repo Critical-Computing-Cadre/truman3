@@ -598,6 +598,13 @@ export function StudiesPage() {
                       >
                         See the feed
                       </Link>
+                      <Link
+                        to="/versions/$versionId/simulate"
+                        params={{ versionId: version.id }}
+                        className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+                      >
+                        Simulate
+                      </Link>
                       <TryIt version={version} participantUrl={study.participantUrl} />
                       {canChange && !isLive && <LaunchButton study={study} version={version} />}
                       {canChange && isLive && <StopButton study={study} />}

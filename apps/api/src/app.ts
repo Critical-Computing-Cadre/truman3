@@ -14,6 +14,7 @@ import { createRehearseRoutes } from "./admin/rehearse.ts";
 import { createAdminRoutes } from "./admin/routes.ts";
 import { createScenarioRoutes } from "./admin/scenarios.ts";
 import { createSheetRoutes } from "./admin/sheets.ts";
+import { createSimulationRoutes } from "./admin/simulations.ts";
 import { describeError } from "./errors.ts";
 import { createFeedRoutes } from "./feed/routes.ts";
 import { createFlowRoutes } from "./flow/routes.ts";
@@ -107,6 +108,7 @@ export function createApp({
   app.route("/", createChristofRoutes(participantDependencies));
   app.route("/", createRehearseRoutes(participantDependencies));
   app.route("/", createScenarioRoutes(participantDependencies));
+  app.route("/", createSimulationRoutes(participantDependencies));
   app.route("/", createArchiveRoutes(participantDependencies));
   app.route("/", createLaunchRoutes(participantDependencies));
   app.route("/", createProlificRoutes(participantDependencies));

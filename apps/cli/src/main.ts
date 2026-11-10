@@ -11,11 +11,12 @@ import {
   stopNewParticipants,
   withdrawParticipant,
 } from "@truman3/study-import";
-import { testStudy } from "./test-study.ts";
+import { simulateStudy, testStudy } from "./test-study.ts";
 
 const USAGE = `Usage:
   pnpm study validate <study folder>
   pnpm study test <study folder>
+  pnpm study simulate <study folder> [participants] [--seed N]
   pnpm study import <study folder>
   pnpm study add-pack <study folder> [name] [description]
   pnpm study launch <slug> [version]
@@ -221,6 +222,8 @@ if (command === "validate" && args[0]) {
   process.exitCode = validate(args[0]);
 } else if (command === "test" && args[0]) {
   process.exitCode = await testStudy(args[0], printIssues);
+} else if (command === "simulate" && args[0]) {
+  process.exitCode = await simulateStudy(args[0], args.slice(1), printIssues);
 } else if (command === "import" && args[0]) {
   process.exitCode = await importStudy(args[0]);
 } else if (command === "add-pack" && args[0]) {

@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./scenarios": "./src/scenarios/run.ts"
+    "./scenarios": "./src/scenarios/run.ts",
+    "./simulate": "./src/scenarios/simulate.ts"
   },
   "scripts": {
     "dev": "NODE_ENV=development node --env-file-if-exists=../../.env --watch src/server.ts",

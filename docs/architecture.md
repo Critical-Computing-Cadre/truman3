@@ -80,7 +80,7 @@ flowchart LR
 
 Most packages also import `packages/core` directly. Those arrows are left out to keep this readable.
 
-`apps/cli` imports `apps/api` only for the scenario runner (`@truman3/api/scenarios`). `writer`, `recruit`, and `storage` depend on no other package here.
+`apps/cli` imports `apps/api` only for the scenario runner and simulated participants (`@truman3/api/scenarios`, `@truman3/api/simulate`). `writer`, `recruit`, and `storage` depend on no other package here.
 
 ## A request
 
@@ -201,14 +201,15 @@ Participant screens never say this is a research platform unless the study does,
 
 Christof makes things happen in each participant's world, from what the study wrote. [Writing beats](guides/writing-beats.md) is the guide for researchers. ADRs 51 to 57 explain each part.
 
-| Part            | What it does                                                                                                                      | Read                                                                                                          |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Beats           | `beats.yaml` says what happens (a post, comment, like, repost, or follow), set off by a time, the participant, or another beat    | [ADR 51](adr/0051-christof-beats-and-the-director.md)                                                         |
-| Live writing    | A beat can `improvise`, and a model writes the words, within a budget, and checked by a second call                               | [ADR 52](adr/0052-christof-actors-write-live.md)                                                              |
-| Approval        | Beats wait for a researcher on the Monitor page, for Wizard of Oz studies, with a timeout                                         | [ADR 53](adr/0053-christof-approval-for-wizard-of-oz.md)                                                      |
-| Rehearsed lines | Lines written ahead, drafted by the model from the Beats page, and read before launch                                             | [ADR 54](adr/0054-christof-rehearsed-lines.md)                                                                |
-| Decision points | Under `decide:`, re-randomize someone partway through, from what they've done                                                     | [ADR 55](adr/0055-christof-decision-points.md)                                                                |
-| Scenario tests  | `scenarios.yaml`: made-up participants who act at set times, with what should be true. Run from the command line or the admin app | [ADR 56](adr/0056-scenario-tests-and-the-api-clock.md), [ADR 57](adr/0057-scenario-tests-in-the-admin-app.md) |
+| Part                   | What it does                                                                                                                                                         | Read                                                                                                          |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Beats                  | `beats.yaml` says what happens (a post, comment, like, repost, or follow), set off by a time, the participant, or another beat                                       | [ADR 51](adr/0051-christof-beats-and-the-director.md)                                                         |
+| Live writing           | A beat can `improvise`, and a model writes the words, within a budget, and checked by a second call                                                                  | [ADR 52](adr/0052-christof-actors-write-live.md)                                                              |
+| Approval               | Beats wait for a researcher on the Monitor page, for Wizard of Oz studies, with a timeout                                                                            | [ADR 53](adr/0053-christof-approval-for-wizard-of-oz.md)                                                      |
+| Rehearsed lines        | Lines written ahead, drafted by the model from the Beats page, and read before launch                                                                                | [ADR 54](adr/0054-christof-rehearsed-lines.md)                                                                |
+| Decision points        | Under `decide:`, re-randomize someone partway through, from what they've done                                                                                        | [ADR 55](adr/0055-christof-decision-points.md)                                                                |
+| Scenario tests         | `scenarios.yaml`: made-up participants who act at set times, with what should be true. Run from the command line or the admin app                                    | [ADR 56](adr/0056-scenario-tests-and-the-api-clock.md), [ADR 57](adr/0057-scenario-tests-in-the-admin-app.md) |
+| Simulated participants | Many made-up participants who go through a version at random, and a report on how often each beat happened in each condition. From the command line or the admin app | [ADR 59](adr/0059-simulated-participants.md)                                                                  |
 
 ### How the director runs: `catchUp`
 
@@ -244,6 +245,7 @@ Beats act through the same tables as scripted reactions, such as `content` with 
 - **The runner** is `apps/api/src/scenarios/run.ts`. [Testing studies](guides/testing-studies.md) is the guide.
 - **In the admin app,** scenarios are written on the builder's Tests page. They run on the server, in the background, when a version is saved, and again from **Run tests again** on the Studies page (`apps/api/src/admin/scenarios.ts`). Each run's results are a row in `scenario_runs`. Its test participants are deleted afterward ([ADR 57](adr/0057-scenario-tests-in-the-admin-app.md)).
 - **Launching warns** when a version's scenarios haven't passed. A study can turn the warning off (`studies.warn_untested`).
+- **Simulated participants** use the same harness (`apps/api/src/scenarios/harness.ts`). `simulate.ts` sends many through a version, each with a behavior that picks what they do at each look at their feed. The random behavior is seeded, so a run repeats exactly. They run from `pnpm study simulate` or the Simulate page, in the background, with the report in `simulation_runs`. Their participants are deleted afterward ([ADR 59](adr/0059-simulated-participants.md)).
 
 ## Researchers
 
@@ -316,14 +318,15 @@ The README has the first-time setup.
 
 ## Testing
 
-| Layer          | Command                    | What it covers                                                                                              |
-| -------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Unit           | `pnpm test`                | `*.test.ts` across apps, packages, and `infra`. No services needed                                          |
-| Integration    | `pnpm test:integration`    | `*.itest.ts`: the API against real Postgres and storage. Each file gets its own throwaway database          |
-| Browser        | `pnpm test:e2e`            | Playwright, on a phone and a desktop, through the example study and the admin app, with a stand-in Prolific |
-| Browser, built | `pnpm test:e2e:built`      | The same tests against production builds, with the API in production mode                                   |
-| Container      | `pnpm check:container`     | Builds the API's image and checks it: the database update, the API's login, and what's in the image         |
-| Scenarios      | `pnpm study test <folder>` | One study's `scenarios.yaml`                                                                                |
+| Layer          | Command                            | What it covers                                                                                              |
+| -------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Unit           | `pnpm test`                        | `*.test.ts` across apps, packages, and `infra`. No services needed                                          |
+| Integration    | `pnpm test:integration`            | `*.itest.ts`: the API against real Postgres and storage. Each file gets its own throwaway database          |
+| Browser        | `pnpm test:e2e`                    | Playwright, on a phone and a desktop, through the example study and the admin app, with a stand-in Prolific |
+| Browser, built | `pnpm test:e2e:built`              | The same tests against production builds, with the API in production mode                                   |
+| Container      | `pnpm check:container`             | Builds the API's image and checks it: the database update, the API's login, and what's in the image         |
+| Scenarios      | `pnpm study test <folder>`         | One study's `scenarios.yaml`                                                                                |
+| Simulation     | `pnpm study simulate <folder> [n]` | Random participants through one study, with a report                                                        |
 
 - **Integration and browser tests connect as `truman_app`,** the login production uses, so something that only works as the owner fails here.
 - **CI** (`.github/workflows/ci.yml`) runs every layer but the last on each pull request and push to `main`, and proves `infra/` builds with no AWS credentials. It doesn't deploy.
