@@ -236,8 +236,9 @@ test("a researcher writes polls, flair, and crossposts, and a participant uses t
   await participant.goto(`${app}/spaces/cooking`);
   await participant.getByLabel("Your flair").first().selectOption("Chef");
   await expect.poll(eventTypes).toContain("space.flair_chosen");
+  // The feed refetches after the choice is saved, which the dev server can take a while to serve.
   await expect(
     participant.getByRole("article", { name: "My own poll" }).getByTestId("author-flair"),
-  ).toHaveText("Chef");
+  ).toHaveText("Chef", { timeout: 15_000 });
   await shot(participant, project, "polls-7-space-page");
 });
