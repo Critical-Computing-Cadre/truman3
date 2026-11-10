@@ -13,6 +13,8 @@ import {
 
 const ACTION_NAMES: Record<string, [string, string]> = {
   like: ["like", "likes"],
+  upvote: ["upvote", "upvotes"],
+  downvote: ["downvote", "downvotes"],
   comment: ["comment or reply", "comments and replies"],
   repost: ["repost", "reposts"],
   follow: ["follow", "follows"],
@@ -112,9 +114,12 @@ function Report({ report }: { report: SimulationReport }) {
 
 /** One persona's run, as what they saw and did, in order. */
 function TranscriptView({ transcript }: { transcript: Transcript }) {
+  // How long after they joined, as "Day 2, 20:15 in".
   const time = (ms: number) => {
     const minutes = Math.floor(ms / 60_000);
-    return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
+    const day = Math.floor(minutes / (24 * 60)) + 1;
+    const hours = Math.floor((minutes % (24 * 60)) / 60);
+    return `Day ${day}, ${hours}:${String(minutes % 60).padStart(2, "0")} in`;
   };
   // Looks where nothing new appeared and they did nothing are left out, so it reads as a story.
   const entries = transcript.entries.filter((entry) => entry.did || entry.saw.length > 0);
@@ -368,7 +373,7 @@ export function SimulatePage() {
         <div className="space-y-3" data-testid="simulation">
           <p className="text-xs text-stone-500">
             {latest.settings.personas
-              ? `${latest.settings.personas.length} personas, with a $${latest.settings.budgetUsd ?? 2} budget`
+              ? `${latest.settings.personas.length} personas, with a $${(latest.settings.budgetUsd ?? 2).toFixed(2)} budget`
               : `${latest.settings.participants} participants at random, seed ${latest.settings.seed}`}
             {latest.settings.keep ? ", kept as synthetic data" : ""}, started by {latest.startedBy}{" "}
             {new Date(latest.startedAt).toLocaleString()}

@@ -12,7 +12,7 @@ ADR 59 added simulated participants who behave at random, to stress-test a study
   - what they've done so far
   - the persona
 
-  It answers with structured output: an action, the number it's on, any text, and why, in their voice. An action that can't be done, like liking their own comment, is recorded as nothing, with the reason. The writer gateway (ADR 52) gets an `act` method for this, with the same server-side fallback as the cast's writing.
+  It's offered only what the study has in their condition, such as votes instead of likes on a forum, and each item shows its likes or its score to match. It answers with structured output: an action, the number it's on, any text, and why, in their voice. An action that can't be done, like liking their own comment, is recorded as nothing, with the reason. The writer gateway (ADR 52) gets an `act` method for this, with the same server-side fallback as the cast's writing.
 - **The researcher picks personas and how many of each on the Simulate page.** They run one after another, each as a test participant, the same as random ones.
 - **Each run has a budget, $2 unless set otherwise,** for the model playing personas. When it's spent, the run stops after the participant it's on. The report says so, and "Worth a look" lists it. The report also gives what the personas cost and what the cast's live writing cost.
 - **The cast writes live during persona runs,** if the study writes live, so piloting shows what participants would really see. That spending comes from the study's own live-writing budget, as it would for a real participant. Random runs still use rehearsed or fallback lines, since they're for checking logic.

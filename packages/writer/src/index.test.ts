@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { cleanLine, costOf, lineFromChoice, standInWriter } from "./index.ts";
+import { cleanLine, costOf, lineFromChoice, standInWriter, withoutStrayBrace } from "./index.ts";
+
+describe("a persona's text", () => {
+  it("loses a closing brace the model left inside the string", () => {
+    expect(withoutStrayBrace("Salt the water hard.}")).toBe("Salt the water hard.");
+    expect(withoutStrayBrace("Salt the water hard. }}")).toBe("Salt the water hard.");
+    expect(withoutStrayBrace("Use {name} here}")).toBe("Use {name} here}");
+    expect(withoutStrayBrace("Fine as it is")).toBe("Fine as it is");
+  });
+});
 
 describe("the writer", () => {
   it("keeps only the line, without quotes, within the length allowed", () => {

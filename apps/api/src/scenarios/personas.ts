@@ -1,5 +1,10 @@
-import { type FeedResponse, formatStudyTime, type SimulatedPersona } from "@truman3/core";
-import type { Writer } from "@truman3/writer";
+import {
+  type FeatureSet,
+  type FeedResponse,
+  formatStudyTime,
+  type SimulatedPersona,
+} from "@truman3/core";
+import type { ACTS, Writer } from "@truman3/writer";
 import type { Behavior, SimulatedAction, View } from "./simulate.ts";
 
 /**
@@ -39,6 +44,29 @@ export interface Budget {
 /** A persona run reached its budget, so it stops. */
 export class BudgetSpent extends Error {}
 
+/** The features a persona's choices depend on, in their condition. */
+export type PersonaFeatures = Pick<
+  FeatureSet,
+  "likes" | "votes" | "comments" | "reposts" | "following" | "posting" | "flagging"
+>;
+
+/** What each choice is, for the model, and whether the study has it. */
+function choices(on: PersonaFeatures): { act: (typeof ACTS)[number]; means: string }[] {
+  return [
+    on.likes && { act: "like" as const, means: "like a post or comment" },
+    on.votes && { act: "upvote" as const, means: "vote a post or comment up" },
+    on.votes && { act: "downvote" as const, means: "vote a post or comment down" },
+    on.comments && {
+      act: "comment" as const,
+      means: "comment on a post, or reply to a comment, with text",
+    },
+    on.reposts && { act: "repost" as const, means: "pass a post along to your followers" },
+    on.following && { act: "follow" as const, means: "follow the person who wrote something" },
+    on.posting && { act: "post" as const, means: "write a post of your own, in text" },
+    on.flagging && { act: "flag" as const, means: "report a post or comment to moderators" },
+  ].filter((choice) => choice !== false);
+}
+
 interface Item {
   id: string;
   kind: "post" | "comment";
@@ -46,15 +74,36 @@ interface Item {
   mine: boolean;
 }
 
+/** What something says, or that a moderator took it down, since its text isn't sent then. */
+const bodyOf = (item: { body: string; removed?: unknown; author: { isViewer: boolean } }) =>
+  item.removed && !item.author.isViewer ? "(removed by a moderator)" : item.body;
+
 /**
  * A feed as numbered lines a model can read, and what each number is. Comments are indented under
- * their post, and replies under their comment.
+ * their post, and replies under their comment. Each shows its likes or its score, whichever the
+ * study has.
  */
-export function describeFeed(posts: readonly FeedPost[]): { text: string; items: Item[] } {
+export function describeFeed(
+  posts: readonly FeedPost[],
+  on: Pick<PersonaFeatures, "likes" | "votes"> = { likes: true, votes: false },
+): { text: string; items: Item[] } {
   const items: Item[] = [];
   const lines: string[] = [];
   const name = (author: FeedPost["author"]) =>
     author.isViewer ? "You" : `${author.name} (@${author.username})`;
+  const counts = (item: {
+    likes: number;
+    liked: boolean;
+    ups: number;
+    downs: number;
+    vote: "up" | "down" | null;
+  }) =>
+    [
+      on.likes && `${item.likes} likes${item.liked ? ", you liked it" : ""}`,
+      on.votes && `score ${item.ups - item.downs}${item.vote ? `, you voted ${item.vote}` : ""}`,
+    ]
+      .filter(Boolean)
+      .join("; ");
   for (const post of posts) {
     items.push({
       id: post.id,
@@ -64,8 +113,9 @@ export function describeFeed(posts: readonly FeedPost[]): { text: string; items:
     });
     const passedOn = post.repostedBy ? ` (reposted by ${post.repostedBy.name})` : "";
     const title = post.title ? `${post.title}: ` : "";
+    const postCounts = counts(post);
     lines.push(
-      `[${items.length}] ${name(post.author)} posted${passedOn}: "${title}${post.body}" (${post.likes} likes${post.liked ? ", you liked it" : ""})`,
+      `[${items.length}] ${name(post.author)} posted${passedOn}: "${title}${bodyOf(post)}"${postCounts ? ` (${postCounts})` : ""}`,
     );
     for (const comment of post.comments) {
       items.push({
@@ -74,8 +124,9 @@ export function describeFeed(posts: readonly FeedPost[]): { text: string; items:
         username: comment.author.username,
         mine: comment.author.isViewer,
       });
+      const commentCounts = counts(comment);
       lines.push(
-        `${"  ".repeat(comment.depth + 1)}[${items.length}] ${name(comment.author)} ${comment.depth > 0 ? "replied" : "commented"}: "${comment.body}"${comment.liked ? " (you liked it)" : ""}`,
+        `${"  ".repeat(comment.depth + 1)}[${items.length}] ${name(comment.author)} ${comment.depth > 0 ? "replied" : "commented"}: "${bodyOf(comment)}"${commentCounts ? ` (${commentCounts})` : ""}`,
       );
     }
   }
@@ -104,18 +155,23 @@ function describeAction(action: SimulatedAction, items: readonly Item[], feed: s
 export function personaBehavior({
   persona,
   condition,
+  features,
   writer,
   model,
   budget,
 }: {
   persona: SimulatedPersona;
   condition: string;
+  /** What the study lets them do in their condition. Only these are offered. */
+  features: PersonaFeatures;
   writer: Writer;
   model: string;
   budget: Budget;
 }): Behavior & { transcript: Transcript } {
   const transcript: Transcript = { persona: persona.id, condition, entries: [], costUsd: 0 };
   const seen = new Set<string>();
+  const offered = choices(features);
+  const offeredActs = new Set<string>(offered.map(({ act }) => act));
   const system = `You're helping researchers pilot a social media study before real people take part. Play this person, who has joined the study's site:
 
 ${persona.about}
@@ -128,12 +184,12 @@ Act as they would. Most of the time, people scroll past without doing anything, 
       if (budget.spentUsd >= budget.limitUsd) {
         throw new BudgetSpent();
       }
-      const { text, items } = describeFeed(posts);
+      const { text, items } = describeFeed(posts, features);
       const saw = posts.flatMap((post) =>
         [post, ...post.comments].flatMap((item) =>
           seen.has(item.id) || item.author.isViewer
             ? []
-            : [{ who: item.author.name, text: item.body }],
+            : [{ who: item.author.name, text: bodyOf(item) }],
         ),
       );
       for (const item of items) {
@@ -147,14 +203,19 @@ ${done.length > 0 ? `What you've done so far:\n${done.map((line) => `- ${line}`)
 Your feed now:
 ${text}
 
-Choose one thing to do now, or nothing. For like, comment, repost, or flag, give the number of the post or comment in item. A comment on a comment is a reply to it. For follow, give the number of something by the person. For post, write it in text, with item empty. Only comments and posts need text.`;
+What you can do on this site:
+${offered.map(({ act, means }) => `- ${act}: ${means}`).join("\n")}
+
+Choose one of those now, or nothing. For anything done to a post or comment, give its number in item. For follow, give the number of something by the person. For post, leave item empty. Only comments and posts need text.`;
 
       const acted = await writer.act({ model, system, prompt });
       budget.spentUsd += acted.costUsd;
       transcript.costUsd += acted.costUsd;
       const item = acted.item === null ? undefined : items[acted.item - 1];
-      const action: SimulatedAction | null =
-        acted.action === "post" && acted.text.trim()
+      const offeredHere = acted.action === "nothing" || offeredActs.has(acted.action);
+      const action: SimulatedAction | null = !offeredHere
+        ? null
+        : acted.action === "post" && acted.text.trim()
           ? { do: "post", text: acted.text.trim() }
           : !item || item.mine
             ? null
@@ -162,7 +223,10 @@ Choose one thing to do now, or nothing. For like, comment, repost, or flag, give
               ? { do: "follow", username: item.username }
               : acted.action === "comment" && acted.text.trim()
                 ? { do: "comment", on: item.id, text: acted.text.trim() }
-                : acted.action === "like" || acted.action === "flag"
+                : acted.action === "like" ||
+                    acted.action === "flag" ||
+                    acted.action === "upvote" ||
+                    acted.action === "downvote"
                   ? { do: acted.action, on: item.id }
                   : acted.action === "repost" && item.kind === "post"
                     ? { do: "repost", on: item.id }
@@ -171,8 +235,9 @@ Choose one thing to do now, or nothing. For like, comment, repost, or flag, give
         at,
         saw,
         did: action ? describeAction(action, items, text) : null,
-        why:
-          acted.action !== "nothing" && !action
+        why: !offeredHere
+          ? `${acted.why} (It chose to ${acted.action}, which this study doesn't have here.)`
+          : acted.action !== "nothing" && !action
             ? `${acted.why} (It chose to ${acted.action}, but that couldn't be done to what it picked.)`
             : acted.why,
       });

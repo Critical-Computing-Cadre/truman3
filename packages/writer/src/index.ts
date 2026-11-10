@@ -57,7 +57,25 @@ export interface Rehearsed {
 }
 
 /** What a simulated participant can do at one look at their feed. */
-export const ACTS = ["nothing", "like", "comment", "repost", "follow", "post", "flag"] as const;
+export const ACTS = [
+  "nothing",
+  "like",
+  "upvote",
+  "downvote",
+  "comment",
+  "repost",
+  "follow",
+  "post",
+  "flag",
+] as const;
+
+/**
+ * Text from structured output, without a stray closing brace. Models sometimes end the last field
+ * of the object inside the string, as in "Salt the water.}", and nobody writes that on purpose.
+ */
+export function withoutStrayBrace(text: string): string {
+  return text.includes("{") ? text : text.replace(/\s*\}+\s*$/, "");
+}
 
 /** A simulated participant's turn: who they are and what they see, numbered. */
 export interface ActRequest {
@@ -299,7 +317,11 @@ export function anthropicWriter(apiKey: string): Writer {
       const acted =
         response.stop_reason === "refusal" || !response.parsed_output
           ? { action: "nothing" as const, item: null, text: "", why: "(The model declined.)" }
-          : response.parsed_output;
+          : {
+              ...response.parsed_output,
+              text: withoutStrayBrace(response.parsed_output.text),
+              why: withoutStrayBrace(response.parsed_output.why),
+            };
       return { ...acted, model: response.model, costUsd };
     },
   };
