@@ -109,7 +109,7 @@ On the Studies page, press **Simulate** beside a saved version, choose how many 
 - **Each beat:** how many it happened for in each condition, the most times for one participant, why it was skipped, and whether it was still due when they finished.
 - **Each decision point:** how many it decided for, and where it sent them.
 
-The participants are deleted afterwards. **Repeat the last run exactly** runs it again with the same random choices, which is useful after changing something.
+The participants are deleted afterwards. **Repeat the last run** runs it again with the same seed: the same random choices, delays, rehearsed lines, and re-randomizations. That's useful after changing something. A run with personas can differ, since a model plays them.
 
 ### From the command line
 

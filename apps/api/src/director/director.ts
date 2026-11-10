@@ -488,6 +488,15 @@ export interface CatchUpOptions {
  * beat that follows another is written down as that one happens, so a chain plays out in one go.
  * Called before anything is loaded and after the participant does something.
  */
+/**
+ * How a run is claimed while it's decided, so only one request decides it. Runs waiting for a
+ * researcher are claimed as "being approved" instead, which is never retried, since their
+ * `decided_at` is when they started waiting.
+ */
+const BEING_DECIDED = "being decided";
+/** Longer than any model call, so a run still being decided is never taken back. */
+const STUCK_AFTER_MS = 10 * 60_000;
+
 export async function catchUp(
   db: Database,
   context: ParticipantContext,
@@ -504,6 +513,19 @@ export async function catchUp(
   await db.transaction(async (tx) => {
     await scheduleTimed(tx, context, now);
   });
+  // A run claimed long ago was never finished, because the server stopped while deciding it, so
+  // it's decided again.
+  await db
+    .update(schema.beatRuns)
+    .set({ status: "pending", decidedAt: null, reason: null })
+    .where(
+      and(
+        eq(schema.beatRuns.worldId, context.worldId),
+        eq(schema.beatRuns.status, "skipped"),
+        eq(schema.beatRuns.reason, BEING_DECIDED),
+        lte(schema.beatRuns.decidedAt, new Date(now.getTime() - STUCK_AFTER_MS)),
+      ),
+    );
   await timeOutApprovals(db, context, script, now);
 
   // A chain can only be as long as there are beats, which bounds the loop.
@@ -530,7 +552,7 @@ export async function catchUp(
     // Only one load decides a run, even if two arrive at once.
     const [claimed] = await db
       .update(schema.beatRuns)
-      .set({ status: "skipped", decidedAt: now, reason: "being decided" })
+      .set({ status: "skipped", decidedAt: now, reason: BEING_DECIDED })
       .where(and(eq(schema.beatRuns.id, run.id), eq(schema.beatRuns.status, "pending")))
       .returning({ id: schema.beatRuns.id });
     if (!claimed) {
@@ -678,11 +700,17 @@ async function scheduleFollowers(
   }
 }
 
-/** The line a beat uses when nobody approves it in time: its fallback, or its fixed text. */
-const unattendedLine = (beat: BeatDefinition) =>
-  beat.do.action === "post" || beat.do.action === "comment"
-    ? (beat.do.text ?? beat.do.fallback ?? null)
-    : null;
+/**
+ * The line a beat uses when nobody approves it in time. A rehearsed draft was already read by a
+ * researcher when they saved the version (ADR 54), so it's used as it is. Otherwise it's the beat's
+ * fixed text or its fallback, since a model's draft was never read by anyone.
+ */
+const unattendedLine = (beat: BeatDefinition, before: Writing) =>
+  beat.do.action !== "post" && beat.do.action !== "comment"
+    ? { text: null, mode: "fallback" as const }
+    : before.mode === "rehearsed" && before.draft
+      ? { text: before.draft, mode: "rehearsed" as const }
+      : { text: beat.do.text ?? beat.do.fallback ?? null, mode: "fallback" as const };
 
 /**
  * Beats that waited too long for a researcher. Each happens with its fallback or fixed line, as of
@@ -711,7 +739,7 @@ async function timeOutApprovals(
   for (const run of waiting) {
     const [claimed] = await db
       .update(schema.beatRuns)
-      .set({ status: "skipped", reason: "being decided" })
+      .set({ status: "skipped", reason: "being approved" })
       .where(and(eq(schema.beatRuns.id, run.id), eq(schema.beatRuns.status, "awaiting")))
       .returning({ id: schema.beatRuns.id });
     const beat = script.beats.find(({ id }) => id === run.beat);
@@ -720,9 +748,10 @@ async function timeOutApprovals(
     }
     const at = new Date((run.decidedAt as Date).getTime() + approvalTimeout);
     const prepared = await prepare(db, context, beat, run.trigger as Trigger, at);
+    const line = unattendedLine(beat, (run.writing ?? {}) as Writing);
     const writing = {
       ...(run.writing as Writing),
-      mode: "fallback" as const,
+      mode: line.mode,
       reason: `nobody approved it within ${formatStudyTime(approvalTimeout)}`,
     };
     if (!prepared.ready) {
@@ -732,7 +761,7 @@ async function timeOutApprovals(
         .where(eq(schema.beatRuns.id, run.id));
       continue;
     }
-    await fire(db, context, cuesOf(script), beat, run, prepared, unattendedLine(beat), writing, at);
+    await fire(db, context, cuesOf(script), beat, run, prepared, line.text, writing, at);
   }
 }
 
@@ -759,7 +788,7 @@ export async function decideAwaiting(
 ): Promise<"fired" | "skipped" | null> {
   const [run] = await db
     .update(schema.beatRuns)
-    .set({ status: "skipped", reason: "being decided" })
+    .set({ status: "skipped", reason: "being approved" })
     .where(
       and(
         eq(schema.beatRuns.id, runId),

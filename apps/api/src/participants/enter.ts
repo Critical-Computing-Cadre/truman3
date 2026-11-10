@@ -118,10 +118,16 @@ async function assignCondition(
 }
 
 /** A new participant's own world, and an actor to act as. */
-async function createWorld(tx: Transaction, version: VersionRow, participantId: string, now: Date) {
+async function createWorld(
+  tx: Transaction,
+  version: VersionRow,
+  participantId: string,
+  now: Date,
+  seed = randomInt(MAX_SEED),
+) {
   const [world] = await tx
     .insert(schema.worlds)
-    .values({ studyVersionId: version.id, seed: randomInt(MAX_SEED), startedAt: now })
+    .values({ studyVersionId: version.id, seed, startedAt: now })
     .returning();
   if (!world) {
     throw new Error("The world wasn't created.");
@@ -233,7 +239,17 @@ async function enroll(
  * Starts a test participant for a researcher, in a condition they choose, on any version. It goes
  * around assignment, so it doesn't use up a block position, and it's kept out of exports.
  */
-export async function startPilot(db: Database, versionId: string, conditionKey: string, now: Date) {
+/**
+ * A test participant in a chosen condition. A simulation gives the world's seed, so a run with the
+ * same seed is the same run; otherwise it's random, like a real participant's.
+ */
+export async function startPilot(
+  db: Database,
+  versionId: string,
+  conditionKey: string,
+  now: Date,
+  worldSeed?: number,
+) {
   return db.transaction(async (tx) => {
     const [version] = await tx
       .select()
@@ -270,7 +286,7 @@ export async function startPilot(db: Database, versionId: string, conditionKey: 
       method: "pilot",
       probability: 1,
     });
-    const place = await createWorld(tx, version, participantId, now);
+    const place = await createWorld(tx, version, participantId, now, worldSeed);
 
     const settings = studySettingsSchema.parse(version.settings);
     await notifyTags(tx, version.id, settings, condition.key, place);

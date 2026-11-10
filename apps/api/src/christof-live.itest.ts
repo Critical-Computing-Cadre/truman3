@@ -374,9 +374,9 @@ beats:
     do: { action: like, actor: ann, on: { beat: reply } }
 `;
 
-  async function setUp() {
+  async function setUp(beats = WIZARD) {
     const lab = await researcher();
-    const slug = await study("", lab.teamId, WIZARD);
+    const slug = await study("", lab.teamId, beats);
     const [found] = await database.db
       .select({ id: schema.studies.id })
       .from(schema.studies)
@@ -457,6 +457,28 @@ beats:
     ]);
     expect(await writingOf("reply")).toMatchObject({
       mode: "fallback",
+      reason: "nobody approved it within 0:05",
+    });
+  });
+
+  it("posts a rehearsed draft when nobody decides in time, since a researcher already read it", async () => {
+    const lines = ["Hello aboard, friend", "Kayaking is the best"];
+    const { person, id, state } = await setUp(
+      WIZARD.replace(
+        "      fallback: Thanks for posting!",
+        `      fallback: Thanks for posting!\n      lines: ${JSON.stringify(lines)}`,
+      ),
+    );
+    const [waiting] = (await state()).awaiting;
+    expect(lines).toContain(waiting?.draft);
+    await database.db
+      .update(schema.beatRuns)
+      .set({ decidedAt: new Date(Date.now() - 6 * 60_000) })
+      .where(eq(schema.beatRuns.id, waiting?.id as string));
+    await person.poll();
+    expect((await person.post(id)).comments.map(({ body }) => body)).toEqual([waiting?.draft]);
+    expect(await writingOf("reply")).toMatchObject({
+      mode: "rehearsed",
       reason: "nobody approved it within 0:05",
     });
   });

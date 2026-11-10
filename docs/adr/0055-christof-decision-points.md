@@ -22,6 +22,7 @@ The design plan's "Adaptive interventions" calls for SMART designs and just-in-t
 
   Survey answers come later.
 - **The first group whose tests all pass decides.** Each test gives `atLeast`, `atMost`, or both, inclusive. A group either re-randomizes by weights or says `stay`, and someone in no group stays. There's no expression language, so a rule can't be written wrong in a way the checks can't catch.
+- **A re-randomization's draw comes from the world's seed,** the decision, and when it was due, the same way beat delays do. A real participant's world seed is random, so the draw is too, and it can be worked out again from the record. A simulation sets the seed, so its runs repeat.
 - **Every decision is a row in `assignments`,** including staying, which has probability 1. The row records the decision point, the method `decision`, the probability, the group, the condition they came from, and the measures. The participant's condition is their latest assignment, as it already was.
 - **People only move forward.** A condition reached only by decisions has `weight: 0`, so nobody is assigned it on joining. A decision point may move people to a weight-0 condition, or among the conditions it's for. Moving anyone to a starting condition they weren't in is refused when the study is checked.
 - **A move takes effect at once.** It applies to the rest of the page load that made the decision, and from then on. A beat written down for the condition they left is skipped when it comes due, with the reason recorded.
