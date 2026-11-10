@@ -42,3 +42,36 @@ scenarios:
       - at: "0:05"
         expect:
           happened: [maya-thanks, sam-agrees]
+
+  - name: Maya messages a participant who answered Jake, and they can message her back
+    condition: silent
+    steps:
+      - at: "0:03"
+        comment: "Hey, that's not nice"
+        on: { beat: jake-mocks }
+      - at: "0:04"
+        expect:
+          notHappened: [maya-messages-thanks]
+      - at: "0:15"
+        expect:
+          happened: [maya-messages-thanks]
+          sees: ["thanks for saying something to jake"]
+      - at: "0:16"
+        message: "of course, your painting is great"
+        to: maya
+      - at: "0:20"
+        expect:
+          happened: [maya-answers-message]
+          sees: ["thank you so much, honestly"]
+
+  - name: Jake answers a message, but not one to Maya
+    condition: defended
+    steps:
+      - at: "0:05"
+        message: "why were you so mean to maya?"
+        to: jake
+      - at: "0:10"
+        expect:
+          happened: [jake-answers-message]
+          notHappened: [maya-answers-message, maya-messages-thanks]
+          sees: ["it was a joke. why do you care"]

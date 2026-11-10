@@ -1142,6 +1142,7 @@ export async function buildFeed(
   const worldStartMs = context.worldStartedAt.getTime();
 
   // Stories are content too, but they have their own row across the top, not a place in lists.
+  // Messages are private, on their own page.
   const rows = (
     await db
       .select()
@@ -1155,7 +1156,7 @@ export async function buildFeed(
           eq(schema.content.worldId, context.worldId),
         ),
       )
-  ).filter(({ kind }) => kind !== "story");
+  ).filter(({ kind }) => kind !== "story" && kind !== "message");
 
   const state = await loadViewerState(db, context);
   const rowsById = new Map(rows.map((row) => [row.id, row]));

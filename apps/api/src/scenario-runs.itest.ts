@@ -107,8 +107,8 @@ describe("scenario tests on the server", () => {
     const started = await call("POST", `/admin/versions/${versionId}/scenarios`);
     expect(started.status).toBe(202);
     const tests = await finished();
-    expect(tests).toMatchObject({ scenarios: 4, latest: { status: "passed", startedBy: "Rowan" } });
-    expect(tests.latest.results).toHaveLength(4);
+    expect(tests).toMatchObject({ scenarios: 6, latest: { status: "passed", startedBy: "Rowan" } });
+    expect(tests.latest.results).toHaveLength(6);
     expect((await pilots()).length).toBe(before);
 
     const listed = (await (await call("GET", "/admin/studies")).json()) as {

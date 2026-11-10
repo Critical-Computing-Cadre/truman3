@@ -95,3 +95,35 @@ beats:
     when: { participant: comment, on: maya }
     delay: "0:01"
     do: { action: like, actor: sam, on: trigger }
+
+  - id: maya-messages-thanks
+    note: If the participant answered Jake, Maya messages them privately a little later.
+    when: { beat: jake-answers-participant }
+    delay: { min: "0:03", max: "0:05" }
+    do:
+      action: message
+      actor: maya
+      improvise: Thank them privately for standing up to Jake
+      fallback: "hey, thanks for saying something to jake. that meant a lot"
+
+  - id: maya-answers-message
+    note: If the participant messages Maya, she answers.
+    when: { participant: message, on: maya }
+    delay: { min: "0:01", max: "0:02" }
+    max: 3
+    do:
+      action: message
+      actor: maya
+      improvise: Answer what they wrote to you, briefly
+      fallback: "thank you so much, honestly 🙂"
+
+  - id: jake-answers-message
+    note: If the participant messages Jake, he answers, defensively.
+    when: { participant: message, on: jake }
+    delay: { min: "0:01", max: "0:02" }
+    max: 3
+    do:
+      action: message
+      actor: jake
+      improvise: Answer what they wrote, defensively, without apologizing
+      fallback: "it was a joke. why do you care"

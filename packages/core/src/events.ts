@@ -20,7 +20,9 @@ export const eventPayloadSchemas = {
   "flow.exited": z.strictObject({ outcome: z.string() }),
   /** `crosspostOf` is the post a crosspost came from. */
   "content.created": z.strictObject({
-    kind: z.enum(["post", "comment", "story"]),
+    kind: z.enum(["post", "comment", "story", "message"]),
+    /** For a message, who it's to, by username. */
+    to: z.string().optional(),
     crosspostOf: z.string().optional(),
     /** The post this quotes. */
     quoteOf: z.string().optional(),
@@ -86,6 +88,8 @@ export const eventPayloadSchemas = {
   "actor.reported": z.strictObject({ reason: z.string() }),
   "profile.updated": z.strictObject({ fields: z.array(z.string()) }),
   "notifications.viewed": empty,
+  /** They opened their conversation with someone in the cast. `targetActorId` is who. */
+  "messages.opened": empty,
   /** They pressed the button on a moderator's warning. `targetContentId` is what it was about. */
   "moderation.warning_acknowledged": empty,
   /**

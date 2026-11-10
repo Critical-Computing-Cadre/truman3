@@ -1,0 +1,7 @@
+beats:
+  - id: bob-welcomes
+    when: { time: "0:00" }
+    do: { action: message, actor: bob, text: "Hey, welcome! Glad you're here." }
+  - id: ann-answers
+    when: { participant: message, on: ann }
+    do: { action: message, actor: ann, text: "Hi! Thanks for writing 😊" }

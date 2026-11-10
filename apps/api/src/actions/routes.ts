@@ -3,6 +3,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import {
   type Attachment,
   checkNewPost,
+  conversationsResponseSchema,
   type FeatureKey,
   featureOn,
   feedPostSchema,
@@ -22,6 +23,7 @@ import {
   safeLink,
   startingFollowersFor,
   storyGroupSchema,
+  threadResponseSchema,
   trendingFor,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
@@ -47,6 +49,7 @@ import {
   realClock,
 } from "../participants/session.ts";
 import { MAX_IMAGE_BYTES, storeUploadedImage } from "./images.ts";
+import { conversationWith, listConversations, personOf } from "./messages.ts";
 import {
   applyAutoRule,
   findAutoRules,
@@ -593,6 +596,60 @@ const peopleRoute = createRoute({
   },
 });
 
+/** The longest direct message a participant can send. */
+const MAX_MESSAGE_LENGTH = 2000;
+
+const conversationsRoute = createRoute({
+  method: "get",
+  path: "/messages",
+  summary: "The participant's conversations with the cast, newest first",
+  responses: {
+    200: {
+      description: "Each conversation, with its latest message and how many are new",
+      content: { "application/json": { schema: conversationsResponseSchema } },
+    },
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+  },
+});
+
+const threadRoute = createRoute({
+  method: "get",
+  path: "/messages/{username}",
+  summary: "The participant's messages with one person in the cast. Opening it is recorded",
+  request: { params: z.object({ username: z.string() }) },
+  responses: {
+    200: {
+      description: "Oldest first",
+      content: { "application/json": { schema: threadResponseSchema } },
+    },
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Nobody this participant can message"),
+  },
+});
+
+const sendMessageRoute = createRoute({
+  method: "post",
+  path: "/messages/{username}",
+  summary: "Send a direct message to someone in the cast",
+  request: {
+    params: z.object({ username: z.string() }),
+    ...jsonBody(
+      actionMetaSchema.extend({ body: z.string().trim().min(1).max(MAX_MESSAGE_LENGTH) }),
+    ),
+  },
+  responses: {
+    200: {
+      description: "Sent, with its ID",
+      content: { "application/json": { schema: z.object({ id: z.string() }) } },
+    },
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Nobody this participant can message"),
+  },
+});
+
 const relationRoute = createRoute({
   method: "post",
   path: "/actors/{username}/relation",
@@ -862,7 +919,8 @@ export async function findVisibleContent(
         or(isNull(schema.content.worldId), eq(schema.content.worldId, context.worldId)),
       ),
     );
-  if (!item) {
+  // A message is only ever read on the Messages page. Nothing else can be done to one.
+  if (!item || item.kind === "message") {
     return null;
   }
 
@@ -2006,6 +2064,114 @@ export function createActionRoutes({
       );
     return actor ?? null;
   };
+
+  /** Someone in the cast the participant can message: anyone in it but themselves. */
+  const findCastMember = async (context: ParticipantContext, username: string) => {
+    const actor = await findActor(context, username);
+    return actor && actor.id !== context.actorId && actor.worldId === null ? actor : null;
+  };
+
+  app.openapi(conversationsRoute, async (c) => {
+    const context = await participantFromRequest(c, db, clock());
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "messages")) {
+      return c.json(featureOff, 403);
+    }
+    await catchUp(db, context, { writer, now: clock() });
+    return c.json(
+      { conversations: await listConversations(db, context, mediaPublicUrl, clock()) },
+      200,
+    );
+  });
+
+  app.openapi(threadRoute, async (c) => {
+    const context = await participantFromRequest(c, db, clock());
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "messages")) {
+      return c.json(featureOff, 403);
+    }
+    const actor = await findCastMember(context, c.req.valid("param").username);
+    if (!actor) {
+      return c.json(notAvailable, 404);
+    }
+    const now = clock();
+    await catchUp(db, context, { writer, now });
+    const messages = await conversationWith(db, context, actor.id, now);
+    // Opening it marks what's in it as read, so it's recorded each time.
+    await recordEvent(db, {
+      ...participantEvent(context, now.toISOString(), randomUUID()),
+      type: "messages.opened",
+      payload: {},
+      targetActorId: actor.id,
+    });
+    return c.json({ with: personOf(actor, mediaPublicUrl), messages }, 200);
+  });
+
+  app.openapi(sendMessageRoute, async (c) => {
+    const context = await participantFromRequest(c, db, clock());
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "messages")) {
+      return c.json(featureOff, 403);
+    }
+    const body = c.req.valid("json");
+    const repeat = await findRepeat(db, context.worldId, body.clientEventId);
+    if (repeat?.contentId) {
+      return c.json({ id: repeat.contentId }, 200);
+    }
+    const actor = await findCastMember(context, c.req.valid("param").username);
+    if (!actor) {
+      return c.json(notAvailable, 404);
+    }
+    const now = clock();
+    try {
+      const id = await db.transaction(async (tx) => {
+        const nth = await countOwnContent(tx, context, "message");
+        const [created] = await tx
+          .insert(schema.content)
+          .values({
+            studyVersionId: context.studyVersionId,
+            worldId: context.worldId,
+            authorActorId: context.actorId,
+            recipientActorId: actor.id,
+            kind: "message",
+            body: body.body,
+            visibleAt: now,
+          })
+          .returning({ id: schema.content.id });
+        const contentId = created?.id as string;
+        const recorded = await recordEvent(tx, {
+          ...participantEvent(context, body.occurredAt, body.clientEventId),
+          type: "content.created",
+          payload: { kind: "message", to: actor.username },
+          targetContentId: contentId,
+          targetActorId: actor.id,
+        });
+        if (!recorded) {
+          throw new RepeatedAction();
+        }
+        await onParticipantAct(
+          tx,
+          context,
+          { action: "message", contentId, targetActorId: actor.id, nth },
+          now,
+        );
+        return contentId;
+      });
+      return c.json({ id }, 200);
+    } catch (error) {
+      if (error instanceof RepeatedAction) {
+        const again = await findRepeat(db, context.worldId, body.clientEventId);
+        return c.json({ id: again?.contentId ?? "" }, 200);
+      }
+      throw error;
+    }
+  });
 
   app.openapi(relationRoute, async (c) => {
     const context = await participantFromRequest(c, db, clock());

@@ -64,6 +64,12 @@ export const BookmarkIcon = (props: IconProps) => (
     <path d="M6 3h12v18l-6-4-6 4z" />
   </Icon>
 );
+export const MessageIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="m3 7 9 6 9-6" />
+  </Icon>
+);
 export const UserIcon = (props: IconProps) => (
   <Icon {...props}>
     <circle cx="12" cy="8" r="4" />
@@ -102,6 +108,8 @@ export function LinkIcon({ name, className }: { name: string; className?: string
       return <SearchIcon {...props} />;
     case "notifications":
       return <HeartIcon {...props} />;
+    case "messages":
+      return <MessageIcon {...props} />;
     case "profile":
       return <UserIcon {...props} />;
     default:
