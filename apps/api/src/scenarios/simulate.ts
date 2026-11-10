@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   createRandom,
   type FeedResponse,
+  featuresFor,
   PERSONAS_FILE,
   pickFrom,
   type StudySettings,
@@ -38,7 +39,7 @@ export interface View {
 
 /** One thing a simulated participant does. A comment's `on` can be a post or, with threads, a comment. */
 export type SimulatedAction =
-  | { do: "like" | "repost" | "flag"; on: string }
+  | { do: "like" | "upvote" | "downvote" | "repost" | "flag"; on: string }
   | { do: "comment"; on: string; text: string }
   | { do: "post"; text: string }
   | { do: "follow"; username: string };
@@ -304,7 +305,14 @@ export async function simulate({
     report.conditions[condition] = (report.conditions[condition] ?? 0) + 1;
     const playedBy =
       persona && writer
-        ? personaBehavior({ persona, condition, writer, model: cast?.model ?? "", budget })
+        ? personaBehavior({
+            persona,
+            condition,
+            features: featuresFor(studySettings, condition),
+            writer,
+            model: cast?.model ?? "",
+            budget,
+          })
         : null;
     const behavior = behaviorFor?.(n, random) ?? playedBy ?? randomBehavior(random);
     let spent = false;
@@ -378,6 +386,11 @@ async function act(
     done = await participant.send("POST", `/actors/${action.username}/relation`, {
       ...meta,
       action: "follow",
+    });
+  } else if (action.do === "upvote" || action.do === "downvote") {
+    done = await participant.send("POST", `/content/${action.on}/vote`, {
+      ...meta,
+      value: action.do === "upvote" ? "up" : "down",
     });
   } else if (action.do === "comment") {
     done = await participant.send("POST", `/content/${action.on}/comments`, {
