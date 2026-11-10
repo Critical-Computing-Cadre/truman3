@@ -1,9 +1,19 @@
 name: CI
 
+# Every job runs on a pull request, which tests the code as it would be merged. A merge into main
+# runs only the quick checks, since the pull request already ran the rest. Changes to docs alone
+# skip CI. This keeps within the account's Actions minutes.
 on:
   push:
     branches: [main]
+    paths-ignore: ["docs/**", "**/*.md"]
   pull_request:
+    paths-ignore: ["docs/**", "**/*.md"]
+
+# A newer push to a pull request cancels the run it replaces. Runs on main always finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   checks:
@@ -25,6 +35,7 @@ jobs:
 
   # The API's container, the way production runs it.
   container:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -32,6 +43,7 @@ jobs:
 
   # Tests that need real services: migrations, database rules, and the API reaching Postgres.
   integration:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -58,6 +70,7 @@ jobs:
   # setup, so a third can run alone.
   e2e:
     name: e2e (${{ matrix.apps }}, ${{ matrix.shard }}/3)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
