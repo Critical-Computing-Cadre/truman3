@@ -9,6 +9,7 @@ export {
   type StudyFiles,
   type StudyTables,
 } from "./load.ts";
+export { parsePersonas } from "./personas.ts";
 export { parseScenarios } from "./scenarios.ts";
 export {
   blankSheets,

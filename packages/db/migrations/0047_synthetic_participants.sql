@@ -1,0 +1,2 @@
+ALTER TABLE "participants" ADD COLUMN "synthetic" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "participants" ADD CONSTRAINT "participants_synthetic_is_pilot" CHECK (not "participants"."synthetic" or "participants"."is_pilot");

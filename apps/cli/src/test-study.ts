@@ -1,10 +1,11 @@
 import { runScenarios } from "@truman3/api/scenarios";
 import { findings, MAX_SIMULATED, type SimulationReport, simulate } from "@truman3/api/simulate";
-import { hasErrors, type StudyIssue } from "@truman3/core";
+import { formatStudyTime, hasErrors, type StudyIssue } from "@truman3/core";
 import { createTestDatabase } from "@truman3/db/testing";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { loadStudyFolder } from "@truman3/study-files";
 import { importStudyFolder } from "@truman3/study-import";
+import { anthropicWriter } from "@truman3/writer";
 
 /**
  * Runs a study folder's scenarios.yaml in a database made for the run and dropped after it, so
@@ -72,11 +73,30 @@ export async function simulateStudy(
   options: string[],
   printIssues: (issues: StudyIssue[]) => void,
 ): Promise<number> {
-  const participants = Number(options.find((option) => /^\d+$/.test(option)) ?? 50);
-  const seedAt = options.indexOf("--seed");
-  const seed = seedAt === -1 ? Math.floor(Math.random() * 1_000_000) : Number(options[seedAt + 1]);
+  const flagValue = (flag: string) => {
+    const at = options.indexOf(flag);
+    return at === -1 ? undefined : options[at + 1];
+  };
+  const flagValues = new Set(
+    ["--seed", "--personas", "--budget"].map((flag) => flagValue(flag)).filter(Boolean),
+  );
+  const participants = Number(
+    options.find((option) => /^\d+$/.test(option) && !flagValues.has(option)) ?? 50,
+  );
+  const seed = Number(flagValue("--seed") ?? Math.floor(Math.random() * 1_000_000));
+  const personas = flagValue("--personas")?.split(",").filter(Boolean);
+  const budgetUsd = Number(flagValue("--budget") ?? 2);
   if (participants < 1 || participants > MAX_SIMULATED || !Number.isInteger(seed) || seed < 0) {
     console.error(`Simulate 1 to ${MAX_SIMULATED} participants, with a whole-number seed.`);
+    return 1;
+  }
+  if (personas && !(budgetUsd > 0)) {
+    console.error("The budget is in US dollars, more than 0.");
+    return 1;
+  }
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (personas && !apiKey) {
+    console.error("Personas need a model. Set ANTHROPIC_API_KEY in .env to play them.");
     return 1;
   }
   const { definition, issues } = loadStudyFolder(folder);
@@ -94,24 +114,53 @@ export async function simulateStudy(
       printIssues(imported.issues);
       return 1;
     }
-    console.log(`Sending ${participants} simulated participants through, with seed ${seed}…`);
+    console.log(
+      personas
+        ? `Playing ${personas.join(", ")}, with a $${budgetUsd} budget…`
+        : `Sending ${participants} simulated participants through, with seed ${seed}…`,
+    );
     const report = await simulate({
       db: database.db,
       storage,
       versionId: imported.studyVersionId,
-      settings: { participants, seed },
+      settings: personas
+        ? { participants: personas.length, seed, personas, budgetUsd }
+        : { participants, seed },
+      writer: apiKey ? anthropicWriter(apiKey) : null,
     });
+    for (const transcript of report.transcripts) {
+      console.log(
+        `\n${transcript.persona}, in "${transcript.condition}" ($${transcript.costUsd.toFixed(2)}):`,
+      );
+      for (const entry of transcript.entries) {
+        if (!entry.did && entry.saw.length === 0) {
+          continue;
+        }
+        console.log(`  ${formatStudyTime(entry.at)}`);
+        for (const { who, text } of entry.saw) {
+          console.log(`    ${who}: ${text}`);
+        }
+        console.log(`    > ${entry.did ?? "Did nothing."} "${entry.why}"`);
+      }
+    }
     for (const line of describeReport(report)) {
       console.log(line);
+    }
+    if (report.costUsd > 0 || report.castCostUsd > 0) {
+      console.log(
+        `\nModel calls cost $${report.costUsd.toFixed(2)} for the personas and $${report.castCostUsd.toFixed(2)} for the cast.`,
+      );
     }
     const notes = findings(report);
     console.log(notes.length === 0 ? "\nNothing stood out." : "\nWorth a look:");
     for (const note of notes) {
       console.log(`  - ${note}`);
     }
-    console.log(
-      `\nTo repeat this run exactly: pnpm study simulate ${folder} ${participants} --seed ${seed}`,
-    );
+    if (!personas) {
+      console.log(
+        `\nTo repeat this run exactly: pnpm study simulate ${folder} ${participants} --seed ${seed}`,
+      );
+    }
     return 0;
   } finally {
     storage.close();

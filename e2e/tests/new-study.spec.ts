@@ -463,7 +463,7 @@ test("a researcher writes scenario tests, sees them run when a version is saved,
       - { at: "0:01", post: Hi }
 `);
   await page.getByRole("button", { name: "Save scenarios" }).click();
-  await expect(page.getByTestId("scenario-problems")).toContainText(
+  await expect(page.getByTestId("yaml-problems")).toContainText(
     'The scenario "Nobody" starts in "nowhere", which isn\'t a condition in study.yaml.',
   );
   await scenarios.fill(`scenarios:
@@ -480,6 +480,24 @@ test("a researcher writes scenario tests, sees them run when a version is saved,
   await page.getByRole("button", { name: "Save scenarios" }).click();
   await expect(page.getByRole("status").filter({ hasText: "No problems found." })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("scenarios-page.png"), fullPage: true });
+
+  // Personas start from an example, and are saved like scenarios.
+  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Personas" }).click();
+  await expect(page.getByText("This study has no personas yet.")).toBeVisible();
+  const personas = page.getByLabel("Personas", { exact: true });
+  await personas.fill(`personas:
+  - { id: lurker, about: Reads everything and rarely posts., condition: nowhere }
+`);
+  await page.getByRole("button", { name: "Save personas" }).click();
+  await expect(page.getByTestId("yaml-problems")).toContainText(
+    'The persona "lurker" starts in "nowhere", which isn\'t a condition in study.yaml.',
+  );
+  await personas.fill(`personas:
+  - { id: lurker, about: Reads everything and rarely posts. }
+`);
+  await page.getByRole("button", { name: "Save personas" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "No problems found." })).toBeVisible();
 
   await page.getByRole("link", { name: "Back to the feed" }).click();
   await page.getByRole("button", { name: "Save as new version" }).click();
@@ -519,8 +537,25 @@ test("a researcher writes scenario tests, sees them run when a version is saved,
   const beats = page.getByTestId("simulated-beats");
   await expect(beats).toContainText("jules-welcomes", { timeout: 30_000 });
   await expect(beats).toContainText(/\d of 6/);
-  await expect(page.getByTestId("simulation")).toContainText("6 participants, seed");
+  await expect(page.getByTestId("simulation")).toContainText("6 participants at random, seed");
   await page.screenshot({ path: testInfo.outputPath("simulation.png"), fullPage: true });
+
+  // Personas are listed, but need a Claude key, which this server doesn't have.
+  await page.getByRole("radio", { name: "Personas" }).check();
+  await expect(page.getByText("Reads everything and rarely posts.")).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "need a Claude key" })).toBeVisible();
+
+  // Kept as synthetic data, they download only by themselves.
+  await page.getByRole("radio", { name: "At random" }).check();
+  await page.getByLabel("How many participants").fill("3");
+  await page.getByLabel("Keep them as synthetic data").check();
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
+  await expect(beats).toContainText(/\d of 3/, { timeout: 30_000 });
+  await expect(page.getByTestId("simulation")).toContainText("kept as synthetic data");
+  await expect(page.getByText("This study has 3 synthetic participants.")).toBeVisible();
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download synthetic data" }).click();
+  expect((await downloading).suggestedFilename()).toMatch(/-synthetic-.*\.zip$/);
 });
 
 test("a researcher archives a study to tidy the list, and deletes one only they tried", async ({

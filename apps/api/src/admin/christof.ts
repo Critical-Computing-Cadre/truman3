@@ -191,7 +191,14 @@ export function createChristofRoutes({
       )
       .leftJoin(schema.actors, eq(schema.actors.id, schema.beatRuns.actorId))
       .leftJoin(schema.content, eq(schema.content.id, schema.beatRuns.targetContentId))
-      .where(and(eq(schema.studyVersions.studyId, studyId), eq(schema.beatRuns.status, "awaiting")))
+      // Synthetic participants are kept, but nobody needs to approve or read about them here.
+      .where(
+        and(
+          eq(schema.studyVersions.studyId, studyId),
+          eq(schema.beatRuns.status, "awaiting"),
+          eq(schema.participants.synthetic, false),
+        ),
+      )
       .orderBy(asc(schema.beatRuns.decidedAt));
     const authorIds = [
       ...new Set(waiting.flatMap(({ onAuthorId }) => (onAuthorId ? [onAuthorId] : []))),
@@ -223,7 +230,9 @@ export function createChristofRoutes({
         eq(schema.participants.id, schema.worldMemberships.participantId),
       )
       .leftJoin(schema.actors, eq(schema.actors.id, schema.beatRuns.actorId))
-      .where(eq(schema.studyVersions.studyId, studyId))
+      .where(
+        and(eq(schema.studyVersions.studyId, studyId), eq(schema.participants.synthetic, false)),
+      )
       .orderBy(desc(schema.beatRuns.dueAt))
       .limit(RUNS_SHOWN);
 

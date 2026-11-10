@@ -1,7 +1,10 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { roleOnStudy } from "@truman3/accounts";
+import { PERSONAS_FILE } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
+import { parsePersonas } from "@truman3/study-files";
+import type { Writer } from "@truman3/writer";
 import { and, desc, eq, gt } from "drizzle-orm";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import {
@@ -46,11 +49,37 @@ const reportSchema = z.object({
   ),
   decisions: z.array(z.object({ id: z.string(), reached: z.number(), to: counts, groups: counts })),
   problems: z.array(z.object({ text: z.string(), count: z.number(), participant: z.number() })),
+  costUsd: z.number(),
+  castCostUsd: z.number(),
+  stopped: z.string().nullable(),
+  transcripts: z.array(
+    z.object({
+      persona: z.string(),
+      condition: z.string(),
+      costUsd: z.number(),
+      entries: z.array(
+        z.object({
+          at: z.number(),
+          saw: z.array(z.object({ who: z.string(), text: z.string() })),
+          did: z.string().nullable(),
+          why: z.string(),
+        }),
+      ),
+    }),
+  ),
+});
+
+const settingsSchema = z.object({
+  participants: z.number(),
+  seed: z.number(),
+  personas: z.array(z.string()).optional(),
+  budgetUsd: z.number().optional(),
+  keep: z.boolean().optional(),
 });
 
 const runSchema = z.object({
   status: z.enum(["running", "done", "error"]),
-  settings: z.object({ participants: z.number(), seed: z.number() }),
+  settings: settingsSchema,
   report: reportSchema.nullable(),
   /** What in the report is worth a look, in plain words. */
   findings: z.array(z.string()),
@@ -61,6 +90,7 @@ const runSchema = z.object({
 export type SimulationRunSummary = z.infer<typeof runSchema>;
 
 const simulationsSchema = z.object({
+  studyId: z.string(),
   title: z.string(),
   version: z.number(),
   /** Whether this researcher can start a run. Viewers can only read the report. */
@@ -68,6 +98,13 @@ const simulationsSchema = z.object({
   latest: runSchema.nullable(),
   /** The most participants one run can have. */
   most: z.number(),
+  /** The personas in this version's personas.yaml, and the model that plays them. */
+  personas: z.array(z.object({ id: z.string(), about: z.string() })),
+  model: z.string().nullable(),
+  /** Whether a model is set up on this server, so personas can run. */
+  canPlay: z.boolean(),
+  /** How many synthetic participants this study has kept. */
+  synthetic: z.number(),
 });
 
 const versionParams = z.object({ versionId: z.uuid() });
@@ -98,9 +135,16 @@ const runRoute = createRoute({
       content: {
         "application/json": {
           schema: z.object({
-            participants: z.number().int().min(1).max(MAX_SIMULATED),
+            /** How many behave at random. Ignored when personas are given. */
+            participants: z.number().int().min(1).max(MAX_SIMULATED).default(1),
             /** Leave out for a new one. */
             seed: z.number().int().nonnegative().optional(),
+            /** Personas for a model to play, by id, one participant each. */
+            personas: z.array(z.string()).max(MAX_SIMULATED).optional(),
+            /** The most the model playing personas may spend, in US dollars. */
+            budgetUsd: z.number().positive().max(100).default(2),
+            /** Keep them as synthetic data. */
+            keep: z.boolean().default(false),
           }),
         },
       },
@@ -111,6 +155,7 @@ const runRoute = createRoute({
       description: "Started",
       content: { "application/json": { schema: simulationsSchema } },
     },
+    400: errorResponse("A persona isn't in this version, or no model is set up to play them"),
     401: errorResponse("Not signed in"),
     403: errorResponse("This researcher can only view"),
     404: errorResponse("No such version on this researcher's teams"),
@@ -120,7 +165,16 @@ const runRoute = createRoute({
 
 const summarize = (row: typeof schema.simulationRuns.$inferSelect): SimulationRunSummary => {
   const stale = row.status === "running" && Date.now() - row.startedAt.getTime() > STALE_MS;
-  const report = row.report as SimulationReport | null;
+  // Reports from before personas lack their parts.
+  const report = row.report
+    ? ({
+        costUsd: 0,
+        castCostUsd: 0,
+        stopped: null,
+        transcripts: [],
+        ...(row.report as Partial<SimulationReport>),
+      } as SimulationReport)
+    : null;
   return {
     status: stale ? "error" : row.status,
     settings: row.settings as SimulationSettings,
@@ -153,7 +207,7 @@ async function latestRun(db: Database, versionId: string) {
  * already going there.
  */
 export async function startSimulation(
-  { db, storage }: { db: Database; storage: Storage },
+  { db, storage, writer = null }: { db: Database; storage: Storage; writer?: Writer | null },
   versionId: string,
   settings: SimulationSettings,
   startedBy: string,
@@ -180,7 +234,7 @@ export async function startSimulation(
       .update(schema.simulationRuns)
       .set({ ...values, finishedAt: new Date() })
       .where(eq(schema.simulationRuns.id, row?.id as string));
-  void simulate({ db, storage, versionId, settings, cleanUp: true })
+  void simulate({ db, storage, versionId, settings, cleanUp: true, writer })
     .then((report) => finish({ status: "done", report }))
     .catch((error: unknown) => {
       console.error("Simulated participants failed to run:", error);
@@ -189,7 +243,21 @@ export async function startSimulation(
   return true;
 }
 
-export function createSimulationRoutes({ db, storage }: ParticipantRouteDependencies) {
+/** The personas saved with a version, and the model that plays them. */
+async function personasOf(db: Database, versionId: string) {
+  const [version] = await db
+    .select({ pages: schema.studyVersions.pages })
+    .from(schema.studyVersions)
+    .where(eq(schema.studyVersions.id, versionId));
+  const text = (version?.pages as Record<string, string> | undefined)?.[PERSONAS_FILE];
+  return text ? parsePersonas(text).personas : null;
+}
+
+export function createSimulationRoutes({
+  db,
+  storage,
+  writer = null,
+}: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const pleaseSignIn = { error: "Please sign in." };
   const notAvailable = { error: "This isn't available." };
@@ -210,15 +278,31 @@ export function createSimulationRoutes({ db, storage }: ParticipantRouteDependen
     const role = version ? await roleOnStudy(db, researcher.id, version.studyId) : null;
     return { researcher, role, version };
   };
+  const syntheticCount = async (studyId: string) =>
+    (
+      await db
+        .select({ id: schema.participants.id })
+        .from(schema.participants)
+        .where(
+          and(eq(schema.participants.studyId, studyId), eq(schema.participants.synthetic, true)),
+        )
+    ).length;
   const state = async (
     found: NonNullable<Awaited<ReturnType<typeof access>>>,
     versionId: string,
   ) => ({
+    studyId: found.version?.studyId ?? "",
     title: (found.version?.settings as { title?: string } | undefined)?.title ?? "",
     version: found.version?.version ?? 0,
     canRun: found.role !== "viewer",
     latest: await latestRun(db, versionId),
     most: MAX_SIMULATED,
+    ...(await personasOf(db, versionId).then((cast) => ({
+      personas: (cast?.personas ?? []).map(({ id, about }) => ({ id, about })),
+      model: cast?.model ?? null,
+    }))),
+    canPlay: writer !== null,
+    synthetic: found.version ? await syntheticCount(found.version.studyId) : 0,
   });
 
   app.openapi(getRoute, async (c) => {
@@ -245,9 +329,30 @@ export function createSimulationRoutes({ db, storage }: ParticipantRouteDependen
     if (found.role === "viewer") {
       return c.json({ error: "You can view this study, but not change it." }, 403);
     }
-    const { participants, seed } = c.req.valid("json");
-    const settings = { participants, seed: seed ?? Math.floor(Math.random() * 1_000_000) };
-    if (!(await startSimulation({ db, storage }, versionId, settings, found.researcher.name))) {
+    const { participants, seed, personas, budgetUsd, keep } = c.req.valid("json");
+    if (personas && personas.length > 0) {
+      const cast = await personasOf(db, versionId);
+      const missing = personas.find((id) => !cast?.personas.some((item) => item.id === id));
+      if (missing) {
+        return c.json({ error: `There's no persona "${missing}" in this version.` }, 400);
+      }
+      if (!writer) {
+        return c.json(
+          { error: "Personas need a Claude key on the server, and this one doesn't have one." },
+          400,
+        );
+      }
+    }
+    const playing = personas && personas.length > 0 ? personas : undefined;
+    const settings = {
+      participants: playing ? playing.length : participants,
+      seed: seed ?? Math.floor(Math.random() * 1_000_000),
+      ...(playing ? { personas: playing, budgetUsd } : {}),
+      ...(keep ? { keep } : {}),
+    };
+    if (
+      !(await startSimulation({ db, storage, writer }, versionId, settings, found.researcher.name))
+    ) {
       return c.json({ error: "Simulated participants are already going through it." }, 409);
     }
     return c.json(await state(found, versionId), 202);

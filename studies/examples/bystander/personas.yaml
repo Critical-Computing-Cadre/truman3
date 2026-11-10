@@ -1,0 +1,14 @@
+# Personas: who simulated participants are, for a model to play while piloting the study. Choose
+# them on the Simulate page beside a saved version, and read what each one saw and did.
+# See docs/guides/testing-studies.md.
+model: claude-sonnet-5-5
+personas:
+  - id: quiet-bystander
+    about: >
+      A second-year student who scrolls a lot and rarely posts. Feels uncomfortable when people
+      are mean, but usually doesn't get involved unless someone else speaks up first.
+  - id: upstander
+    about: >
+      Confident and kind. Quick to defend someone being picked on, and isn't afraid to tell
+      people off, politely.
+    condition: silent

@@ -23,6 +23,11 @@ export interface ExportOptions extends DwellLimits {
    * paying bonuses, and shouldn't be shared.
    */
   includeRecruitmentIds?: boolean;
+  /**
+   * Exports only synthetic participants, simulated ones kept as synthetic data, instead of real
+   * ones. The two are never in the same export. See ADR 60.
+   */
+  synthetic?: boolean;
 }
 
 export type ExportResult =
@@ -110,8 +115,12 @@ export async function exportStudy(
     .from(schema.participants)
     .where(eq(schema.participants.studyId, study.id))
     .orderBy(asc(schema.participants.enrolledAt));
-  const participants = everyone.filter(({ isPilot }) => !isPilot);
-  const pilotIds = new Set(everyone.filter(({ isPilot }) => isPilot).map(({ id }) => id));
+  const included = (participant: (typeof everyone)[number]) =>
+    options.synthetic ? participant.synthetic : !participant.isPilot;
+  const participants = everyone.filter(included);
+  const pilotIds = new Set(
+    everyone.filter((participant) => !included(participant)).map(({ id }) => id),
+  );
 
   const conditions = versionIds.length
     ? await db
@@ -1379,15 +1388,23 @@ function buildCodebook(input: {
 }): string {
   const { versions, counts, options } = input;
   const lines = [
-    `# Codebook: ${input.slug}`,
+    `# Codebook: ${input.slug}${options.synthetic ? " (synthetic data)" : ""}`,
     "",
+    ...(options.synthetic
+      ? [
+          "**This is synthetic data.** Nobody real took part. Simulated participants made it: each was a model playing a persona from `personas.yaml`, or one that acted at random, in a world run on a fast-forwarded clock. Use it to build an analysis before data collection, never as findings.",
+          "",
+        ]
+      : []),
     `Exported ${input.exportedAt.toISOString()}.`,
     "",
     `${counts.participants} participants, ${counts.completed} completed. ${counts.events} events. ${counts.impressions} feed showings.`,
     "",
     `${input.deletions.length} people's data has been deleted and isn't in these files: ${input.deletions.filter(({ reason }) => reason === "declined consent").length} declined consent, and ${input.deletions.filter(({ reason }) => reason !== "declined consent").length} withdrew.`,
     "",
-    `${input.pilots} test participants aren't included. Researchers use them to try a study.`,
+    options.synthetic
+      ? "Real participants and other test participants aren't included."
+      : `${input.pilots} test participants aren't included. Researchers use them to try a study, and simulated ones are downloaded separately, as synthetic data.`,
     "",
     "## Reading this data",
     "",

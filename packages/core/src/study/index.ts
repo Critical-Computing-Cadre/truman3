@@ -57,6 +57,13 @@ export {
 } from "./definition.ts";
 export { fillLinkTemplate, LINK_PLACEHOLDERS } from "./links.ts";
 export {
+  PERSONAS_FILE,
+  type PersonasFile,
+  personasFileSchema,
+  type SimulatedPersona,
+  simulatedPersonaSchema,
+} from "./personas.ts";
+export {
   type CommentBox,
   canJoinSpacesFor,
   canSortCommentsFor,

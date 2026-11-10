@@ -34,7 +34,7 @@ Both web apps are built with Vite ([ADR 2](adr/0002-react-with-vite.md)) into st
 | `packages/db`           | Postgres through Drizzle ([ADR 4](adr/0004-postgres-and-drizzle.md)): the schema, migrations, `recordEvent`, and the API's database login          |
 | `packages/feed`         | What a viewer sees and in what order, as plain functions: rankers, comment orders, and scores                                                      |
 | `packages/ui`           | The feed and the page around it, drawn the same way in both apps: features, layouts, and icons                                                     |
-| `packages/study-files`  | Reads study folders (CSV and YAML), `beats.yaml`, `scenarios.yaml`, and uploaded sheets. Converts older Truman studies                             |
+| `packages/study-files`  | Reads study folders (CSV and YAML), `beats.yaml`, `scenarios.yaml`, `personas.yaml`, and uploaded sheets. Converts older Truman studies            |
 | `packages/study-import` | Freezes a study as a version and stores its media. Launches, stops, and withdraws                                                                  |
 | `packages/drafts`       | A study being worked on, saved item by item, with history. Packs and starters                                                                      |
 | `packages/study-export` | Writes a study's data as CSVs with a codebook                                                                                                      |
@@ -105,7 +105,7 @@ A study definition is checked by `packages/core/src/study/validate.ts`, wherever
 A study folder has:
 - `study.yaml`: settings, conditions, the flow, and pages such as consent
 - sheets such as `actors.csv`, `posts.csv`, `comments.csv`, and `reactions.csv`, plus one for each feature that needs it, like `spaces.csv` or `removals.csv`
-- `beats.yaml` and `scenarios.yaml`, if the study uses Christof
+- `beats.yaml`, `scenarios.yaml`, and `personas.yaml`, if the study uses Christof
 - `media/`, for pictures
 
 `pnpm study validate <folder>` checks one. `pnpm study convert` turns an older Truman study into one.
@@ -201,15 +201,16 @@ Participant screens never say this is a research platform unless the study does,
 
 Christof makes things happen in each participant's world, from what the study wrote. [Writing beats](guides/writing-beats.md) is the guide for researchers. ADRs 51 to 57 explain each part.
 
-| Part                   | What it does                                                                                                                                                         | Read                                                                                                          |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Beats                  | `beats.yaml` says what happens (a post, comment, like, repost, or follow), set off by a time, the participant, or another beat                                       | [ADR 51](adr/0051-christof-beats-and-the-director.md)                                                         |
-| Live writing           | A beat can `improvise`, and a model writes the words, within a budget, and checked by a second call                                                                  | [ADR 52](adr/0052-christof-actors-write-live.md)                                                              |
-| Approval               | Beats wait for a researcher on the Monitor page, for Wizard of Oz studies, with a timeout                                                                            | [ADR 53](adr/0053-christof-approval-for-wizard-of-oz.md)                                                      |
-| Rehearsed lines        | Lines written ahead, drafted by the model from the Beats page, and read before launch                                                                                | [ADR 54](adr/0054-christof-rehearsed-lines.md)                                                                |
-| Decision points        | Under `decide:`, re-randomize someone partway through, from what they've done                                                                                        | [ADR 55](adr/0055-christof-decision-points.md)                                                                |
-| Scenario tests         | `scenarios.yaml`: made-up participants who act at set times, with what should be true. Run from the command line or the admin app                                    | [ADR 56](adr/0056-scenario-tests-and-the-api-clock.md), [ADR 57](adr/0057-scenario-tests-in-the-admin-app.md) |
-| Simulated participants | Many made-up participants who go through a version at random, and a report on how often each beat happened in each condition. From the command line or the admin app | [ADR 59](adr/0059-simulated-participants.md)                                                                  |
+| Part                        | What it does                                                                                                                                                                                          | Read                                                                                                          |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Beats                       | `beats.yaml` says what happens (a post, comment, like, repost, or follow), set off by a time, the participant, or another beat                                                                        | [ADR 51](adr/0051-christof-beats-and-the-director.md)                                                         |
+| Live writing                | A beat can `improvise`, and a model writes the words, within a budget, and checked by a second call                                                                                                   | [ADR 52](adr/0052-christof-actors-write-live.md)                                                              |
+| Approval                    | Beats wait for a researcher on the Monitor page, for Wizard of Oz studies, with a timeout                                                                                                             | [ADR 53](adr/0053-christof-approval-for-wizard-of-oz.md)                                                      |
+| Rehearsed lines             | Lines written ahead, drafted by the model from the Beats page, and read before launch                                                                                                                 | [ADR 54](adr/0054-christof-rehearsed-lines.md)                                                                |
+| Decision points             | Under `decide:`, re-randomize someone partway through, from what they've done                                                                                                                         | [ADR 55](adr/0055-christof-decision-points.md)                                                                |
+| Scenario tests              | `scenarios.yaml`: made-up participants who act at set times, with what should be true. Run from the command line or the admin app                                                                     | [ADR 56](adr/0056-scenario-tests-and-the-api-clock.md), [ADR 57](adr/0057-scenario-tests-in-the-admin-app.md) |
+| Simulated participants      | Many made-up participants who go through a version at random, and a report on how often each beat happened in each condition. From the command line or the admin app                                  | [ADR 59](adr/0059-simulated-participants.md)                                                                  |
+| Personas and synthetic data | `personas.yaml`: people a model plays as simulated participants, with a transcript of what each saw and did, under a budget. Any simulation can be kept as synthetic data, which downloads separately | [ADR 60](adr/0060-personas-and-synthetic-data.md)                                                             |
 
 ### How the director runs: `catchUp`
 
@@ -246,6 +247,7 @@ Beats act through the same tables as scripted reactions, such as `content` with 
 - **In the admin app,** scenarios are written on the builder's Tests page. They run on the server, in the background, when a version is saved, and again from **Run tests again** on the Studies page (`apps/api/src/admin/scenarios.ts`). Each run's results are a row in `scenario_runs`. Its test participants are deleted afterward ([ADR 57](adr/0057-scenario-tests-in-the-admin-app.md)).
 - **Launching warns** when a version's scenarios haven't passed. A study can turn the warning off (`studies.warn_untested`).
 - **Simulated participants** use the same harness (`apps/api/src/scenarios/harness.ts`). `simulate.ts` sends many through a version, each with a behavior that picks what they do at each look at their feed. The random behavior is seeded, so a run repeats exactly. They run from `pnpm study simulate` or the Simulate page, in the background, with the report in `simulation_runs`. Their participants are deleted afterward ([ADR 59](adr/0059-simulated-participants.md)).
+- **Personas** (`apps/api/src/scenarios/personas.ts`) are a behavior that asks a model, through the writer's `act`, what to do at each look, and writes a transcript. A run's budget stops it. Kept runs mark their participants `synthetic`. They're always test participants, and `exportStudy` takes `synthetic: true` to download only them ([ADR 60](adr/0060-personas-and-synthetic-data.md)).
 
 ## Researchers
 

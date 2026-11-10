@@ -136,3 +136,42 @@ To repeat this run exactly: pnpm study simulate studies/examples/bystander 100 -
 "Refused" counts things the study doesn't allow, like reposting where reposts are off. That's expected, not a problem.
 
 A beat that's rare isn't necessarily wrong. Random participants seldom reply to one particular comment, for example. Run more participants, or write a scenario for that path.
+
+## Personas, for piloting
+
+Random participants check the logic. Personas show you how the study feels: a model plays a participant you describe, and you read what they saw, what they did, and why, in their words, along with what the cast said back. See ADR 60.
+
+1. **Write personas:** in the builder, open **Personas**. Each has an `id`, an `about` saying who they are and how they use social media, and, if you like, the `condition` they start in. `model` at the top picks the Claude model that plays them.
+
+   ```yaml
+   model: claude-sonnet-5-5
+   personas:
+     - id: quiet-bystander
+       about: >
+         A second-year student who scrolls a lot and rarely posts. Feels uncomfortable when
+         people are mean, but usually doesn't get involved.
+     - id: upstander
+       about: Confident and kind. Quick to defend someone being picked on.
+       condition: silent
+   ```
+
+2. **Save a version,** then press **Simulate** beside it on the Studies page.
+3. **Choose Personas,** say how many of each to run, and set a budget in US dollars. $2 is the default. Each look at the feed is one model call. The run stops when the budget is spent, and says so.
+4. **Read the transcripts:** each persona's run, in order, with what was new each time they looked. Under it is the same report as for random participants, and what the model calls cost.
+
+If the study writes live (`live: { enabled: true }` in `beats.yaml`), the cast writes live for personas too, from the study's own live-writing budget.
+
+Personas need a Claude key on the server. From the command line, set `ANTHROPIC_API_KEY` in `.env`:
+
+```
+pnpm study simulate studies/examples/bystander --personas quiet-bystander,upstander --budget 1
+```
+
+## Synthetic data
+
+Any run on the Simulate page can be kept as synthetic data: tick **Keep them as synthetic data**. Use it to build an analysis before data collection starts.
+
+- **Never mixed in:** synthetic participants are never in the study's real data, its counts, or the Monitor page.
+- **A separate download:** **Download synthetic data** on the Simulate page. Its codebook says at the top that nobody real took part. If you want real and synthetic data together, combine the two downloads yourself.
+- **Timestamps in the past:** their worlds start one study length ago, so no time is in the future.
+- **Deleting:** deleting the study deletes them too.

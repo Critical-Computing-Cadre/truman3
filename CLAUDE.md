@@ -19,7 +19,7 @@ pnpm db:generate        # create a migration after changing packages/db/src/sche
 pnpm build
 pnpm study validate <folder>   # check a study; see also: pnpm study convert
 pnpm study test <folder>       # run its scenarios.yaml in a throwaway database; needs Docker services
-pnpm study simulate <folder> [n]   # send n random simulated participants through it, and report; needs Docker services
+pnpm study simulate <folder> [n]   # send n random simulated participants through it, and report; --personas a,b has a model play them; needs Docker services
 pnpm study import <folder>     # save it as a frozen version
 pnpm study launch <slug> [n]   # open it to participants; pnpm study stop closes it
 pnpm study export <slug> <folder>   # write CSVs and a codebook

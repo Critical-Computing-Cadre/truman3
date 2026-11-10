@@ -18,6 +18,7 @@ import { LoginPage } from "./pages/LoginPage.tsx";
 import { ModerationPage } from "./pages/ModerationPage.tsx";
 import { MonitorPage } from "./pages/MonitorPage.tsx";
 import { NewStudyPage } from "./pages/NewStudyPage.tsx";
+import { PersonasPage } from "./pages/PersonasPage.tsx";
 import { PreviewPage } from "./pages/PreviewPage.tsx";
 import { ProlificPage } from "./pages/ProlificPage.tsx";
 import { ScenariosPage } from "./pages/ScenariosPage.tsx";
@@ -130,6 +131,12 @@ const scenariosRoute = createRoute({
   component: ScenariosPage,
 });
 
+const personasRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/drafts/$draftId/personas",
+  component: PersonasPage,
+});
+
 const simulateRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/versions/$versionId/simulate",
@@ -168,6 +175,7 @@ const router = createRouter({
     moderationRoute,
     beatsRoute,
     scenariosRoute,
+    personasRoute,
     simulateRoute,
     storiesRoute,
     monitorRoute,
