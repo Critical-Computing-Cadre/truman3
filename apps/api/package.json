@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./app": "./src/app.ts",
     "./scenarios": "./src/scenarios/run.ts",
     "./simulate": "./src/scenarios/simulate.ts"
   },

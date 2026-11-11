@@ -562,6 +562,8 @@ const freezeRoute = createRoute({
           schema: z.object({
             status: z.enum(["frozen", "unchanged"]),
             version: z.number(),
+            /** The new version's id, for testing or simulating it, when one was saved. */
+            versionId: z.string().optional(),
           }),
         },
       },
@@ -1185,6 +1187,9 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
       editing.researcher.id,
       kind,
       stripUndefined(fields),
+      editing.researcher.token
+        ? { origin: "generated", detail: { by: "agent", token: editing.researcher.token.name } }
+        : { origin: "researcher" },
     );
     if ("problem" in result) {
       return c.json({ error: result.message }, result.problem === "closed" ? 409 : 400);
@@ -1312,7 +1317,14 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
     if (result.status === "frozen") {
       await startScenarioRun({ db, storage }, result.studyVersionId, "saving the version");
     }
-    return c.json({ status: result.status, version: result.version }, 200);
+    return c.json(
+      {
+        status: result.status,
+        version: result.version,
+        ...(result.status === "frozen" ? { versionId: result.studyVersionId } : {}),
+      },
+      200,
+    );
   });
 
   return app;

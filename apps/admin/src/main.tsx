@@ -27,6 +27,7 @@ import { SimulatePage } from "./pages/SimulatePage.tsx";
 import { SpacesPage } from "./pages/SpacesPage.tsx";
 import { StoriesPage } from "./pages/StoriesPage.tsx";
 import { StudiesPage } from "./pages/StudiesPage.tsx";
+import { TokensPage } from "./pages/TokensPage.tsx";
 
 /** Everything here needs signing in, so this shows the login page until then. */
 function Shell() {
@@ -58,6 +59,9 @@ function Shell() {
       <header className="flex items-center gap-4 bg-stone-900 px-4 py-2 text-sm text-white">
         <Link to="/" className="mr-auto font-semibold">
           Truman 3
+        </Link>
+        <Link to="/tokens" className="underline">
+          Access for agents
         </Link>
         <span className="hidden sm:inline">{me.data.name}</span>
         <button type="button" className="underline" onClick={() => logout.mutate()}>
@@ -161,6 +165,12 @@ const prolificRoute = createRoute({
   component: ProlificPage,
 });
 
+const tokensRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/tokens",
+  component: TokensPage,
+});
+
 const router = createRouter({
   // "/admin/" from the build, without the last slash.
   basepath: import.meta.env.BASE_URL.replace(/\/$/, ""),
@@ -180,6 +190,7 @@ const router = createRouter({
     storiesRoute,
     monitorRoute,
     prolificRoute,
+    tokensRoute,
   ]),
 });
 

@@ -421,7 +421,11 @@ describe("saving a new version", () => {
 
     const response = await call(team.cookie, "POST", `/admin/drafts/${draftId}/freeze`);
 
-    expect(await response.json()).toEqual({ status: "frozen", version: 2 });
+    expect(await response.json()).toEqual({
+      status: "frozen",
+      version: 2,
+      versionId: expect.any(String),
+    });
     const before = await enterAsParticipant(team.slug);
     expect((await participantFeed(before)).map((item) => item.body)).toContain("original text");
 

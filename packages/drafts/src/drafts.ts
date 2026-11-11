@@ -765,6 +765,8 @@ export async function createItem(
     | "contextNote"
     | "story",
   fields: Record<string, unknown>,
+  /** Where it came from. An agent's is generated, with which token it used (ADR 64). */
+  provenance: Provenance = { origin: "researcher" },
 ): Promise<{ id: string } | EditProblem> {
   return db.transaction(async (tx) => {
     if (!(await isOpen(tx, draftId))) {
@@ -835,7 +837,6 @@ export async function createItem(
       .from(schema.draftItems)
       .where(and(eq(schema.draftItems.draftId, draftId), eq(schema.draftItems.kind, kind)));
 
-    const provenance: Provenance = { origin: "researcher" };
     await tx.insert(schema.draftItems).values({
       id,
       draftId,

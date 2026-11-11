@@ -112,3 +112,34 @@ test("signing out ends access", async ({ page }) => {
   await page.reload();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 });
+
+test("a researcher makes a token for an agent, sees it once, and revokes it", async ({
+  page,
+  request,
+}, testInfo) => {
+  await signIn(page);
+  await page.getByRole("link", { name: "Access for agents" }).click();
+  await expect(page.getByRole("heading", { name: "Access for agents" })).toBeVisible();
+  const name = `Claude Code ${testInfo.project.name} ${Date.now()}`;
+  await page.getByLabel("What it's for").fill(name);
+  await page.getByRole("button", { name: "Create a token" }).click();
+  const token = (await page.getByTestId("new-token").textContent()) ?? "";
+  expect(token).toMatch(/^truman_pat_/);
+
+  // It works for an agent, through the API, but not for launching anything.
+  const api = `http://localhost:${ADMIN_PORT}/api`;
+  const headers = { authorization: `Bearer ${token}` };
+  expect((await request.get(`${api}/admin/me`, { headers })).status()).toBe(200);
+  expect(
+    (
+      await request.post(`${api}/admin/versions/${crypto.randomUUID()}/launch`, { headers })
+    ).status(),
+  ).toBe(403);
+
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByTestId("new-token")).toHaveCount(0);
+  const row = page.getByRole("listitem").filter({ hasText: name });
+  await row.getByRole("button", { name: "Revoke" }).click();
+  await expect(row).toHaveCount(0);
+  expect((await request.get(`${api}/admin/me`, { headers })).status()).toBe(401);
+});
