@@ -2,7 +2,7 @@ import { featureOn, featuresFor } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, gt, inArray, lte } from "drizzle-orm";
 import { onParticipantAct } from "../director/director.ts";
-import { bannedAt, loadBans, loadRemovals, mediaUrl } from "../feed/build.ts";
+import { bannedAt, loadBans, loadRemovals, mediaUrl, pictureUrlOf } from "../feed/build.ts";
 import type { ParticipantContext } from "../participants/session.ts";
 
 interface ActorProfile {
@@ -556,7 +556,7 @@ export async function listNotifications(
     return {
       username: actor?.username ?? "",
       name: profile.name ?? actor?.username ?? "",
-      pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+      pictureUrl: pictureUrlOf(profile, context.conditionKey, mediaPublicUrl),
     };
   };
 

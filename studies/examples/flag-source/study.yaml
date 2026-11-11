@@ -1,0 +1,53 @@
+# Reference study #3: who flagged it, and does it matter? A rebuild, for testing, of
+#   Bhandari, A., Ozanne, M., Bazarova, N. N., & DiFranzo, D. (2021). Do you care who flagged this
+#   post? Effects of moderator visibility on bystander behavior. Journal of Computer-Mediated
+#   Communication, 26(5), 284-300.
+# also written up in Ozanne et al. (2022), Big Data & Society. It isn't the original study's
+# materials or settings, only its design, rebuilt on Truman 3 to check the platform can run it.
+#
+# Participants spend 2 days on EatSnap.Love, a food-photo site, logging in twice a day and posting
+# once a day. Each day, near the top of the feed, one cast member's harassing comment on another's
+# food post carries a notice that it was flagged, which asks "Do you agree with this flag?".
+# Answering offers to show the community rules. Lower in the feed, an unflagged harassing comment
+# is the same in every condition. Whether participants flag that one is the main measure.
+#
+# Conditions, 3 x 2 between-subjects:
+#   source:  none  - the notice doesn't say who flagged it (by: hidden in labels.csv)
+#            users - "Other EatSnap.Love users" flagged it
+#            ai    - "Our automated system" flagged it
+#   wording: clear - the flagged comment is plainly harassment
+#            ambiguous - it's ambiguously worded
+# The flagged comments are in comments.csv (d1-*, d2-*), and their notices in labels.csv.
+# The pictures, names, and bios come from the EatSnap example study (studies/examples/eatsnap).
+schemaVersion: 1
+slug: flag-source
+title: Who flagged this? (reference study)
+site:
+  name: EatSnap.Love
+  logo: media/site/logo.png
+  favicon: media/site/favicon.ico
+  rules: pages/rules.md
+length: { days: 2 }
+entry: { idParam: PROLIFIC_PID, idLabel: Prolific ID, source: prolific }
+conditions:
+  assignment: { method: blocked, blockSize: 6 }
+  arms:
+    - { key: none-clear, factors: { source: none, wording: clear } }
+    - { key: none-ambiguous, factors: { source: none, wording: ambiguous } }
+    - { key: users-clear, factors: { source: users, wording: clear } }
+    - { key: users-ambiguous, factors: { source: users, wording: ambiguous } }
+    - { key: ai-clear, factors: { source: ai, wording: clear } }
+    - { key: ai-ambiguous, factors: { source: ai, wording: ambiguous } }
+platform:
+  style: photo
+  # Labels carry the flag notices. Flagging is on in the Classic template already, and is said here
+  # because flagging the unflagged comment is the main measure.
+  features: { labels: true, flagging: true }
+feed: { ranker: chronological }
+flow:
+  - { step: consent, page: pages/consent.md }
+  # The community rules, at the start as in the original. They can be opened any time after, too.
+  - { step: page, page: pages/rules.md }
+  - { step: account }
+  - { step: feed }
+  - { step: exit }

@@ -2,7 +2,7 @@ import type { FeedStory, Highlight, StoryGroup } from "@truman3/core";
 import { featureOn } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { and, asc, eq, inArray, isNotNull, isNull, lte, or } from "drizzle-orm";
-import { contentTimeMs, hiddenByBan, loadBans, mediaUrl } from "../feed/build.ts";
+import { contentTimeMs, hiddenByBan, loadBans, mediaUrl, pictureUrlOf } from "../feed/build.ts";
 import type { ParticipantContext } from "../participants/session.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -122,7 +122,7 @@ export async function listStories(
       author: {
         username: author?.username ?? "",
         name: profile.name ?? author?.username ?? "",
-        pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+        pictureUrl: pictureUrlOf(profile, context.conditionKey, mediaPublicUrl),
         isViewer: row.authorActorId === context.actorId,
       },
       stories: [],
@@ -294,7 +294,7 @@ export async function storyViewers(
       return {
         username: actor.username,
         name: profile.name ?? actor.username,
-        pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+        pictureUrl: pictureUrlOf(profile, context.conditionKey, mediaPublicUrl),
       };
     });
 }

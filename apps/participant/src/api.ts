@@ -68,7 +68,7 @@ export interface FlowState {
   canJoinSpaces: boolean;
   canSort: boolean;
   canSortComments: boolean;
-  site: { name: string; logoUrl: string | null; faviconUrl: string | null };
+  site: { name: string; logoUrl: string | null; faviconUrl: string | null; hasRules: boolean };
 }
 
 export interface Me {

@@ -49,6 +49,7 @@ export const ACTORS: CsvSpec = {
     "location",
     "bio",
     "picture",
+    "pictures",
     "banner",
     "moderator",
     "karma",
@@ -161,7 +162,7 @@ export const REMOVALS: CsvSpec = {
 };
 export const LABELS: CsvSpec = {
   required: ["on", "target", "actor", "time", "label"],
-  optional: ["hides", "reason", "condition", "class"],
+  optional: ["hides", "reason", "by", "ask", "condition", "class"],
 };
 
 export const MEDIA_FOLDERS = {
@@ -385,6 +386,27 @@ export function readStudyTables(
     return pairs.length > 0 ? { spaceFlair: Object.fromEntries(pairs) } : {};
   };
 
+  /** `condition=picture.jpg`, separated by |. */
+  const actorPictures = (value: string | undefined, row: number) => {
+    const pairs = (value ?? "")
+      .split("|")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .flatMap((item) => {
+        const [key, picture] = item.split("=").map((part) => part.trim());
+        if (!key || !picture) {
+          rowError(
+            "actors.csv",
+            row,
+            `"${item}" in pictures has to look like condition=picture.jpg.`,
+          );
+          return [];
+        }
+        return [[key, picture]];
+      });
+    return pairs.length > 0 ? { conditionPictures: Object.fromEntries(pairs) } : {};
+  };
+
   /** `Option` or `Option=12` for its starting votes, separated by |. */
   const pollFrom = (cells: Record<string, string>, row: number) => {
     const options = (cells.poll ?? "")
@@ -425,6 +447,7 @@ export function readStudyTables(
       ...optional("badge", cells.badge || undefined),
       ...(/^(yes|true)$/i.test(cells.suggested ?? "") ? { suggested: true } : {}),
       ...actorFlair(cells.flair, row),
+      ...actorPictures(cells.pictures, row),
       ...targeting(cells, "actors.csv", row),
     };
   });
@@ -606,8 +629,13 @@ export function readStudyTables(
       label: cells.label || `(row ${row})`,
       hides: yesOrNo(cells.hides, "hides", file, row) ?? false,
       ...optional("reason", cells.reason || undefined),
+      showsWho: cells.by !== "hidden",
+      ...optional("ask", cells.ask || undefined),
       ...targeting(cells, file, row),
     });
+    if (cells.by && cells.by !== "hidden" && cells.by !== "shown") {
+      rowError(file, row, `"${cells.by}" in by has to be shown or hidden.`);
+    }
   }
 
   const flagAnswers: FlagAnswerDefinition[] = [];
@@ -757,6 +785,19 @@ export function readStudyTables(
       }
     }
   }
+  const rulesPage = settings.site.rules;
+  if (rulesPage && !only) {
+    const rules = source.read(rulesPage);
+    if (rules === null) {
+      issues.push({
+        severity: "error",
+        file: rulesPage,
+        message: "This file is missing. site.rules in study.yaml names it.",
+      });
+    } else {
+      pages[rulesPage] = rules;
+    }
+  }
 
   // Beats are written by hand in YAML, so the file is kept as written, among the pages, and read
   // into what Christof uses. Adding sheets to a draft leaves them alone.
@@ -803,6 +844,9 @@ export function readStudyTables(
     for (const actor of actors) {
       checkMedia(MEDIA_FOLDERS.actors, actor.picture, actor.source);
       checkMedia(MEDIA_FOLDERS.actors, actor.banner, actor.source);
+      for (const picture of Object.values(actor.conditionPictures ?? {})) {
+        checkMedia(MEDIA_FOLDERS.actors, picture, actor.source);
+      }
     }
     for (const space of spaces) {
       checkMedia(MEDIA_FOLDERS.spaces, space.picture, space.source);

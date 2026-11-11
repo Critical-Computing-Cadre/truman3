@@ -228,6 +228,7 @@ export async function previewContent(
   const posts = await shapeFeedPosts({
     loadAuthors: authors,
     mediaPublicUrl,
+    conditionKey,
     feed,
     rows,
     worldStartMs,

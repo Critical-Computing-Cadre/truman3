@@ -135,8 +135,14 @@ export function bodiesIn(value: unknown): string[] {
   }
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
+    // A moderator's label has its text and reason, which a scenario can check for too.
+    const label =
+      typeof record.text === "string" && typeof record.hides === "boolean"
+        ? [record.text, ...(typeof record.reason === "string" ? [record.reason] : [])]
+        : [];
     return [
       ...(typeof record.body === "string" ? [record.body] : []),
+      ...label,
       ...Object.values(record).flatMap(bodiesIn),
     ];
   }

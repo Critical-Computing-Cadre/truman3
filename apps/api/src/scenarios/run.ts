@@ -69,18 +69,19 @@ export async function runScenarios({
       occurredAt: harness.now().toISOString(),
     });
     const target = async (on: ScenarioTarget): Promise<string | null> => {
-      if ("post" in on) {
-        const [post] = await db
+      if ("post" in on || "comment" in on) {
+        const [item] = await db
           .select({ id: schema.content.id })
           .from(schema.content)
           .where(
             and(
               eq(schema.content.studyVersionId, versionId),
-              eq(schema.content.sourceRef, on.post),
+              eq(schema.content.kind, "post" in on ? "post" : "comment"),
+              eq(schema.content.sourceRef, "post" in on ? on.post : on.comment),
               isNull(schema.content.worldId),
             ),
           );
-        return post?.id ?? null;
+        return item?.id ?? null;
       }
       const [run] = await db
         .select({ contentId: schema.beatRuns.contentId })
@@ -97,7 +98,11 @@ export async function runScenarios({
       return run?.contentId ?? null;
     };
     const describe = (on: ScenarioTarget) =>
-      "post" in on ? `the post "${on.post}"` : `what "${on.beat}" made`;
+      "post" in on
+        ? `the post "${on.post}"`
+        : "comment" in on
+          ? `the comment "${on.comment}"`
+          : `what "${on.beat}" made`;
 
     const steps = [...scenario.steps].sort((a, b) => a.at - b.at);
     for (const step of steps) {
@@ -121,7 +126,7 @@ export async function runScenarios({
           action: "follow",
         });
       } else if (step.expect === undefined) {
-        const on = (step.on ?? step.like ?? step.repost) as ScenarioTarget;
+        const on = (step.on ?? step.like ?? step.repost ?? step.flag) as ScenarioTarget;
         const id = await target(on);
         if (!id) {
           problems.push(`${when}, there was nothing yet for ${describe(on)}.`);
@@ -133,10 +138,14 @@ export async function runScenarios({
                 ...meta(),
                 body: step.comment,
               })
-            : await send("POST", `/content/${id}/${step.like ? "like" : "repost"}`, {
-                ...meta(),
-                active: true,
-              });
+            : await send(
+                "POST",
+                `/content/${id}/${step.like ? "like" : step.flag ? "flag" : "repost"}`,
+                {
+                  ...meta(),
+                  active: true,
+                },
+              );
       }
       if (done && !done.ok) {
         problems.push(`${when}, they couldn't do it: ${String(done.json.error ?? "it failed")}`);

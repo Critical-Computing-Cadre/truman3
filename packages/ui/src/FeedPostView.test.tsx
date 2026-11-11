@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { type FeatureKey, type FeedPost, TEMPLATES } from "@truman3/core";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -1213,6 +1213,47 @@ describe("a labeled post", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send appeal" }));
     expect(actions.onAppeal).toHaveBeenCalledWith("p1", "It isn't");
+  });
+
+  it("can leave out who gave it, and ask a question, then offer the rules", () => {
+    const flagged = {
+      text: "Flagged as harassment",
+      by: "",
+      hides: false,
+      ask: "Do you agree with this flag?",
+    };
+    const onLabelAnswered = vi.fn();
+    const onOpenRules = vi.fn();
+    render(
+      <PlatformProvider
+        platform={{
+          layout: "classic",
+          features: { ...TEMPLATES.shortPosts.features, labels: true },
+        }}
+      >
+        <FeedPostView
+          post={{ ...POST, labels: [flagged], comments: [] }}
+          actions={{
+            onLike: vi.fn(),
+            onVote: vi.fn(),
+            onFlag: vi.fn(),
+            onReply: vi.fn(),
+            onLabelAnswered,
+            onOpenRules,
+          }}
+        />
+      </PlatformProvider>,
+    );
+    expect(screen.getByTestId("label-bar").textContent).not.toContain("Labeled by");
+    const question = screen.getByRole("group", { name: "Do you agree with this flag?" });
+    fireEvent.click(within(question).getByRole("button", { name: "No" }));
+    expect(onLabelAnswered).toHaveBeenCalledWith("p1", "Flagged as harassment", false);
+    const offer = screen.getByRole("group", {
+      name: "Would you like to review the community rules?",
+    });
+    fireEvent.click(within(offer).getByRole("button", { name: "Yes" }));
+    expect(onOpenRules).toHaveBeenCalled();
+    expect(screen.getByText("Thanks for your answer.")).toBeTruthy();
   });
 
   it("shows nothing when labels are off", () => {

@@ -1,0 +1,13 @@
+on,target,actor,time,label,hides,reason,by,ask,condition
+comment,d1-clear,eatsnap_system,-0:02,Flagged as harassment,no,"This comment was flagged as harassment, which is against our community rules.",hidden,Do you agree with this flag?,none-clear
+comment,d1-clear,eatsnap_users,-0:02,Flagged as harassment,no,"Other EatSnap.Love users flagged this comment as harassment, which is against our community rules.",shown,Do you agree with this flag?,users-clear
+comment,d1-clear,eatsnap_system,-0:02,Flagged as harassment,no,"Our automated system flagged this comment as harassment, which is against our community rules.",shown,Do you agree with this flag?,ai-clear
+comment,d1-ambiguous,eatsnap_system,-0:02,Flagged as harassment,no,"This comment was flagged as harassment, which is against our community rules.",hidden,Do you agree with this flag?,none-ambiguous
+comment,d1-ambiguous,eatsnap_users,-0:02,Flagged as harassment,no,"Other EatSnap.Love users flagged this comment as harassment, which is against our community rules.",shown,Do you agree with this flag?,users-ambiguous
+comment,d1-ambiguous,eatsnap_system,-0:02,Flagged as harassment,no,"Our automated system flagged this comment as harassment, which is against our community rules.",shown,Do you agree with this flag?,ai-ambiguous
+comment,d2-clear,eatsnap_system,23:51,Flagged as harassment,no,"This comment was flagged as harassment, which is against our community rules.",hidden,Do you agree with this flag?,none-clear
+comment,d2-clear,eatsnap_users,23:51,Flagged as harassment,no,"Other EatSnap.Love users flagged this comment as harassment, which is against our community rules.",shown,Do you agree with this flag?,users-clear
+comment,d2-clear,eatsnap_system,23:51,Flagged as harassment,no,"Our automated system flagged this comment as harassment, which is against our community rules.",shown,Do you agree with this flag?,ai-clear
+comment,d2-ambiguous,eatsnap_system,23:51,Flagged as harassment,no,"This comment was flagged as harassment, which is against our community rules.",hidden,Do you agree with this flag?,none-ambiguous
+comment,d2-ambiguous,eatsnap_users,23:51,Flagged as harassment,no,"Other EatSnap.Love users flagged this comment as harassment, which is against our community rules.",shown,Do you agree with this flag?,users-ambiguous
+comment,d2-ambiguous,eatsnap_system,23:51,Flagged as harassment,no,"Our automated system flagged this comment as harassment, which is against our community rules.",shown,Do you agree with this flag?,ai-ambiguous

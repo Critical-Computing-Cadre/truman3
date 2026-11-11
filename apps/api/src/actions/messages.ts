@@ -1,7 +1,7 @@
 import type { Conversation, Message } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { and, asc, eq, inArray, isNotNull, lte, max, or } from "drizzle-orm";
-import { mediaUrl } from "../feed/build.ts";
+import { pictureUrlOf } from "../feed/build.ts";
 import type { ParticipantContext } from "../participants/session.ts";
 
 /**
@@ -13,16 +13,17 @@ import type { ParticipantContext } from "../participants/session.ts";
 interface Profile {
   name?: string;
   picture?: string;
+  conditionPictures?: Record<string, string>;
 }
 
 type Actor = typeof schema.actors.$inferSelect;
 
-export function personOf(actor: Actor, mediaPublicUrl: string) {
+export function personOf(actor: Actor, conditionKey: string, mediaPublicUrl: string) {
   const profile = (actor.profile ?? {}) as Profile;
   return {
     username: actor.username,
     name: profile.name ?? actor.username,
-    pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+    pictureUrl: pictureUrlOf(profile, conditionKey, mediaPublicUrl),
   };
 }
 
@@ -104,7 +105,13 @@ export async function listConversations(
           row.authorActorId === otherId &&
           (!since || (row.visibleAt as Date).getTime() > since.getTime()),
       ).length;
-      return [{ with: personOf(actor, mediaPublicUrl), last: toMessage(context, last), unread }];
+      return [
+        {
+          with: personOf(actor, context.conditionKey, mediaPublicUrl),
+          last: toMessage(context, last),
+          unread,
+        },
+      ];
     })
     .sort((a, b) => b.last.at.localeCompare(a.last.at));
 }

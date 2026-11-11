@@ -108,6 +108,19 @@ export type SpaceLabels = ReadonlyMap<
 >;
 
 /**
+ * The URL of someone's picture, as this condition shows it. A study can give someone in the cast a
+ * different picture in some conditions, such as one with a frame (ADR 63).
+ */
+export function pictureUrlOf(
+  profile: { picture?: string | undefined; conditionPictures?: Record<string, string> | undefined },
+  conditionKey: string,
+  publicUrl: string,
+): string | null {
+  const key = profile.conditionPictures?.[conditionKey] ?? profile.picture;
+  return key ? mediaUrl(key, publicUrl) : null;
+}
+
+/**
  * A stored media key becomes a URL. Hosted media is already a full URL, and what participants upload
  * goes through the API, which checks who's asking. See ADR 25.
  */
@@ -308,6 +321,10 @@ export interface Label {
   actorId: string;
   hides: boolean;
   reason: string | null;
+  /** Whether it says who gave it. */
+  showsWho?: boolean;
+  /** A yes-or-no question it asks, until this person has answered it. */
+  ask?: string | null;
   /** When it came due. */
   at: Date;
 }
@@ -339,6 +356,25 @@ export async function loadLabels(
       ),
     )
     .orderBy(asc(schema.scriptedLabels.offsetMs), asc(schema.scriptedLabels.id));
+  // A question is asked until they answer it.
+  const answered = scripted.some(({ ask }) => ask)
+    ? new Set(
+        (
+          await db
+            .select({
+              contentId: schema.events.targetContentId,
+              label: sql<string>`${schema.events.payload}->>'label'`,
+            })
+            .from(schema.events)
+            .where(
+              and(
+                eq(schema.events.worldId, context.worldId),
+                eq(schema.events.type, "content.label_answered"),
+              ),
+            )
+        ).map(({ contentId, label }) => `${contentId}:${label}`),
+      )
+    : new Set<string>();
   for (const row of scripted) {
     if (row.conditions.length === 0 || row.conditions.includes(context.conditionKey)) {
       add(row.contentId, {
@@ -346,6 +382,8 @@ export async function loadLabels(
         actorId: row.actorId,
         hides: row.hides,
         reason: row.reason,
+        showsWho: row.showsWho,
+        ask: row.ask && !answered.has(`${row.contentId}:${row.label}`) ? row.ask : null,
         at: new Date(startMs + row.offsetMs),
       });
     }
@@ -666,9 +704,12 @@ export async function shapeFeedPosts({
   repostsAsThemselves = false,
   contextNotes = new Map(),
   viewedContentIds = new Set(),
+  conditionKey,
 }: {
   loadAuthors: (ids: string[]) => Promise<ReadonlyMap<string, FeedActor>>;
   mediaPublicUrl: string;
+  /** The condition it's shown in, which can change pictures. */
+  conditionKey: string;
   feed: AssembledFeed;
   rows: readonly FeedContent[];
   worldStartMs: number;
@@ -815,7 +856,7 @@ export async function shapeFeedPosts({
     return {
       username: actor.username,
       name: profile.name ?? actor.username,
-      pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+      pictureUrl: pictureUrlOf(profile, conditionKey, mediaPublicUrl),
       isViewer: actor.id === viewerActorId,
       ...(profile.moderator ? { moderator: true as const } : {}),
       ...(profile.badge && features.badges ? { badge: profile.badge } : {}),
@@ -861,9 +902,13 @@ export async function shapeFeedPosts({
           const moderator = authorById.get(label.actorId) as FeedActor;
           return {
             text: label.text,
-            by: (moderator.profile as ActorProfile).name ?? moderator.username,
+            by:
+              label.showsWho === false
+                ? ""
+                : ((moderator.profile as ActorProfile).name ?? moderator.username),
             hides: label.hides && !own,
             ...(label.reason ? { reason: label.reason } : {}),
+            ...(label.ask && !own ? { ask: label.ask } : {}),
             ...(features.appeals && own
               ? { appeal: appealedIds.has(item.id) ? ("sent" as const) : ("open" as const) }
               : {}),
@@ -1411,6 +1456,7 @@ export async function buildFeed(
   const shaped = await shapeFeedPosts({
     loadAuthors: (ids) => loadAuthors(db, ids),
     mediaPublicUrl,
+    conditionKey: context.conditionKey,
     feed,
     rows,
     worldStartMs,

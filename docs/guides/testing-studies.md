@@ -66,25 +66,26 @@ scenarios:
 
 Each step has an `at`, in hours:minutes from when they start, and one of these:
 
-| Step                                     | What happens                      |
-| ---------------------------------------- | --------------------------------- |
-| `post: text`                             | They write a post                 |
-| `comment: text`, with `on`               | They comment on a post or comment |
-| `like: { post: id }` or `{ beat: id }`   | They like it                      |
-| `repost: { post: id }` or `{ beat: id }` | They repost it                    |
-| `follow: username`                       | They follow someone in the cast   |
-| `message: text`, with `to: username`     | They message someone in the cast  |
-| `expect`                                 | Nothing is done. It's checked     |
+| Step                                                       | What happens                      |
+| ---------------------------------------------------------- | --------------------------------- |
+| `post: text`                                               | They write a post                 |
+| `comment: text`, with `on`                                 | They comment on a post or comment |
+| `like: { post: id }` or `{ beat: id }`                     | They like it                      |
+| `repost: { post: id }` or `{ beat: id }`                   | They repost it                    |
+| `flag: { comment: id }`, `{ post: id }`, or `{ beat: id }` | They flag it                      |
+| `follow: username`                                         | They follow someone in the cast   |
+| `message: text`, with `to: username`                       | They message someone in the cast  |
+| `expect`                                                   | Nothing is done. It's checked     |
 
 An `expect` can say any of these:
 
-|                      |                                                                          |
-| -------------------- | ------------------------------------------------------------------------ |
-| `happened: [ids]`    | These beats or decision points have happened by now                      |
-| `notHappened: [ids]` | These haven't                                                            |
-| `condition: key`     | They're in this condition now, which can change at a decision point      |
-| `sees: [text]`       | This text is in their feed, in a post or a comment, or in their messages |
-| `doesNotSee: [text]` | It isn't                                                                 |
+|                      |                                                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `happened: [ids]`    | These beats or decision points have happened by now                                                           |
+| `notHappened: [ids]` | These haven't                                                                                                 |
+| `condition: key`     | They're in this condition now, which can change at a decision point                                           |
+| `sees: [text]`       | This text is in their feed, in a post, a comment, or a moderator's label and its reason, or in their messages |
+| `doesNotSee: [text]` | It isn't                                                                                                      |
 
 Steps run in order of `at`. Before each one, the runner loads the page as the participant would, so anything that came due by then happens first.
 
