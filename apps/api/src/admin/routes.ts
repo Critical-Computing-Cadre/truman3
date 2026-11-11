@@ -5,6 +5,8 @@ import {
   hasPlaceholderConsent,
   platformFor,
   SCENARIOS_FILE,
+  TEAM_STATUSES,
+  type TeamStatus,
 } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { feedSettingsFor } from "@truman3/feed";
@@ -29,7 +31,11 @@ const notSignedIn = errorResponse("Not signed in");
 const researcherSchema = z.object({
   name: z.string(),
   email: z.string(),
-  teams: z.array(z.object({ name: z.string(), role: z.string() })),
+  teams: z.array(z.object({ name: z.string(), role: z.string(), status: z.enum(TEAM_STATUSES) })),
+  /** Whether they run this Truman, and see the operator page (ADR 70). */
+  operator: z.boolean(),
+  /** Whether this is a hosted Truman, where labs apply. */
+  hosted: z.boolean(),
 });
 
 const loginRoute = createRoute({
@@ -231,6 +237,7 @@ export function createAdminRoutes({
   getClientIp,
   allowLoginAttempt,
   participantAppUrl = "http://localhost:5180",
+  hosted = false,
 }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const pleaseSignIn = { error: "Please sign in." };
@@ -283,11 +290,29 @@ export function createAdminRoutes({
       return c.json(pleaseSignIn, 401);
     }
     const teams = await db
-      .select({ name: schema.teams.name, role: schema.teamMemberships.role })
+      .select({
+        name: schema.teams.name,
+        role: schema.teamMemberships.role,
+        status: schema.teams.status,
+      })
       .from(schema.teamMemberships)
       .innerJoin(schema.teams, eq(schema.teams.id, schema.teamMemberships.teamId))
       .where(eq(schema.teamMemberships.researcherId, researcher.id));
-    return c.json({ name: researcher.name, email: researcher.email, teams }, 200);
+    const [row] = await db
+      .select({ operator: schema.researchers.operator })
+      .from(schema.researchers)
+      .where(eq(schema.researchers.id, researcher.id));
+    return c.json(
+      {
+        name: researcher.name,
+        email: researcher.email,
+        teams: teams.map((team) => ({ ...team, status: team.status as TeamStatus })),
+        // Never through a token: an agent doesn't run the server.
+        operator: Boolean(row?.operator) && !researcher.token,
+        hosted,
+      },
+      200,
+    );
   });
 
   app.openapi(studiesRoute, async (c) => {

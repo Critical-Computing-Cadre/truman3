@@ -179,6 +179,8 @@ export interface ParticipantRouteDependencies {
   prolific?: ProlificConfig;
   /** Live updates for shared worlds (ADR 68). Leave out and pages see changes when they load. */
   live?: Live;
+  /** Whether this is a hosted Truman, where labs apply and an operator approves them (ADR 70). */
+  hosted?: boolean;
 }
 
 export function createParticipantRoutes(dependencies: ParticipantRouteDependencies) {

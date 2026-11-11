@@ -7,6 +7,7 @@ import { setCookie } from "hono/cookie";
 import { startPilot } from "../participants/enter.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { hashSessionToken, realClock, SESSION_COOKIE } from "../participants/session.ts";
+import { whyNotLaunchable } from "./hosting.ts";
 import { researcherFromRequest } from "./session.ts";
 
 const errorSchema = z.object({ error: z.string() });
@@ -32,6 +33,9 @@ const launchRoute = createRoute({
       content: { "application/json": { schema: z.object({ version: z.number() }) } },
     },
     ...commonErrors,
+    403: errorResponse(
+      "This researcher can only view, or their lab can't open studies now: it's waiting for approval, suspended, or at its limit",
+    ),
   },
 });
 
@@ -122,6 +126,10 @@ export function createLaunchRoutes({
       return c.json(viewOnly, 403);
     }
 
+    const notYet = await whyNotLaunchable(db, studyId);
+    if (notYet) {
+      return c.json({ error: notYet }, 403);
+    }
     const result = await launchVersion(db, studyId, versionId, researcher.email);
     return result.status === "launched"
       ? c.json({ version: result.version }, 200)

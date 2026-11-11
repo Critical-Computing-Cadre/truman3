@@ -17,6 +17,8 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   /** The participant app's public address, used in study links and the link Prolific sends people to. */
   PARTICIPANT_APP_URL: z.url().optional(),
+  /** "true" makes this a hosted Truman: labs apply, and an operator approves them. ADR 70. */
+  HOSTED: z.enum(["true", "false"]).default("false"),
 });
 
 /** Reads the server's settings. Throws rather than start with a setting that can't work. */
@@ -26,5 +28,9 @@ export function parseServerEnv(env: NodeJS.ProcessEnv) {
     // The local default would put a localhost link in front of researchers and participants.
     throw new Error("PARTICIPANT_APP_URL isn't set. See docs/guides/deploying.md.");
   }
-  return { ...parsed, PARTICIPANT_APP_URL: parsed.PARTICIPANT_APP_URL ?? LOCAL_PARTICIPANT_APP };
+  return {
+    ...parsed,
+    PARTICIPANT_APP_URL: parsed.PARTICIPANT_APP_URL ?? LOCAL_PARTICIPANT_APP,
+    HOSTED: parsed.HOSTED === "true",
+  };
 }

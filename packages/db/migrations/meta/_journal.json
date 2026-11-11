@@ -393,6 +393,13 @@
       "when": 1794377554413,
       "tag": "0055_last_out_deletes_the_world",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1794427343775,
+      "tag": "0056_hosted_teams",
+      "breakpoints": true
     }
   ]
 }

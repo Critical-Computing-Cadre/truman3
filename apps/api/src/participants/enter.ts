@@ -9,6 +9,7 @@ import {
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, asc, count, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { teamTakesNewParticipants } from "../admin/hosting.ts";
 import type { DeviceSummary } from "./device.ts";
 import { hashSessionToken, newSessionToken } from "./session.ts";
 
@@ -483,13 +484,15 @@ export async function enterStudy(db: Database, request: EnterRequest): Promise<E
       return { status: "refused" };
     }
 
-    const [created] = live
+    // A team that's suspended, or at its limit for the month, takes nobody new (ADR 70).
+    const open = live && (await teamTakesNewParticipants(tx, studyId, now)) ? live : null;
+    const [created] = open
       ? await tx
           .insert(schema.participants)
           .values({
             studyId,
             externalId: request.externalId,
-            source: live.settings.entry.source,
+            source: open.settings.entry.source,
           })
           .onConflictDoNothing()
           .returning()
@@ -500,10 +503,10 @@ export async function enterStudy(db: Database, request: EnterRequest): Promise<E
     let settings: StudySettings;
     let place: { worldId: string; actorId: string; conditionId: string };
 
-    if (created && live) {
+    if (created && open) {
       participantId = created.id;
-      version = live.version;
-      settings = live.settings;
+      version = open.version;
+      settings = open.settings;
       place = await enroll(tx, version, settings, participantId, now);
     } else {
       const [existing] = await tx
@@ -527,7 +530,7 @@ export async function enterStudy(db: Database, request: EnterRequest): Promise<E
             eq(schema.participants.externalId, request.externalId),
           ),
         );
-      if (!existing && !live) {
+      if (!existing && !open) {
         return { status: "closed" };
       }
       const [assignment] = existing

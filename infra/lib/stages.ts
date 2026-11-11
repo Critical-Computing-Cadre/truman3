@@ -28,6 +28,8 @@ export interface Stage {
    * never in this file or the repo. See docs/guides/deploying.md.
    */
   anthropicKeySecret?: string;
+  /** A hosted Truman, where labs apply and an operator approves them (ADR 70). */
+  hosted: boolean;
   /** Addresses other than the one CloudFront gives out. The certificate has to be in us-east-1. */
   domains?: { names: [string, ...string[]]; certificateArn: string };
 }
@@ -46,6 +48,8 @@ export const STAGES: Record<string, Stage> = {
     apiTasks: 1,
     databaseStorageGb: 20,
     backupDays: 7,
+    // So applying and approving can be tried here before production.
+    hosted: true,
     // Made by hand in this account and region. The key itself is never in the repo.
     anthropicKeySecret: "truman3-staging/anthropic-api-key",
   },

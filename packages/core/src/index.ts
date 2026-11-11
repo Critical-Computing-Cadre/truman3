@@ -91,3 +91,12 @@ export { hasHashtag, type TextPiece, textPieces } from "./post-text.ts";
 export { createRandom, pickFrom, shuffled } from "./random.ts";
 export { type CurrentFlowStep, canLeaveFeed, currentFlowStep } from "./study/flow.ts";
 export * from "./study/index.ts";
+export {
+  HOSTED_STARTING_LIMITS,
+  TEAM_STATUSES,
+  type TeamApplication,
+  type TeamLimits,
+  type TeamStatus,
+  teamApplicationSchema,
+  teamLimitsSchema,
+} from "./teams.ts";

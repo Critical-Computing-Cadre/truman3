@@ -4,7 +4,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
 import { loadEnvFile } from "node:process";
-import { addResearcherToTeam, setUpTeam } from "@truman3/accounts";
+import { addResearcherToTeam, makeOperator, setUpTeam } from "@truman3/accounts";
 import { createTestDatabase } from "@truman3/db/testing";
 import { savePackFromFolder } from "@truman3/drafts";
 import { createFakeProlific } from "@truman3/recruit/testing";
@@ -199,10 +199,21 @@ export default async function globalSetup() {
   if (shared.status === "failed") {
     throw new Error(shared.issues.map((issue) => issue.message).join("\n"));
   }
+  // Runs this Truman, and approves labs that apply (ADR 70).
+  const operatorEmail = "operator@example.org";
+  const { password: operatorPassword } = await setUpTeam(database.db, {
+    teamName: "Operators",
+    slug: "operators",
+    email: operatorEmail,
+    name: "The Operator",
+  });
+  await makeOperator(database.db, operatorEmail);
   writeFileSync(
     STATE_FILE,
     JSON.stringify({
       databaseUrl: database.url,
+      operatorEmail,
+      operatorPassword,
       otherLabEmail,
       otherLabPassword,
       email,
@@ -225,6 +236,8 @@ export default async function globalSetup() {
         PARTICIPANT_APP_URL: `http://localhost:${APP_PORT}`,
         // These tests sign in far more often than a person does.
         LOGIN_ATTEMPTS_PER_MINUTE: "1000",
+        // Labs can apply. Teams made here are approved, with no limits, so other tests don't notice.
+        HOSTED: "true",
       },
       stdio: "inherit",
     }),

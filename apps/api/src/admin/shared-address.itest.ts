@@ -100,8 +100,16 @@ afterAll(async () => {
   await database.destroy();
 });
 
-/** Anyone can try these. Neither gives anything back. */
-const OPEN_TO_ANYONE = new Set(["POST /admin/login", "POST /admin/logout"]);
+/**
+ * Anyone can try these. None gives anything back but whether this Truman is hosted, which the
+ * sign-in page shows anyway (ADR 70).
+ */
+const OPEN_TO_ANYONE = new Set([
+  "POST /admin/login",
+  "POST /admin/logout",
+  "GET /admin/hosting",
+  "POST /admin/apply",
+]);
 
 /** Every admin route the API has, so a new one is checked without anyone remembering to. */
 function adminRoutes() {
