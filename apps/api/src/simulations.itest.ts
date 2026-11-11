@@ -163,12 +163,13 @@ describe("simulated participants", () => {
       model: "claude-sonnet-5-5",
       // This app has no model, so personas can't be played.
       canPlay: false,
+      noModel: "This server has no Claude key.",
       synthetic: 0,
     });
     const refused = await call("POST", { personas: ["upstander"] });
     expect(refused.status).toBe(400);
     expect(await refused.json()).toEqual({
-      error: "Personas need a Claude key on the server, and this one doesn't have one.",
+      error: "This server has no Claude key.",
     });
     expect((await call("POST", { personas: ["nobody"] })).status).toBe(400);
     expect((await call("POST", { participants: 500 })).status).toBe(400);

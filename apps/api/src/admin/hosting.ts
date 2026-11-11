@@ -9,7 +9,7 @@ import {
   teamLimitsSchema,
 } from "@truman3/core";
 import { type Database, schema, type Transaction } from "@truman3/db";
-import { and, count, countDistinct, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, count, countDistinct, eq, gt, isNotNull, isNull, sql, sum } from "drizzle-orm";
 import { setCookie } from "hono/cookie";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { createResearcherSession, RESEARCHER_COOKIE, researcherFromRequest } from "./session.ts";
@@ -195,6 +195,11 @@ const operatorTeamSchema = z.object({
     runningStudies: z.number(),
     participants: z.number(),
     participantsLast30Days: z.number(),
+    /** Spent on models, in US dollars: on the host's key, and on the lab's own (ADR 71). */
+    hostAiUsd: z.number(),
+    labAiUsd: z.number(),
+    /** Whether the lab has stored its own Claude key. Never the key itself. */
+    hasOwnKey: z.boolean(),
   }),
 });
 
@@ -285,6 +290,16 @@ async function operatorTeams(db: Database, now: Date, onlyTeamId?: string) {
         )
         .groupBy(schema.studies.teamId),
     );
+  const spending = await db
+    .select({
+      teamId: schema.aiSpending.teamId,
+      paidBy: schema.aiSpending.paidBy,
+      total: sum(schema.aiSpending.costUsd),
+    })
+    .from(schema.aiSpending)
+    .groupBy(schema.aiSpending.teamId, schema.aiSpending.paidBy);
+  const spent = (teamId: string, paidBy: string) =>
+    Number(spending.find((row) => row.teamId === teamId && row.paidBy === paidBy)?.total ?? 0);
   const participants = await participantCounts();
   const recent = await participantCounts(new Date(now.getTime() - 30 * DAY_MS));
   const owners = await db
@@ -321,6 +336,9 @@ async function operatorTeams(db: Database, now: Date, onlyTeamId?: string) {
         runningStudies: running.get(team.id) ?? 0,
         participants: participants.get(team.id) ?? 0,
         participantsLast30Days: recent.get(team.id) ?? 0,
+        hostAiUsd: spent(team.id, "host"),
+        labAiUsd: spent(team.id, "lab"),
+        hasOwnKey: team.anthropicKeyEncrypted !== null,
       },
     }));
 }

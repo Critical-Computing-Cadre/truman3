@@ -5,6 +5,8 @@ import { get, post, send } from "../api.ts";
 
 interface ChristofState {
   hasModel: boolean;
+  /** Why this lab can't use Claude now, or null if it can. */
+  noModel: string | null;
   live: { enabled: boolean; model: string; budgetUsd: number };
   spentUsd: number;
   livePaused: boolean;
@@ -147,7 +149,7 @@ export function ChristofCard({ studyId, canEdit }: { studyId: string; canEdit: b
   const status = !live.enabled
     ? "Live writing is off for this version, so improvised beats use their fallback lines."
     : !data.hasModel
-      ? "Live writing is on, but this server has no model key, so fallback lines are used."
+      ? `Live writing is on, but fallback lines are used. ${data.noModel ?? "There's no Claude key."}`
       : livePaused
         ? "Live writing is paused. Fallback lines are used until it's resumed."
         : `Actors write live with ${live.model}.`;

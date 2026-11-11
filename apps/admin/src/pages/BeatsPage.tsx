@@ -100,6 +100,8 @@ function Reference() {
 
 interface Rehearsable {
   hasModel: boolean;
+  /** Why this lab can't use Claude now, or null if it can. */
+  noModel: string | null;
   beats: { id: string; actor: string; action: "post" | "comment" | "message"; lines: number }[];
 }
 
@@ -133,7 +135,7 @@ function Rehearse({ draftId, disabled }: { draftId: string; disabled: boolean })
       </p>
       {!list.data.hasModel && (
         <p className="text-xs text-amber-800">
-          This server has no model key, so it can't rehearse.
+          {list.data.noModel ?? "There's no Claude key."} Lines can't be rehearsed until then.
         </p>
       )}
       <ul className="space-y-1">

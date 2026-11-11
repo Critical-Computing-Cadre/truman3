@@ -3,8 +3,9 @@ import { roleOnStudy } from "@truman3/accounts";
 import { BEATS_FILE } from "@truman3/core";
 import { type ActorData, loadDraft, pageSection, saveSection } from "@truman3/drafts";
 import { parseBeats } from "@truman3/study-files";
-import { NothingWritten } from "@truman3/writer";
+import { NothingWritten, type Writer } from "@truman3/writer";
 import { isMap, isSeq, parseDocument } from "yaml";
+import { whyNoModel, writerFor } from "../ai.ts";
 import { rehearsalPrompt, saysSomething } from "../director/wording.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { researcherFromRequest } from "./session.ts";
@@ -30,6 +31,8 @@ const listRoute = createRoute({
         "application/json": {
           schema: z.object({
             hasModel: z.boolean(),
+            /** Why this lab can't use a model now, or null if it can (ADR 71). */
+            noModel: z.string().nullable(),
             beats: z.array(
               z.object({
                 id: z.string(),
@@ -107,9 +110,11 @@ export function createRehearseRoutes({ db, writer }: ParticipantRouteDependencie
       return c.json({ error: "That isn't available." }, 404);
     }
     const { beats } = parseBeats(loaded.pages[BEATS_FILE] ?? "");
+    const noModel = await whyNoModel(writer, { draftId: c.req.valid("param").draftId });
     return c.json(
       {
-        hasModel: Boolean(writer),
+        hasModel: noModel === null,
+        noModel,
         beats: beats.flatMap(({ id, do: action }) =>
           saysSomething(action) && action.improvise
             ? [{ id, actor: action.actor, action: action.action, lines: action.lines?.length ?? 0 }]
@@ -166,9 +171,11 @@ export function createRehearseRoutes({ db, writer }: ParticipantRouteDependencie
     );
     const name = actor ? (actor.data as ActorData).name : action.actor;
     const { system, user } = rehearsalPrompt(script, action, name);
-    let rehearsed: Awaited<ReturnType<typeof writer.rehearse>>;
+    let rehearsed: Awaited<ReturnType<Writer["rehearse"]>>;
     try {
-      rehearsed = await writer.rehearse({
+      // The study's lab's key, or the host's within its starter budget (ADR 71).
+      const model = (await writerFor(writer, { draftId })) as Writer;
+      rehearsed = await model.rehearse({
         model: script.live.model,
         system,
         prompt: user,

@@ -17,6 +17,7 @@ import { createAdminRoutes } from "./admin/routes.ts";
 import { createScenarioRoutes } from "./admin/scenarios.ts";
 import { createSheetRoutes } from "./admin/sheets.ts";
 import { createSimulationRoutes } from "./admin/simulations.ts";
+import { createTeamAiRoutes } from "./admin/team-ai.ts";
 import { agentLimits, createTokenRoutes } from "./admin/tokens.ts";
 import { describeError } from "./errors.ts";
 import { createFeedRoutes } from "./feed/routes.ts";
@@ -114,6 +115,7 @@ export function createApp({
   app.use("/admin/*", agentLimits);
   app.route("/", createAdminRoutes(participantDependencies));
   app.route("/", createHostingRoutes(participantDependencies));
+  app.route("/", createTeamAiRoutes(participantDependencies));
   app.route("/", createTokenRoutes(participantDependencies));
   // The agent calls this same API, in this process, with a token made for its run.
   app.route(

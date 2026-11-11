@@ -10,7 +10,7 @@ const envSchema = z.object({
   /** How many proxies of ours add to X-Forwarded-For. See client-address.ts. */
   TRUSTED_PROXIES: z.coerce.number().int().nonnegative().default(0),
   LOGIN_ATTEMPTS_PER_MINUTE: z.coerce.number().int().positive().default(10),
-  /** Encrypts researchers' Prolific tokens. Without it, connecting to Prolific is turned off. */
+  /** Encrypts Prolific tokens and labs' own Claude keys. Without it, both are turned off. */
   TRUMAN_SECRET_KEY: z.string().optional(),
   PROLIFIC_API_URL: z.url().optional(),
   /** Lets Christof's actors write live with Claude. Without it, beats use their fallback lines. */

@@ -19,6 +19,8 @@ interface AgentRun {
 
 interface AgentState {
   canRun: boolean;
+  /** Why this lab can't use Claude now, or null if it can. */
+  noModel: string | null;
   model: string;
   defaultBudgetUsd: number;
   runs: AgentRun[];
@@ -131,7 +133,7 @@ export function AgentPage() {
 
       {state.data && !state.data.canRun ? (
         <p className="rounded bg-amber-50 p-3 text-sm">
-          An agent needs a Claude key on the server, and this one doesn't have one.
+          {state.data.noModel ?? "An agent needs a Claude key."} An agent can't run until then.
         </p>
       ) : (
         <form onSubmit={submit} className="space-y-2 rounded-lg bg-white p-3 shadow-sm">

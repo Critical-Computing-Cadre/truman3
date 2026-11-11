@@ -79,7 +79,7 @@ export type TeamStatus = "pending" | "approved" | "suspended";
 export interface Researcher {
   name: string;
   email: string;
-  teams: { name: string; role: string; status: TeamStatus }[];
+  teams: { id: string; name: string; role: string; status: TeamStatus }[];
   /** Runs this Truman, and sees the Labs page (ADR 70). */
   operator: boolean;
   /** A hosted Truman, where labs apply. */
@@ -89,6 +89,17 @@ export interface Researcher {
 export interface TeamLimits {
   participantsPerMonth?: number;
   runningStudies?: number;
+  starterBudgetUsd?: number;
+}
+
+/** A lab's own Claude key, by its last characters, and what it's spent (ADR 71). */
+export interface TeamAi {
+  canStore: boolean;
+  keyHint: string | null;
+  starterBudgetUsd: number | null;
+  hostUsd: number;
+  labUsd: number;
+  labLast30DaysUsd: number;
 }
 
 /** A team as an operator sees it: counts, never content. */
@@ -109,6 +120,9 @@ export interface OperatorTeam {
     runningStudies: number;
     participants: number;
     participantsLast30Days: number;
+    hostAiUsd: number;
+    labAiUsd: number;
+    hasOwnKey: boolean;
   };
 }
 
@@ -205,6 +219,8 @@ export interface Simulations {
   personas: { id: string; about: string }[];
   model: string | null;
   canPlay: boolean;
+  /** Why personas can't be played now, or null if they can. */
+  noModel: string | null;
   synthetic: number;
   latest: {
     status: "running" | "done" | "error";

@@ -2,6 +2,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { roleOnStudy } from "@truman3/accounts";
 import { schema } from "@truman3/db";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { whyNoModel } from "../ai.ts";
 import { decideAwaiting, scriptFor } from "../director/director.ts";
 import type { Writing } from "../director/wording.ts";
 import { spentOn } from "../director/wording.ts";
@@ -42,6 +43,8 @@ const stateRoute = createRoute({
           schema: controlsSchema.extend({
             /** Whether this server can write live at all. */
             hasModel: z.boolean(),
+            /** Why this lab can't use a model now, or null if it can (ADR 71). */
+            noModel: z.string().nullable(),
             live: z.object({ enabled: z.boolean(), model: z.string(), budgetUsd: z.number() }),
             spentUsd: z.number(),
             /** People in the cast who improvise, who can be paused one at a time. */
@@ -236,9 +239,11 @@ export function createChristofRoutes({
       .orderBy(desc(schema.beatRuns.dueAt))
       .limit(RUNS_SHOWN);
 
+    const noModel = await whyNoModel(writer, { studyId });
     return c.json(
       {
-        hasModel: Boolean(writer),
+        hasModel: noModel === null,
+        noModel,
         live: {
           enabled: script?.live.enabled ?? false,
           model: script?.live.model ?? "",

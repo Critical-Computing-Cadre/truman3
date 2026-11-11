@@ -47,6 +47,13 @@ export const teams = pgTable(
     /** When an operator last approved or suspended it, and who. */
     decidedAt: time("decided_at"),
     decidedBy: text("decided_by"),
+    /**
+     * The lab's own Claude key, encrypted with TRUMAN_SECRET_KEY like Prolific tokens. Its model
+     * use is then paid by the lab. ADR 71.
+     */
+    anthropicKeyEncrypted: text("anthropic_key_encrypted"),
+    /** The key's last few characters, so the lab can tell which key it is. */
+    anthropicKeyHint: text("anthropic_key_hint"),
   },
   (table) => [check("teams_status", inList(table.status, ["pending", "approved", "suspended"]))],
 );
@@ -1383,5 +1390,28 @@ export const prolificActions = pgTable(
       "prolific_actions_action",
       inList(table.action, ["created draft", "approved", "paid bonus", "unlinked"]),
     ),
+  ],
+);
+
+/**
+ * Every call to a model, and what it cost, so each team's use can be counted and its starter
+ * budget kept to. `paidBy` says whose key it used: the lab's own, or the host's. ADR 71.
+ */
+export const aiSpending = pgTable(
+  "ai_spending",
+  {
+    id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    teamId: uuid("team_id").references(() => teams.id),
+    studyId: uuid("study_id").references(() => studies.id, { onDelete: "set null" }),
+    /** What it was for: write, check, choose, rehearse, act, or agent. */
+    purpose: text().notNull(),
+    model: text().notNull(),
+    costUsd: numeric("cost_usd", { mode: "number" }).notNull(),
+    paidBy: text("paid_by").notNull(),
+    at: time("at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("ai_spending_team").on(table.teamId, table.paidBy),
+    check("ai_spending_paid_by", inList(table.paidBy, ["lab", "host"])),
   ],
 );
