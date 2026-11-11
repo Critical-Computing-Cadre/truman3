@@ -28,12 +28,28 @@ const inList = (column: AnyPgColumn, values: readonly string[]): SQL =>
   sql`${column} in (${sql.raw(values.map((value) => `'${value}'`).join(", "))})`;
 
 /** A research team. One lab for now, and a hosted version could hold many (see ADR 11). */
-export const teams = pgTable("teams", {
-  id: id(),
-  name: text().notNull(),
-  slug: text().notNull().unique(),
-  createdAt: time("created_at").notNull().defaultNow(),
-});
+export const teams = pgTable(
+  "teams",
+  {
+    id: id(),
+    name: text().notNull(),
+    slug: text().notNull().unique(),
+    createdAt: time("created_at").notNull().defaultNow(),
+    /**
+     * On a hosted Truman, a lab that applies waits for an operator to approve it, and can be
+     * suspended. A team made on the server is approved from the start. ADR 70.
+     */
+    status: text().notNull().default("approved"),
+    /** What a lab said when it applied: its institution and what it wants Truman for. */
+    application: jsonb(),
+    /** The most this team may use. Unset means no limit. See TeamLimits in packages/core. */
+    limits: jsonb().notNull().default({}),
+    /** When an operator last approved or suspended it, and who. */
+    decidedAt: time("decided_at"),
+    decidedBy: text("decided_by"),
+  },
+  (table) => [check("teams_status", inList(table.status, ["pending", "approved", "suspended"]))],
+);
 
 export const researchers = pgTable("researchers", {
   id: id(),
@@ -42,6 +58,11 @@ export const researchers = pgTable("researchers", {
   name: text().notNull(),
   passwordHash: text("password_hash").notNull(),
   createdAt: time("created_at").notNull().defaultNow(),
+  /**
+   * Runs a hosted Truman: approves labs and sets their limits, on a page that shows counts, never
+   * participants' data. Set on the server with `pnpm admin operator`. ADR 70.
+   */
+  operator: boolean().notNull().default(false),
 });
 
 export const teamMemberships = pgTable(

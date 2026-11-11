@@ -74,10 +74,42 @@ export async function post<T>(path: string, body: object = {}): Promise<T> {
   );
 }
 
+export type TeamStatus = "pending" | "approved" | "suspended";
+
 export interface Researcher {
   name: string;
   email: string;
-  teams: { name: string; role: string }[];
+  teams: { name: string; role: string; status: TeamStatus }[];
+  /** Runs this Truman, and sees the Labs page (ADR 70). */
+  operator: boolean;
+  /** A hosted Truman, where labs apply. */
+  hosted: boolean;
+}
+
+export interface TeamLimits {
+  participantsPerMonth?: number;
+  runningStudies?: number;
+}
+
+/** A team as an operator sees it: counts, never content. */
+export interface OperatorTeam {
+  id: string;
+  name: string;
+  slug: string;
+  status: TeamStatus;
+  createdAt: string;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  application: { institution: string; purpose: string; website?: string } | null;
+  owners: { name: string; email: string }[];
+  limits: TeamLimits;
+  usage: {
+    members: number;
+    studies: number;
+    runningStudies: number;
+    participants: number;
+    participantsLast30Days: number;
+  };
 }
 
 export interface StudySummary {

@@ -7,6 +7,7 @@ import { createAgentRoutes } from "./admin/agent.ts";
 import { createArchiveRoutes } from "./admin/archive.ts";
 import { createChristofRoutes } from "./admin/christof.ts";
 import { createDraftRoutes } from "./admin/drafts.ts";
+import { createHostingRoutes } from "./admin/hosting.ts";
 import { createLaunchRoutes } from "./admin/launch.ts";
 import { createMonitorRoutes } from "./admin/monitor.ts";
 import { createPackRoutes } from "./admin/packs.ts";
@@ -112,6 +113,7 @@ export function createApp({
   // Before any admin route, so an agent can't reach what's for people only.
   app.use("/admin/*", agentLimits);
   app.route("/", createAdminRoutes(participantDependencies));
+  app.route("/", createHostingRoutes(participantDependencies));
   app.route("/", createTokenRoutes(participantDependencies));
   // The agent calls this same API, in this process, with a token made for its run.
   app.route(

@@ -42,6 +42,7 @@ const app = createApp({
   mediaPublicUrl: env.MEDIA_PUBLIC_URL,
   secureCookies: env.NODE_ENV !== "development",
   participantAppUrl: env.PARTICIPANT_APP_URL,
+  hosted: env.HOSTED,
   writer,
   prolific: {
     secretKey: env.TRUMAN_SECRET_KEY,

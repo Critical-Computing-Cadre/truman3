@@ -19,6 +19,7 @@ import { LoginPage } from "./pages/LoginPage.tsx";
 import { ModerationPage } from "./pages/ModerationPage.tsx";
 import { MonitorPage } from "./pages/MonitorPage.tsx";
 import { NewStudyPage } from "./pages/NewStudyPage.tsx";
+import { OperatorPage } from "./pages/OperatorPage.tsx";
 import { PersonasPage } from "./pages/PersonasPage.tsx";
 import { PreviewPage } from "./pages/PreviewPage.tsx";
 import { ProlificPage } from "./pages/ProlificPage.tsx";
@@ -29,6 +30,32 @@ import { SpacesPage } from "./pages/SpacesPage.tsx";
 import { StoriesPage } from "./pages/StoriesPage.tsx";
 import { StudiesPage } from "./pages/StudiesPage.tsx";
 import { TokensPage } from "./pages/TokensPage.tsx";
+
+/** Tells a lab that's waiting for approval, or suspended, what it can do now (ADR 70). */
+function TeamNotice({ teams }: { teams: Researcher["teams"] }) {
+  const waiting = teams.filter(({ status }) => status === "pending");
+  const suspended = teams.filter(({ status }) => status === "suspended");
+  const names = (list: Researcher["teams"]) => list.map(({ name }) => name).join(", ");
+  if (waiting.length === 0 && suspended.length === 0) {
+    return null;
+  }
+  return (
+    <div role="status" className="flex flex-col gap-1 bg-amber-50 px-4 py-2 text-sm text-amber-950">
+      {waiting.length > 0 && (
+        <p>
+          <span className="font-medium">{names(waiting)}</span> is waiting to be approved. You can
+          build, preview, and test studies now, and open them to participants once it's approved.
+        </p>
+      )}
+      {suspended.length > 0 && (
+        <p>
+          <span className="font-medium">{names(suspended)}</span> is suspended, so its studies are
+          closed to participants. Please get in touch with whoever runs this Truman.
+        </p>
+      )}
+    </div>
+  );
+}
 
 /** Everything here needs signing in, so this shows the login page until then. */
 function Shell() {
@@ -61,6 +88,11 @@ function Shell() {
         <Link to="/" className="mr-auto font-semibold">
           Truman 3
         </Link>
+        {me.data.operator && (
+          <Link to="/operator" className="underline">
+            Labs
+          </Link>
+        )}
         <Link to="/tokens" className="underline">
           Access for agents
         </Link>
@@ -69,6 +101,7 @@ function Shell() {
           Sign out
         </button>
       </header>
+      <TeamNotice teams={me.data.teams} />
       <Outlet />
     </div>
   );
@@ -172,6 +205,12 @@ const agentRoute = createRoute({
   component: AgentPage,
 });
 
+const operatorRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/operator",
+  component: OperatorPage,
+});
+
 const tokensRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/tokens",
@@ -198,6 +237,7 @@ const router = createRouter({
     monitorRoute,
     prolificRoute,
     tokensRoute,
+    operatorRoute,
     agentRoute,
   ]),
 });

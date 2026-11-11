@@ -1,6 +1,7 @@
 export {
   addResearcherToTeam,
   findResearcherByEmail,
+  makeOperator,
   resetPassword,
   roleOnStudy,
   setUpTeam,

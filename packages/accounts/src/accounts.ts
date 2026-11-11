@@ -122,3 +122,13 @@ export function findResearcherByEmail(db: Database, email: string) {
     .from(schema.researchers)
     .where(eq(schema.researchers.email, normalizeEmail(email)));
 }
+
+/** Lets someone approve labs and set their limits on a hosted Truman. False if there's no account. */
+export async function makeOperator(db: Database, email: string): Promise<boolean> {
+  const [updated] = await db
+    .update(schema.researchers)
+    .set({ operator: true })
+    .where(eq(schema.researchers.email, normalizeEmail(email)))
+    .returning({ id: schema.researchers.id });
+  return Boolean(updated);
+}

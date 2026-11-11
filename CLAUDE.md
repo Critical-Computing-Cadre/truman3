@@ -25,6 +25,7 @@ pnpm study launch <slug> [n]   # open it to participants; pnpm study stop closes
 pnpm study export <slug> <folder>   # write CSVs and a codebook
 pnpm study withdraw <slug> <id> <your name> [reason]   # delete a participant's data
 pnpm admin setup <team name> <team slug> <email> <name>   # create a team and its first researcher
+pnpm admin operator <email>   # on a hosted Truman (HOSTED=true), let them approve labs; see docs/guides/hosting.md
 docker compose up --detach --wait   # local Postgres and S3-compatible storage
 ```
 

@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { type StudySettings, studySettingsSchema } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, ne, or } from "drizzle-orm";
 import type { Context } from "hono";
 import { getCookie } from "hono/cookie";
 
@@ -69,11 +69,15 @@ export async function loadParticipantContext(
     .innerJoin(schema.worlds, eq(schema.worlds.id, schema.worldMemberships.worldId))
     .innerJoin(schema.studyVersions, eq(schema.studyVersions.id, schema.worlds.studyVersionId))
     .innerJoin(schema.participants, eq(schema.participants.id, schema.sessions.participantId))
+    .innerJoin(schema.studies, eq(schema.studies.id, schema.participants.studyId))
+    .leftJoin(schema.teams, eq(schema.teams.id, schema.studies.teamId))
     .where(
       and(
         eq(schema.sessions.tokenHash, hashSessionToken(token)),
         gt(schema.sessions.expiresAt, now),
         eq(schema.participants.status, "active"),
+        // A suspended team's studies stop at once, for everyone in them (ADR 70).
+        or(isNull(schema.teams.status), ne(schema.teams.status, "suspended")),
       ),
     )
     .limit(1);

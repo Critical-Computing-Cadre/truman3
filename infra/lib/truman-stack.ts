@@ -371,6 +371,7 @@ export class TrumanStack extends Stack {
         S3_BUCKET: mediaBucket.bucketName,
         MEDIA_PUBLIC_URL: address,
         PARTICIPANT_APP_URL: address,
+        HOSTED: stage.hosted ? "true" : "false",
         // CloudFront, then the load balancer.
         TRUSTED_PROXIES: "2",
       },

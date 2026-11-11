@@ -1,10 +1,17 @@
-import { addResearcherToTeam, resetPassword, setUpTeam, type TeamRole } from "@truman3/accounts";
+import {
+  addResearcherToTeam,
+  makeOperator,
+  resetPassword,
+  setUpTeam,
+  type TeamRole,
+} from "@truman3/accounts";
 import { createDb } from "@truman3/db";
 
 const USAGE = `Usage:
   pnpm admin setup <team name> <team slug> <your email> <your name>
   pnpm admin add <team slug> <email> <name> <owner|editor|viewer>
-  pnpm admin reset-password <email>`;
+  pnpm admin reset-password <email>
+  pnpm admin operator <email>      lets them approve labs on a hosted Truman (ADR 70)`;
 
 const ROLES: readonly string[] = ["owner", "editor", "viewer"];
 
@@ -49,6 +56,13 @@ try {
     const password = await resetPassword(database.db, args[0]);
     if (password) {
       showPassword(args[0], password);
+    } else {
+      console.error(`There's no account for ${args[0]}.`);
+      process.exitCode = 1;
+    }
+  } else if (command === "operator" && args[0]) {
+    if (await makeOperator(database.db, args[0])) {
+      console.log(`${args[0]} is now an operator. They'll see "Labs" in the admin app.`);
     } else {
       console.error(`There's no account for ${args[0]}.`);
       process.exitCode = 1;
