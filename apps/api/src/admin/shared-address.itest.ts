@@ -109,6 +109,11 @@ const OPEN_TO_ANYONE = new Set([
   "POST /admin/logout",
   "GET /admin/hosting",
   "POST /admin/apply",
+  // Emailed links: they answer the same whether or not there's an account, or need the link's token.
+  "POST /admin/password-reset",
+  "POST /admin/password-reset/complete",
+  "GET /admin/invites/:token",
+  "POST /admin/invites/:token/accept",
 ]);
 
 /** Every admin route the API has, so a new one is checked without anyone remembering to. */

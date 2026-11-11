@@ -41,6 +41,10 @@ const FOR_PEOPLE_ONLY: { methods: string[]; path: RegExp }[] = [
   { methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], path: /^\/admin\/tokens(\/.*)?$/ },
   { methods: ["GET", "PATCH"], path: /^\/admin\/operator(\/.*)?$/ },
   { methods: ["GET", "PUT", "DELETE"], path: /^\/admin\/teams\/[^/]+\/ai$/ },
+  {
+    methods: ["GET", "POST", "PATCH", "DELETE"],
+    path: /^\/admin\/teams\/[^/]+\/(members|invites)(\/.*)?$/,
+  },
 ];
 
 /** The admin path of a request, whether or not it came in under /api. */

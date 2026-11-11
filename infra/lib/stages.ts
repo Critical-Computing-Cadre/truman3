@@ -30,6 +30,12 @@ export interface Stage {
   anthropicKeySecret?: string;
   /** A hosted Truman, where labs apply and an operator approves them (ADR 70). */
   hosted: boolean;
+  /**
+   * Email to researchers through Amazon SES (ADR 72): the domain it's sent from, which this stack
+   * sets up in SES, and the From address. Its DKIM records are printed after a deploy, to add
+   * wherever the domain's DNS is. Leave it out and no email is sent.
+   */
+  mail?: { domain: string; from: string };
   /** Addresses other than the one CloudFront gives out. The certificate has to be in us-east-1. */
   domains?: { names: [string, ...string[]]; certificateArn: string };
 }
@@ -50,6 +56,11 @@ export const STAGES: Record<string, Stage> = {
     backupDays: 7,
     // So applying and approving can be tried here before production.
     hosted: true,
+    // Its own subdomain, so production can have truman-research.org itself.
+    mail: {
+      domain: "staging.truman-research.org",
+      from: "Truman <no-reply@staging.truman-research.org>",
+    },
     // Made by hand in this account and region. The key itself is never in the repo.
     anthropicKeySecret: "truman3-staging/anthropic-api-key",
   },

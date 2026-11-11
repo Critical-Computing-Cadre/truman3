@@ -203,10 +203,11 @@ Each secret reaches a container by reference, when the container starts. None is
 
 ## What else the stack makes
 
+- **An SES domain identity,** for email to researchers, if the stage has `mail` (ADR 72). Only the API's task role can send from it. Its DKIM records are outputs, to add where the domain's DNS is kept.
 - **IAM roles.** The API's task role can read, write, and delete in the media bucket. Each task's execution role can pull the image, write its logs, and read its own secrets. CDK writes these from the code.
 - **Small Lambda functions of CDK's own,** for copying the apps' files into their bucket and emptying buckets when the stack is removed.
 - **Tags** on everything: `Project=truman3`, `Stage=staging`, and `RealParticipants=no`.
-- **Outputs:** `Address`, `AdminAddress`, `UpdateDatabaseCommand`, and `AdminCommand`.
+- **Outputs:** `Address`, `AdminAddress`, `UpdateDatabaseCommand`, `AdminCommand`, and, with `mail`, `MailDkimRecord1` to `3`.
 
 ## How a deploy works
 

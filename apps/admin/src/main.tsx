@@ -16,6 +16,7 @@ import { BeatsPage } from "./pages/BeatsPage.tsx";
 import { CastPage } from "./pages/CastPage.tsx";
 import { DraftPage } from "./pages/DraftPage.tsx";
 import { LabPage } from "./pages/LabPage.tsx";
+import { InvitePage, ResetPage } from "./pages/LinkPages.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
 import { ModerationPage } from "./pages/ModerationPage.tsx";
 import { MonitorPage } from "./pages/MonitorPage.tsx";
@@ -73,6 +74,14 @@ function Shell() {
     },
   });
 
+  // An emailed link's page works signed in or not (ADR 72).
+  const linkPage = window.location.pathname.replace(/\/$/, "").split("/").at(-1);
+  if (linkPage === "reset") {
+    return <ResetPage />;
+  }
+  if (linkPage === "invite") {
+    return <InvitePage />;
+  }
   if (me.error instanceof ApiError && me.error.status === 401) {
     return <LoginPage />;
   }
@@ -89,11 +98,9 @@ function Shell() {
         <Link to="/" className="mr-auto font-semibold">
           Truman 3
         </Link>
-        {me.data.hosted && (
-          <Link to="/lab" className="underline">
-            Your lab
-          </Link>
-        )}
+        <Link to="/lab" className="underline">
+          Your lab
+        </Link>
         {me.data.operator && (
           <Link to="/operator" className="underline">
             Labs

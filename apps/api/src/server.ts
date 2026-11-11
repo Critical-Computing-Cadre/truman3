@@ -10,6 +10,7 @@ import { forwardedAddress } from "./client-address.ts";
 import { parseServerEnv } from "./env.ts";
 import { describeError } from "./errors.ts";
 import { createLive } from "./live.ts";
+import { consoleMailer, fileMailer, sesMailer, unsentMailer } from "./mail.ts";
 import { expoPush, startPushing } from "./push.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 
@@ -37,6 +38,15 @@ const writer = createAi({
   secretKey: parseSecretKey(env.TRUMAN_SECRET_KEY),
 });
 
+// Email to researchers (ADR 72).
+const mailer = env.TEST_MAIL_OUTBOX
+  ? fileMailer(env.TEST_MAIL_OUTBOX)
+  : env.MAIL_FROM
+    ? sesMailer({ region: env.MAIL_REGION, from: env.MAIL_FROM })
+    : env.NODE_ENV === "development"
+      ? consoleMailer()
+      : unsentMailer();
+
 const live = createLive({ db: database.db, writer });
 
 const app = createApp({
@@ -52,6 +62,8 @@ const app = createApp({
   participantAppUrl: env.PARTICIPANT_APP_URL,
   hosted: env.HOSTED,
   secretKey: env.TRUMAN_SECRET_KEY,
+  mailer,
+  adminAppUrl: env.ADMIN_APP_URL,
   writer,
   prolific: {
     secretKey: env.TRUMAN_SECRET_KEY,

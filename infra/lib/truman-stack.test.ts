@@ -489,3 +489,30 @@ describe("building it for real", () => {
     expect(copied).toBe("");
   });
 });
+
+describe("email to researchers (ADR 72)", () => {
+  it("sets up the stage's sending domain, and lets only the API send from it", () => {
+    template.hasResourceProperties("AWS::SES::EmailIdentity", {
+      EmailIdentity: "staging.truman-research.org",
+    });
+    const grants = Object.values(template.findResources("AWS::IAM::Policy")).filter((policy) =>
+      JSON.stringify(policy).includes("ses:SendEmail"),
+    );
+    expect(grants).toHaveLength(1);
+    expect(JSON.stringify(grants[0])).toContain("ApiTask");
+    template.hasResourceProperties("AWS::ECS::TaskDefinition", {
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Environment: Match.arrayWith([
+            { Name: "MAIL_FROM", Value: "Truman <no-reply@staging.truman-research.org>" },
+          ]),
+        }),
+      ]),
+    });
+  });
+
+  it("sends nothing from a stage without a mail domain", () => {
+    const { mail: _, ...withoutMail } = staging;
+    build(withoutMail).resourceCountIs("AWS::SES::EmailIdentity", 0);
+  });
+});

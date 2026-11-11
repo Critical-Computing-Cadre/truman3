@@ -1415,3 +1415,34 @@ export const aiSpending = pgTable(
     check("ai_spending_paid_by", inList(table.paidBy, ["lab", "host"])),
   ],
 );
+
+/**
+ * A link emailed to someone: to reset their password, or to join a team. Only a hash of its token
+ * is kept, it works once, and it runs out. ADR 72.
+ */
+export const researcherLinks = pgTable(
+  "researcher_links",
+  {
+    id: id(),
+    kind: text().notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    /** Who it was sent to, in lowercase. */
+    email: text().notNull(),
+    /** For a reset, whose password it resets. */
+    researcherId: uuid("researcher_id").references(() => researchers.id, { onDelete: "cascade" }),
+    /** For an invitation, the team and the role they'd have. */
+    teamId: uuid("team_id").references(() => teams.id),
+    role: text(),
+    createdBy: uuid("created_by").references(() => researchers.id, { onDelete: "set null" }),
+    createdAt: time("created_at").notNull().defaultNow(),
+    expiresAt: time("expires_at").notNull(),
+    usedAt: time("used_at"),
+  },
+  (table) => [
+    check("researcher_links_kind", inList(table.kind, ["reset", "invite"])),
+    check(
+      "researcher_links_role",
+      sql`${table.role} is null or ${table.role} in ('owner', 'editor', 'viewer')`,
+    ),
+  ],
+);

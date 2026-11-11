@@ -22,6 +22,7 @@ import * as rds from "aws-cdk-lib/aws-rds";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as secrets from "aws-cdk-lib/aws-secretsmanager";
+import * as ses from "aws-cdk-lib/aws-ses";
 import { IgnoreMode } from "aws-cdk-lib/core";
 import type { Construct } from "constructs";
 import type { Stage } from "./stages.ts";
@@ -372,6 +373,8 @@ export class TrumanStack extends Stack {
         MEDIA_PUBLIC_URL: address,
         PARTICIPANT_APP_URL: address,
         HOSTED: stage.hosted ? "true" : "false",
+        ADMIN_APP_URL: `${address}/admin/`,
+        ...(stage.mail ? { MAIL_FROM: stage.mail.from, MAIL_REGION: stage.region } : {}),
         // CloudFront, then the load balancer.
         TRUSTED_PROXIES: "2",
       },
@@ -474,6 +477,21 @@ export class TrumanStack extends Stack {
       .join(",")}],securityGroups=[${tasksFirewall.securityGroupId}],assignPublicIp=ENABLED}`;
     const runTask = (family: string) =>
       `aws ecs run-task --cluster ${cluster.clusterName} --launch-type FARGATE --task-definition ${family} --network-configuration "${taskNetwork}"`;
+
+    // Email to researchers (ADR 72). SES checks the domain through DKIM records, which go wherever
+    // the domain's DNS is kept, so they're printed rather than made here.
+    if (stage.mail) {
+      const mailDomain = new ses.EmailIdentity(this, "MailDomain", {
+        identity: ses.Identity.domain(stage.mail.domain),
+      });
+      mailDomain.grantSendEmail(apiTask.taskRole);
+      mailDomain.dkimRecords.forEach((record, index) => {
+        new CfnOutput(this, `MailDkimRecord${index + 1}`, {
+          value: `${record.name} CNAME ${record.value}`,
+          description: `DKIM record ${index + 1} of ${mailDomain.dkimRecords.length} for ${stage.mail?.domain}. Add it as a CNAME where the domain's DNS is kept.`,
+        });
+      });
+    }
 
     new CfnOutput(this, "Address", { value: address, description: "The participant app" });
     new CfnOutput(this, "AdminAddress", {

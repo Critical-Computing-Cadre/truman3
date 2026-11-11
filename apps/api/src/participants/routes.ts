@@ -12,6 +12,7 @@ import type { ProlificConfig } from "../admin/prolific.ts";
 import { catchUp } from "../director/director.ts";
 import { mediaUrl, participantKarma } from "../feed/build.ts";
 import type { Live } from "../live.ts";
+import type { Mailer } from "../mail.ts";
 import { summarizeDevice } from "./device.ts";
 import { enterStudy, entrySettings } from "./enter.ts";
 import { hashSessionToken, participantFromRequest, realClock, SESSION_COOKIE } from "./session.ts";
@@ -183,6 +184,10 @@ export interface ParticipantRouteDependencies {
   hosted?: boolean;
   /** TRUMAN_SECRET_KEY, which encrypts labs' own Claude keys (ADR 71). */
   secretKey?: string | undefined;
+  /** Sends email to researchers (ADR 72). Leave out and nothing is sent. */
+  mailer?: Mailer;
+  /** The admin app's public address, for links in email, such as https://example.org/admin/. */
+  adminAppUrl?: string;
 }
 
 export function createParticipantRoutes(dependencies: ParticipantRouteDependencies) {
