@@ -430,7 +430,7 @@ describe("when it's removed", () => {
 });
 
 describe("costs and labels", () => {
-  it("has no NAT gateway, and one small container and database", () => {
+  it("has no NAT gateway, one container with one CPU, and a small database", () => {
     template.resourceCountIs("AWS::EC2::NatGateway", 0);
     template.hasResourceProperties("AWS::RDS::DBInstance", {
       DBInstanceClass: "db.t4g.micro",
@@ -440,8 +440,9 @@ describe("costs and labels", () => {
     });
     template.hasResourceProperties("AWS::ECS::Service", { DesiredCount: 1 });
     template.hasResourceProperties("AWS::ECS::TaskDefinition", {
-      Cpu: "256",
-      Memory: "512",
+      // A quarter of a CPU wasn't enough for 50 people in one shared world (ADR 69).
+      Cpu: "1024",
+      Memory: "2048",
       RuntimePlatform: { CpuArchitecture: "ARM64" },
     });
   });

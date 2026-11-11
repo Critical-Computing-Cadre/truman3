@@ -227,6 +227,50 @@ describe("a shared world", () => {
     expect(feed.find(({ body }) => body === "Ann's post")?.likes).toBe(1);
   });
 
+  it("shares a catch-up between loads at once, and each still sees what came due (ADR 69)", async () => {
+    const slug = await study(undefined, {
+      "beats.yaml": `
+beats:
+  - { id: bob-greets, when: { time: "0:01" }, do: { action: post, actor: bob, text: Hello everyone } }
+`,
+    });
+    const ann = await join(slug);
+    const cal = await join(slug);
+    const { worldId } = await placeOf(ann.externalId);
+    await database.db
+      .update(schema.worlds)
+      .set({ startedAt: sql`${schema.worlds.startedAt} - interval '2 minutes'` })
+      .where(eq(schema.worlds.id, worldId));
+
+    const loads = await Promise.all([ann.feed(), cal.feed(), ann.feed(), cal.feed()]);
+    for (const feed of loads) {
+      expect(feed.filter(({ body }) => body === "Hello everyone")).toHaveLength(1);
+    }
+  });
+
+  it("doesn't share a catch-up when each participant has timed beats of their own", async () => {
+    const slug = await study(undefined, {
+      "beats.yaml": `
+beats:
+  - { id: bob-hi, per: participant, when: { time: "0:01" }, do: { action: post, actor: bob, text: Hi there } }
+`,
+    });
+    const ann = await join(slug);
+    const cal = await join(slug);
+    const { worldId } = await placeOf(ann.externalId);
+    await database.db
+      .update(schema.worlds)
+      .set({ startedAt: sql`${schema.worlds.startedAt} - interval '2 minutes'` })
+      .where(eq(schema.worlds.id, worldId));
+
+    await Promise.all([ann.feed(), cal.feed()]);
+    const runs = await database.db
+      .select()
+      .from(schema.beatRuns)
+      .where(and(eq(schema.beatRuns.worldId, worldId), eq(schema.beatRuns.status, "fired")));
+    expect(new Set(runs.map(({ forActorId }) => forActorId)).size).toBe(2);
+  });
+
   it("when someone withdraws, what they wrote leaves everyone's feed, and the world stays", async () => {
     const slug = await study();
     const ann = await join(slug);

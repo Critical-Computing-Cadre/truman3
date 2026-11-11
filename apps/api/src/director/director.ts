@@ -581,13 +581,13 @@ export interface CatchUpOptions {
    * check such as `/me`. Order is kept, so `unless` always sees what came before.
    */
   mayWrite?: boolean;
+  /**
+   * Waits for a catch-up of this world that's already running on this copy of the API, instead
+   * of starting another. For loading a page, not for after someone does something (ADR 69).
+   */
+  join?: boolean;
 }
 
-/**
- * Decides every beat that has come due in this world, oldest first, and does what each says. A
- * beat that follows another is written down as that one happens, so a chain plays out in one go.
- * Called before anything is loaded and after the participant does something.
- */
 /**
  * How a run is claimed while it's decided, so only one request decides it. Runs waiting for a
  * researcher are claimed as "being approved" instead, which is never retried, since their
@@ -597,10 +597,51 @@ const BEING_DECIDED = "being decided";
 /** Longer than any model call, so a run still being decided is never taken back. */
 const STUCK_AFTER_MS = 10 * 60_000;
 
+/**
+ * Catch-ups running now on this copy of the API, by world, and whether they may write. In a shared
+ * world one new post sends everyone to load their feed at once, and one catch-up does for them all.
+ */
+const running = new Map<string, Promise<void>>();
+
+/**
+ * Decides every beat that has come due in this world, oldest first, and does what each says. A
+ * beat that follows another is written down as that one happens, so a chain plays out in one go.
+ * Called before anything is loaded and after the participant does something.
+ */
 export async function catchUp(
   db: Database,
   context: ParticipantContext,
-  { now, writer = null, mayWrite = false }: CatchUpOptions,
+  { now, writer = null, mayWrite = false, join = false }: CatchUpOptions,
+) {
+  const key = `${context.worldId}:${mayWrite}`;
+  const already = join ? running.get(key) : undefined;
+  // Timed beats for each participant are only noticed as that participant, so their loads can't
+  // rely on someone else's catch-up.
+  if (already && !(await hasTimedBeatsOfTheirOwn(db, context))) {
+    return already;
+  }
+  const done = decideDue(db, context, now, writer, mayWrite).finally(() => {
+    if (running.get(key) === done) {
+      running.delete(key);
+    }
+  });
+  running.set(key, done);
+  return done;
+}
+
+async function hasTimedBeatsOfTheirOwn(db: Database, context: ParticipantContext) {
+  const script = await scriptFor(db, context.studyVersionId);
+  return cuesOf(script).some(
+    (beat) => "time" in beat.when && inCondition(beat, context) && forActorOf(beat, context),
+  );
+}
+
+async function decideDue(
+  db: Database,
+  context: ParticipantContext,
+  now: Date,
+  writer: Writer | null,
+  mayWrite: boolean,
 ) {
   const script = await scriptFor(db, context.studyVersionId);
   const cues = cuesOf(script);

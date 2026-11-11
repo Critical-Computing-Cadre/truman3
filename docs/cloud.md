@@ -118,7 +118,7 @@ Both buckets block all public access, are encrypted, and refuse requests that ar
 
 The image is built from the repo's `Dockerfile` by `cdk deploy`, on the computer running it, for `linux/arm64`. It holds `apps/api`, `apps/cli`, `packages/*` except `ui`, and `studies/starters`. `.dockerignore` lists only what's needed, so `.env` can't get in. Node runs the TypeScript directly, and the image sets `NODE_ENV=production`.
 
-One ECS cluster, `truman3-staging`, runs three task definitions from that image. Each is ARM64, with 0.25 vCPU and 512 MB on staging (`apiCpu`, `apiMemoryMb`).
+One ECS cluster, `truman3-staging`, runs three task definitions from that image. Each is ARM64, with 1 vCPU and 2 GB on staging (`apiCpu`, `apiMemoryMb`). It was a quarter of that until a load test of 50 people in one shared world ran it flat out ([ADR 69](adr/0069-feeds-under-load.md)).
 
 | Task definition                   | Runs                                           | Database login | Secrets it gets                                  | Logs to                  |
 | --------------------------------- | ---------------------------------------------- | -------------- | ------------------------------------------------ | ------------------------ |

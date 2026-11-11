@@ -254,7 +254,12 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
     }
     // Checked often, in the background, for the unread count, so it's where a beat that needs a
     // model gets its words written. A page someone's looking at never waits for one.
-    await catchUp(db, context, { writer, mayWrite: true, now: clock() });
+    await catchUp(db, context, {
+      writer,
+      mayWrite: true,
+      now: clock(),
+      join: true,
+    });
 
     const [row] = await db
       .select({ username: schema.actors.username, profile: schema.actors.profile })
