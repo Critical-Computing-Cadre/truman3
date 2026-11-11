@@ -2,7 +2,7 @@
 
 A hosted Truman lets other labs run studies on your server, instead of deploying their own. This guide is for whoever runs it, the **operator**. Why it works this way is in [ADR 70](../adr/0070-hosted-truman-applying-and-approving.md).
 
-A hosted Truman is still being built. This guide covers what's there now: labs applying, approving them, and their limits. Each lab's own Claude key, email, and the production stage come next.
+A hosted Truman is still being built. This guide covers what's there now: labs applying, approving them, their limits, and paying for Claude. Email and the production stage come next.
 
 ## Turning it on
 
@@ -21,7 +21,7 @@ You need an account first. `pnpm admin setup` makes one, with a team of your own
 1. **It applies** from the sign-in page: "New to Truman? Apply for your lab". It gives the lab's name, institution, an optional web page, and what it wants to study.
 2. **It's signed in at once,** and told it's waiting for approval. Meanwhile it can build, preview, and test studies, but not open them to participants.
 3. **You see it** under **Labs** in the admin app, at the top, with its application and who applied.
-4. **You approve it.** It gets the starting limits: 1,000 new participants in any 30 days, and 10 studies open at once.
+4. **You approve it.** It gets the starting limits: 1,000 new participants in any 30 days, 10 studies open at once, and a $5 starter budget on your Claude key.
 
 Nobody's told by email yet. That's coming. For now, write to the applicant yourself.
 
@@ -41,6 +41,15 @@ Each lab has two limits, and you can change either on the Labs page:
 - **Studies open at once:** launching another is refused until one is stopped.
 
 Leave a box blank for no limit. Teams made with `pnpm admin setup` have no limits.
+
+## Paying for Claude
+
+Live writing, rehearsing lines, personas, and agents call Claude ([ADR 71](../adr/0071-each-labs-own-claude-key.md)):
+- **A lab with its own key pays for its own use.** An owner adds it under **Your lab**. It's stored encrypted with `TRUMAN_SECRET_KEY`, so that has to be set.
+- **A lab without one uses your key** (`ANTHROPIC_API_KEY`) up to its **starter budget**: $5 when it's approved, which you can change on the Labs page. After that, its studies use their fixed and fallback lines until it adds a key.
+- **A lab waiting for approval** can't use your key at all.
+
+The Labs page shows what each lab has spent on your key and on its own. You never see a lab's key, only whether it has one.
 
 ## Suspending a lab
 

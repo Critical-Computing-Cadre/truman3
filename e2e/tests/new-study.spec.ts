@@ -342,7 +342,7 @@ test("a researcher writes beats in the builder, and sees what's wrong with them"
   await page.reload();
   await expect(beats).toHaveValue(/actor: trailhead/);
 
-  // A beat that improvises can be rehearsed. This server has no model key, so it says so.
+  // A beat that improvises can be rehearsed. This lab has no Claude key, so it says so (ADR 71).
   await beats.fill(`beats:
   - id: welcome
     when: { participant: post, nth: 0 }
@@ -358,7 +358,7 @@ test("a researcher writes beats in the builder, and sees what's wrong with them"
   const rehearse = page.getByRole("region", { name: "Rehearse" });
   await expect(rehearse).toContainText("welcome");
   await expect(rehearse).toContainText("comment by trailhead, 2 lines");
-  await expect(rehearse).toContainText("This server has no model key");
+  await expect(rehearse).toContainText("There's no Claude key, so add your lab's own.");
   await expect(rehearse.getByRole("button", { name: "Rehearse" })).toBeDisabled();
   await page.screenshot({ path: testInfo.outputPath("rehearse.png"), fullPage: true });
 });
@@ -540,10 +540,12 @@ test("a researcher writes scenario tests, sees them run when a version is saved,
   await expect(page.getByTestId("simulation")).toContainText("6 participants at random, seed");
   await page.screenshot({ path: testInfo.outputPath("simulation.png"), fullPage: true });
 
-  // Personas are listed, but need a Claude key, which this server doesn't have.
+  // Personas are listed, but need a Claude key, which this lab doesn't have (ADR 71).
   await page.getByRole("radio", { name: "Personas" }).check();
   await expect(page.getByText("Reads everything and rarely posts.")).toBeVisible();
-  await expect(page.getByRole("alert").filter({ hasText: "need a Claude key" })).toBeVisible();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Personas can't be played until then" }),
+  ).toBeVisible();
 
   // Kept as synthetic data, they download only by themselves.
   await page.getByRole("radio", { name: "At random" }).check();
@@ -586,7 +588,7 @@ test("a researcher archives a study to tidy the list, and deletes one only they 
   await expect(page.getByText(title)).toHaveCount(0);
 });
 
-test("a study can start from a brief for an agent, which says when the server has no Claude key", async ({
+test("a study can start from a brief for an agent, which says when there's no Claude key", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "Runs once.");
@@ -601,7 +603,7 @@ test("a study can start from a brief for an agent, which says when the server ha
 
   // The test servers have no Claude key, so the Agent page says so instead of starting.
   await expect(page.getByRole("heading", { name: "Agent" })).toBeVisible();
-  await expect(page.getByText("An agent needs a Claude key on the server")).toBeVisible();
+  await expect(page.getByText("There's no Claude key, so add your lab's own.")).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("agent-without-key.png"), fullPage: true });
   await page.getByRole("link", { name: "Back to the draft" }).click();
   await expect(page.getByRole("link", { name: "Agent", exact: true })).toBeVisible();

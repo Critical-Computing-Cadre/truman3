@@ -234,6 +234,7 @@ Beats act through the same tables as scripted reactions, such as `content` with 
 
 - **Off by default.** A study turns it on in `beats.yaml`, with a budget, and every improvised beat has a fallback line.
 - **`anthropicWriter`** calls Claude through the Anthropic SDK. It needs `ANTHROPIC_API_KEY`. Without the key, beats use their fallback lines. `standInWriter` is for tests.
+- **Whose key pays** is decided in `apps/api/src/ai.ts` ([ADR 71](adr/0071-each-labs-own-claude-key.md)). The four places that call a model ask `writerFor` for the study's writer. On a hosted Truman, that's the lab's own key if it stored one, or else the host's key within the lab's starter budget. Every call's cost is recorded in `ai_spending`.
 - **A second call checks each line** against limits every study has, plus the study's and the actor's red lines.
 - **The model sees only what the actor would.** Its persona, what it said before in this world, and what it's acting on.
 - **Everything is recorded** in `beat_runs.writing`: the prompt, the model, what it wrote, the check, and the cost. The Monitor page can pause live writing for a study or one actor.

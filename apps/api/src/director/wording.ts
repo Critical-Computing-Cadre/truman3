@@ -3,6 +3,7 @@ import type { BeatDefinition, BeatsFile, Persona } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { ALWAYS_OFF_LIMITS, NothingWritten, type Writer } from "@truman3/writer";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { writerFor } from "../ai.ts";
 import type { ParticipantContext } from "../participants/session.ts";
 
 /**
@@ -275,7 +276,9 @@ export async function chooseWords(
   if (!script.live.enabled) {
     return fallback("live writing is off for this study");
   }
-  if (!writer) {
+  // The study's lab's key, or the host's within its starter budget (ADR 71).
+  const model = await writerFor(writer, { studyVersionId: context.studyVersionId });
+  if (!model) {
     return fallback("this server has no model set up");
   }
   const controls = await controlsFor(db, context.studyVersionId);
@@ -303,7 +306,7 @@ export async function chooseWords(
   if (rehearsed.length > 0 && script.live.stray !== "always") {
     let chosen: Awaited<ReturnType<Writer["choose"]>>;
     try {
-      chosen = await writer.choose({
+      chosen = await model.choose({
         ...request,
         lines: rehearsed,
         allowNew: script.live.stray === "choose",
@@ -326,7 +329,7 @@ export async function chooseWords(
       };
     }
     // None fitted, so it wrote its own, which is checked like any other.
-    const checked = await writer.check(chosen.text, limits, script.live.model).catch(() => null);
+    const checked = await model.check(chosen.text, limits, script.live.model).catch(() => null);
     const costUsd = chosen.costUsd + (checked?.costUsd ?? 0);
     if (!checked?.allowed) {
       return fallback(
@@ -356,7 +359,7 @@ export async function chooseWords(
   }
   let written: Awaited<ReturnType<Writer["write"]>>;
   try {
-    written = await writer.write({
+    written = await model.write({
       model: script.live.model,
       system,
       prompt: user,
@@ -368,7 +371,7 @@ export async function chooseWords(
   }
   let checked: Awaited<ReturnType<Writer["check"]>>;
   try {
-    checked = await writer.check(written.text, limits, script.live.model);
+    checked = await model.check(written.text, limits, script.live.model);
   } catch {
     return fallback("the check couldn't be run", {
       model: written.model,

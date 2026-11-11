@@ -102,6 +102,14 @@ function TeamCard({ team }: { team: OperatorTeam }) {
         {usage.runningStudies} open · {usage.participants} participants,{" "}
         {usage.participantsLast30Days} in the last 30 days
       </p>
+      <p className="text-sm">
+        Claude: ${usage.hostAiUsd.toFixed(2)} on your key
+        {team.limits.starterBudgetUsd !== undefined &&
+          ` of a $${team.limits.starterBudgetUsd} starter budget`}
+        {usage.hasOwnKey
+          ? ` · its own key, $${usage.labAiUsd.toFixed(2)} so far`
+          : " · no key of its own yet"}
+      </p>
       {/* Starts again from what's saved whenever that changes, such as on approval. */}
       <LimitsForm
         key={JSON.stringify(team.limits)}
@@ -155,9 +163,11 @@ function LimitsForm({
   const shown = (value?: number) => (value === undefined ? "" : String(value));
   const [participants, setParticipants] = useState(shown(team.limits.participantsPerMonth));
   const [running, setRunning] = useState(shown(team.limits.runningStudies));
+  const [starter, setStarter] = useState(shown(team.limits.starterBudgetUsd));
   const changed =
     participants !== shown(team.limits.participantsPerMonth) ||
-    running !== shown(team.limits.runningStudies);
+    running !== shown(team.limits.runningStudies) ||
+    starter !== shown(team.limits.starterBudgetUsd);
   const asLimit = (value: string) => (value.trim() === "" ? undefined : Number(value));
 
   return (
@@ -173,6 +183,10 @@ function LimitsForm({
         }
         if (open !== undefined) {
           limits.runningStudies = open;
+        }
+        const budget = asLimit(starter);
+        if (budget !== undefined) {
+          limits.starterBudgetUsd = budget;
         }
         onSave(limits);
       }}
@@ -196,6 +210,18 @@ function LimitsForm({
           placeholder="No limit"
           value={running}
           onChange={(event) => setRunning(event.target.value)}
+          className="w-36 rounded border border-stone-300 px-2 py-1"
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        Starter budget on your key ($)
+        <input
+          type="number"
+          min={0}
+          step="any"
+          placeholder="No limit"
+          value={starter}
+          onChange={(event) => setStarter(event.target.value)}
           className="w-36 rounded border border-stone-300 px-2 py-1"
         />
       </label>

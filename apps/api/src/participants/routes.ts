@@ -181,6 +181,8 @@ export interface ParticipantRouteDependencies {
   live?: Live;
   /** Whether this is a hosted Truman, where labs apply and an operator approves them (ADR 70). */
   hosted?: boolean;
+  /** TRUMAN_SECRET_KEY, which encrypts labs' own Claude keys (ADR 71). */
+  secretKey?: string | undefined;
 }
 
 export function createParticipantRoutes(dependencies: ParticipantRouteDependencies) {

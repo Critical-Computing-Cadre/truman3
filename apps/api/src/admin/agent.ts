@@ -5,6 +5,7 @@ import { AGENT_TOOLS, GUIDE, trumanClient } from "@truman3/agent-tools";
 import { type Database, schema } from "@truman3/db";
 import type { AgentStep, Writer } from "@truman3/writer";
 import { desc, eq } from "drizzle-orm";
+import { whyNoModel, writerFor } from "../ai.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { hashSessionToken } from "../participants/session.ts";
 import { researcherFromRequest, TOKEN_PREFIX } from "./session.ts";
@@ -65,6 +66,8 @@ const listRoute = createRoute({
         "application/json": {
           schema: z.object({
             canRun: z.boolean(),
+            /** Why this lab can't use a model now, or null if it can (ADR 71). */
+            noModel: z.string().nullable(),
             model: z.string(),
             defaultBudgetUsd: z.number(),
             runs: z.array(runSchema),
@@ -176,7 +179,9 @@ async function runAgent({
   const record = (values: Partial<typeof schema.agentRuns.$inferInsert>) =>
     db.update(schema.agentRuns).set(values).where(eq(schema.agentRuns.id, run.id));
   try {
-    const result = await writer.runAgent({
+    // The study's lab's key, or the host's within its starter budget (ADR 71).
+    const model = (await writerFor(writer, { draftId: run.draftId })) as Writer;
+    const result = await model.runAgent({
       model: run.model,
       system: instructions(run.draftId, studyTitle),
       prompt: run.brief,
@@ -262,9 +267,11 @@ export function createAgentRoutes({
       .where(eq(schema.agentRuns.draftId, draftId))
       .orderBy(desc(schema.agentRuns.startedAt))
       .limit(10);
+    const noModel = await whyNoModel(writer, { draftId });
     return c.json(
       {
-        canRun: Boolean(writer),
+        canRun: noModel === null,
+        noModel,
         model: AGENT_MODEL,
         defaultBudgetUsd: DEFAULT_BUDGET_USD,
         runs: rows.map(({ run, name }) => toJson(run, name)),
@@ -290,11 +297,9 @@ export function createAgentRoutes({
     if (!found.canEdit) {
       return c.json({ error: "You can only view this study." }, 403);
     }
-    if (!writer) {
-      return c.json(
-        { error: "An agent needs a Claude key on the server, and this one doesn't have one." },
-        400,
-      );
+    const noModel = await whyNoModel(writer, { draftId });
+    if (!writer || noModel) {
+      return c.json({ error: noModel ?? "An agent needs a Claude key." }, 400);
     }
     const { brief, budgetUsd } = c.req.valid("json");
     const [busy] = await db

@@ -588,6 +588,7 @@ beats:
 
     expect(await (await call("GET")).json()).toEqual({
       hasModel: true,
+      noModel: null,
       beats: [{ id: "reply", actor: "ann", action: "comment", lines: 2 }],
     });
     const response = await call("POST", { beat: "reply", count: 3 });

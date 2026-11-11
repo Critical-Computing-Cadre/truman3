@@ -6,6 +6,7 @@ import type { Storage } from "@truman3/storage";
 import { parsePersonas } from "@truman3/study-files";
 import type { Writer } from "@truman3/writer";
 import { and, desc, eq, gt } from "drizzle-orm";
+import { whyNoModel } from "../ai.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import {
   findings,
@@ -103,6 +104,8 @@ const simulationsSchema = z.object({
   model: z.string().nullable(),
   /** Whether a model is set up on this server, so personas can run. */
   canPlay: z.boolean(),
+  /** Why personas can't be played now, or null if they can (ADR 71). */
+  noModel: z.string().nullable(),
   /** How many synthetic participants this study has kept. */
   synthetic: z.number(),
 });
@@ -301,7 +304,10 @@ export function createSimulationRoutes({
       personas: (cast?.personas ?? []).map(({ id, about }) => ({ id, about })),
       model: cast?.model ?? null,
     }))),
-    canPlay: writer !== null,
+    ...(await whyNoModel(writer, { studyVersionId: versionId }).then((noModel) => ({
+      canPlay: noModel === null,
+      noModel,
+    }))),
     synthetic: found.version ? await syntheticCount(found.version.studyId) : 0,
   });
 
@@ -336,11 +342,9 @@ export function createSimulationRoutes({
       if (missing) {
         return c.json({ error: `There's no persona "${missing}" in this version.` }, 400);
       }
-      if (!writer) {
-        return c.json(
-          { error: "Personas need a Claude key on the server, and this one doesn't have one." },
-          400,
-        );
+      const noModel = await whyNoModel(writer, { studyVersionId: versionId });
+      if (noModel) {
+        return c.json({ error: noModel }, 400);
       }
     }
     const playing = personas && personas.length > 0 ? personas : undefined;

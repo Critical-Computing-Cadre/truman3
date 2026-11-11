@@ -1,8 +1,10 @@
 import { serve } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { connectedAsOwner, createDb } from "@truman3/db";
+import { parseSecretKey } from "@truman3/recruit";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { anthropicWriter } from "@truman3/writer";
+import { createAi } from "./ai.ts";
 import { createApp } from "./app.ts";
 import { forwardedAddress } from "./client-address.ts";
 import { parseServerEnv } from "./env.ts";
@@ -27,7 +29,13 @@ await storage.ensureBucket();
 /** Generous, since many participants can share one address on a campus network. */
 const ENTRY_ATTEMPTS_PER_MINUTE = 120;
 
-const writer = env.ANTHROPIC_API_KEY ? anthropicWriter(env.ANTHROPIC_API_KEY) : null;
+// The host's key, and on a hosted Truman each lab's own, chosen for each study (ADR 71).
+const writer = createAi({
+  db: database.db,
+  host: env.ANTHROPIC_API_KEY ? anthropicWriter(env.ANTHROPIC_API_KEY) : null,
+  hosted: env.HOSTED,
+  secretKey: parseSecretKey(env.TRUMAN_SECRET_KEY),
+});
 
 const live = createLive({ db: database.db, writer });
 
@@ -43,6 +51,7 @@ const app = createApp({
   secureCookies: env.NODE_ENV !== "development",
   participantAppUrl: env.PARTICIPANT_APP_URL,
   hosted: env.HOSTED,
+  secretKey: env.TRUMAN_SECRET_KEY,
   writer,
   prolific: {
     secretKey: env.TRUMAN_SECRET_KEY,

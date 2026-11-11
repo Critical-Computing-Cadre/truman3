@@ -15,6 +15,7 @@ import { AgentPage } from "./pages/AgentPage.tsx";
 import { BeatsPage } from "./pages/BeatsPage.tsx";
 import { CastPage } from "./pages/CastPage.tsx";
 import { DraftPage } from "./pages/DraftPage.tsx";
+import { LabPage } from "./pages/LabPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
 import { ModerationPage } from "./pages/ModerationPage.tsx";
 import { MonitorPage } from "./pages/MonitorPage.tsx";
@@ -88,6 +89,11 @@ function Shell() {
         <Link to="/" className="mr-auto font-semibold">
           Truman 3
         </Link>
+        {me.data.hosted && (
+          <Link to="/lab" className="underline">
+            Your lab
+          </Link>
+        )}
         {me.data.operator && (
           <Link to="/operator" className="underline">
             Labs
@@ -205,6 +211,12 @@ const agentRoute = createRoute({
   component: AgentPage,
 });
 
+const labRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/lab",
+  component: LabPage,
+});
+
 const operatorRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/operator",
@@ -238,6 +250,7 @@ const router = createRouter({
     prolificRoute,
     tokensRoute,
     operatorRoute,
+    labRoute,
     agentRoute,
   ]),
 });

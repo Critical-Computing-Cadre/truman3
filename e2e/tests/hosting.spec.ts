@@ -47,8 +47,18 @@ test("a lab applies, builds while it waits, and an operator approves it (ADR 70)
   await card.getByRole("button", { name: "Approve" }).click();
   await expect(card).toContainText("Approved");
   await expect(card.getByLabel("New participants a month")).toHaveValue("1000");
+  await expect(card).toContainText("of a $5 starter budget");
   await context.close();
 
   await page.reload();
   await expect(page.getByRole("status")).toHaveCount(0);
+
+  // The lab starts on the starter budget, then adds its own Claude key (ADR 71).
+  await page.getByRole("link", { name: "Your lab" }).click();
+  const mine = page.getByRole("region", { name: lab });
+  await expect(mine).toContainText("$0.00 of $5.00 spent");
+  await mine.getByLabel("Add your lab's Claude key").fill("sk-ant-e2e-test-key-wxyz");
+  await mine.getByRole("button", { name: "Save key" }).click();
+  await expect(mine).toContainText("ending …wxyz");
+  await expect(mine.getByLabel("Replace your lab's Claude key")).toHaveValue("");
 });

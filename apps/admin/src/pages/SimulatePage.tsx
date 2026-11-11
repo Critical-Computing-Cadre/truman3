@@ -187,7 +187,7 @@ export function SimulatePage() {
   if (!simulations.data) {
     return null;
   }
-  const { studyId, title, version, canRun, most, latest, personas, model, canPlay } =
+  const { studyId, title, version, canRun, most, latest, personas, model, canPlay, noModel } =
     simulations.data;
   const running = latest?.status === "running";
   const playing = personas.flatMap(({ id }) => Array(chosen[id] ?? 0).fill(id) as string[]);
@@ -269,7 +269,7 @@ export function SimulatePage() {
             <div className="space-y-2 text-sm">
               {!canPlay && (
                 <p role="alert" className="text-rose-700">
-                  Personas need a Claude key on the server, and this one doesn't have one.
+                  {noModel ?? "Personas need a Claude key."} Personas can't be played until then.
                 </p>
               )}
               <p className="text-stone-600">How many of each, played by {model}:</p>

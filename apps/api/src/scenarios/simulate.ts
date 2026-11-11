@@ -16,6 +16,7 @@ import { parsePersonas } from "@truman3/study-files";
 import { deleteParticipant } from "@truman3/study-import";
 import type { Writer } from "@truman3/writer";
 import { and, eq, gt, inArray, isNotNull } from "drizzle-orm";
+import { writerFor } from "../ai.ts";
 import { scriptFor } from "../director/director.ts";
 import { createHarness, type TestParticipant } from "./harness.ts";
 import { type Budget, BudgetSpent, personaBehavior, type Transcript } from "./personas.ts";
@@ -252,6 +253,9 @@ export async function simulate({
   if (playing.length > 0 && !writer) {
     throw new Error("Personas need a model, and none is set up.");
   }
+  // Charged to the study's lab, on its own key or its starter budget (ADR 71).
+  const personaWriter =
+    playing.length > 0 ? await writerFor(writer, { studyVersionId: versionId }) : null;
   const budget: Budget = { limitUsd: settings.budgetUsd ?? 2, spentUsd: 0 };
   const lengthMs = studySettings.length.days * 24 * HOUR_MS;
   const conditionKeys = (
@@ -343,12 +347,12 @@ export async function simulate({
       report.participants++;
       report.conditions[condition] = (report.conditions[condition] ?? 0) + 1;
       const playedBy =
-        persona && writer
+        persona && personaWriter
           ? personaBehavior({
               persona,
               condition,
               features: featuresFor(studySettings, condition),
-              writer,
+              writer: personaWriter,
               model: cast?.model ?? "",
               budget,
             })

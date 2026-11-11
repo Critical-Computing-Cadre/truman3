@@ -31,7 +31,14 @@ const notSignedIn = errorResponse("Not signed in");
 const researcherSchema = z.object({
   name: z.string(),
   email: z.string(),
-  teams: z.array(z.object({ name: z.string(), role: z.string(), status: z.enum(TEAM_STATUSES) })),
+  teams: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      role: z.string(),
+      status: z.enum(TEAM_STATUSES),
+    }),
+  ),
   /** Whether they run this Truman, and see the operator page (ADR 70). */
   operator: z.boolean(),
   /** Whether this is a hosted Truman, where labs apply. */
@@ -291,6 +298,7 @@ export function createAdminRoutes({
     }
     const teams = await db
       .select({
+        id: schema.teams.id,
         name: schema.teams.name,
         role: schema.teamMemberships.role,
         status: schema.teams.status,
