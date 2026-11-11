@@ -5,7 +5,7 @@ import { type ActorData, loadDraft, pageSection, saveSection } from "@truman3/dr
 import { parseBeats } from "@truman3/study-files";
 import { NothingWritten } from "@truman3/writer";
 import { isMap, isSeq, parseDocument } from "yaml";
-import { rehearsalPrompt } from "../director/wording.ts";
+import { rehearsalPrompt, saysSomething } from "../director/wording.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { researcherFromRequest } from "./session.ts";
 
@@ -34,7 +34,7 @@ const listRoute = createRoute({
               z.object({
                 id: z.string(),
                 actor: z.string(),
-                action: z.enum(["post", "comment"]),
+                action: z.enum(["post", "comment", "message"]),
                 lines: z.number(),
               }),
             ),
@@ -111,7 +111,7 @@ export function createRehearseRoutes({ db, writer }: ParticipantRouteDependencie
       {
         hasModel: Boolean(writer),
         beats: beats.flatMap(({ id, do: action }) =>
-          (action.action === "post" || action.action === "comment") && action.improvise
+          saysSomething(action) && action.improvise
             ? [{ id, actor: action.actor, action: action.action, lines: action.lines?.length ?? 0 }]
             : [],
         ),

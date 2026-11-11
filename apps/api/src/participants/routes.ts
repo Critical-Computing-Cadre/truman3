@@ -6,6 +6,7 @@ import type { Writer } from "@truman3/writer";
 import { eq } from "drizzle-orm";
 import type { Context } from "hono";
 import { setCookie } from "hono/cookie";
+import { unreadMessages } from "../actions/messages.ts";
 import { countUnreadNotifications } from "../actions/notifications.ts";
 import type { ProlificConfig } from "../admin/prolific.ts";
 import { catchUp } from "../director/director.ts";
@@ -93,6 +94,8 @@ const meRoute = createRoute({
             bannerUrl: z.string().nullable(),
             siteName: z.string(),
             unreadNotifications: z.number(),
+            /** Messages from the cast they haven't opened yet, on a platform with messages. */
+            unreadMessages: z.number(),
             /** Their points, on a platform with karma. */
             karma: z.number().optional(),
           }),
@@ -239,6 +242,9 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
           : {}),
         unreadNotifications: featureOn(context.settings, context.conditionKey, "notifications")
           ? await countUnreadNotifications(db, context, clock())
+          : 0,
+        unreadMessages: featureOn(context.settings, context.conditionKey, "messages")
+          ? await unreadMessages(db, context, mediaPublicUrl, clock())
           : 0,
       },
       200,

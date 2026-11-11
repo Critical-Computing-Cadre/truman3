@@ -22,12 +22,12 @@ const expectSchema = z.strictObject({
   notHappened: z.array(idSchema).default([]),
   /** The condition they're in now. */
   condition: z.string().min(1).optional(),
-  /** Text in their feed, in a post or a comment. */
+  /** Text in their feed, in a post or a comment, or in their messages. */
   sees: z.array(z.string().min(1)).default([]),
   doesNotSee: z.array(z.string().min(1)).default([]),
 });
 
-const ACTIONS = ["post", "comment", "like", "repost", "follow", "expect"] as const;
+const ACTIONS = ["post", "comment", "like", "repost", "follow", "message", "expect"] as const;
 
 const stepSchema = z
   .strictObject({
@@ -42,6 +42,9 @@ const stepSchema = z
     repost: targetSchema.optional(),
     /** They follow someone in the cast, by username. */
     follow: z.string().min(1).optional(),
+    /** They send a direct message with this text, to who `to` says, by username. */
+    message: z.string().min(1).optional(),
+    to: z.string().min(1).optional(),
     expect: expectSchema.optional(),
   })
   .superRefine((step, ctx) => {
@@ -54,6 +57,9 @@ const stepSchema = z
     }
     if ((step.comment !== undefined) !== (step.on !== undefined)) {
       ctx.addIssue({ code: "custom", message: "A comment needs on, and only a comment has it." });
+    }
+    if ((step.message !== undefined) !== (step.to !== undefined)) {
+      ctx.addIssue({ code: "custom", message: "A message needs to, and only a message has it." });
     }
   });
 

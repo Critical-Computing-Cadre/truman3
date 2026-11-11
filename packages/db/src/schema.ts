@@ -377,6 +377,8 @@ export const content = pgTable(
     tagsParticipant: boolean("tags_participant").notNull().default(false),
     /** For a story, the highlight on its poster's profile that keeps it. */
     highlight: text(),
+    /** For a message, who it's to. Messages are only ever between the participant and the cast. */
+    recipientActorId: uuid("recipient_actor_id").references(() => actors.id),
     /** For a story, whether it's only for its poster's close friends. */
     closeFriends: boolean("close_friends").notNull().default(false),
     /** Marks it as an ad, with this label. */
@@ -409,7 +411,19 @@ export const content = pgTable(
       .on(table.worldId, table.visibleAt)
       .where(sql`${table.worldId} is not null`),
     index("content_parent").on(table.parentId),
-    check("content_kind", inList(table.kind, ["post", "comment", "story"])),
+    check("content_kind", inList(table.kind, ["post", "comment", "story", "message"])),
+    // A message is to someone, happens in a world, and nothing else is to anyone.
+    check(
+      "content_message_has_recipient",
+      sql`(${table.kind} = 'message') = (${table.recipientActorId} is not null)`,
+    ),
+    check(
+      "content_message_in_world",
+      sql`${table.kind} <> 'message' or ${table.worldId} is not null`,
+    ),
+    index("content_messages")
+      .on(table.worldId, table.recipientActorId)
+      .where(sql`${table.kind} = 'message'`),
     check(
       "content_comment_has_parent",
       sql`(${table.kind} = 'comment') = (${table.parentId} is not null)`,

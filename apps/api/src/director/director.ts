@@ -15,7 +15,7 @@ import type { Writer } from "@truman3/writer";
 import { and, asc, eq, inArray, isNull, lte } from "drizzle-orm";
 import type { ParticipantContext } from "../participants/session.ts";
 import { decide } from "./decisions.ts";
-import { chooseWords, mightWrite, type Writing } from "./wording.ts";
+import { chooseWords, mightWrite, saysSomething, type Writing } from "./wording.ts";
 
 /**
  * Christof, the director: what makes each beat in beats.yaml happen in a participant's world. See
@@ -30,10 +30,10 @@ import { chooseWords, mightWrite, type Writing } from "./wording.ts";
 
 /** Something the participant did that can set a beat off. */
 export interface ParticipantAct {
-  action: "post" | "comment" | "like" | "follow" | "repost";
-  /** What they made, for a post or comment, or what they acted on, for a like or repost. */
+  action: "post" | "comment" | "like" | "follow" | "repost" | "message";
+  /** What they made, for a post, comment, or message, or what they acted on, for a like or repost. */
   contentId?: string;
-  /** Whose content it was, or who they followed. */
+  /** Whose content it was, who they followed, or who they messaged. */
   targetActorId?: string;
   /** Their nth of this kind of action, from 0. */
   nth: number;
@@ -294,6 +294,7 @@ const NEEDS = {
   like: "likes",
   repost: "reposts",
   follow: "following",
+  message: "messages",
 } as const;
 
 type Prepared =
@@ -324,6 +325,9 @@ async function prepare(
   const [target] = targetId
     ? await db.select().from(schema.content).where(eq(schema.content.id, targetId))
     : [];
+  if (target?.kind === "message") {
+    return { ready: false, reason: "a message can't be commented on, liked, or reposted" };
+  }
   return target
     ? { ready: true, actorId, target }
     : { ready: false, reason: "there was nothing there to act on" };
@@ -352,6 +356,15 @@ async function perform(
       .insert(schema.content)
       .values({ ...base, kind: "post", body: words ?? "" })
       .returning({ id: schema.content.id });
+    return { contentId: made?.id ?? null, targetContentId: null };
+  }
+
+  if (action.action === "message") {
+    const [made] = await tx
+      .insert(schema.content)
+      .values({ ...base, kind: "message", body: words ?? "", recipientActorId: context.actorId })
+      .returning({ id: schema.content.id });
+    // It shows as unread on their Messages page, not as a notification.
     return { contentId: made?.id ?? null, targetContentId: null };
   }
 
@@ -611,19 +624,18 @@ export async function catchUp(
     }
     // Choosing words can wait on a model, so it happens outside any transaction.
     const action = beat.do;
-    const chosen =
-      action.action === "post" || action.action === "comment"
-        ? await chooseWords(
-            db,
-            context,
-            script,
-            action,
-            prepared.actorId,
-            prepared.target?.id ?? null,
-            writer,
-            `${beat.id}:${run.run}`,
-          )
-        : { text: null, writing: null };
+    const chosen = saysSomething(action)
+      ? await chooseWords(
+          db,
+          context,
+          script,
+          action,
+          prepared.actorId,
+          prepared.target?.id ?? null,
+          writer,
+          `${beat.id}:${run.run}`,
+        )
+      : { text: null, writing: null };
 
     if (needsApproval(script, beat)) {
       await record({
@@ -706,7 +718,7 @@ async function scheduleFollowers(
  * fixed text or its fallback, since a model's draft was never read by anyone.
  */
 const unattendedLine = (beat: BeatDefinition, before: Writing) =>
-  beat.do.action !== "post" && beat.do.action !== "comment"
+  !saysSomething(beat.do)
     ? { text: null, mode: "fallback" as const }
     : before.mode === "rehearsed" && before.draft
       ? { text: before.draft, mode: "rehearsed" as const }
@@ -818,10 +830,7 @@ export async function decideAwaiting(
     return "skipped";
   }
   const draft = before.draft ?? null;
-  const text =
-    beat.do.action === "post" || beat.do.action === "comment"
-      ? approval.text?.trim() || draft
-      : null;
+  const text = saysSomething(beat.do) ? approval.text?.trim() || draft : null;
   const writing: Writing = {
     ...before,
     decidedBy: approval.by,

@@ -15,6 +15,7 @@ import { ExplorePage, PlacePage, TagPage } from "./pages/ExplorePage.tsx";
 import { FeedPage } from "./pages/FeedPage.tsx";
 import { FlowGate } from "./pages/FlowGate.tsx";
 import { JoinPage } from "./pages/JoinPage.tsx";
+import { ConversationPage, MessagesPage } from "./pages/MessagesPage.tsx";
 import { ModLogPage } from "./pages/ModLogPage.tsx";
 import { NotificationsPage } from "./pages/NotificationsPage.tsx";
 import { PilotPage } from "./pages/PilotPage.tsx";
@@ -86,6 +87,18 @@ const notificationsRoute = createRoute({
   component: NotificationsPage,
 });
 
+const messagesRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/messages",
+  component: MessagesPage,
+});
+
+const conversationRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/messages/$username",
+  component: ConversationPage,
+});
+
 const exploreRoute = createRoute({
   getParentRoute: () => gateRoute,
   path: "/explore",
@@ -138,6 +151,8 @@ const router = createRouter({
       spaceRoute,
       postRoute,
       notificationsRoute,
+      messagesRoute,
+      conversationRoute,
       modLogRoute,
       exploreRoute,
       tagRoute,

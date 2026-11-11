@@ -34,6 +34,8 @@ export const TEMPLATES = {
     layout: "classic",
     features: {
       ...allFeatures,
+      // Off unless a study turns it on, so studies that launched before it look the same.
+      messages: false,
       threads: false,
       votes: false,
       galleries: false,
@@ -94,6 +96,8 @@ export const TEMPLATES = {
     layout: "forum",
     features: {
       ...allFeatures,
+      // Off unless a study turns it on, so studies that launched before it look the same.
+      messages: false,
       likes: false,
       following: false,
       adultTags: false,
@@ -132,6 +136,8 @@ export const TEMPLATES = {
     layout: "short-posts",
     features: {
       ...allFeatures,
+      // Off unless a study turns it on, so studies that launched before it look the same.
+      messages: false,
       votes: false,
       titles: false,
       karma: false,
@@ -160,6 +166,8 @@ export const TEMPLATES = {
     layout: "photo",
     features: {
       ...allFeatures,
+      // Off unless a study turns it on, so studies that launched before it look the same.
+      messages: false,
       votes: false,
       titles: false,
       karma: false,

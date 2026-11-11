@@ -4,7 +4,7 @@ import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
 import { deleteParticipant } from "@truman3/study-import";
 import type { Writer } from "@truman3/writer";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, lte } from "drizzle-orm";
 import { scriptFor } from "../director/director.ts";
 import { bodiesIn, createHarness } from "./harness.ts";
 
@@ -113,6 +113,8 @@ export async function runScenarios({
           form.set(key, value);
         }
         done = await send("POST", "/posts", form);
+      } else if (step.message !== undefined && step.to !== undefined) {
+        done = await send("POST", `/messages/${step.to}`, { ...meta(), body: step.message });
       } else if (step.follow !== undefined) {
         done = await send("POST", `/actors/${step.follow}/relation`, {
           ...meta(),
@@ -206,6 +208,18 @@ export async function runScenarios({
             texts.push(...bodiesIn(opened.json));
           }
         }
+        // Their messages too, read from the database so checking doesn't mark them read.
+        const messages = await db
+          .select({ body: schema.content.body })
+          .from(schema.content)
+          .where(
+            and(
+              eq(schema.content.worldId, worldId),
+              eq(schema.content.kind, "message"),
+              lte(schema.content.visibleAt, harness.now()),
+            ),
+          );
+        texts.push(...messages.map(({ body }) => body));
         for (const text of expect.sees) {
           if (!texts.some((body) => body.includes(text))) {
             problems.push(`${when}, they should see "${text}", but they don't.`);

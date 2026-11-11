@@ -80,6 +80,7 @@ export interface Me {
   bannerUrl: string | null;
   siteName: string;
   unreadNotifications: number;
+  unreadMessages: number;
 }
 
 /** How much of the study's platform choices the feed needs, shared like the viewer's details. */

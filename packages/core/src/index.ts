@@ -49,6 +49,17 @@ export {
 } from "./feed.ts";
 export { type HealthResponse, healthResponseSchema } from "./health.ts";
 export {
+  type Conversation,
+  type ConversationsResponse,
+  conversationSchema,
+  conversationsResponseSchema,
+  type Message,
+  messagePersonSchema,
+  messageSchema,
+  type ThreadResponse,
+  threadResponseSchema,
+} from "./messages.ts";
+export {
   COMMENT_SORTS,
   type CommentSort,
   FEED_SORTS,

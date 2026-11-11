@@ -77,6 +77,7 @@ function useTheme(theme: FlowState["theme"]) {
 export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () => void }) {
   const me = useQuery({ ...meQuery, refetchInterval: POLL_EVERY_MS });
   const unread = me.data?.unreadNotifications ?? 0;
+  const unreadMessages = me.data?.unreadMessages ?? 0;
   useTheme(flow.theme);
   const client = useQueryClient();
   const warnings = useQuery({
@@ -154,6 +155,28 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
                 {unread > 0 && (
                   <span className="absolute top-0 right-0 rounded-full bg-rose-600 px-1 text-[0.65rem] leading-4 text-white">
                     {unread}
+                  </span>
+                )}
+              </Link>
+            ),
+          },
+        ]
+      : []),
+    ...(flow.features.messages
+      ? [
+          {
+            key: "messages",
+            label: "Messages",
+            render: (className: string) => (
+              <Link
+                to="/messages"
+                className={`relative ${className}`}
+                aria-label={`Messages, ${unreadMessages} new`}
+              >
+                Messages
+                {unreadMessages > 0 && (
+                  <span className="absolute top-0 right-0 rounded-full bg-rose-600 px-1 text-[0.65rem] leading-4 text-white">
+                    {unreadMessages}
                   </span>
                 )}
               </Link>

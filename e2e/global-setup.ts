@@ -180,6 +180,15 @@ export default async function globalSetup() {
   if (classicStories.status === "failed") {
     throw new Error(classicStories.issues.map((issue) => issue.message).join("\n"));
   }
+  const messages = await importStudyFolder(
+    database.db,
+    storage,
+    path.join(import.meta.dirname, "fixtures/messages"),
+    { launch: true },
+  );
+  if (messages.status === "failed") {
+    throw new Error(messages.issues.map((issue) => issue.message).join("\n"));
+  }
   writeFileSync(
     STATE_FILE,
     JSON.stringify({

@@ -24,7 +24,14 @@ export const studyTime = z.string().transform((text, ctx) => {
 });
 
 /** What a participant does that can set a beat off. */
-export const PARTICIPANT_ACTIONS = ["post", "comment", "like", "follow", "repost"] as const;
+export const PARTICIPANT_ACTIONS = [
+  "post",
+  "comment",
+  "like",
+  "follow",
+  "repost",
+  "message",
+] as const;
 
 export const idSchema = z
   .string()
@@ -46,7 +53,7 @@ const triggerSchema = z
     participant: z.enum(PARTICIPANT_ACTIONS).optional(),
     /** Only their nth of this, counting from 0. Leave out for any. */
     nth: z.number().int().nonnegative().optional(),
-    /** Only if it's on something by this person in the cast, or following them, by username. */
+    /** Only if it's on something by this person in the cast, following them, or messaging them, by username. */
     on: z.string().min(1).optional(),
     /** Only if it's on what a beat made, or anywhere under it, by the beat's id. */
     under: idSchema.optional(),
@@ -162,6 +169,10 @@ const actionSchema = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("repost"), actor: z.string().min(1), on: targetSchema }),
   /** Following the participant. */
   z.strictObject({ action: z.literal("follow"), actor: z.string().min(1) }),
+  /** A direct message to the participant. */
+  z
+    .strictObject({ action: z.literal("message"), actor: z.string().min(1), ...wording })
+    .superRefine(checkWording),
 ]);
 
 /** A fixed delay, or a range that each world draws from, the same way every time. */

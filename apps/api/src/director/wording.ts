@@ -38,7 +38,26 @@ export interface Writing {
 }
 
 type Script = Pick<BeatsFile, "live" | "cast">;
-type Wording = Extract<BeatDefinition["do"], { action: "post" | "comment" }>;
+export type Wording = Extract<BeatDefinition["do"], { action: "post" | "comment" | "message" }>;
+
+/** Whether a beat's action has words: a post, a comment, or a message. */
+export function saysSomething(action: BeatDefinition["do"]): action is Wording {
+  return action.action === "post" || action.action === "comment" || action.action === "message";
+}
+
+/** What the model is asked to write, for each kind of action with words. */
+const ASK = {
+  post: "Write a new post.",
+  comment: "Write a comment.",
+  message: "Write a direct message to the participant.",
+} as const;
+const ASKED = {
+  post: "A new post.",
+  comment: "A comment.",
+  message: "A direct message to the participant.",
+} as const;
+const SYSTEM =
+  "You write posts, comments, and direct messages for one person on a social media platform, in a research study. The study's script decides what happens; you decide only the wording, in this person's voice.";
 
 interface Profile {
   name?: string;
@@ -120,7 +139,7 @@ async function promptFor(
 
   const limits = [...ALWAYS_OFF_LIMITS, ...script.live.redLines, ...(persona?.redLines ?? [])];
   const system = [
-    "You write posts and comments for one person on a social media platform, in a research study. The study's script decides what happens; you decide only the wording, in this person's voice.",
+    SYSTEM,
     ...personaLines(name, action.actor, persona),
     `Write only the ${action.action} itself: no quotation marks, no name, no explanation. Keep it under ${script.live.maxLength} characters, and write it the way people write on social media.`,
     `Never write any of these:\n${limits.map((limit) => `- ${limit}`).join("\n")}`,
@@ -183,9 +202,32 @@ async function promptFor(
     }
   }
 
-  parts.push(
-    `${action.action === "post" ? "Write a new post." : "Write a comment."} What happens: ${action.improvise}`,
-  );
+  if (action.action === "message") {
+    // Their conversation so far, which nobody else can see.
+    const conversation = await db
+      .select()
+      .from(schema.content)
+      .where(
+        and(
+          eq(schema.content.worldId, context.worldId),
+          eq(schema.content.kind, "message"),
+          sql`(${schema.content.authorActorId} = ${actorId} and ${schema.content.recipientActorId} = ${context.actorId})
+            or (${schema.content.authorActorId} = ${context.actorId} and ${schema.content.recipientActorId} = ${actorId})`,
+        ),
+      )
+      .orderBy(desc(schema.content.visibleAt))
+      .limit(20);
+    parts.push(
+      conversation.length === 0
+        ? `You haven't messaged ${who(context.actorId)} before.`
+        : `Your direct messages with ${who(context.actorId)}, oldest first:\n${conversation
+            .reverse()
+            .map((message) => `${who(message.authorActorId)}: ${message.body}`)
+            .join("\n")}`,
+    );
+  }
+
+  parts.push(`${ASK[action.action]} What happens: ${action.improvise}`);
   return { system, user: parts.join("\n\n"), limits };
 }
 
@@ -370,7 +412,7 @@ export function rehearsalPrompt(
   const persona = script.cast[action.actor];
   const limits = [...ALWAYS_OFF_LIMITS, ...script.live.redLines, ...(persona?.redLines ?? [])];
   const system = [
-    "You write posts and comments for one person on a social media platform, in a research study. The study's script decides what happens; you decide only the wording, in this person's voice.",
+    SYSTEM,
     ...personaLines(name, action.actor, persona),
     `Each line is only the ${action.action} itself: no quotation marks, no name, no explanation. Keep each under ${script.live.maxLength} characters, and write them the way people write on social media.`,
     `Never write any of these:\n${limits.map((limit) => `- ${limit}`).join("\n")}`,
@@ -384,7 +426,7 @@ export function rehearsalPrompt(
             `- ${username === "participant" ? "the participant" : username}: ${feeling}`,
         )
         .join("\n")}`,
-    `${action.action === "post" ? "A new post." : "A comment."} What happens: ${action.improvise}`,
+    `${ASKED[action.action]} What happens: ${action.improvise}`,
   ]
     .filter(Boolean)
     .join("\n\n");

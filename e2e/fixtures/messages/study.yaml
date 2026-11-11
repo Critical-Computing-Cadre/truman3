@@ -1,0 +1,12 @@
+schemaVersion: 1
+slug: messages-e2e
+title: Classic with messages
+site: { name: Neighbors }
+length: { days: 1 }
+entry: { idParam: PROLIFIC_PID, idLabel: ID, source: test }
+conditions:
+  assignment: { method: uniform }
+  arms: [{ key: main }]
+platform: { style: mixed, template: classic, features: { messages: true } }
+feed: { ranker: chronological }
+flow: [{ step: feed }, { step: exit }]

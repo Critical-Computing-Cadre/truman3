@@ -992,7 +992,12 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
     if ("on" in action) {
       const target = action.on;
-      if (target === "trigger" && "time" in when) {
+      if (target === "trigger" && "participant" in when && when.participant === "message") {
+        beatProblem(
+          "error",
+          `${label} acts on a message, but a message can't be commented on, liked, or reposted. Answer it with action: message.`,
+        );
+      } else if (target === "trigger" && "time" in when) {
         beatProblem(
           "error",
           `${label} acts on what set it off, but a time doesn't point at anything.`,
@@ -1026,14 +1031,24 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       like: "likes",
       repost: "reposts",
       follow: "following",
+      message: "messages",
     } as const;
     const feature = action.action === "post" ? "posting" : needs[action.action];
+    // A participant can only message someone where messages are on.
+    const triggerFeature =
+      "participant" in when && when.participant === "message" ? "messages" : null;
     for (const arm of settings.conditions.arms) {
       const inArm = beat.conditions.length === 0 || beat.conditions.includes(arm.key);
-      if (inArm && !featuresFor(settings, arm.key)[feature]) {
+      const on = featuresFor(settings, arm.key);
+      if (inArm && !on[feature]) {
         beatProblem(
           "warning",
           `${label} needs ${feature}, which is off in "${arm.key}", so it won't happen there.`,
+        );
+      } else if (inArm && triggerFeature && !on[triggerFeature]) {
+        beatProblem(
+          "warning",
+          `${label} waits for a message, but messages are off in "${arm.key}", so it won't happen there.`,
         );
       }
     }
@@ -1277,6 +1292,9 @@ function checkScenarios(
       checkTarget(step.repost);
       if (step.follow !== undefined && !usernames.has(step.follow)) {
         problem(`${where} follows "${step.follow}", who isn't in the list of actors.`);
+      }
+      if (step.to !== undefined && !usernames.has(step.to)) {
+        problem(`${where} messages "${step.to}", who isn't in the list of actors.`);
       }
       const expected = step.expect;
       for (const id of [...(expected?.happened ?? []), ...(expected?.notHappened ?? [])]) {

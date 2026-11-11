@@ -148,6 +148,7 @@ export function ProfilePage() {
   const reporting = useFeature("reporting");
   const muting = useFeature("muting");
   const closeFriends = useFeature("closeFriends");
+  const messages = useFeature("messages");
   const tagsOn = useFeature("photoTags");
   const gridOn = useFeature("profileGrid");
   const pagesOn = useFeature("postPages");
@@ -250,6 +251,15 @@ export function ProfilePage() {
                 >
                   {actor.following ? "Following" : "Follow"}
                 </button>
+              )}
+              {messages && (
+                <Link
+                  to="/messages/$username"
+                  params={{ username: actor.username }}
+                  className={button}
+                >
+                  Message
+                </Link>
               )}
               {closeFriends && (
                 <button

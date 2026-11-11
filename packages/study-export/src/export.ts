@@ -910,6 +910,7 @@ export async function exportStudy(
         "tagged",
         "highlight",
         "close_friends",
+        "to",
         "media",
         "provenance",
         "offset_ms",
@@ -954,6 +955,7 @@ export async function exportStudy(
         ].join("|"),
         highlight: safeText(item.highlight),
         close_friends: item.closeFriends ? "true" : "",
+        to: item.recipientActorId ? actorLabel(item.recipientActorId) : "",
         media: item.attachments.map(({ key }) => key).join("|"),
         provenance: provenanceLabel(item.provenance),
         offset_ms: item.offsetMs ?? "",
@@ -1248,6 +1250,10 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ],
     ["flair", "A post's label, from its space's list"],
     [
+      "to",
+      "For a direct message (kind message), who it was sent to. Messages are only ever between the participant and one person in the cast",
+    ],
+    [
       "crosspost_of",
       "The content_id of the post this was crossposted from. Votes and comments belong to each separately. impressions.csv lists the crosspost, not the original shown inside it",
     ],
@@ -1325,6 +1331,8 @@ const ORDER_NOTES: [string, string][] = [
 
 /** What an event means, where its name doesn't say enough. */
 const EVENT_NOTES: Record<string, string> = {
+  "messages.opened":
+    "They opened their conversation with target_actor. Messages from them before this count as read.",
   "content.reposted":
     "They passed a post along. It names the first post, even if they saw it through someone else's repost. content.unreposted is taking that back.",
   "story.viewed":

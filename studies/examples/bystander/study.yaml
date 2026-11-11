@@ -1,7 +1,8 @@
 # Reference study #2: bystanders and a pile-on, written as beats for Christof (ADR 51).
 # It's made up for testing, and isn't from a published study. Someone mocks another person's
 # painting. In "defended", someone else in the cast steps in, unless the participant already has.
-# In "silent", nobody does, and someone likes the mocking comment instead.
+# In "silent", nobody does, and someone likes the mocking comment instead. Participants can
+# message Jake or Maya, and Maya messages them if they stood up to Jake.
 schemaVersion: 1
 slug: bystander
 title: Bystander (reference study)
@@ -15,7 +16,8 @@ platform:
   style: mixed
   template: classic
   # Replies to a comment stay under it, so a reply to the mocking comment can be told apart.
-  features: { threads: true }
+  # Messages are on, so a participant can talk to Jake or Maya privately (ADR 61).
+  features: { threads: true, messages: true }
 feed: { ranker: chronological }
 flow:
   - { step: consent, page: pages/consent.md }

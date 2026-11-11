@@ -100,7 +100,7 @@ function Reference() {
 
 interface Rehearsable {
   hasModel: boolean;
-  beats: { id: string; actor: string; action: "post" | "comment"; lines: number }[];
+  beats: { id: string; actor: string; action: "post" | "comment" | "message"; lines: number }[];
 }
 
 /**

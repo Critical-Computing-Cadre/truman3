@@ -389,6 +389,13 @@ export const FEATURES = {
     version: 1,
     events: ["notifications.viewed"],
   },
+  messages: {
+    name: "Direct messages",
+    description:
+      "Participants can message people in the cast one to one, from a Messages page and from profiles, and the cast can message them.",
+    version: 1,
+    events: ["content.created", "messages.opened"],
+  },
 } as const satisfies Record<string, FeatureDefinition>;
 
 export type FeatureKey = keyof typeof FEATURES;

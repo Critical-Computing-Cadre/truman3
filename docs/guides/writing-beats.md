@@ -28,24 +28,25 @@ Times are hours:minutes from when the participant starts, as in the sheets. A de
 
 Give exactly one of these:
 
-| `when`                                        | Happens                                                                    |
-| --------------------------------------------- | -------------------------------------------------------------------------- |
-| `{ time: "0:03" }`                            | At a set time                                                              |
-| `{ participant: post }`                       | When the participant posts. Also `comment`, `like`, `follow`, and `repost` |
-| `{ participant: comment, nth: 0 }`            | Only on their first comment. `nth` counts from 0                           |
-| `{ participant: comment, on: maya }`          | Only when it's on something Maya wrote, or, for `follow`, following Maya   |
-| `{ participant: comment, under: jake-mocks }` | Only when it's on what the beat `jake-mocks` made, or anywhere under it    |
-| `{ beat: jake-mocks }`                        | After that beat happens, counting the delay from then                      |
+| `when`                                        | Happens                                                                                             |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `{ time: "0:03" }`                            | At a set time                                                                                       |
+| `{ participant: post }`                       | When the participant posts. Also `comment`, `like`, `follow`, `repost`, and `message`               |
+| `{ participant: comment, nth: 0 }`            | Only on their first comment. `nth` counts from 0                                                    |
+| `{ participant: comment, on: maya }`          | Only when it's on something Maya wrote, or, for `follow` and `message`, following or messaging Maya |
+| `{ participant: comment, under: jake-mocks }` | Only when it's on what the beat `jake-mocks` made, or anywhere under it                             |
+| `{ beat: jake-mocks }`                        | After that beat happens, counting the delay from then                                               |
 
 ## What happens (`do`)
 
-| `action`  | Needs                 | Does                                                                                               |
-| --------- | --------------------- | -------------------------------------------------------------------------------------------------- |
-| `post`    | `actor`, `text`       | A new post                                                                                         |
-| `comment` | `actor`, `on`, `text` | A comment. On a comment, it's a reply where threads are on, and goes on the post where they're off |
-| `like`    | `actor`, `on`         | A like                                                                                             |
-| `repost`  | `actor`, `on`         | Passes it along                                                                                    |
-| `follow`  | `actor`               | Follows the participant                                                                            |
+| `action`  | Needs                 | Does                                                                                                  |
+| --------- | --------------------- | ----------------------------------------------------------------------------------------------------- |
+| `post`    | `actor`, `text`       | A new post                                                                                            |
+| `comment` | `actor`, `on`, `text` | A comment. On a comment, it's a reply where threads are on, and goes on the post where they're off    |
+| `like`    | `actor`, `on`         | A like                                                                                                |
+| `repost`  | `actor`, `on`         | Passes it along                                                                                       |
+| `follow`  | `actor`               | Follows the participant                                                                               |
+| `message` | `actor`, `text`       | A direct message to the participant. It shows as unread on their Messages page, not as a notification |
 
 `on` says what it's done to:
 - `trigger`: what set the beat off. That's what the participant wrote or acted on, or what the beat before made.
@@ -53,6 +54,20 @@ Give exactly one of these:
 - `{ post: maya-art }`: one of the study's own posts, by its id in `posts.csv`.
 
 If a beat needs something that's off in a condition, like comments, it's skipped there, and the reason is recorded.
+
+**Direct messages** are off unless a study turns on `messages` in its features (ADR 61). They're only ever between the participant and one person in the cast, and nobody else sees them. A message can't be commented on, liked, or reposted, so a beat set off by `{ participant: message }` answers with `action: message`. For example:
+
+```yaml
+- id: jake-answers-message
+  when: { participant: message, on: jake }
+  delay: { min: "0:01", max: "0:02" }
+  max: 3
+  do:
+    action: message
+    actor: jake
+    improvise: Answer what they wrote, defensively, without apologizing
+    fallback: "it was a joke. why do you care"
+```
 
 ## What's recorded
 
@@ -144,6 +159,7 @@ The model is told:
 - what they've already said in this participant's world, which is their memory between visits
 - the post they're on, with up to ten comments
 - the comment they're replying to
+- for a message, their conversation with the participant so far, up to the last twenty messages
 - the beat's `improvise` instruction
 
 It sees nothing else in the database.
