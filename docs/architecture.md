@@ -9,7 +9,7 @@ Truman 3 isn't ready for real participants yet. [Deploying](guides/deploying.md#
 - **A study is data, not a fork.** A study is a definition that can be checked, not its own copy of the code ([ADR 5](adr/0005-studies-as-data.md), [ADR 10](adr/0010-study-design-is-configuration.md)).
 - **Everything goes through one API.** Participants, Christof's actors, and researchers all change state through `apps/api`, so everything is checked and recorded the same way.
 - **The event log is the source of truth.** What happens in a world is written to an append-only table, and exports come from it ([ADR 6](adr/0006-append-only-event-log.md)).
-- **Each participant has their own world.** Everyone in it apart from them is part of the study's cast.
+- **Each participant has their own world,** unless the study shares worlds. Everyone in it apart from them is part of the study's cast ([ADR 67](adr/0067-shared-worlds.md)).
 - **Christof, the director, runs the show.** The study decides whether something happens, Christof decides when, and a model only ever writes what's said ([ADR 51](adr/0051-christof-beats-and-the-director.md)).
 - **Platforms are built from features.** A template is a set of features with a layout, and a study can turn any of them on or off by condition ([ADR 18](adr/0018-platforms-are-built-from-features.md)).
 
@@ -165,7 +165,7 @@ Scripted moderation and labels aren't stored as "done". `loadRemovals` and `load
 
 1. **A link like `/join/eatsnap?PROLIFIC_PID=...`** opens the participant app. The study says which query parameter holds the recruitment ID. Without one, the page asks for it.
 2. **`POST /api/studies/{slug}/enter`** looks for that ID in the study. There's no password or email ([ADR 9](adr/0009-participant-entry.md)). Attempts are rate limited per address.
-3. **Someone new is enrolled** in one transaction (`apps/api/src/participants/enter.ts`): a condition, their own world, and an actor for them in it.
+3. **Someone new is enrolled** in one transaction (`apps/api/src/participants/enter.ts`): a condition, their own world, and an actor for them in it. In a study with shared worlds, they join one that hasn't started, and get its condition.
 4. **Someone returning is signed back in,** on the version and condition they already have, even if the study has since closed.
 5. **Someone who finished, withdrew, or declined consent is refused.** Only a per-study hash of their ID is kept, in `excluded_entries`.
 6. **The study's flow** takes them through its steps: `consent`, `account` (choosing a username and profile), `page`, `feed`, and `exit`, which can redirect to a survey or Prolific.
@@ -177,6 +177,7 @@ Participant screens never say this is a research platform unless the study does,
 - **A world** is one participant's copy of the study, started when they enroll. The study's posts appear at times measured from the world's start.
 - **What a participant writes** belongs to their world, so nobody else sees it. Everyone else is the study's cast.
 - **A world has a seed,** so anything drawn at random, such as a beat's delay, can be worked out again.
+- **A shared world** has several participants, who see each other, like and reply to each other, and message each other ([ADR 67](adr/0067-shared-worlds.md)). It fills up to the study's size, and starts when it's full or after a wait. Until then, they're in a waiting room. Everyone in it has its condition. Beats happen once for the world, or once for each participant (`beat_runs.for_actor_id`).
 
 ### Conditions and assignment
 
@@ -298,6 +299,7 @@ The Monitor page shows counts, never IDs. It also has Christof's latest decision
 
 - **Three ways in:** `pnpm study withdraw`, the Monitor page, and a participant declining consent.
 - **They all call `deleteParticipant`** (`packages/study-import/src/withdraw.ts`). It runs the database function `delete_participant_data`, which deletes their rows, including events, and records the deletion in `data_deletions`. Then it deletes their uploads under `uploads/<world>/<participant>/`.
+- **In a shared world, the others' records stay.** What they wrote, and messages to them, are wiped and marked `withdrawn_at`, since others' events point at them, and feeds leave them out. Their actor stays as "Withdrawn".
 - **The function is the only way to delete events.** It runs with its owner's rights, and the API's login may only call it ([ADR 21](adr/0021-the-api-has-its-own-login-and-admin-lives-under-a-path.md)).
 - **Logs can't be cleaned,** so production logs and AWS's edge logs leave out IDs, paths, and queries.
 

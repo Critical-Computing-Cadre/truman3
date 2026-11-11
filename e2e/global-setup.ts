@@ -189,6 +189,15 @@ export default async function globalSetup() {
   if (messages.status === "failed") {
     throw new Error(messages.issues.map((issue) => issue.message).join("\n"));
   }
+  const shared = await importStudyFolder(
+    database.db,
+    storage,
+    path.join(import.meta.dirname, "fixtures/shared"),
+    { launch: true },
+  );
+  if (shared.status === "failed") {
+    throw new Error(shared.issues.map((issue) => issue.message).join("\n"));
+  }
   writeFileSync(
     STATE_FILE,
     JSON.stringify({

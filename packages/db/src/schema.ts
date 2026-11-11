@@ -166,7 +166,13 @@ export const worlds = pgTable(
       .references(() => studyVersions.id),
     mode: text().notNull().default("solo"),
     seed: bigint({ mode: "number" }).notNull(),
+    /**
+     * When its study time starts. A shared world waiting for people has this in the future, at the
+     * latest it may start, and it's moved to when it fills, if that's sooner. See ADR 67.
+     */
     startedAt: time("started_at").notNull().defaultNow(),
+    /** A shared world's condition, which everyone who joins it is in. */
+    conditionId: uuid("condition_id"),
     closedAt: time("closed_at"),
   },
   (table) => [check("worlds_mode", inList(table.mode, ["solo", "shared"]))],
@@ -281,7 +287,9 @@ export const actors = pgTable(
     uniqueIndex("actors_world_username")
       .on(table.worldId, table.username)
       .where(sql`${table.worldId} is not null`),
-    check("actors_driver", inList(table.driver, ["scripted", "llm", "human"])),
+    // "withdrawn" is a participant who left a shared world: their actor stays, wiped, since others'
+    // records point at it, but they don't (ADR 67).
+    check("actors_driver", inList(table.driver, ["scripted", "llm", "human", "withdrawn"])),
     check(
       "actors_human_is_participant",
       sql`(${table.driver} = 'human') = (${table.participantId} is not null)`,
@@ -425,6 +433,11 @@ export const content = pgTable(
     sourceRef: text("source_ref"),
     /** For a message to the participant, when it was sent to their phone, in the app. */
     pushedAt: time("pushed_at"),
+    /**
+     * In a shared world, when its author withdrew. What they wrote is wiped, and left out of feeds,
+     * but the row stays, since others' records point at it. See ADR 67.
+     */
+    withdrawnAt: time("withdrawn_at"),
     createdAt: time("created_at").notNull().defaultNow(),
   },
   (table) => [
@@ -931,9 +944,17 @@ export const beatRuns = pgTable(
      * the check, and what it cost, or why the fallback line was used instead.
      */
     writing: jsonb(),
+    /**
+     * In a shared world, the participant this run is for: whoever set it off, or each participant
+     * for a beat that happens for everyone. Empty for one that happens once for the world, and in a
+     * world of one. See ADR 67.
+     */
+    forActorId: uuid("for_actor_id").references(() => actors.id, { onDelete: "cascade" }),
   },
   (table) => [
-    uniqueIndex("beat_runs_once").on(table.worldId, table.beat, table.run),
+    unique("beat_runs_once")
+      .on(table.worldId, table.beat, table.forActorId, table.run)
+      .nullsNotDistinct(),
     index("beat_runs_due").on(table.worldId, table.status, table.dueAt),
     check("beat_runs_status", inList(table.status, ["pending", "awaiting", "fired", "skipped"])),
   ],

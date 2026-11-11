@@ -382,3 +382,39 @@ decide:
     });
   });
 });
+
+describe("beats in shared worlds", () => {
+  const shared = (yaml: string, worlds: object) => {
+    const { beats, issues, live, cast, decide } = parseBeats(yaml);
+    expect(issues).toEqual([]);
+    const study = studyDefinitionSchema.parse({
+      settings: { ...settings, worlds },
+      actors: [{ username: "ann", name: "Ann", conditions: [] }],
+      posts: [],
+      beats,
+      christof: { live, cast, decide },
+    });
+    return validateStudy(study).map(({ severity, message }) => `${severity}: ${message}`);
+  };
+
+  it("reads per, and refuses decision points", () => {
+    const problems = shared(
+      `
+beats:
+  - { id: hi, per: world, when: { participant: post }, do: { action: post, actor: ann, text: Hi } }
+decide:
+  - { id: d1, when: { time: "1:00" }, groups: [{ name: all, to: stay }] }
+`,
+      { size: 4, waitMinutes: 10 },
+    );
+    expect(problems).toContain(
+      "error: Decision points can't move people between conditions in shared worlds, where everyone in a world is in its condition.",
+    );
+  });
+
+  it("warns when nobody waits for anyone", () => {
+    expect(shared("beats: []", { size: 4, waitMinutes: 0 }).join("\n")).toContain(
+      "worlds.waitMinutes is 0",
+    );
+  });
+});

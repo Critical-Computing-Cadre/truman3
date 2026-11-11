@@ -108,6 +108,32 @@ export type SpaceLabels = ReadonlyMap<
 >;
 
 /**
+ * Leaves out, from a shared world, what someone wrote before they withdrew, and anything under it,
+ * so a reply never points at a post that isn't there (ADR 67). The rows stay, since others' records
+ * point at them.
+ */
+export function withoutWithdrawn<
+  T extends { id: string; parentId: string | null; withdrawnAt: Date | null },
+>(rows: readonly T[]): T[] {
+  if (!rows.some(({ withdrawnAt }) => withdrawnAt)) {
+    return [...rows];
+  }
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const gone = new Map<string, boolean>();
+  const isGone = (row: T): boolean => {
+    const known = gone.get(row.id);
+    if (known !== undefined) {
+      return known;
+    }
+    const parent = row.parentId ? byId.get(row.parentId) : undefined;
+    const result = Boolean(row.withdrawnAt) || (parent ? isGone(parent) : false);
+    gone.set(row.id, result);
+    return result;
+  };
+  return rows.filter((row) => !isGone(row));
+}
+
+/**
  * The URL of someone's picture, as this condition shows it. A study can give someone in the cast a
  * different picture in some conditions, such as one with a frame (ADR 63).
  */
@@ -1188,20 +1214,22 @@ export async function buildFeed(
 
   // Stories are content too, but they have their own row across the top, not a place in lists.
   // Messages are private, on their own page.
-  const rows = (
-    await db
-      .select()
-      .from(schema.content)
-      .where(
-        or(
-          and(
-            eq(schema.content.studyVersionId, context.studyVersionId),
-            isNull(schema.content.worldId),
+  const rows = withoutWithdrawn(
+    (
+      await db
+        .select()
+        .from(schema.content)
+        .where(
+          or(
+            and(
+              eq(schema.content.studyVersionId, context.studyVersionId),
+              isNull(schema.content.worldId),
+            ),
+            eq(schema.content.worldId, context.worldId),
           ),
-          eq(schema.content.worldId, context.worldId),
-        ),
-      )
-  ).filter(({ kind }) => kind !== "story" && kind !== "message");
+        )
+    ).filter(({ kind }) => kind !== "story" && kind !== "message"),
+  );
 
   const state = await loadViewerState(db, context);
   const rowsById = new Map(rows.map((row) => [row.id, row]));

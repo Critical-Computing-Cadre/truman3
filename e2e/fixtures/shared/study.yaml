@@ -1,0 +1,13 @@
+schemaVersion: 1
+slug: shared-e2e
+title: Shared world
+site: { name: Commons, terms: pages/terms.md, privacy: pages/privacy.md }
+length: { days: 1 }
+entry: { idParam: PROLIFIC_PID, idLabel: ID, source: test }
+conditions:
+  assignment: { method: uniform }
+  arms: [{ key: main }]
+worlds: { size: 2, waitMinutes: 10 }
+platform: { style: mixed, template: classic }
+feed: { ranker: chronological }
+flow: [{ step: feed }, { step: exit }]

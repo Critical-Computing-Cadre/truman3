@@ -154,6 +154,7 @@ export async function sendDuePushes({
       token: schema.sessions.pushToken,
       since: schema.sessions.pushSince,
       worldId: schema.worldMemberships.worldId,
+      actorId: schema.worldMemberships.actorId,
     })
     .from(schema.sessions)
     .innerJoin(
@@ -174,7 +175,7 @@ export async function sendDuePushes({
 
   let sent = 0;
   for (const device of devices) {
-    const context = await loadWorldContext(db, device.worldId);
+    const context = await loadWorldContext(db, device.worldId, device.actorId);
     if (!context || !featureOn(context.settings, context.conditionKey, "push")) {
       continue;
     }

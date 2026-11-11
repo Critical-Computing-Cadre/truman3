@@ -26,3 +26,22 @@ export function RulesPage() {
     </article>
   );
 }
+
+/** The site's own terms of service or privacy policy, from the study's pages. ADR 67. */
+export function SitePage({ page }: { page: "terms" | "privacy" }) {
+  const text = useQuery({
+    queryKey: ["site-page", page],
+    queryFn: () => get<{ text: string }>(`/site/${page}`),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  return (
+    <article
+      className="mx-auto max-w-xl bg-white p-6 sm:rounded-lg sm:shadow-sm"
+      data-testid={`site-${page}`}
+    >
+      <div className="prose-page">
+        <Markdown>{text.data?.text ?? ""}</Markdown>
+      </div>
+    </article>
+  );
+}

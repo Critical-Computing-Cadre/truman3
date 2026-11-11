@@ -150,6 +150,20 @@ export async function exportStudy(
   const worldById = new Map(worlds.map((world) => [world.id, world]));
   const membershipByParticipant = new Map(memberships.map((m) => [m.participantId, m]));
   const participantByWorld = new Map(memberships.map((m) => [m.worldId, m.participantId]));
+  const participantByActor = new Map(memberships.map((m) => [m.actorId, m.participantId]));
+  /**
+   * Whose a row in a world is. A world of their own is one person's. A shared world has several, so a
+   * row is the participant's it's by or for, and otherwise nobody's in particular. ADR 67.
+   */
+  const ownerOf = (worldId: string, ...actorIds: (string | null)[]) => {
+    for (const actorId of actorIds) {
+      const participantId = actorId ? participantByActor.get(actorId) : undefined;
+      if (participantId) {
+        return participantId;
+      }
+    }
+    return worldById.get(worldId)?.mode === "shared" ? "" : (participantByWorld.get(worldId) ?? "");
+  };
   const pilotWorldIds = new Set(
     pilotIds.size
       ? (
@@ -273,6 +287,9 @@ export async function exportStudy(
     const actor = actorById.get(actorId);
     if (!actor) {
       return "";
+    }
+    if (actor.driver === "withdrawn") {
+      return "withdrawn";
     }
     return actor.participantId ? `participant:${actor.participantId}` : safeText(actor.username);
   };
@@ -475,6 +492,7 @@ export async function exportStudy(
         "beat_runs.csv",
         [
           "participant_id",
+          "world_id",
           "beat",
           "run",
           "status",
@@ -491,7 +509,8 @@ export async function exportStudy(
           "writing",
         ],
         beatRuns.map((run) => ({
-          participant_id: participantByWorld.get(run.worldId) ?? "",
+          participant_id: ownerOf(run.worldId, run.forActorId),
+          world_id: run.worldId,
           beat: run.beat,
           run: run.run,
           status: run.status,
@@ -661,6 +680,7 @@ export async function exportStudy(
         "assignment_details",
         "status",
         "enrolled_at",
+        "world_id",
         "world_started_at",
         "reached_flow_step",
       ],
@@ -683,6 +703,7 @@ export async function exportStudy(
           assignment_details: JSON.stringify(assignment?.details ?? {}),
           status: participant.status,
           enrolled_at: iso(participant.enrolledAt),
+          world_id: membership?.worldId ?? "",
           world_started_at: iso(world?.startedAt),
           reached_flow_step: participant.flowPosition,
         };
@@ -846,7 +867,7 @@ export async function exportStudy(
           }[]
         ).map((item) => ({
           impression_id: impression.id,
-          participant_id: participantByWorld.get(impression.worldId) ?? "",
+          participant_id: ownerOf(impression.worldId, impression.viewerActorId),
           condition: impression.conditionId ? conditionById.get(impression.conditionId)?.key : "",
           surface: impression.surface,
           space: impression.spaceId ? (spaceById.get(impression.spaceId)?.key ?? "") : "",
@@ -884,6 +905,8 @@ export async function exportStudy(
         "study_version",
         "origin",
         "participant_id",
+        "world_id",
+        "withdrawn",
         "kind",
         "source_ref",
         "parent_id",
@@ -925,7 +948,11 @@ export async function exportStudy(
         content_id: item.id,
         study_version: versionNumber.get(item.studyVersionId),
         origin: item.worldId ? "world" : "scripted",
-        participant_id: item.worldId ? (participantByWorld.get(item.worldId) ?? "") : "",
+        participant_id: item.worldId
+          ? ownerOf(item.worldId, item.authorActorId, item.recipientActorId)
+          : "",
+        world_id: item.worldId ?? "",
+        withdrawn: item.withdrawnAt ? "true" : "",
         kind: item.kind,
         source_ref: item.sourceRef ?? "",
         parent_id: item.parentId ?? "",
@@ -1034,6 +1061,10 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ["assignment_details", "For blocked assignment: position, block, and position in block"],
     ["status", "active, or completed if they reached the end. Active can mean they never returned"],
     ["enrolled_at, world_started_at", "When they enrolled, and when their timeline started"],
+    [
+      "world_id",
+      "Their world. In a shared world, everyone with the same world_id was together, and saw each other",
+    ],
     ["reached_flow_step", "Which flow step they completed up to, counting from 0"],
   ],
   "summary.csv": [
@@ -1161,6 +1192,10 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ],
     ["run", "Which time this beat ran in this world, from 0, since a beat can run more than once"],
     [
+      "participant_id, world_id",
+      "Whose world it was. In a shared world, a beat can run once for everyone, with no participant_id, or once for each participant",
+    ],
+    [
       "status",
       "fired if it happened, skipped if it didn't, pending if it wasn't due yet when this was exported, and awaiting if it was waiting for a researcher to approve it",
     ],
@@ -1266,7 +1301,15 @@ const FILE_DOCS: Record<string, [string, string][]> = {
       "provenance",
       "For scripted content, who wrote it: file, researcher, pack, or generated, and whether it was later edited",
     ],
-    ["participant_id", "For world content, whose world it was in"],
+    [
+      "participant_id",
+      "For world content, whose world it was in. In a shared world, the participant who wrote it, or it was sent to, and otherwise empty",
+    ],
+    ["world_id", "For world content, which world it was in"],
+    [
+      "withdrawn",
+      "true if whoever wrote it, or it was sent to, withdrew from a shared world. What it said is gone, and others' events on it remain",
+    ],
     ["author", "A username, or participant:<id> for a participant"],
     ["offset_ms", "For scripted content, when it appears relative to the start"],
     ["visible_at", "For world content, when it appears"],

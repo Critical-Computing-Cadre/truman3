@@ -132,6 +132,9 @@ describe("the bystander reference study", () => {
         .replace(/flow:[\s\S]*$/, "flow: [{ step: feed }, { step: exit }]\n"),
     );
     await import("node:fs").then(({ cpSync }) =>
+      cpSync(path.join(source, "pages"), path.join(dir, "pages"), { recursive: true }),
+    );
+    await import("node:fs").then(({ cpSync }) =>
       cpSync(path.join(source, "media"), path.join(dir, "media"), { recursive: true }),
     );
     await importFolder(dir);

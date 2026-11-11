@@ -28,6 +28,8 @@ export interface ParticipantContext {
   conditionId: string;
   conditionKey: string;
   worldStartedAt: Date;
+  /** Whether others share their world (ADR 67), or it's theirs alone. */
+  worldMode: "solo" | "shared";
   flowPosition: number;
   /** The world's random seed. */
   seed: number;
@@ -51,6 +53,7 @@ export async function loadParticipantContext(
       actorId: schema.worldMemberships.actorId,
       studyVersionId: schema.worlds.studyVersionId,
       worldStartedAt: schema.worlds.startedAt,
+      worldMode: schema.worlds.mode,
       seed: schema.worlds.seed,
       flowPosition: schema.participants.flowPosition,
       settings: schema.studyVersions.settings,
@@ -89,7 +92,12 @@ export async function loadParticipantContext(
     return null;
   }
 
-  return { ...row, ...assignment, settings: studySettingsSchema.parse(row.settings) };
+  return {
+    ...row,
+    ...assignment,
+    worldMode: row.worldMode as ParticipantContext["worldMode"],
+    settings: studySettingsSchema.parse(row.settings),
+  };
 }
 
 /** The signed-in participant for a request, or null. */
@@ -109,6 +117,8 @@ export async function participantFromRequest(
 export async function loadWorldContext(
   db: Database,
   worldId: string,
+  /** In a shared world, whose context: one of its participants, by their actor. */
+  actorId?: string | null,
 ): Promise<ParticipantContext | null> {
   const [row] = await db
     .select({
@@ -118,6 +128,7 @@ export async function loadWorldContext(
       actorId: schema.worldMemberships.actorId,
       studyVersionId: schema.worlds.studyVersionId,
       worldStartedAt: schema.worlds.startedAt,
+      worldMode: schema.worlds.mode,
       seed: schema.worlds.seed,
       flowPosition: schema.participants.flowPosition,
       settings: schema.studyVersions.settings,
@@ -130,7 +141,11 @@ export async function loadWorldContext(
       eq(schema.participants.id, schema.worldMemberships.participantId),
     )
     .where(
-      and(eq(schema.worldMemberships.worldId, worldId), isNull(schema.worldMemberships.leftAt)),
+      and(
+        eq(schema.worldMemberships.worldId, worldId),
+        isNull(schema.worldMemberships.leftAt),
+        actorId ? eq(schema.worldMemberships.actorId, actorId) : undefined,
+      ),
     )
     .limit(1);
   if (!row) {
@@ -144,6 +159,11 @@ export async function loadWorldContext(
     .orderBy(desc(schema.assignments.id))
     .limit(1);
   return assignment
-    ? { ...row, ...assignment, settings: studySettingsSchema.parse(row.settings) }
+    ? {
+        ...row,
+        ...assignment,
+        worldMode: row.worldMode as ParticipantContext["worldMode"],
+        settings: studySettingsSchema.parse(row.settings),
+      }
     : null;
 }

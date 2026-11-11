@@ -11,7 +11,7 @@ import {
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { feedSettingsFor } from "@truman3/feed";
 import { deleteParticipant } from "@truman3/study-import";
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { deleteCookie } from "hono/cookie";
 import { actionMetaSchema } from "../actions/request.ts";
 import { findVisibleContent } from "../actions/routes.ts";
@@ -35,6 +35,13 @@ const flowStateSchema = z.object({
   pageText: z.string().nullable(),
   /** On the feed step, whether they can choose to finish now. */
   canFinish: z.boolean(),
+  /**
+   * In a shared world that hasn't started (ADR 67): how many have joined, how many it's for, and
+   * when it starts at the latest. Absent once it's started, or in a world of one.
+   */
+  waiting: z
+    .object({ joined: z.number(), size: z.number(), startsBy: z.iso.datetime() })
+    .optional(),
   /** What their posts must contain. */
   platformStyle: z.enum(["photo", "text", "mixed"]),
   /** Light, dark, or whatever their device uses. */
@@ -63,6 +70,9 @@ const flowStateSchema = z.object({
     faviconUrl: z.string().nullable(),
     /** Whether the study has a page of community rules, at GET /rules. */
     hasRules: z.boolean(),
+    /** Whether the site has its own terms of service and privacy policy, at GET /site/{page}. */
+    hasTerms: z.boolean(),
+    hasPrivacy: z.boolean(),
   }),
 });
 
@@ -313,6 +323,21 @@ export function createFlowRoutes({
     const elapsedMs = clock().getTime() - context.worldStartedAt.getTime();
     const { step, position } = currentFlowStep(context.settings, context.flowPosition, elapsedMs);
     const { site } = context.settings;
+    // A shared world waiting for people doesn't start anyone's study time until it does.
+    const waiting =
+      context.worldMode === "shared" && elapsedMs < 0
+        ? {
+            joined:
+              (
+                await db
+                  .select({ total: count() })
+                  .from(schema.worldMemberships)
+                  .where(eq(schema.worldMemberships.worldId, context.worldId))
+              )[0]?.total ?? 0,
+            size: context.settings.worlds?.size ?? 0,
+            startsBy: context.worldStartedAt.toISOString(),
+          }
+        : null;
     const feedSettings = feedSettingsFor(context.settings, context.conditionKey);
 
     return c.json(
@@ -321,6 +346,7 @@ export function createFlowRoutes({
         position,
         pageText: step && "page" in step ? (pages[step.page] ?? "") : null,
         canFinish: step ? canLeaveFeed(step, elapsedMs) : false,
+        ...(waiting ? { waiting } : {}),
         ...platformFor(context.settings, context.conditionKey),
         maxPostLength: maxPostLengthFor(context.settings, context.conditionKey),
         feedTabs: {
@@ -333,6 +359,8 @@ export function createFlowRoutes({
           logoUrl: site.logo ? mediaUrl(site.logo, mediaPublicUrl) : null,
           faviconUrl: site.favicon ? mediaUrl(site.favicon, mediaPublicUrl) : null,
           hasRules: Boolean(site.rules && pages[site.rules]),
+          hasTerms: Boolean(site.terms && pages[site.terms]),
+          hasPrivacy: Boolean(site.privacy && pages[site.privacy]),
         },
       },
       200,

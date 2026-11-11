@@ -6,7 +6,8 @@
 schemaVersion: 1
 slug: bystander
 title: Bystander (reference study)
-site: { name: Commons }
+# The site's own terms and privacy policy, as real platforms have, are part of the study's fiction.
+site: { name: Commons, terms: pages/terms.md, privacy: pages/privacy.md }
 length: { days: 1 }
 entry: { idParam: PROLIFIC_PID, idLabel: Prolific ID, source: prolific }
 conditions:

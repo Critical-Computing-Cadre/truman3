@@ -291,6 +291,21 @@ const labelAnswerRoute = createRoute({
   },
 });
 
+const sitePageRoute = createRoute({
+  method: "get",
+  path: "/site/{page}",
+  summary: "The site's own terms of service or privacy policy, in Markdown",
+  request: { params: z.object({ page: z.enum(["terms", "privacy"]) }) },
+  responses: {
+    200: {
+      description: "The page, in Markdown",
+      content: { "application/json": { schema: z.object({ text: z.string() }) } },
+    },
+    401: notSignedIn,
+    404: errorResponse("This site has no such page"),
+  },
+});
+
 const rulesRoute = createRoute({
   method: "get",
   path: "/rules",
@@ -951,8 +966,9 @@ export async function findVisibleContent(
         or(isNull(schema.content.worldId), eq(schema.content.worldId, context.worldId)),
       ),
     );
-  // A message is only ever read on the Messages page. Nothing else can be done to one.
-  if (!item || item.kind === "message") {
+  // A message is only ever read on the Messages page. Nothing else can be done to one, or to what
+  // someone wrote before they withdrew from a shared world.
+  if (!item || item.kind === "message" || item.withdrawnAt) {
     return null;
   }
 
@@ -1024,6 +1040,41 @@ export function participantEvent(
     occurredAt: new Date(occurredAt),
     clientEventId,
   };
+}
+
+/**
+ * In a shared world (ADR 67), what one participant does to another notifies them, as the cast's
+ * reactions do: a like, a reply, a repost, or a follow. Only another participant in the same world,
+ * never themselves or the cast.
+ */
+async function notifyParticipant(
+  tx: Transaction,
+  context: ParticipantContext,
+  type: "like" | "reply" | "repost" | "follow",
+  recipientActorId: string,
+  about: { targetContentId?: string; replyContentId?: string },
+  now: Date,
+) {
+  if (context.worldMode !== "shared" || recipientActorId === context.actorId) {
+    return;
+  }
+  const [recipient] = await tx
+    .select({ id: schema.actors.id })
+    .from(schema.actors)
+    .where(and(eq(schema.actors.id, recipientActorId), eq(schema.actors.worldId, context.worldId)));
+  if (!recipient) {
+    return;
+  }
+  await tx.insert(schema.notifications).values({
+    worldId: context.worldId,
+    recipientActorId,
+    actorId: context.actorId,
+    type,
+    targetContentId: about.targetContentId ?? null,
+    replyContentId: about.replyContentId ?? null,
+    targetActorId: about.targetContentId ? null : recipientActorId,
+    dueAt: now,
+  });
 }
 
 /** Thrown inside a transaction to undo it when the action turns out to be a repeat. */
@@ -1166,6 +1217,16 @@ export function createActionRoutes({
             },
             clock(),
           );
+          if (liked) {
+            await notifyParticipant(
+              tx,
+              context,
+              "like",
+              liked.authorActorId,
+              { targetContentId: contentId },
+              clock(),
+            );
+          }
         }
       });
     };
@@ -1764,6 +1825,14 @@ export function createActionRoutes({
         if (!recorded) {
           throw new RepeatedAction();
         }
+        await notifyParticipant(
+          tx,
+          context,
+          "reply",
+          target.authorActorId,
+          { targetContentId: target.id, replyContentId: contentId },
+          now,
+        );
 
         if (!afterRule.skip) {
           await scheduleReactions(tx, context, {
@@ -2097,10 +2166,16 @@ export function createActionRoutes({
     return actor ?? null;
   };
 
-  /** Someone in the cast the participant can message: anyone in it but themselves. */
+  /**
+   * Someone the participant can message: anyone in the cast, and in a shared world, the other
+   * participants in it (ADR 67). Never themselves.
+   */
   const findCastMember = async (context: ParticipantContext, username: string) => {
     const actor = await findActor(context, username);
-    return actor && actor.id !== context.actorId && actor.worldId === null ? actor : null;
+    const reachable =
+      actor?.worldId === null ||
+      (context.worldMode === "shared" && actor?.worldId === context.worldId);
+    return actor && actor.id !== context.actorId && reachable ? actor : null;
   };
 
   app.openapi(conversationsRoute, async (c) => {
@@ -2258,6 +2333,7 @@ export function createActionRoutes({
             },
             clock(),
           );
+          await notifyParticipant(tx, context, "follow", actor.id, {}, clock());
         }
       } else {
         await tx
@@ -2671,6 +2747,14 @@ export function createActionRoutes({
           },
           now,
         );
+        await notifyParticipant(
+          tx,
+          context,
+          "repost",
+          root.authorActorId,
+          { targetContentId: root.id },
+          now,
+        );
       }
       if (!body.active && already) {
         await tx.delete(schema.content).where(mine);
@@ -2749,6 +2833,22 @@ export function createActionRoutes({
       targetContentId: id,
     });
     return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(sitePageRoute, async (c) => {
+    const context = await participantFromRequest(c, db, clock());
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const page = context.settings.site[c.req.valid("param").page];
+    const [version] = page
+      ? await db
+          .select({ pages: schema.studyVersions.pages })
+          .from(schema.studyVersions)
+          .where(eq(schema.studyVersions.id, context.studyVersionId))
+      : [];
+    const text = page ? (version?.pages as Record<string, string> | undefined)?.[page] : undefined;
+    return text === undefined ? c.json(notAvailable, 404) : c.json({ text }, 200);
   });
 
   app.openapi(rulesRoute, async (c) => {
