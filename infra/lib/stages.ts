@@ -40,8 +40,9 @@ export const STAGES: Record<string, Stage> = {
     region: "us-east-1",
     holdsRealData: false,
     availabilityZones: ["us-east-1a", "us-east-1b"],
-    apiCpu: 256,
-    apiMemoryMb: 512,
+    // A whole CPU: a quarter of one ran flat out with 50 people in one shared world (ADR 69).
+    apiCpu: 1024,
+    apiMemoryMb: 2048,
     apiTasks: 1,
     databaseStorageGb: 20,
     backupDays: 7,
