@@ -137,6 +137,20 @@ To create the first team, run the `AdminCommand` that printed, with `--profile` 
 
 **The password appears in `/truman3-staging/tasks`.** That log is kept for one day, and anyone who can read logs in this account can read it. Copy it, and delete the log stream.
 
+### Production
+
+Production is the stage `production`, in its own account ([ADR 73](../adr/0073-production-stage.md)). Every command takes `-c stage=production` and `--profile truman-prod`. Staging's take neither, or `--profile truman`. Before its first deployment:
+
+1. **The DNS zone** for truman-research.org exists in production, and the domain's name servers point to it. The certificate is checked through the zone, so the first deploy waits until it can be.
+2. **The Claude key secret,** `truman3-production/anthropic-api-key`, is made, as in The Claude key, below.
+3. **CDK is bootstrapped** in the account. That's done.
+
+After it:
+
+- **Subscribe to alerts:** run the command in the `AlertsTopic` output with your email, and confirm the email AWS sends.
+- **Leave the SES sandbox** in production's account, as in Email, below.
+- **Make yourself an operator** with the `AdminCommand`, as for the first team, with `"operator","<email>"`.
+
 ### Later deployments
 
 If a change includes a migration, stop the API, update the database, and start it again, as above. If it doesn't, `pnpm run deploy --profile <profile>` is enough. CI doesn't deploy yet. [Cloud architecture](../cloud.md#when-a-change-includes-a-migration) says why it takes these steps.
@@ -201,5 +215,10 @@ Look up the Postgres code, and reproduce it locally, where errors log in full. W
 These are known gaps. Don't run real participants until they're closed.
 
 - **Several domains.** The apps work on any domain, and a stage can list them with a certificate, but `PARTICIPANT_APP_URL` is one address, so every study's link uses it. A study needs its own address setting.
-- **A tested restore, and CI that deploys.** Automatic database backups are on, but nobody has restored one.
+- **A restore checked on each stage.** [Restoring from a backup](restoring.md) says how. It's to be run on staging once `pnpm admin counts` is deployed there, and on production after its first deploy.
+- **CI that deploys.** Deploys are run by hand, with the diff read first.
+- **Before real participants on production:**
+  - the terms and privacy policy, reviewed by the university
+  - each lab's data encrypted with its own key, and the break-glass login
+  - scanning participants' photos
 - **Storage tries to create a missing bucket when starting.** On AWS the bucket is always there, so this does nothing.

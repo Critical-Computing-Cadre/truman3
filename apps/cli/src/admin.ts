@@ -5,13 +5,14 @@ import {
   setUpTeam,
   type TeamRole,
 } from "@truman3/accounts";
-import { createDb } from "@truman3/db";
+import { createDb, schema } from "@truman3/db";
 
 const USAGE = `Usage:
   pnpm admin setup <team name> <team slug> <your email> <your name>
   pnpm admin add <team slug> <email> <name> <owner|editor|viewer>
   pnpm admin reset-password <email>
-  pnpm admin operator <email>      lets them approve labs on a hosted Truman (ADR 70)`;
+  pnpm admin operator <email>      lets them approve labs on a hosted Truman (ADR 70)
+  pnpm admin counts                how many rows the main tables have, to check a restored backup`;
 
 const ROLES: readonly string[] = ["owner", "editor", "viewer"];
 
@@ -59,6 +60,19 @@ try {
     } else {
       console.error(`There's no account for ${args[0]}.`);
       process.exitCode = 1;
+    }
+  } else if (command === "counts") {
+    // Numbers only, never what's in the rows, so this is safe to run on real data (ADR 73).
+    const tables = {
+      teams: schema.teams,
+      researchers: schema.researchers,
+      studies: schema.studies,
+      participants: schema.participants,
+      content: schema.content,
+      events: schema.events,
+    };
+    for (const [name, table] of Object.entries(tables)) {
+      console.log(`${name.padEnd(13)} ${await database.db.$count(table)}`);
     }
   } else if (command === "operator" && args[0]) {
     if (await makeOperator(database.db, args[0])) {
