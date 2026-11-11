@@ -1,0 +1,69 @@
+# Scenario tests: each checks which "updated their profile picture" posts a participant sees in
+# their condition. The frames themselves are pictures, which `sees` can't check. Run them with:
+#   pnpm study test studies/examples/vaccine-frames
+# See docs/guides/testing-studies.md.
+scenarios:
+  - name: In "low", the 2 framed people announce their new pictures
+    condition: low
+    steps:
+      - at: "0:01"
+        expect:
+          sees:
+            - Dana Cox updated their profile picture.
+            - Remy Lewis updated their profile picture.
+            - Ran my first 10k this morning!
+          doesNotSee:
+            - Eva Matthews updated their profile picture.
+            - Lucy Gregory updated their profile picture.
+            - Sam Kaldis updated their profile picture.
+            - Tiana Brown updated their profile picture.
+            - Jin Ying updated their profile picture.
+            - Manuel De Leon updated their profile picture.
+            - Shristi Patel updated their profile picture.
+
+  - name: In "medium", the 5 framed people do, including the 2 from "low"
+    condition: medium
+    steps:
+      - at: "0:01"
+        expect:
+          sees:
+            - Dana Cox updated their profile picture.
+            - Remy Lewis updated their profile picture.
+            - Eva Matthews updated their profile picture.
+            - Lucy Gregory updated their profile picture.
+            - Sam Kaldis updated their profile picture.
+          doesNotSee:
+            - Tiana Brown updated their profile picture.
+            - Jin Ying updated their profile picture.
+            - Manuel De Leon updated their profile picture.
+            - Shristi Patel updated their profile picture.
+
+  - name: In "high", all 9 framed people do
+    condition: high
+    steps:
+      - at: "0:01"
+        expect:
+          sees:
+            - Dana Cox updated their profile picture.
+            - Remy Lewis updated their profile picture.
+            - Eva Matthews updated their profile picture.
+            - Lucy Gregory updated their profile picture.
+            - Sam Kaldis updated their profile picture.
+            - Tiana Brown updated their profile picture.
+            - Jin Ying updated their profile picture.
+            - Manuel De Leon updated their profile picture.
+            - Shristi Patel updated their profile picture.
+
+  - name: Everyone sees the same 30 everyday posts, and can reply to them
+    condition: low
+    steps:
+      - at: "0:01"
+        comment: Congrats on the 10k!
+        on: { post: p04 }
+      - at: "0:02"
+        expect:
+          sees:
+            - Finally tried the new ramen place on 5th.
+            - Meal prep Sunday done.
+            - Third attempt at sourdough. It finally rose!
+            - Congrats on the 10k!

@@ -109,6 +109,9 @@ export async function storeMedia(
     if (actor.banner) {
       files.set(path.join(MEDIA_FOLDERS.actors, actor.banner), actor.banner);
     }
+    for (const picture of Object.values(actor.conditionPictures ?? {})) {
+      files.set(path.join(MEDIA_FOLDERS.actors, picture), picture);
+    }
   }
   for (const space of study.spaces) {
     if (space.picture) {
@@ -326,6 +329,14 @@ export async function freezeStudy(
               picture:
                 actor.picture && mediaKeys.get(path.join(MEDIA_FOLDERS.actors, actor.picture)),
               banner: actor.banner && mediaKeys.get(path.join(MEDIA_FOLDERS.actors, actor.banner)),
+              conditionPictures: actor.conditionPictures
+                ? Object.fromEntries(
+                    Object.entries(actor.conditionPictures).map(([condition, picture]) => [
+                      condition,
+                      mediaKeys.get(path.join(MEDIA_FOLDERS.actors, picture)) ?? picture,
+                    ]),
+                  )
+                : undefined,
             },
           })),
         )
@@ -505,6 +516,8 @@ export async function freezeStudy(
           label: labeling.label,
           hides: labeling.hides,
           reason: labeling.reason,
+          showsWho: labeling.showsWho,
+          ask: labeling.ask,
           conditions: labeling.conditions,
           class: labeling.class,
         })),

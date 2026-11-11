@@ -45,15 +45,15 @@ Both web apps are built with Vite ([ADR 2](adr/0002-react-with-vite.md)) into st
 
 ### Other folders
 
-| Path               | What it is                                                                                                           |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `studies/examples` | `eatsnap`, the classic study converted from `truman_2023`, and `bystander`, which uses beats                         |
-| `studies/starters` | Sample content for each template, offered on the New Study page ([ADR 50](adr/0050-sample-content-for-each-kind.md)) |
-| `e2e`              | Playwright tests: a real browser through the whole example study, and the admin app                                  |
-| `infra`            | AWS CDK for staging. See [Cloud architecture](cloud.md)                                                              |
-| `scripts`          | The container check, and the script that draws the starters' pictures                                                |
-| `compose.yaml`     | Local Postgres and S3-compatible storage                                                                             |
-| `Dockerfile`       | The API's image, which also holds the database update and `apps/cli`                                                 |
+| Path               | What it is                                                                                                                                                                                                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `studies/examples` | The reference studies: `eatsnap` (#1, the classic study converted from `truman_2023`), `bystander` (#2, which uses beats), `flag-source` (#3, who flagged it, from Bhandari et al. 2021), and `vaccine-frames` (#4, profile frames and norms, from Aghajari et al. 2024) |
+| `studies/starters` | Sample content for each template, offered on the New Study page ([ADR 50](adr/0050-sample-content-for-each-kind.md))                                                                                                                                                     |
+| `e2e`              | Playwright tests: a real browser through the whole example study, and the admin app                                                                                                                                                                                      |
+| `infra`            | AWS CDK for staging. See [Cloud architecture](cloud.md)                                                                                                                                                                                                                  |
+| `scripts`          | The container check, and the script that draws the starters' pictures                                                                                                                                                                                                    |
+| `compose.yaml`     | Local Postgres and S3-compatible storage                                                                                                                                                                                                                                 |
+| `Dockerfile`       | The API's image, which also holds the database update and `apps/cli`                                                                                                                                                                                                     |
 
 ### How they depend on each other
 

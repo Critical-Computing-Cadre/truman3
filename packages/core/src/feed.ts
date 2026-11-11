@@ -42,8 +42,10 @@ export type FeedRemoved = z.infer<typeof feedRemovedSchema>;
  */
 export const feedLabelSchema = z.object({
   text: z.string(),
-  /** The moderator's name. */
+  /** The moderator's name. Empty when the study doesn't say who gave it. */
   by: z.string(),
+  /** A yes-or-no question it asks, until this person answers it. */
+  ask: z.string().optional(),
   hides: z.boolean(),
   reason: z.string().optional(),
   /** On a platform with appeals, whether its author can still appeal, or already has. */

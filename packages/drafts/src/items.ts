@@ -28,6 +28,8 @@ export const itemDataSchemas = {
     location: z.string().optional(),
     bio: z.string().optional(),
     picture: z.string().optional(),
+    /** A different picture in some conditions, by condition key. */
+    conditionPictures: z.record(z.string(), z.string()).optional(),
     banner: z.string().optional(),
     moderator: z.boolean().optional(),
     karma: z.number().int().optional(),
@@ -195,6 +197,8 @@ export const itemDataSchemas = {
     label: z.string().min(1).max(MAX_LABEL_LENGTH),
     hides: z.boolean().default(false),
     reason: z.string().min(1).optional(),
+    showsWho: z.boolean().default(true),
+    ask: z.string().min(1).max(200).optional(),
     ...targeting,
   }),
   removal: z.strictObject({

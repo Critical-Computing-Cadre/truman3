@@ -201,6 +201,12 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
           onLabelShown: (id, label) => {
             send(`/content/${id}/label-shown`, { label }).catch(() => {});
           },
+          onLabelAnswered: (id, label, agree) => {
+            send(`/content/${id}/label-answer`, { label, agree }).catch(() => {});
+          },
+          ...(flow.data?.site.hasRules
+            ? { onOpenRules: () => navigate({ to: "/rules", search: { from: "label" } }) }
+            : {}),
           onAppeal: (id, text) => {
             send(`/content/${id}/appeal`, { text })
               .catch(() => {})

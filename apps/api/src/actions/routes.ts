@@ -41,6 +41,7 @@ import {
   loadSpacesFor,
   mediaUrl,
   participantKarma,
+  pictureUrlOf,
 } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import {
@@ -271,6 +272,37 @@ const labelShownRoute = createRoute({
     401: notSignedIn,
     403: errorResponse("That feature is off in this condition"),
     404: errorResponse("Nothing this participant can see that a label covers"),
+  },
+});
+
+const labelAnswerRoute = createRoute({
+  method: "post",
+  path: "/content/{id}/label-answer",
+  summary: "Answer the yes-or-no question on a moderator's label",
+  request: {
+    params: contentParams,
+    ...jsonBody(actionMetaSchema.extend({ label: z.string().min(1), agree: z.boolean() })),
+  },
+  responses: {
+    200: okResponse("Recorded"),
+    401: notSignedIn,
+    403: errorResponse("That feature is off in this condition"),
+    404: errorResponse("Nothing this participant can see whose label asks that"),
+  },
+});
+
+const rulesRoute = createRoute({
+  method: "get",
+  path: "/rules",
+  summary: "The study's community rules. Opening them is recorded",
+  request: { query: z.object({ from: z.enum(["label", "menu"]).default("menu") }) },
+  responses: {
+    200: {
+      description: "The page, in Markdown",
+      content: { "application/json": { schema: z.object({ text: z.string() }) } },
+    },
+    401: notSignedIn,
+    404: errorResponse("This study has no rules page"),
   },
 });
 
@@ -2042,7 +2074,7 @@ export function createActionRoutes({
           return {
             username: actor.username,
             name: profile.name ?? actor.username,
-            pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+            pictureUrl: pictureUrlOf(profile, context.conditionKey, mediaPublicUrl),
           };
         }),
       },
@@ -2108,7 +2140,7 @@ export function createActionRoutes({
       payload: {},
       targetActorId: actor.id,
     });
-    return c.json({ with: personOf(actor, mediaPublicUrl), messages }, 200);
+    return c.json({ with: personOf(actor, context.conditionKey, mediaPublicUrl), messages }, 200);
   });
 
   app.openapi(sendMessageRoute, async (c) => {
@@ -2305,7 +2337,7 @@ export function createActionRoutes({
         name: profile.name ?? actor.username,
         bio: profile.bio ?? "",
         location: profile.location ?? "",
-        pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+        pictureUrl: pictureUrlOf(profile, context.conditionKey, mediaPublicUrl),
         bannerUrl: profile.banner ? mediaUrl(profile.banner, mediaPublicUrl) : null,
         isViewer: actor.id === context.actorId,
         following: has("follow"),
@@ -2571,7 +2603,7 @@ export function createActionRoutes({
         {
           username: actor.username,
           name: profile.name ?? actor.username,
-          pictureUrl: profile.picture ? mediaUrl(profile.picture, mediaPublicUrl) : null,
+          pictureUrl: pictureUrlOf(profile, context.conditionKey, mediaPublicUrl),
           ...(profile.badge && !isOff(context, "badges") ? { badge: profile.badge } : {}),
           ...(isOff(context, "followCounts") ? {} : { followerCount: profile.followers ?? 0 }),
         },
@@ -2689,6 +2721,59 @@ export function createActionRoutes({
       targetContentId: id,
     });
     return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(labelAnswerRoute, async (c) => {
+    const context = await participantFromRequest(c, db, clock());
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    if (isOff(context, "labels")) {
+      return c.json(featureOff, 403);
+    }
+    const now = clock();
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
+    const item = await findVisibleContent(db, context, id, now);
+    // Only a question that's still open: once answered, it isn't asked again.
+    const asking = (await loadLabels(db, context, now))
+      .get(id)
+      ?.some(({ text, ask }) => ask && text === body.label);
+    if (!item || item.authorActorId === context.actorId || !asking) {
+      return c.json(notAvailable, 404);
+    }
+    await recordEvent(db, {
+      ...participantEvent(context, body.occurredAt, body.clientEventId),
+      type: "content.label_answered",
+      payload: { label: body.label, agree: body.agree },
+      targetContentId: id,
+    });
+    return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(rulesRoute, async (c) => {
+    const context = await participantFromRequest(c, db, clock());
+    if (!context) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const page = context.settings.site.rules;
+    const [version] = page
+      ? await db
+          .select({ pages: schema.studyVersions.pages })
+          .from(schema.studyVersions)
+          .where(eq(schema.studyVersions.id, context.studyVersionId))
+      : [];
+    const text = page ? (version?.pages as Record<string, string> | undefined)?.[page] : undefined;
+    if (text === undefined) {
+      return c.json(notAvailable, 404);
+    }
+    const now = clock();
+    await recordEvent(db, {
+      ...participantEvent(context, now.toISOString(), randomUUID()),
+      type: "rules.opened",
+      payload: { from: c.req.valid("query").from },
+    });
+    return c.json({ text }, 200);
   });
 
   app.openapi(appealRoute, async (c) => {

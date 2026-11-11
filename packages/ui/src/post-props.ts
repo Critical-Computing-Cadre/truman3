@@ -18,6 +18,10 @@ export interface PostActions {
   onReveal?: (contentId: string) => void;
   /** Records pressing Show on what a moderator's label covered, by what the label says. */
   onLabelShown?: (contentId: string, label: string) => void;
+  /** Answers the yes-or-no question on a moderator's label. */
+  onLabelAnswered?: (contentId: string, label: string, agree: boolean) => void;
+  /** Opens the study's community rules. Only given when the study has them. */
+  onOpenRules?: () => void;
   /** Chooses an option in a poll, by its place in the list. */
   onPollVote?: (contentId: string, option: number) => void;
   /** Appeals a moderator's removal or label of what they wrote. */

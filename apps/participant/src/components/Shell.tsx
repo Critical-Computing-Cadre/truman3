@@ -184,6 +184,19 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
           },
         ]
       : []),
+    ...(flow.site.hasRules
+      ? [
+          {
+            key: "rules",
+            label: "Rules",
+            render: (className: string) => (
+              <Link to="/rules" search={{ from: "menu" }} className={className}>
+                Rules
+              </Link>
+            ),
+          },
+        ]
+      : []),
     ...(me.data
       ? [
           {

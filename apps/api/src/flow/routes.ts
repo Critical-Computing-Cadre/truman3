@@ -61,6 +61,8 @@ const flowStateSchema = z.object({
     name: z.string(),
     logoUrl: z.string().nullable(),
     faviconUrl: z.string().nullable(),
+    /** Whether the study has a page of community rules, at GET /rules. */
+    hasRules: z.boolean(),
   }),
 });
 
@@ -326,6 +328,7 @@ export function createFlowRoutes({
           name: site.name,
           logoUrl: site.logo ? mediaUrl(site.logo, mediaPublicUrl) : null,
           faviconUrl: site.favicon ? mediaUrl(site.favicon, mediaPublicUrl) : null,
+          hasRules: Boolean(site.rules && pages[site.rules]),
         },
       },
       200,

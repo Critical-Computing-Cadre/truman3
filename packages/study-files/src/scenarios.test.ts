@@ -73,7 +73,7 @@ scenarios:
       - { at: "0:03", comment: Hi }
 `),
     ).toEqual([
-      'The scenario "Mixed up", step 1: Give exactly one of post, comment, like, repost, follow, message, expect in a step.',
+      'The scenario "Mixed up", step 1: Give exactly one of post, comment, like, repost, flag, follow, message, expect in a step.',
       'The scenario "Mixed up", step 2 (at): "soon" isn\'t a time. Use hours:minutes, like 0:05.',
       'The scenario "Mixed up", step 3: A comment needs on, and only a comment has it.',
     ]);

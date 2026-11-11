@@ -8,9 +8,10 @@ import { idSchema, studyTime } from "./beats.ts";
  */
 export const SCENARIOS_FILE = "scenarios.yaml";
 
-/** One of the study's posts, by its id, or what a beat made in this world. */
+/** One of the study's posts or comments, by its id, or what a beat made in this world. */
 const targetSchema = z.union([
   z.strictObject({ post: z.string().min(1) }),
+  z.strictObject({ comment: z.string().min(1) }),
   z.strictObject({ beat: idSchema }),
 ]);
 
@@ -22,12 +23,21 @@ const expectSchema = z.strictObject({
   notHappened: z.array(idSchema).default([]),
   /** The condition they're in now. */
   condition: z.string().min(1).optional(),
-  /** Text in their feed, in a post or a comment, or in their messages. */
+  /** Text in their feed, in a post, a comment, or a moderator's label, or in their messages. */
   sees: z.array(z.string().min(1)).default([]),
   doesNotSee: z.array(z.string().min(1)).default([]),
 });
 
-const ACTIONS = ["post", "comment", "like", "repost", "follow", "message", "expect"] as const;
+const ACTIONS = [
+  "post",
+  "comment",
+  "like",
+  "repost",
+  "flag",
+  "follow",
+  "message",
+  "expect",
+] as const;
 
 const stepSchema = z
   .strictObject({
@@ -40,6 +50,8 @@ const stepSchema = z
     on: targetSchema.optional(),
     like: targetSchema.optional(),
     repost: targetSchema.optional(),
+    /** They flag it. */
+    flag: targetSchema.optional(),
     /** They follow someone in the cast, by username. */
     follow: z.string().min(1).optional(),
     /** They send a direct message with this text, to who `to` says, by username. */

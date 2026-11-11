@@ -148,6 +148,16 @@ export function packContents(
     actors: actors.map((actor) => ({
       ...withoutSource(actor),
       ...stored(MEDIA_FOLDERS.actors, actor.picture),
+      ...(actor.conditionPictures
+        ? {
+            conditionPictures: Object.fromEntries(
+              Object.entries(actor.conditionPictures).map(([condition, picture]) => [
+                condition,
+                mediaKeys.get(path.join(MEDIA_FOLDERS.actors, picture)) ?? picture,
+              ]),
+            ),
+          }
+        : {}),
     })),
     ...(spaces.length > 0
       ? {

@@ -1,0 +1,37 @@
+# Reference study #4: vaccinated profile-picture frames and perceived norms. A rebuild, for testing,
+# of Aghajari, Baumer, Lazard, Dasgupta & DiFranzo (2024), "Investigating the Mechanisms by which
+# Prevalent Online Community Behaviors Influence Responses to Misinformation", CHI '24.
+#
+# Participants scroll a feed of 30 everyday, non-political posts on "Clikbrite" for about a minute,
+# and can like, reply, or flag. Between subjects, 2, 5, or 9 of the 30 posters (about 5%, 15%, or
+# 30%) have a "vaccinated" frame on their profile picture, through the `pictures` column in
+# actors.csv. The sets are nested: the 2 framed in "low" are framed in all three, and the 5 in
+# "medium" are framed in "high" too. As on Facebook, the feed also shows an "updated their profile
+# picture" post for each framed person, so participants notice the frames. The measures (perceived
+# norms, intentions to respond to misinformation) are all in the survey the exit step sends people to.
+#
+# The frames here are a plain teal border, a stand-in. A lab running this would swap in real frame
+# artwork, like the one in the paper's Figure 3b, as the *-framed.jpg files in media/actors and
+# media/posts. Pictures and names are reused from the EatSnap example; the posts are written for this.
+schemaVersion: 1
+slug: vaccine-frames
+title: Vaccine frames (reference study)
+site: { name: Clikbrite }
+length: { days: 1 }
+entry: { idParam: PROLIFIC_PID, idLabel: Prolific ID, source: prolific }
+conditions:
+  assignment: { method: blocked, blockSize: 3 }
+  arms: [{ key: low }, { key: medium }, { key: high }]
+platform:
+  style: mixed
+  template: classic
+  # Participants only liked, replied, and flagged in the original, so they don't post.
+  features: { posting: false }
+feed: { ranker: chronological }
+flow:
+  - { step: consent, page: pages/consent.md }
+  # The original session was one minute. A feed step can say when someone may move on, but not
+  # when they must, so this lets them go after a minute instead of ending it there.
+  - { step: feed, finishAfterMinutes: 1 }
+  - step: exit
+    redirect: "https://example.edu/survey?PROLIFIC_PID={externalId}&USER_ID={participantId}"

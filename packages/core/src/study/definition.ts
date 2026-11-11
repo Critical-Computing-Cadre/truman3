@@ -187,6 +187,8 @@ export const studySettingsSchema = z.strictObject({
     logo: z.string().optional(),
     favicon: z.string().optional(),
     homepageImage: z.string().optional(),
+    /** A page of community rules, like pages/rules.md, that participants can open any time. */
+    rules: z.string().min(1).optional(),
   }),
   length: z.strictObject({ days: z.number().positive() }),
   entry: z.strictObject({
@@ -277,6 +279,8 @@ export const actorDefinitionSchema = z.object({
   location: z.string().optional(),
   bio: z.string().optional(),
   picture: z.string().optional(),
+  /** A different picture in some conditions, by condition key, such as one with a frame. */
+  conditionPictures: z.record(z.string(), z.string()).optional(),
   /** A wide picture across the top of their profile, in media/actors, on a layout that has one. */
   banner: z.string().optional(),
   /** Shows a tag on their name. It doesn't give them any powers. */
@@ -446,6 +450,10 @@ export const labelDefinitionSchema = z.object({
   /** Whether it covers the post until someone presses Show. */
   hides: z.boolean().default(false),
   reason: z.string().min(1).optional(),
+  /** Whether it says who gave it. A notice from nobody in particular doesn't. */
+  showsWho: z.boolean().default(true),
+  /** A yes-or-no question it asks, such as "Do you agree with this flag?" The answer is recorded. */
+  ask: z.string().min(1).max(200).optional(),
   ...targetingFields,
 });
 

@@ -62,6 +62,10 @@ export const eventPayloadSchemas = {
   "content.thread_muted": empty,
   /** They pressed Show on something a label covered. The label is what it said, like "Spam". */
   "content.label_shown": z.strictObject({ label: z.string() }),
+  /** They answered the question on a moderator's label, such as "Do you agree with this flag?" */
+  "content.label_answered": z.strictObject({ label: z.string(), agree: z.boolean() }),
+  /** They opened the community rules, from a label's offer or the menu. */
+  "rules.opened": z.strictObject({ from: z.enum(["label", "menu"]) }),
   "content.thread_unmuted": empty,
   "content.hidden": empty,
   "content.unhidden": empty,

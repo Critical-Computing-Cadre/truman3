@@ -1,0 +1,114 @@
+# Scenario tests: a made-up participant in each condition, checked on day 1 and day 2. Run them with:
+#   pnpm study test studies/examples/flag-source
+# See docs/guides/testing-studies.md. The unflagged comments are the same everywhere; the flagged
+# one's wording depends on the condition.
+scenarios:
+  - name: In "users-clear", day 1 has the clear flagged comment and the unflagged one
+    condition: users-clear
+    steps:
+      - at: "0:05"
+        expect:
+          sees:
+            - "Is she pregnant? Or did she just gain 500 pounds? LOL #chubs #cheesecake"
+            - "When will you get into your head that nobody likes your stupid ass"
+          doesNotSee: ["ummmm imma pass on ever eating this"]
+
+  - name: In "users-clear", day 2 has the clear flagged comment and the unflagged one
+    condition: users-clear
+    steps:
+      - at: "24:05"
+        expect:
+          sees:
+            - "this photo is uglier than you, and thats saying something"
+            - "Everyone hates you"
+          doesNotSee: ["plzzz don't ever cook this for me 😂"]
+
+  - name: In "ai-ambiguous", day 1 has the ambiguous flagged comment and the unflagged one
+    condition: ai-ambiguous
+    steps:
+      - at: "0:05"
+        expect:
+          sees:
+            - "ummmm imma pass on ever eating this"
+            - "When will you get into your head that nobody likes your stupid ass"
+          doesNotSee:
+            - "Is she pregnant? Or did she just gain 500 pounds? LOL #chubs #cheesecake"
+            - "Everyone hates you"
+
+  - name: In "ai-ambiguous", day 2 has the ambiguous flagged comment and the unflagged one
+    condition: ai-ambiguous
+    steps:
+      - at: "24:05"
+        expect:
+          sees:
+            - "plzzz don't ever cook this for me 😂"
+            - "Everyone hates you"
+          doesNotSee: ["this photo is uglier than you, and thats saying something"]
+
+  - name: In "none-clear", the clear comments show, and day 2's not before it starts
+    condition: none-clear
+    steps:
+      - at: "0:05"
+        expect:
+          sees: ["Is she pregnant? Or did she just gain 500 pounds? LOL #chubs #cheesecake"]
+          doesNotSee: ["this photo is uglier than you, and thats saying something"]
+      - at: "24:05"
+        expect:
+          sees: ["this photo is uglier than you, and thats saying something"]
+
+  - name: In "none-ambiguous", the ambiguous comments show on both days
+    condition: none-ambiguous
+    steps:
+      - at: "0:05"
+        expect:
+          sees: ["ummmm imma pass on ever eating this"]
+          doesNotSee: ["Is she pregnant? Or did she just gain 500 pounds? LOL #chubs #cheesecake"]
+      - at: "24:05"
+        expect:
+          sees: ["plzzz don't ever cook this for me 😂", "Everyone hates you"]
+
+  - name: In "users-ambiguous", a participant can answer the flagged comment's post on both days
+    condition: users-ambiguous
+    steps:
+      - at: "0:02"
+        comment: Looks great, Cassie!
+        on: { post: chicken-parm }
+      - at: "0:05"
+        expect:
+          sees: ["ummmm imma pass on ever eating this", "Looks great, Cassie!"]
+      - at: "24:02"
+        comment: Those meatballs look perfect
+        on: { post: meatballs }
+      - at: "24:05"
+        expect:
+          sees: ["plzzz don't ever cook this for me 😂", "Those meatballs look perfect"]
+
+  - name: In "ai-clear", the clear comments show on both days
+    condition: ai-clear
+    steps:
+      - at: "0:05"
+        expect:
+          sees: ["Is she pregnant? Or did she just gain 500 pounds? LOL #chubs #cheesecake"]
+          doesNotSee: ["ummmm imma pass on ever eating this"]
+      - at: "24:05"
+        expect:
+          sees: ["this photo is uglier than you, and thats saying something"]
+          doesNotSee: ["plzzz don't ever cook this for me 😂"]
+
+  - name: The notice names its source, or doesn't, and they can flag the unflagged comment
+    condition: users-clear
+    steps:
+      - at: "0:05"
+        expect:
+          sees: ["Other EatSnap.Love users flagged this comment as harassment"]
+          doesNotSee: ["Our automated system flagged this comment"]
+      - at: "0:06"
+        flag: { comment: d1-unflagged }
+
+  - name: With no source, the notice doesn't say who flagged it
+    condition: none-ambiguous
+    steps:
+      - at: "0:05"
+        expect:
+          sees: ["This comment was flagged as harassment"]
+          doesNotSee: ["Other EatSnap.Love users flagged", "Our automated system flagged"]

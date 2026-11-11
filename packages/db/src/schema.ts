@@ -517,6 +517,10 @@ export const scriptedLabels = pgTable(
     /** Whether it covers what it's on until someone presses Show. */
     hides: boolean().notNull().default(false),
     reason: text(),
+    /** Whether it says who gave it. */
+    showsWho: boolean("shows_who").notNull().default(true),
+    /** A yes-or-no question it asks, whose answer is recorded. */
+    ask: text(),
     conditions: text().array().notNull().default(sql`'{}'`),
     class: text(),
   },

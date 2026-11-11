@@ -30,6 +30,8 @@ export function useLabels(
 ): { bar: ReactNode; covered: boolean } {
   const on = useFeature("labels");
   const [shown, setShown] = useState(false);
+  // Once they answer, the question goes, and the rules are offered, if the study has them.
+  const [answered, setAnswered] = useState<"rules" | "done" | null>(null);
   const labels = on ? (item.labels ?? []) : [];
   if (labels.length === 0) {
     return { bar: null, covered: false };
@@ -38,7 +40,51 @@ export function useLabels(
   const covered = covering.length > 0 && !shown && !editing;
   const appeal = labels.find((label) => label.appeal)?.appeal;
   const names = (list: FeedLabel[]) => list.map(({ text }) => text).join(", ");
-  const by = [...new Set(labels.map((label) => label.by))].join(", ");
+  // A notice from nobody in particular doesn't say who.
+  const by = [...new Set(labels.map((label) => label.by).filter(Boolean))].join(", ");
+  const asking = labels.find((label) => label.ask);
+  const button =
+    "rounded-full border border-stone-300 px-3 py-0.5 font-semibold hover:bg-stone-100";
+  const question =
+    asking && !answered ? (
+      <fieldset data-testid="label-question" className="mt-1 flex flex-wrap items-center gap-2">
+        <legend className="sr-only">{asking.ask}</legend>
+        <span aria-hidden="true">{asking.ask}</span>
+        {[true, false].map((agree) => (
+          <button
+            key={String(agree)}
+            type="button"
+            className={button}
+            onClick={() => {
+              actions?.onLabelAnswered?.(item.id, asking.text, agree);
+              setAnswered(actions?.onOpenRules ? "rules" : "done");
+            }}
+          >
+            {agree ? "Yes" : "No"}
+          </button>
+        ))}
+      </fieldset>
+    ) : answered === "rules" ? (
+      <fieldset data-testid="rules-offer" className="mt-1 flex flex-wrap items-center gap-2">
+        <legend className="sr-only">Would you like to review the community rules?</legend>
+        <span aria-hidden="true">Would you like to review the community rules?</span>
+        <button
+          type="button"
+          className={button}
+          onClick={() => {
+            setAnswered("done");
+            actions?.onOpenRules?.();
+          }}
+        >
+          Yes
+        </button>
+        <button type="button" className={button} onClick={() => setAnswered("done")}>
+          No
+        </button>
+      </fieldset>
+    ) : answered === "done" ? (
+      <p className="mt-1 text-stone-500">Thanks for your answer.</p>
+    ) : null;
 
   if (covered) {
     return {
@@ -51,7 +97,7 @@ export function useLabels(
           <WarningIcon />
           <span className="min-w-0 flex-1">
             <span className="font-semibold">{names(covering)}</span>
-            <span className="block text-xs text-stone-500">Labeled by {by}</span>
+            {by && <span className="block text-xs text-stone-500">Labeled by {by}</span>}
           </span>
           <button
             type="button"
@@ -78,7 +124,8 @@ export function useLabels(
         <p className="flex items-center gap-1.5">
           <WarningIcon />
           <span>
-            <span className="font-semibold">{names(labels)}</span> · Labeled by {by}
+            <span className="font-semibold">{names(labels)}</span>
+            {by && ` · Labeled by ${by}`}
           </span>
           {covering.length > 0 && (
             <button
@@ -95,6 +142,7 @@ export function useLabels(
             Reason: {reason}
           </p>
         ))}
+        {question}
         {appeal && (
           <Appeal
             id={item.id}

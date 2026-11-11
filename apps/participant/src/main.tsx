@@ -21,6 +21,7 @@ import { NotificationsPage } from "./pages/NotificationsPage.tsx";
 import { PilotPage } from "./pages/PilotPage.tsx";
 import { PostPage } from "./pages/PostPage.tsx";
 import { ProfilePage } from "./pages/ProfilePage.tsx";
+import { RulesPage } from "./pages/RulesPage.tsx";
 import { SpacePage, SpacesPage } from "./pages/SpacesPage.tsx";
 import { track } from "./tracking.ts";
 
@@ -99,6 +100,15 @@ const conversationRoute = createRoute({
   component: ConversationPage,
 });
 
+const rulesRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/rules",
+  validateSearch: (search: Record<string, unknown>): { from: "label" | "menu" } => ({
+    from: search.from === "label" ? "label" : "menu",
+  }),
+  component: RulesPage,
+});
+
 const exploreRoute = createRoute({
   getParentRoute: () => gateRoute,
   path: "/explore",
@@ -152,6 +162,7 @@ const router = createRouter({
       postRoute,
       notificationsRoute,
       messagesRoute,
+      rulesRoute,
       conversationRoute,
       modLogRoute,
       exploreRoute,

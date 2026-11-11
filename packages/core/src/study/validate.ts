@@ -418,6 +418,11 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
     usernames.add(actor.username);
     checkConditions(actor.conditions, `Actor "${actor.username}"`, actor.source);
+    checkConditions(
+      Object.keys(actor.conditionPictures ?? {}),
+      `Actor "${actor.username}"'s pictures`,
+      actor.source,
+    );
   }
 
   const checkActor = (username: string, label: string, source: Source) => {
@@ -1291,6 +1296,7 @@ function checkScenarios(
   usernames: ReadonlySet<string>,
   problem: (message: string) => void,
 ) {
+  const comments = new Set(study.comments.map(({ ref }) => ref));
   const arms = new Set(study.settings.conditions.arms.map(({ key }) => key));
   for (const scenario of study.scenarios) {
     const label = `The scenario "${scenario.name}"`;
@@ -1303,6 +1309,9 @@ function checkScenarios(
         if (target && "post" in target && !posts.has(target.post)) {
           problem(`${where} uses the post "${target.post}", which isn't in this study.`);
         }
+        if (target && "comment" in target && !comments.has(target.comment)) {
+          problem(`${where} uses the comment "${target.comment}", which isn't in this study.`);
+        }
         if (target && "beat" in target && !cues.has(target.beat)) {
           problem(`${where} uses what "${target.beat}" made, but there's no beat called that.`);
         }
@@ -1310,6 +1319,7 @@ function checkScenarios(
       checkTarget(step.on);
       checkTarget(step.like);
       checkTarget(step.repost);
+      checkTarget(step.flag);
       if (step.follow !== undefined && !usernames.has(step.follow)) {
         problem(`${where} follows "${step.follow}", who isn't in the list of actors.`);
       }
