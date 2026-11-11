@@ -227,12 +227,26 @@ function LabelCard({
       >
         Cover it until someone presses Show
       </SavedCheckbox>
+      <SavedCheckbox
+        checked={labeling.showsWho}
+        disabled={!info.canEdit}
+        onChange={(showsWho) => save({ showsWho })}
+        className="flex items-center gap-2 text-sm"
+      >
+        Say who gave it. Leave this off for a notice from nobody in particular.
+      </SavedCheckbox>
       <CastField
         label="Reason shown (optional)"
         value={labeling.reason}
         canEdit={info.canEdit}
         multiline
         onSave={(reason) => save({ reason: reason || null })}
+      />
+      <CastField
+        label="A yes-or-no question it asks, like 'Do you agree with this flag?' (optional)"
+        value={labeling.ask}
+        canEdit={info.canEdit}
+        onSave={(ask) => save({ ask: ask || null })}
       />
       <ConditionChoices
         all={info.conditions.map(({ key }) => key)}

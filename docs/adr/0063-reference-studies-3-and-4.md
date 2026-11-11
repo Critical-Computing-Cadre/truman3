@@ -35,7 +35,7 @@ Section 15 set out what each needed that Truman 3 didn't have, and Dominic took 
 ## Consequences
 
 - Migration 0049 adds `scripted_labels.shows_who` and `scripted_labels.ask`.
-- The builder doesn't yet edit a label's `by` or `ask`, or an actor's per-condition pictures. They come from sheets, and are kept when a draft is saved.
+- The builder edits a label's `by` and `ask` on the Moderation page, and someone's picture in each condition on the Cast page, once a study has more than one condition. A draft opened from a saved version keeps all three. At first it didn't, which is fixed.
 - #4's frames are colored borders standing in for the real artwork, which a lab would swap in.
 - A label's line reads "Labeled by …", not "Flagged by …". #3 says who flagged it in each notice's reason, so it reads naturally either way.
 - Scenario tests check text, so they can't check which picture someone has. An integration test checks that instead.

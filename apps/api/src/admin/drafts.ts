@@ -322,6 +322,10 @@ const fieldsSchema = z.strictObject({
   label: z.string().trim().min(1).max(MAX_LABEL_LENGTH).optional(),
   /** Whether a label covers what it's on until someone presses Show. */
   hides: z.boolean().optional(),
+  /** Whether a label says who gave it. */
+  showsWho: z.boolean().optional(),
+  /** A yes-or-no question a label asks. Null takes it away. */
+  ask: z.string().trim().min(1).max(200).nullable().optional(),
   afterMs: z.number().int().nonnegative().optional(),
   /** A flag's answer. It's for any flag without `targetId`, and null takes one away. */
   action: z
@@ -355,6 +359,8 @@ const fieldsSchema = z.strictObject({
   startsJoined: z.boolean().optional(),
   members: z.number().int().nonnegative().nullable().optional(),
   banner: z.string().regex(STORED_IMAGE).nullable().optional(),
+  /** Someone's picture in some conditions, by condition key, from uploaded images (ADR 63). */
+  conditionPictures: z.record(z.string(), z.string().regex(STORED_IMAGE)).optional(),
   accent: z.string().regex(ACCENT_PATTERN).nullable().optional(),
   /** Part of a space's address. */
   key: z.string().trim().min(1).max(100).optional(),
@@ -720,6 +726,12 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               location: data.location ?? "",
               pictureUrl: data.picture ? mediaUrl(data.picture, mediaPublicUrl) : null,
               bannerUrl: data.banner ? mediaUrl(data.banner, mediaPublicUrl) : null,
+              conditionPictures: Object.fromEntries(
+                Object.entries(data.conditionPictures ?? {}).map(([condition, key]) => [
+                  condition,
+                  { key, url: mediaUrl(key, mediaPublicUrl) },
+                ]),
+              ),
               moderator: data.moderator ?? false,
               karma: data.karma ?? 0,
               followers: data.followers ?? 0,
@@ -817,6 +829,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               label: data.label,
               hides: data.hides,
               reason: data.reason ?? "",
+              showsWho: data.showsWho,
+              ask: data.ask ?? "",
               conditions: data.conditions,
             };
           }),

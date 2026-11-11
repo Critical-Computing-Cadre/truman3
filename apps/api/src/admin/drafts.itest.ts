@@ -52,7 +52,11 @@ conditions:
 media: { baseUrl: "https://cdn.example.com/m" }
 flow: [{ step: feed }]
 `,
-    "actors.csv": "username,name,bio\nann,Ann,Ann's bio\nbob,Bob,\n",
+    "actors.csv": "username,name,bio,pictures\nann,Ann,Ann's bio,b=ann-b.jpg\nbob,Bob,,\n",
+    "labels.csv": [
+      "on,target,actor,time,label,by,ask",
+      'post,for-a,ann,-0:20,Flagged,hidden,"Do you agree with this flag?"',
+    ].join("\n"),
     "posts.csv": [
       "id,body,picture,actor,likes,time,condition",
       "p1,original text,photo.jpg,ann,4,-1:00,",
@@ -1340,5 +1344,21 @@ describe("a moderator's decisions in the builder", () => {
       },
     });
     expect(refused.status).toBe(403);
+  });
+});
+
+describe("opening a draft from a version", () => {
+  it("keeps a label's question and source, and someone's pictures by condition", async () => {
+    const team = await lab();
+    const { draftId } = await open(team);
+    const info = (await (await call(team.cookie, "GET", `/admin/drafts/${draftId}`)).json()) as {
+      labels: { showsWho: boolean; ask: string }[];
+      actors: { username: string; conditionPictures: Record<string, { url: string }> }[];
+    };
+    expect(info.labels).toEqual([
+      expect.objectContaining({ showsWho: false, ask: "Do you agree with this flag?" }),
+    ]);
+    const ann = info.actors.find(({ username }) => username === "ann");
+    expect(ann?.conditionPictures.b?.url).toBe("https://cdn.example.com/m/ann-b.jpg");
   });
 });

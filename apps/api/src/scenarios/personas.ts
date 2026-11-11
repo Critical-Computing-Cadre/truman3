@@ -47,7 +47,7 @@ export class BudgetSpent extends Error {}
 /** The features a persona's choices depend on, in their condition. */
 export type PersonaFeatures = Pick<
   FeatureSet,
-  "likes" | "votes" | "comments" | "reposts" | "following" | "posting" | "flagging"
+  "likes" | "votes" | "comments" | "reposts" | "following" | "posting" | "flagging" | "messages"
 >;
 
 /** What each choice is, for the model, and whether the study has it. */
@@ -64,12 +64,18 @@ function choices(on: PersonaFeatures): { act: (typeof ACTS)[number]; means: stri
     on.following && { act: "follow" as const, means: "follow the person who wrote something" },
     on.posting && { act: "post" as const, means: "write a post of your own, in text" },
     on.flagging && { act: "flag" as const, means: "report a post or comment to moderators" },
+    on.messages && {
+      act: "message" as const,
+      means:
+        "send a direct message, with text, to someone who wrote something, or in a conversation",
+    },
   ].filter((choice) => choice !== false);
 }
 
 interface Item {
   id: string;
-  kind: "post" | "comment";
+  /** A post or comment in the feed, or a conversation in their messages. */
+  kind: "post" | "comment" | "conversation";
   username: string;
   mine: boolean;
 }
@@ -147,6 +153,8 @@ function describeAction(action: SimulatedAction, items: readonly Item[], feed: s
       return `Followed @${action.username}`;
     case "comment":
       return `Commented "${action.text}" on: ${quote(action.on)}`;
+    case "message":
+      return `Messaged @${action.to}: "${action.text}"`;
     default:
       return `${action.do[0]?.toUpperCase()}${action.do.slice(1)}d: ${quote(action.on)}`;
   }
@@ -180,7 +188,7 @@ Act as they would. Most of the time, people scroll past without doing anything, 
 
   return {
     transcript,
-    next: async ({ at, posts }: View) => {
+    next: async ({ at, posts, conversations = [] }: View) => {
       if (budget.spentUsd >= budget.limitUsd) {
         throw new BudgetSpent();
       }
@@ -195,6 +203,26 @@ Act as they would. Most of the time, people scroll past without doing anything, 
       for (const item of items) {
         seen.add(item.id);
       }
+      // Their messages, numbered after the feed, with what's new marked.
+      const messageLines: string[] = [];
+      for (const conversation of conversations) {
+        items.push({
+          id: `conversation:${conversation.username}`,
+          kind: "conversation",
+          username: conversation.username,
+          mine: false,
+        });
+        messageLines.push(
+          `[${items.length}] With ${conversation.name} (@${conversation.username})${conversation.unread > 0 ? `, ${conversation.unread} new` : ""}:`,
+          ...conversation.messages.map(
+            ({ mine, body }) => `    ${mine ? "You" : conversation.name}: "${body}"`,
+          ),
+        );
+        const fresh = conversation.messages.filter(({ mine }) => !mine).slice(-conversation.unread);
+        if (conversation.unread > 0) {
+          saw.push(...fresh.map(({ body }) => ({ who: conversation.name, text: body })));
+        }
+      }
       const done = transcript.entries.flatMap(({ did }) => (did ? [did] : [])).slice(-10);
       const prompt = `It's ${formatStudyTime(at)} since you joined.
 
@@ -202,11 +230,11 @@ ${done.length > 0 ? `What you've done so far:\n${done.map((line) => `- ${line}`)
 
 Your feed now:
 ${text}
-
+${messageLines.length > 0 ? `\nYour direct messages:\n${messageLines.join("\n")}\n` : ""}
 What you can do on this site:
 ${offered.map(({ act, means }) => `- ${act}: ${means}`).join("\n")}
 
-Choose one of those now, or nothing. For anything done to a post or comment, give its number in item. For follow, give the number of something by the person. For post, leave item empty. Only comments and posts need text.`;
+Choose one of those now, or nothing. For anything done to a post or comment, give its number in item. For follow, give the number of something by the person. For message, give the number of something by the person, or of a conversation. For post, leave item empty. Only comments, posts, and messages need text.`;
 
       const acted = await writer.act({ model, system, prompt });
       budget.spentUsd += acted.costUsd;
@@ -219,18 +247,25 @@ Choose one of those now, or nothing. For anything done to a post or comment, giv
           ? { do: "post", text: acted.text.trim() }
           : !item || item.mine
             ? null
-            : acted.action === "follow"
-              ? { do: "follow", username: item.username }
-              : acted.action === "comment" && acted.text.trim()
-                ? { do: "comment", on: item.id, text: acted.text.trim() }
-                : acted.action === "like" ||
-                    acted.action === "flag" ||
-                    acted.action === "upvote" ||
-                    acted.action === "downvote"
-                  ? { do: acted.action, on: item.id }
-                  : acted.action === "repost" && item.kind === "post"
-                    ? { do: "repost", on: item.id }
-                    : null;
+            : acted.action === "message"
+              ? acted.text.trim()
+                ? { do: "message", to: item.username, text: acted.text.trim() }
+                : null
+              : // Only following and messaging can be about a conversation.
+                item.kind === "conversation" && acted.action !== "follow"
+                ? null
+                : acted.action === "follow"
+                  ? { do: "follow", username: item.username }
+                  : acted.action === "comment" && acted.text.trim()
+                    ? { do: "comment", on: item.id, text: acted.text.trim() }
+                    : acted.action === "like" ||
+                        acted.action === "flag" ||
+                        acted.action === "upvote" ||
+                        acted.action === "downvote"
+                      ? { do: acted.action, on: item.id }
+                      : acted.action === "repost" && item.kind === "post"
+                        ? { do: "repost", on: item.id }
+                        : null;
       transcript.entries.push({
         at,
         saw,

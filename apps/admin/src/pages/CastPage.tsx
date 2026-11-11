@@ -59,8 +59,83 @@ export function CastField({
   );
 }
 
+/**
+ * Someone's picture in each condition, where a study has more than one: the same as their picture
+ * unless one is chosen, like one with a frame in some conditions (ADR 63).
+ */
+function ConditionPictures({
+  actor,
+  conditions,
+  canEdit,
+  edits,
+  onProblem,
+}: {
+  actor: DraftInfo["actors"][number];
+  conditions: string[];
+  canEdit: boolean;
+  edits: DraftEdits;
+  onProblem: (problem: string | null) => void;
+}) {
+  const others = Object.fromEntries(
+    Object.entries(actor.conditionPictures).map(([key, { key: image }]) => [key, image]),
+  );
+  return (
+    <fieldset className="sm:col-span-2">
+      <legend className="text-xs text-stone-600">Pictures by condition</legend>
+      <ul className="mt-1 flex flex-wrap gap-3">
+        {conditions.map((condition) => {
+          const own = actor.conditionPictures[condition];
+          return (
+            <li key={condition} className="flex items-center gap-2 text-xs">
+              <Avatar seed={actor.username} url={own?.url ?? actor.pictureUrl} size="h-8 w-8" />
+              <span className="font-medium">{condition}</span>
+              {canEdit && (
+                <label className="cursor-pointer underline">
+                  Change
+                  <input
+                    aria-label={`Picture of ${actor.name} in ${condition}`}
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(event) => {
+                      const chosen = event.target.files?.[0];
+                      if (chosen) {
+                        onProblem(null);
+                        edits.setActorPicture.mutate(
+                          { itemId: actor.id, file: chosen, condition: { key: condition, others } },
+                          { onError: (error) => onProblem(error.message) },
+                        );
+                      }
+                    }}
+                  />
+                </label>
+              )}
+              {canEdit && own && (
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => {
+                    const { [condition]: _removed, ...rest } = others;
+                    edits.update.mutate(
+                      { itemId: actor.id, changes: { conditionPictures: rest } },
+                      { onError: (error) => onProblem(error.message) },
+                    );
+                  }}
+                >
+                  Same as their picture
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </fieldset>
+  );
+}
+
 function Person({
   actor,
+  conditions,
   canEdit,
   karmaOn,
   followCountsOn,
@@ -72,6 +147,8 @@ function Person({
   edits,
 }: {
   actor: DraftInfo["actors"][number];
+  /** The study's conditions. With more than one, someone can have a picture in each. */
+  conditions: string[];
   canEdit: boolean;
   /** The spaces offering flair for people, where anyone in this study sees flair. */
   flairSpaces: DraftInfo["spaces"];
@@ -190,6 +267,15 @@ function Person({
               </>
             )}
           </div>
+        )}
+        {conditions.length > 1 && (
+          <ConditionPictures
+            actor={actor}
+            conditions={conditions}
+            canEdit={canEdit}
+            edits={edits}
+            onProblem={setProblem}
+          />
         )}
         <CastField
           label="Name"
@@ -431,6 +517,7 @@ export function CastPage() {
             }
             key={actor.id}
             actor={actor}
+            conditions={info.data.conditions.map(({ key }) => key)}
             canEdit={canEdit}
             edits={edits}
           />

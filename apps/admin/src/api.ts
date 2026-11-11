@@ -236,6 +236,8 @@ export interface DraftInfo {
     suggested: boolean;
     /** The flair they show in each space, by the space's ID. */
     spaceFlair: Record<string, string>;
+    /** A different picture in some conditions, by condition key. */
+    conditionPictures: Record<string, { key: string; url: string }>;
     /** How many posts, comments, and reactions are theirs. */
     usedBy: number;
   }[];
@@ -280,6 +282,10 @@ export interface DraftInfo {
     label: string;
     hides: boolean;
     reason: string;
+    /** Whether it says who gave it. */
+    showsWho: boolean;
+    /** A yes-or-no question it asks. Empty for none. */
+    ask: string;
     conditions: string[];
   }[];
   /** What a moderator does when someone flags something. No target means any flag. */
