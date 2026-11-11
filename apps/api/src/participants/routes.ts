@@ -11,6 +11,7 @@ import { countUnreadNotifications } from "../actions/notifications.ts";
 import type { ProlificConfig } from "../admin/prolific.ts";
 import { catchUp } from "../director/director.ts";
 import { mediaUrl, participantKarma } from "../feed/build.ts";
+import type { Live } from "../live.ts";
 import { summarizeDevice } from "./device.ts";
 import { enterStudy, entrySettings } from "./enter.ts";
 import { hashSessionToken, participantFromRequest, realClock, SESSION_COOKIE } from "./session.ts";
@@ -176,6 +177,8 @@ export interface ParticipantRouteDependencies {
   clock?: () => Date;
   /** How to reach Prolific. Leave out and researchers can't connect to it. */
   prolific?: ProlificConfig;
+  /** Live updates for shared worlds (ADR 68). Leave out and pages see changes when they load. */
+  live?: Live;
 }
 
 export function createParticipantRoutes(dependencies: ParticipantRouteDependencies) {

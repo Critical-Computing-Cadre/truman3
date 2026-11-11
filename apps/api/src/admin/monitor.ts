@@ -4,12 +4,13 @@ import path from "node:path";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { roleOnStudy } from "@truman3/accounts";
 import type { StudySettings } from "@truman3/core";
-import { schema } from "@truman3/db";
+import { recordEvent, schema } from "@truman3/db";
 import { exportStudy, listParticipantPhotos } from "@truman3/study-export";
 import { withdrawParticipant } from "@truman3/study-import";
 import { and, asc, count, countDistinct, desc, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import { zipSync } from "fflate";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
+import { loadWorldContext } from "../participants/session.ts";
 import { photoZipStream } from "./photo-zip.ts";
 import { researcherFromRequest } from "./session.ts";
 
@@ -173,6 +174,71 @@ const withdrawRoute = createRoute({
         },
       },
     },
+    ...commonErrors,
+  },
+});
+
+/** How much of what's being written is shown to watch, newest first. */
+const LIVE_SHOWN = 100;
+
+const liveRoute = createRoute({
+  method: "get",
+  path: "/admin/studies/{studyId}/live",
+  summary: "What participants are writing in shared worlds, newest first, to watch and remove",
+  request: { params: studyParams },
+  responses: {
+    200: {
+      description: "What participants wrote, as others in their world see it",
+      content: {
+        "application/json": {
+          schema: z.object({
+            worlds: z.array(
+              z.object({
+                id: z.uuid(),
+                condition: z.string(),
+                people: z.number(),
+                startedAt: z.iso.datetime(),
+              }),
+            ),
+            content: z.array(
+              z.object({
+                id: z.uuid(),
+                worldId: z.uuid(),
+                kind: z.enum(["post", "comment", "story", "message"]),
+                author: z.string(),
+                body: z.string(),
+                at: z.iso.datetime(),
+                removed: z.boolean(),
+              }),
+            ),
+            /** Who removals are by: someone in the cast with moderator: true. */
+            moderator: z.string().nullable(),
+          }),
+        },
+      },
+    },
+    ...commonErrors,
+  },
+});
+
+const removeLiveRoute = createRoute({
+  method: "post",
+  path: "/admin/studies/{studyId}/live/{contentId}/remove",
+  summary: "Take down what a participant wrote in a shared world, as the study's moderator",
+  request: {
+    params: studyParams.extend({ contentId: z.uuid() }),
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: z.object({ reason: z.string().trim().max(200).optional() }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: { description: "Removed", content: { "application/json": { schema: z.object({}) } } },
+    409: errorResponse("There's nobody in the cast to remove it as"),
     ...commonErrors,
   },
 });
@@ -542,6 +608,211 @@ export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencie
       return c.json({ error: "There's nobody with that ID in this study. Nothing changed." }, 404);
     }
     return c.json({ eventsDeleted: result.eventsDeleted, filesDeleted: result.filesDeleted }, 200);
+  });
+
+  /** The study's shared worlds, and its moderator, for watching. */
+  async function sharedWorldsOf(studyId: string) {
+    const worlds = await db
+      .select({
+        id: schema.worlds.id,
+        studyVersionId: schema.worlds.studyVersionId,
+        conditionId: schema.worlds.conditionId,
+        startedAt: schema.worlds.startedAt,
+      })
+      .from(schema.worlds)
+      .innerJoin(schema.studyVersions, eq(schema.studyVersions.id, schema.worlds.studyVersionId))
+      .where(
+        and(
+          eq(schema.studyVersions.studyId, studyId),
+          eq(schema.worlds.mode, "shared"),
+          // Not the worlds of scenario tests and simulations, which only have test participants.
+          sql`exists (select 1 from ${schema.worldMemberships} m
+            join ${schema.participants} p on p.id = m.participant_id
+            where m.world_id = ${schema.worlds.id} and not p.is_pilot)`,
+        ),
+      )
+      .orderBy(desc(schema.worlds.startedAt));
+    return worlds;
+  }
+
+  /** Someone in the cast marked as a moderator, who removals are by. */
+  async function moderatorOf(studyVersionId: string) {
+    const [moderator] = await db
+      .select({ id: schema.actors.id, username: schema.actors.username })
+      .from(schema.actors)
+      .where(
+        and(
+          eq(schema.actors.studyVersionId, studyVersionId),
+          isNull(schema.actors.worldId),
+          sql`(${schema.actors.profile} ->> 'moderator')::boolean`,
+        ),
+      )
+      .orderBy(asc(schema.actors.username))
+      .limit(1);
+    return moderator ?? null;
+  }
+
+  app.openapi(liveRoute, async (c) => {
+    const researcher = await researcherFromRequest(c, db);
+    if (!researcher) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const { studyId } = c.req.valid("param");
+    const role = await roleOnStudy(db, researcher.id, studyId);
+    if (!role) {
+      return c.json(notAvailable, 404);
+    }
+    const worlds = await sharedWorldsOf(studyId);
+    const worldIds = worlds.map(({ id }) => id);
+    if (worldIds.length === 0) {
+      return c.json({ worlds: [], content: [], moderator: null }, 200);
+    }
+    const people = await db
+      .select({ worldId: schema.worldMemberships.worldId, people: count() })
+      .from(schema.worldMemberships)
+      .where(inArray(schema.worldMemberships.worldId, worldIds))
+      .groupBy(schema.worldMemberships.worldId);
+    const conditions = await db
+      .select({ id: schema.conditions.id, key: schema.conditions.key })
+      .from(schema.conditions)
+      .where(
+        inArray(
+          schema.conditions.id,
+          worlds.flatMap(({ conditionId }) => (conditionId ? [conditionId] : [])),
+        ),
+      );
+    const written = await db
+      .select({
+        id: schema.content.id,
+        worldId: schema.content.worldId,
+        kind: schema.content.kind,
+        author: schema.actors.username,
+        body: schema.content.body,
+        title: schema.content.title,
+        at: schema.content.visibleAt,
+      })
+      .from(schema.content)
+      .innerJoin(schema.actors, eq(schema.actors.id, schema.content.authorActorId))
+      .where(
+        and(
+          inArray(schema.content.worldId, worldIds),
+          eq(schema.actors.driver, "human"),
+          isNull(schema.content.withdrawnAt),
+        ),
+      )
+      .orderBy(desc(schema.content.visibleAt))
+      .limit(LIVE_SHOWN);
+    const removed = written.length
+      ? await db
+          .select({ id: schema.notifications.targetContentId })
+          .from(schema.notifications)
+          .where(
+            and(
+              eq(schema.notifications.type, "remove"),
+              inArray(
+                schema.notifications.targetContentId,
+                written.map(({ id }) => id),
+              ),
+            ),
+          )
+      : [];
+    const removedIds = new Set(removed.map(({ id }) => id));
+    const latest = worlds[0];
+    const moderator = latest ? await moderatorOf(latest.studyVersionId) : null;
+    return c.json(
+      {
+        worlds: worlds.map((world) => ({
+          id: world.id,
+          condition: conditions.find(({ id }) => id === world.conditionId)?.key ?? "",
+          people: people.find(({ worldId }) => worldId === world.id)?.people ?? 0,
+          startedAt: world.startedAt.toISOString(),
+        })),
+        content: written.map((item) => ({
+          id: item.id,
+          worldId: item.worldId as string,
+          kind: item.kind as "post" | "comment" | "story" | "message",
+          author: item.author,
+          body: [item.title, item.body].filter(Boolean).join("\n"),
+          at: (item.at as Date).toISOString(),
+          removed: removedIds.has(item.id),
+        })),
+        moderator: moderator?.username ?? null,
+      },
+      200,
+    );
+  });
+
+  app.openapi(removeLiveRoute, async (c) => {
+    const researcher = await researcherFromRequest(c, db);
+    if (!researcher) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const { studyId, contentId } = c.req.valid("param");
+    const role = await roleOnStudy(db, researcher.id, studyId);
+    if (!role) {
+      return c.json(notAvailable, 404);
+    }
+    if (role === "viewer") {
+      return c.json({ error: "You can view this study, but not change it." }, 403);
+    }
+    const [item] = await db
+      .select({
+        id: schema.content.id,
+        worldId: schema.content.worldId,
+        authorActorId: schema.content.authorActorId,
+        studyVersionId: schema.worlds.studyVersionId,
+      })
+      .from(schema.content)
+      .innerJoin(schema.worlds, eq(schema.worlds.id, schema.content.worldId))
+      .innerJoin(schema.studyVersions, eq(schema.studyVersions.id, schema.worlds.studyVersionId))
+      .where(
+        and(
+          eq(schema.content.id, contentId),
+          eq(schema.studyVersions.studyId, studyId),
+          eq(schema.worlds.mode, "shared"),
+        ),
+      );
+    if (!item?.worldId) {
+      return c.json(notAvailable, 404);
+    }
+    const moderator = await moderatorOf(item.studyVersionId);
+    if (!moderator) {
+      return c.json(
+        {
+          error:
+            "Nobody in the cast is a moderator, so there's nobody to remove it as. Give someone moderator: true in actors.csv.",
+        },
+        409,
+      );
+    }
+    const author = await loadWorldContext(db, item.worldId, item.authorActorId);
+    const { reason } = c.req.valid("json");
+    const now = new Date();
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.notifications).values({
+        worldId: item.worldId as string,
+        recipientActorId: item.authorActorId,
+        actorId: moderator.id,
+        type: "remove",
+        targetContentId: item.id,
+        reason: reason || null,
+        dueAt: now,
+      });
+      await recordEvent(tx, {
+        type: "moderation.removed_live",
+        payload: reason ? { reason } : {},
+        worldId: item.worldId as string,
+        studyVersionId: item.studyVersionId,
+        participantId: author?.participantId ?? null,
+        conditionId: author?.conditionId ?? null,
+        actorId: moderator.id,
+        targetActorId: item.authorActorId,
+        targetContentId: item.id,
+        source: "researcher",
+        occurredAt: now,
+      });
+    });
+    return c.json({}, 200);
   });
 
   return app;

@@ -384,13 +384,27 @@ decide:
 });
 
 describe("beats in shared worlds", () => {
-  const shared = (yaml: string, worlds: object) => {
+  const shared = (
+    yaml: string,
+    worlds: object,
+    { consent, moderator = false }: { consent?: string; moderator?: boolean } = {},
+  ) => {
     const { beats, issues, live, cast, decide } = parseBeats(yaml);
     expect(issues).toEqual([]);
     const study = studyDefinitionSchema.parse({
-      settings: { ...settings, worlds },
-      actors: [{ username: "ann", name: "Ann", conditions: [] }],
+      settings: {
+        ...settings,
+        worlds,
+        flow:
+          consent === undefined
+            ? settings.flow
+            : [{ step: "consent", page: "c.md" }, ...settings.flow],
+      },
+      actors: [
+        { username: "ann", name: "Ann", conditions: [], ...(moderator ? { moderator } : {}) },
+      ],
       posts: [],
+      pages: consent === undefined ? {} : { "c.md": consent },
       beats,
       christof: { live, cast, decide },
     });
@@ -416,5 +430,21 @@ decide:
     expect(shared("beats: []", { size: 4, waitMinutes: 0 }).join("\n")).toContain(
       "worlds.waitMinutes is 0",
     );
+  });
+
+  it("asks for a consent page saying others are real, and a moderator to take things down", () => {
+    const warnings = (consent?: string, moderator = false) =>
+      shared(
+        "beats: []",
+        { size: 4, waitMinutes: 10 },
+        { ...(consent === undefined ? {} : { consent }), moderator },
+      )
+        .filter((message) => message.startsWith("warning"))
+        .join("\n");
+    expect(warnings()).toContain("Add a consent step");
+    expect(warnings("You'll see a social media site.")).toContain("doesn't seem to say");
+    expect(warnings("Some people you meet are other participants.")).not.toContain("consent");
+    expect(warnings("Some are real people.", false)).toContain("Nobody in the cast is a moderator");
+    expect(warnings("Some are real people.", true)).not.toContain("moderator");
   });
 });

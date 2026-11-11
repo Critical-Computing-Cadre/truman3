@@ -1388,6 +1388,8 @@ const EVENT_NOTES: Record<string, string> = {
     "They stopped seeing what this person writes, though not on that person's own page. Those posts then aren't in impressions.csv for them, until actor.unmuted.",
   "moderation.rule_fired":
     "An automatic rule caught what they wrote. `rule` names it, in auto_rules.csv. With no target it hasn't been posted. `unpostedText` is what they wrote, and is only present if the study turned on recording it, so it may be text they chose never to share.",
+  "moderation.removed_live":
+    "A researcher took down what they wrote in a shared world, while the study ran, as the study's moderator. `reason` is what the moderator gave. The removal itself is in notices like any other.",
   "moderation.confirm_answered":
     "What they did when a rule asked if they were sure: posted anyway, or went back. Someone who closes the page does neither.",
   "moderation.appealed":

@@ -1,0 +1,43 @@
+# Reference study #5: a shared world, where participants talk with each other. An example, inspired
+# by the design of
+#   Cheng, J., Bernstein, M., Danescu-Niculescu-Mizil, C., & Leskovec, J. (2017). Anyone can become a
+#   troll: Causes of trolling behavior in online discussions. In Proceedings of CSCW 2017.
+# It isn't a rebuild of that study, which showed people a discussion that had already been written.
+# Here, groups of six real participants join the same town forum, so what each writes becomes part
+# of the discussion the others see, the way a norm can spread.
+#
+# A neighbor asks what people think of closing Main Street to cars on weekends. The cast's first
+# answers are civil in one condition and uncivil in the other. How civil participants' own comments
+# are, and how that changes as more of them write, is the measure.
+#
+# Conditions, between worlds (everyone in a world shares one):
+#   civil   - the cast disagrees politely
+#   uncivil - the cast disagrees with insults
+schemaVersion: 1
+slug: town-talk
+title: Town talk (reference study)
+site:
+  name: Commons
+  rules: pages/rules.md
+  terms: pages/terms.md
+  privacy: pages/privacy.md
+length: { days: 1 }
+entry: { idParam: PROLIFIC_PID, idLabel: Prolific ID, source: prolific }
+conditions:
+  assignment: { method: uniform }
+  arms:
+    - { key: civil, factors: { tone: civil } }
+    - { key: uncivil, factors: { tone: uncivil } }
+# Six to a world. A world starts when it's full, or ten minutes after its first person joined.
+worlds: { size: 6, waitMinutes: 10 }
+platform:
+  style: text
+  # A rule takes down threats of self-harm, for everyone's safety. Researchers watching the Monitor
+  # page can take down anything else, as commons_team.
+  features: { autoRules: true, removal: true }
+feed: { ranker: chronological }
+flow:
+  - { step: consent, page: pages/consent.md }
+  - { step: account }
+  - { step: feed, finishAfterMinutes: 15 }
+  - { step: exit }

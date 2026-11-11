@@ -386,6 +386,13 @@
       "when": 1794373676030,
       "tag": "0054_withdraw_from_shared_worlds",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1794377554413,
+      "tag": "0055_last_out_deletes_the_world",
+      "breakpoints": true
     }
   ]
 }

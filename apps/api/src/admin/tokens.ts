@@ -19,7 +19,7 @@ const MAX_DAYS = 365;
 
 /**
  * What a token can't do, by method and path. Launching, stopping, deleting, withdrawing, real data
- * and participants' photos, Prolific, approving what the cast says to participants, Christof's
+ * and participants' photos, what participants write in shared worlds, Prolific, approving what the cast says to participants, Christof's
  * controls, and tokens themselves.
  */
 const FOR_PEOPLE_ONLY: { methods: string[]; path: RegExp }[] = [
@@ -28,6 +28,7 @@ const FOR_PEOPLE_ONLY: { methods: string[]; path: RegExp }[] = [
   { methods: ["DELETE"], path: /^\/admin\/studies\/[^/]+$/ },
   { methods: ["POST", "GET"], path: /^\/admin\/studies\/[^/]+\/withdraw$/ },
   { methods: ["GET", "POST"], path: /^\/admin\/studies\/[^/]+\/(export|photos)$/ },
+  { methods: ["GET", "POST"], path: /^\/admin\/studies\/[^/]+\/live(\/.*)?$/ },
   { methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], path: /^\/admin\/prolific(\/.*)?$/ },
   {
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],

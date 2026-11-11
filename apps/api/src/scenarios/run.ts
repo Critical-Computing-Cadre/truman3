@@ -4,9 +4,9 @@ import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
 import { deleteParticipant } from "@truman3/study-import";
 import type { Writer } from "@truman3/writer";
-import { and, desc, eq, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { scriptFor } from "../director/director.ts";
-import { bodiesIn, createHarness } from "./harness.ts";
+import { bodiesIn, createHarness, type TestParticipant } from "./harness.ts";
 
 /**
  * Runs a study's scenario tests. Each scenario is a test participant, started as a researcher's
@@ -52,23 +52,57 @@ export async function runScenarios({
     const problems: string[] = [];
     const start = new Date();
     harness.setNow(start);
-    const participant = await harness.start(scenario.condition);
-    if (!participant) {
+    // Several named participants share one world (ADR 68). One is unnamed.
+    const names = scenario.participants ?? [""];
+    const people = new Map<string, TestParticipant & { username: string }>();
+    for (const name of names) {
+      const first = people.size === 0;
+      const together =
+        names.length > 1 ? (first ? true : [...people.values()][0]?.worldId) : undefined;
+      const started = await harness.start(scenario.condition, undefined, together);
+      if (!started) {
+        break;
+      }
+      const me = await started.send("GET", "/me");
+      people.set(name, { ...started, username: String(me.json.username ?? "") });
+    }
+    if (people.size < names.length) {
       results.push({
         name: scenario.name,
         passed: false,
         problems: [`They couldn't start in "${scenario.condition}".`],
       });
+      for (const { participantId } of people.values()) {
+        if (cleanUp) {
+          await deleteParticipant(db, storage, participantId, "scenario test", "Truman");
+        }
+      }
       continue;
     }
-    const { participantId, worldId } = participant;
-    const send = participant.send;
-    const currentCondition = participant.condition;
+    const worldId = (people.get(names[0] as string) as TestParticipant).worldId;
+    /** A participant's name to their username, so a step can follow or message them. */
+    const usernameOf = (name: string) => people.get(name)?.username ?? name;
     const meta = () => ({
       clientEventId: randomUUID(),
       occurredAt: harness.now().toISOString(),
     });
-    const target = async (on: ScenarioTarget): Promise<string | null> => {
+    const target = async (on: ScenarioTarget, who: TestParticipant): Promise<string | null> => {
+      if ("participant" in on) {
+        const [item] = await db
+          .select({ id: schema.content.id })
+          .from(schema.content)
+          .where(
+            and(
+              eq(schema.content.worldId, worldId),
+              eq(schema.content.kind, "post"),
+              eq(schema.content.authorActorId, people.get(on.participant)?.actorId ?? who.actorId),
+              lte(schema.content.visibleAt, harness.now()),
+            ),
+          )
+          .orderBy(desc(schema.content.visibleAt))
+          .limit(1);
+        return item?.id ?? null;
+      }
       if ("post" in on || "comment" in on) {
         const [item] = await db
           .select({ id: schema.content.id })
@@ -91,6 +125,8 @@ export async function runScenarios({
             eq(schema.beatRuns.worldId, worldId),
             eq(schema.beatRuns.beat, on.beat),
             eq(schema.beatRuns.status, "fired"),
+            // Theirs, or the whole world's.
+            or(isNull(schema.beatRuns.forActorId), eq(schema.beatRuns.forActorId, who.actorId)),
           ),
         )
         .orderBy(desc(schema.beatRuns.dueAt))
@@ -102,12 +138,17 @@ export async function runScenarios({
         ? `the post "${on.post}"`
         : "comment" in on
           ? `the comment "${on.comment}"`
-          : `what "${on.beat}" made`;
+          : "participant" in on
+            ? `a post by ${on.participant}`
+            : `what "${on.beat}" made`;
 
     const steps = [...scenario.steps].sort((a, b) => a.at - b.at);
     for (const step of steps) {
       harness.setNow(new Date(start.getTime() + step.at));
-      const when = `At ${formatStudyTime(step.at)}`;
+      const name = step.as ?? (names[0] as string);
+      const who = people.get(name) as TestParticipant;
+      const { send } = who;
+      const when = `At ${formatStudyTime(step.at)}${names.length > 1 ? `, for ${name}` : ""}`;
       // Loading anything lets Christof catch up, as it would when a real participant comes back.
       await send("GET", "/me");
 
@@ -119,15 +160,18 @@ export async function runScenarios({
         }
         done = await send("POST", "/posts", form);
       } else if (step.message !== undefined && step.to !== undefined) {
-        done = await send("POST", `/messages/${step.to}`, { ...meta(), body: step.message });
+        done = await send("POST", `/messages/${usernameOf(step.to)}`, {
+          ...meta(),
+          body: step.message,
+        });
       } else if (step.follow !== undefined) {
-        done = await send("POST", `/actors/${step.follow}/relation`, {
+        done = await send("POST", `/actors/${usernameOf(step.follow)}/relation`, {
           ...meta(),
           action: "follow",
         });
       } else if (step.expect === undefined) {
         const on = (step.on ?? step.like ?? step.repost ?? step.flag) as ScenarioTarget;
-        const id = await target(on);
+        const id = await target(on, who);
         if (!id) {
           problems.push(`${when}, there was nothing yet for ${describe(on)}.`);
           continue;
@@ -160,10 +204,10 @@ export async function runScenarios({
       if (!expect) {
         continue;
       }
-      const runs = await db
-        .select()
-        .from(schema.beatRuns)
-        .where(eq(schema.beatRuns.worldId, worldId));
+      // Beats for the whole world, and those for whoever this step is for.
+      const runs = (
+        await db.select().from(schema.beatRuns).where(eq(schema.beatRuns.worldId, worldId))
+      ).filter(({ forActorId }) => forActorId === null || forActorId === who.actorId);
       const at = (date: Date) => formatStudyTime(date.getTime() - start.getTime());
       for (const id of expect.happened) {
         const mine = runs.filter((run) => run.beat === id);
@@ -172,7 +216,7 @@ export async function runScenarios({
         }
         const latest = mine.at(-1);
         const cue = cues.find((item) => item.id === id);
-        const condition = await currentCondition();
+        const condition = await who.condition();
         const why = !latest
           ? cue && cue.conditions.length > 0 && !cue.conditions.includes(condition ?? "")
             ? `it's only in ${cue.conditions.map((key) => `"${key}"`).join(" or ")}, and they're in "${condition}"`
@@ -195,7 +239,7 @@ export async function runScenarios({
         }
       }
       if (expect.condition !== undefined) {
-        const condition = await currentCondition();
+        const condition = await who.condition();
         if (condition !== expect.condition) {
           problems.push(
             `${when}, they should be in "${expect.condition}", but they're in "${condition}".`,
@@ -226,6 +270,10 @@ export async function runScenarios({
               eq(schema.content.worldId, worldId),
               eq(schema.content.kind, "message"),
               lte(schema.content.visibleAt, harness.now()),
+              or(
+                eq(schema.content.recipientActorId, who.actorId),
+                eq(schema.content.authorActorId, who.actorId),
+              ),
             ),
           );
         texts.push(...messages.map(({ body }) => body));
@@ -243,7 +291,9 @@ export async function runScenarios({
     }
     results.push({ name: scenario.name, passed: problems.length === 0, problems });
     if (cleanUp) {
-      await deleteParticipant(db, storage, participantId, "scenario test", "Truman");
+      for (const { participantId } of people.values()) {
+        await deleteParticipant(db, storage, participantId, "scenario test", "Truman");
+      }
     }
   }
   return results;

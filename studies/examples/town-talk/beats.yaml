@@ -1,0 +1,38 @@
+beats:
+  # Dan answers each participant's first comment on Rita's question, once each: a beat set off by a
+  # participant is theirs.
+  - id: dan-answers-civil
+    conditions: [civil]
+    when: { participant: comment, on: rita_alvarez, nth: 0 }
+    delay: { min: "0:01", max: "0:02" }
+    do:
+      action: comment
+      actor: dan_k
+      on: trigger
+      text: "Good point, I hadn't thought of it that way."
+  - id: dan-answers-uncivil
+    conditions: [uncivil]
+    when: { participant: comment, on: rita_alvarez, nth: 0 }
+    delay: { min: "0:01", max: "0:02" }
+    do:
+      action: comment
+      actor: dan_k
+      on: trigger
+      text: "lol ok. Not sure you've thought this through."
+  # Tom comes back with news, once for the whole world: a beat at a set time is everyone's.
+  - id: tom-news-civil
+    conditions: [civil]
+    when: { time: "0:08" }
+    do:
+      action: comment
+      actor: tbecker
+      on: { post: main-street }
+      text: "Just read the council's plan. It's a three-month trial, which seems reasonable to try."
+  - id: tom-news-uncivil
+    conditions: [uncivil]
+    when: { time: "0:08" }
+    do:
+      action: comment
+      actor: tbecker
+      on: { post: main-street }
+      text: Just read the plan. Three months of chaos because the council can't help itself.

@@ -1,2 +1,3 @@
-username,name
-bob,Bob
+username,name,moderator
+bob,Bob,
+mod,Mod,yes

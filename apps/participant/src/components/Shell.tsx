@@ -13,6 +13,7 @@ import {
 } from "@truman3/ui";
 import { useEffect } from "react";
 import { type FlowState, get, meQuery, post } from "../api.ts";
+import { useLive } from "../live.ts";
 import { flushTracking } from "../tracking.ts";
 
 const POLL_EVERY_MS = 30_000;
@@ -79,6 +80,7 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
   const unread = me.data?.unreadNotifications ?? 0;
   const unreadMessages = me.data?.unreadMessages ?? 0;
   useTheme(flow.theme);
+  useLive(flow.shared);
   const client = useQueryClient();
   const warnings = useQuery({
     queryKey: ["warnings"],

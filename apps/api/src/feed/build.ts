@@ -298,7 +298,11 @@ export async function loadRemovals(
   now: Date,
 ): Promise<Map<string, Removal>> {
   const removals = new Map<string, Removal>();
-  if (!featureOn(context.settings, context.conditionKey, "removal")) {
+  // In a shared world, a researcher can always take something down, for everyone's safety (ADR 68).
+  if (
+    !featureOn(context.settings, context.conditionKey, "removal") &&
+    context.worldMode !== "shared"
+  ) {
     return removals;
   }
   const elapsedMs = now.getTime() - context.worldStartedAt.getTime();

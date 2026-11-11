@@ -42,6 +42,8 @@ const flowStateSchema = z.object({
   waiting: z
     .object({ joined: z.number(), size: z.number(), startsBy: z.iso.datetime() })
     .optional(),
+  /** Whether others share their world, so the page listens for what they do (ADR 68). */
+  shared: z.boolean(),
   /** What their posts must contain. */
   platformStyle: z.enum(["photo", "text", "mixed"]),
   /** Light, dark, or whatever their device uses. */
@@ -347,6 +349,7 @@ export function createFlowRoutes({
         pageText: step && "page" in step ? (pages[step.page] ?? "") : null,
         canFinish: step ? canLeaveFeed(step, elapsedMs) : false,
         ...(waiting ? { waiting } : {}),
+        shared: context.worldMode === "shared",
         ...platformFor(context.settings, context.conditionKey),
         maxPostLength: maxPostLengthFor(context.settings, context.conditionKey),
         feedTabs: {

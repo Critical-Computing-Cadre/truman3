@@ -1,0 +1,15 @@
+# For load-testing shared worlds (ADR 68), with pnpm load-test. Not for real participants: it has no
+# consent page. Everyone joins one world of 50, and the cast posts and answers as a busy study would.
+schemaVersion: 1
+slug: load-test
+title: Load test (not for participants)
+site: { name: Commons }
+length: { days: 1 }
+entry: { idParam: PID, idLabel: ID, source: test }
+conditions:
+  assignment: { method: uniform }
+  arms: [{ key: main }]
+worlds: { size: 50, waitMinutes: 5 }
+platform: { style: text, features: { removal: true } }
+feed: { ranker: chronological }
+flow: [{ step: feed }, { step: exit }]

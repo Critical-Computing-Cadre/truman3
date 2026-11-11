@@ -23,6 +23,7 @@ import { AreYouSure } from "../components/AreYouSure.tsx";
 import { CommunitiesCard } from "../components/Community.tsx";
 import { PostCard } from "../components/PostCard.tsx";
 import { StoriesRow } from "../components/Stories.tsx";
+import { useNewPosts } from "../live.ts";
 import { ExploreCards } from "./ExplorePage.tsx";
 
 /** Picked once per page load, for studies that reshuffle the feed on each visit. */
@@ -502,6 +503,14 @@ export function FeedPage() {
   });
   const me = useQuery(meQuery);
   const newPost = useRef<HTMLDialogElement>(null);
+  const client = useQueryClient();
+  const [newPosts, caughtUp] = useNewPosts();
+  // Whenever the feed is fetched, for whatever reason, it has what's new.
+  useEffect(() => {
+    if (feed.dataUpdatedAt) {
+      caughtUp();
+    }
+  }, [feed.dataUpdatedAt, caughtUp]);
 
   return (
     <FeedFrame
@@ -577,6 +586,20 @@ export function FeedPage() {
         </div>
       )}
       {feed.data && <SortPicker surface={tab} sort={feed.data.sort ?? null} />}
+      {newPosts && (
+        <div className="sticky top-2 z-10 flex justify-center">
+          <button
+            type="button"
+            onClick={() => {
+              window.scrollTo({ top: 0 });
+              client.invalidateQueries({ queryKey: ["feed", tab] });
+            }}
+            className="rounded-full bg-sky-600 px-4 py-1.5 text-sm font-medium text-white shadow"
+          >
+            New posts
+          </button>
+        </div>
+      )}
       {feed.data?.posts.length === 0 && (
         <p className="p-6 text-center text-stone-500">No posts to show.</p>
       )}

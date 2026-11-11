@@ -1,0 +1,13 @@
+beats:
+  # Once for each participant: Dan answers their first post.
+  - id: dan-answers
+    when: { participant: post, nth: 0 }
+    delay: { min: "0:00", max: "0:01" }
+    do: { action: comment, actor: dan, on: trigger, text: Interesting! }
+  # Once for the world, every ten minutes.
+  - id: rita-10
+    when: { time: "0:10" }
+    do: { action: post, actor: rita, text: Ten minutes in. }
+  - id: rita-20
+    when: { time: "0:20" }
+    do: { action: post, actor: rita, text: Twenty minutes in. }

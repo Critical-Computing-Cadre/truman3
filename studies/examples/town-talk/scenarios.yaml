@@ -1,0 +1,54 @@
+# Scenario tests: made-up participants do these things, in a world fast-forwarded through the
+# study, and each `expect` says what should be true by then. Two participants share one world here.
+# Run them with:
+#   pnpm study test studies/examples/town-talk
+# See docs/guides/testing-studies.md.
+scenarios:
+  - name: In "uncivil", the thread starts rude, and Dan answers each participant once
+    condition: uncivil
+    participants: [ann, cal]
+    steps:
+      - at: "0:01"
+        expect:
+          sees: [dumbest idea the council has had]
+          doesNotSee: [a trial run first]
+      - { at: "0:02", comment: I think it could be nice for families, on: { post: main-street } }
+      - { at: "0:03", as: cal, comment: "Not a fan, honestly", on: { post: main-street } }
+      - at: "0:06"
+        expect:
+          happened: [dan-answers-uncivil]
+          sees: ["Not a fan, honestly", "lol ok"]
+      - at: "0:06"
+        as: cal
+        expect:
+          happened: [dan-answers-uncivil]
+          sees: [I think it could be nice for families]
+      - at: "0:10"
+        as: cal
+        expect:
+          happened: [tom-news-uncivil]
+          notHappened: [tom-news-civil]
+          sees: [Three months of chaos]
+
+  - name: In "civil", the cast disagrees politely
+    condition: civil
+    steps:
+      - at: "0:10"
+        expect:
+          happened: [tom-news-civil]
+          sees: [a trial run first, a three-month trial]
+          doesNotSee: [dumbest idea]
+
+  - name: What breaks the self-harm rule is taken down for the others
+    condition: civil
+    participants: [ann, cal]
+    steps:
+      - { at: "0:02", comment: just kys, on: { post: main-street } }
+      # Its author still sees what they wrote, with the removal, as on any removal.
+      - at: "0:03"
+        expect:
+          sees: [just kys]
+      - at: "0:03"
+        as: cal
+        expect:
+          doesNotSee: [just kys]
