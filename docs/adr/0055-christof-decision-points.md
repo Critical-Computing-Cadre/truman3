@@ -38,5 +38,5 @@ The design plan's "Adaptive interventions" calls for SMART designs and just-in-t
 ## Consequences
 
 - Migration 0042 lets a condition's weight be 0.
-- The Monitor page still counts people by the condition they started in. Showing where they are now is left for later.
+- The Monitor page still counts people by the condition they started in. Showing where they are now is left for later. ADR 62 added it.
 - Survey answers as measures need surveys within the study, which come later.

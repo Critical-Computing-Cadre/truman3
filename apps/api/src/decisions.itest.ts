@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { setUpTeam } from "@truman3/accounts";
 import type { FeedResponse } from "@truman3/core";
 import { schema } from "@truman3/db";
 import { createTestDatabase } from "@truman3/db/testing";
@@ -43,7 +44,7 @@ afterAll(async () => {
  * A study where everyone starts in "a". "b" and "c" have weight 0, so only a decision point puts
  * anyone there, and a beat posts a nudge in "b" right after the decision.
  */
-async function study(decide: string, extraBeats = "") {
+async function study(decide: string, extraBeats = "", teamId?: string) {
   const dir = mkdtempSync(path.join(tmpdir(), "truman-decide-"));
   dirs.push(dir);
   const slug = `decide-${randomUUID().slice(0, 8)}`;
@@ -78,7 +79,10 @@ ${decide}
   for (const [name, text] of Object.entries(files)) {
     writeFileSync(path.join(dir, name), text);
   }
-  const imported = await importStudyFolder(database.db, storage, dir, { launch: true });
+  const imported = await importStudyFolder(database.db, storage, dir, {
+    launch: true,
+    ...(teamId ? { teamId } : {}),
+  });
   if (imported.status === "failed") {
     throw new Error(imported.issues.map((issue) => issue.message).join("\n"));
   }
@@ -189,6 +193,44 @@ describe("a decision point", () => {
         reason: 'In "quiet" (posts 0), moved from "a" to "b", with a chance of 100%.',
       },
       { beat: "nudge", status: "fired", reason: null },
+    ]);
+  });
+
+  it("shows on the Monitor page, where people are counted where they started and where they are now", async () => {
+    const id = randomUUID().slice(0, 8);
+    const { teamId, password } = await setUpTeam(database.db, {
+      teamName: `lab-${id}`,
+      slug: `lab-${id}`,
+      email: `${id}@example.edu`,
+      name: "Owner",
+    });
+    const slug = await study(QUIET_TO_B, "", teamId);
+    const moved = await join(slug);
+    await join(slug);
+    await moved.advance(11);
+    await moved.feed();
+
+    const login = await app.request("/admin/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: `${id}@example.edu`, password }),
+    });
+    const cookie = (login.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+    const [found] = await database.db
+      .select({ id: schema.studies.id })
+      .from(schema.studies)
+      .where(eq(schema.studies.slug, slug));
+    const monitor = (await (
+      await app.request(`/admin/studies/${found?.id}/monitor`, { headers: { cookie } })
+    ).json()) as {
+      reRandomized: boolean;
+      conditions: { key: string; enrolled: number; now: number }[];
+    };
+    expect(monitor.reRandomized).toBe(true);
+    expect(monitor.conditions.map(({ key, enrolled, now }) => [key, enrolled, now])).toEqual([
+      ["a", 2, 1],
+      ["b", 0, 1],
+      ["c", 0, 0],
     ]);
   });
 

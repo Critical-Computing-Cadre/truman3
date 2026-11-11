@@ -172,6 +172,21 @@ beats:
     ]);
   });
 
+  it("moderates: a warning is only about what the participant wrote, and a ban names someone in the cast", () => {
+    expect(
+      problems(`
+beats:
+  - { id: warn-ann, when: { time: "0:01" }, do: { action: warn, actor: bob, on: { post: p1 }, warning: Be nice } }
+  - { id: warn-them, when: { participant: comment }, do: { action: warn, actor: bob, on: trigger, warning: Be nice } }
+  - { id: ban-carl, when: { time: "0:01" }, do: { action: ban, actor: bob, who: carl } }
+  - { id: label-it, when: { participant: post }, do: { action: label, actor: bob, on: trigger, label: Unverified } }
+`).filter((problem) => problem.startsWith("error")),
+    ).toEqual([
+      'error: The beat "warn-ann" warns about something, but a warning can only be about what the participant wrote. Use on: trigger, with when: { participant: post } or comment.',
+      'error: The beat "ban-carl" bans "carl", who isn\'t in the list of actors.',
+    ]);
+  });
+
   it("needs a fallback for an improvised line, and either text or improvise", () => {
     const messages = (yaml: string) => parseBeats(yaml).issues.map(({ message }) => message);
     expect(

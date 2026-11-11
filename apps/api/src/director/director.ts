@@ -295,10 +295,20 @@ const NEEDS = {
   repost: "reposts",
   follow: "following",
   message: "messages",
+  remove: "removal",
+  label: "labels",
+  warn: "warnings",
+  ban: "bans",
 } as const;
 
 type Prepared =
-  | { ready: true; actorId: string; target: typeof schema.content.$inferSelect | null }
+  | {
+      ready: true;
+      actorId: string;
+      target: typeof schema.content.$inferSelect | null;
+      /** For a ban, who's banned. */
+      bannedId?: string;
+    }
   | { ready: false; reason: string };
 
 /** Who does a beat and what to, as of when it's due, or why it can't happen. */
@@ -318,6 +328,12 @@ async function prepare(
   if (!actorId) {
     return { ready: false, reason: `"${action.actor}" isn't in the cast` };
   }
+  if (action.action === "ban") {
+    const bannedId = await castMember(db, context, action.who);
+    return bannedId
+      ? { ready: true, actorId, target: null, bannedId }
+      : { ready: false, reason: `"${action.who}" isn't in the cast` };
+  }
   if (!("on" in action)) {
     return { ready: true, actorId, target: null };
   }
@@ -327,6 +343,9 @@ async function prepare(
     : [];
   if (target?.kind === "message") {
     return { ready: false, reason: "a message can't be commented on, liked, or reposted" };
+  }
+  if (action.action === "warn" && target && target.authorActorId !== context.actorId) {
+    return { ready: false, reason: "a warning can only be about what the participant wrote" };
   }
   return target
     ? { ready: true, actorId, target }
@@ -338,7 +357,7 @@ async function perform(
   tx: Transaction,
   context: ParticipantContext,
   beat: BeatDefinition,
-  { actorId, target }: Extract<Prepared, { ready: true }>,
+  { actorId, target, bannedId }: Extract<Prepared, { ready: true }>,
   words: string | null,
   dueAt: Date,
 ): Promise<{ contentId: string | null; targetContentId: string | null }> {
@@ -366,6 +385,41 @@ async function perform(
       .returning({ id: schema.content.id });
     // It shows as unread on their Messages page, not as a notification.
     return { contentId: made?.id ?? null, targetContentId: null };
+  }
+
+  // Moderation is a notification to whoever wrote what it's about. Feeds read it from there, and
+  // only the participant's own show on their Notifications page.
+  if (action.action === "ban") {
+    await tx.insert(schema.notifications).values({
+      worldId: context.worldId,
+      recipientActorId: bannedId as string,
+      actorId,
+      type: "ban",
+      targetActorId: bannedId as string,
+      reason: action.reason ?? null,
+      dueAt,
+    });
+    return { contentId: null, targetContentId: null };
+  }
+  if (
+    (action.action === "remove" || action.action === "label" || action.action === "warn") &&
+    target
+  ) {
+    await tx.insert(schema.notifications).values({
+      worldId: context.worldId,
+      recipientActorId: target.authorActorId,
+      actorId,
+      type: action.action,
+      targetContentId: target.id,
+      reason:
+        action.action === "label"
+          ? action.label
+          : action.action === "warn"
+            ? action.warning
+            : (action.reason ?? null),
+      dueAt,
+    });
+    return { contentId: null, targetContentId: target.id };
   }
 
   if (action.action === "follow") {

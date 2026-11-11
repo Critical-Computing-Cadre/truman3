@@ -950,6 +950,22 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
         `${label} is done by "${action.actor}", who isn't in the list of actors.`,
       );
     }
+    if (
+      action.action === "warn" &&
+      !(
+        action.on === "trigger" &&
+        "participant" in when &&
+        (when.participant === "post" || when.participant === "comment")
+      )
+    ) {
+      beatProblem(
+        "error",
+        `${label} warns about something, but a warning can only be about what the participant wrote. Use on: trigger, with when: { participant: post } or comment.`,
+      );
+    }
+    if (action.action === "ban" && !usernames.has(action.who)) {
+      beatProblem("error", `${label} bans "${action.who}", who isn't in the list of actors.`);
+    }
     for (const condition of beat.conditions) {
       if (!armKeys.has(condition)) {
         beatProblem(
@@ -1032,6 +1048,10 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       repost: "reposts",
       follow: "following",
       message: "messages",
+      remove: "removal",
+      label: "labels",
+      warn: "warnings",
+      ban: "bans",
     } as const;
     const feature = action.action === "post" ? "posting" : needs[action.action];
     // A participant can only message someone where messages are on.

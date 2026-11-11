@@ -39,14 +39,18 @@ Give exactly one of these:
 
 ## What happens (`do`)
 
-| `action`  | Needs                 | Does                                                                                                  |
-| --------- | --------------------- | ----------------------------------------------------------------------------------------------------- |
-| `post`    | `actor`, `text`       | A new post                                                                                            |
-| `comment` | `actor`, `on`, `text` | A comment. On a comment, it's a reply where threads are on, and goes on the post where they're off    |
-| `like`    | `actor`, `on`         | A like                                                                                                |
-| `repost`  | `actor`, `on`         | Passes it along                                                                                       |
-| `follow`  | `actor`               | Follows the participant                                                                               |
-| `message` | `actor`, `text`       | A direct message to the participant. It shows as unread on their Messages page, not as a notification |
+| `action`  | Needs                                   | Does                                                                                                                                 |
+| --------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `post`    | `actor`, `text`                         | A new post                                                                                                                           |
+| `comment` | `actor`, `on`, `text`                   | A comment. On a comment, it's a reply where threads are on, and goes on the post where they're off                                   |
+| `like`    | `actor`, `on`                           | A like                                                                                                                               |
+| `repost`  | `actor`, `on`                           | Passes it along                                                                                                                      |
+| `follow`  | `actor`                                 | Follows the participant                                                                                                              |
+| `message` | `actor`, `text`                         | A direct message to the participant. It shows as unread on their Messages page, not as a notification                                |
+| `remove`  | `actor`, `on`, and optionally `reason`  | A moderator takes it down. Needs `removal` on                                                                                        |
+| `label`   | `actor`, `on`, `label`                  | A moderator labels it, such as "Misleading", up to 40 characters. Needs `labels` on                                                  |
+| `warn`    | `actor`, `on`, `warning`                | A moderator warns the participant about what they wrote, so `on` is `trigger`, set off by their post or comment. Needs `warnings` on |
+| `ban`     | `actor`, `who`, and optionally `reason` | A moderator bans someone in the cast, by username, from everywhere. Needs `bans` on                                                  |
 
 `on` says what it's done to:
 - `trigger`: what set the beat off. That's what the participant wrote or acted on, or what the beat before made.
@@ -54,6 +58,16 @@ Give exactly one of these:
 - `{ post: maya-art }`: one of the study's own posts, by its id in `posts.csv`.
 
 If a beat needs something that's off in a condition, like comments, it's skipped there, and the reason is recorded.
+
+**Moderation by beats** is the same as moderation written in sheets: it shows to everyone in the participant's world the same way. The participant is told only about what's done to their own posts and comments, on their Notifications page. For example, a moderator who takes down a reply to Jake in one condition only:
+
+```yaml
+- id: mod-removes-reply
+  conditions: [moderated]
+  when: { participant: comment, under: jake-mocks }
+  delay: "0:05"
+  do: { action: remove, actor: mod, on: trigger, reason: Keep it civil }
+```
 
 **Direct messages** are off unless a study turns on `messages` in its features (ADR 61). They're only ever between the participant and one person in the cast, and nobody else sees them. A message can't be commented on, liked, or reposted, so a beat set off by `{ participant: message }` answers with `action: message`. For example:
 

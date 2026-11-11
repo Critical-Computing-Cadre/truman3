@@ -37,5 +37,5 @@ Phase 3 of the design plan brings in LLM actors, directed by Christof, from the 
 
 - A beat is decided when something next loads after it's due, which is within 30 seconds while the participant has the page open, since notifications are checked that often. `decided_at` says when.
 - Beats can't yet remove, warn, label, or ban. Those are reactions and moderation sheets for now.
-- Packs don't carry beats, since packs leave out pages. Beats belong to a study's design, like its consent text.
+- Packs don't carry beats, since packs leave out pages. Beats belong to a study's design, like its consent text. ADR 62 changed this: packs now carry beats.
 - The migration adds `beat_runs`, so the API has to stop while it runs.
