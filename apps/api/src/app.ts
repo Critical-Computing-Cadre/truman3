@@ -15,6 +15,7 @@ import { createAdminRoutes } from "./admin/routes.ts";
 import { createScenarioRoutes } from "./admin/scenarios.ts";
 import { createSheetRoutes } from "./admin/sheets.ts";
 import { createSimulationRoutes } from "./admin/simulations.ts";
+import { agentLimits, createTokenRoutes } from "./admin/tokens.ts";
 import { describeError } from "./errors.ts";
 import { createFeedRoutes } from "./feed/routes.ts";
 import { createFlowRoutes } from "./flow/routes.ts";
@@ -100,7 +101,10 @@ export function createApp({
   app.route("/", createMediaRoutes(participantDependencies));
   app.route("/", createActionRoutes(participantDependencies));
   app.route("/", createFlowRoutes(participantDependencies));
+  // Before any admin route, so an agent can't reach what's for people only.
+  app.use("/admin/*", agentLimits);
   app.route("/", createAdminRoutes(participantDependencies));
+  app.route("/", createTokenRoutes(participantDependencies));
   app.route("/", createDraftRoutes(participantDependencies));
   app.route("/", createPackRoutes(participantDependencies));
   app.route("/", createSheetRoutes(participantDependencies));

@@ -75,6 +75,28 @@ export const researcherSessions = pgTable(
   (table) => [index("researcher_sessions_researcher").on(table.researcherId)],
 );
 
+/**
+ * A researcher's personal access tokens, for agents working through the API on their behalf, such
+ * as the MCP server. Only a hash is stored, and each can be revoked. See ADR 64.
+ */
+export const researcherTokens = pgTable(
+  "researcher_tokens",
+  {
+    id: id(),
+    researcherId: uuid("researcher_id")
+      .notNull()
+      .references(() => researchers.id, { onDelete: "cascade" }),
+    /** What the researcher called it, like "Claude Code on my laptop". */
+    name: text().notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    createdAt: time("created_at").notNull().defaultNow(),
+    expiresAt: time("expires_at").notNull(),
+    lastUsedAt: time("last_used_at"),
+    revokedAt: time("revoked_at"),
+  },
+  (table) => [index("researcher_tokens_researcher").on(table.researcherId)],
+);
+
 export const studies = pgTable("studies", {
   id: id(),
   /** Empty only for studies imported before any team exists. */
