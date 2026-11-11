@@ -858,6 +858,38 @@ export const simulationRuns = pgTable("simulation_runs", {
 });
 
 /**
+ * An agent working on a draft for a researcher, from "Draft from a brief" in the builder: what it was
+ * asked, each step it took, and what it said at the end. See ADR 65.
+ */
+export const agentRuns = pgTable(
+  "agent_runs",
+  {
+    id: id(),
+    draftId: uuid("draft_id")
+      .notNull()
+      .references(() => studyDrafts.id, { onDelete: "cascade" }),
+    /** What the researcher asked for. */
+    brief: text().notNull(),
+    status: text({ enum: ["running", "done", "error"] }).notNull(),
+    model: text().notNull(),
+    budgetUsd: numeric("budget_usd", { mode: "number" }).notNull(),
+    costUsd: numeric("cost_usd", { mode: "number" }).notNull().default(0),
+    /** Each tool it used, and what came back, in order. */
+    steps: jsonb().notNull().default([]),
+    /** What it said at the end: what it did, and what it recommends. */
+    summary: text(),
+    /** Why it stopped: it finished, reached its budget or step limit, or declined. */
+    stopped: text(),
+    startedBy: uuid("started_by")
+      .notNull()
+      .references(() => researchers.id),
+    startedAt: time("started_at").notNull().defaultNow(),
+    finishedAt: time("finished_at"),
+  },
+  (table) => [index("agent_runs_draft").on(table.draftId)],
+);
+
+/**
  * Each time Christof, the director, considers a beat in a participant's world: what set it off,
  * when it's due, and then whether it happened and why not. It's the decision trace for beats, and
  * goes with the world on withdrawal. A beat waits as `pending` until it's due, and is decided then,

@@ -1,7 +1,5 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { trumanClient } from "./client.ts";
+import { GUIDE, trumanClient } from "@truman3/agent-tools";
 import { createTrumanServer } from "./server.ts";
 
 /**
@@ -20,9 +18,5 @@ if (!baseUrl || !token) {
   process.exit(1);
 }
 
-const guide = readFileSync(
-  path.resolve(import.meta.dirname, "../../../docs/guides/for-agents.md"),
-  "utf8",
-);
-const server = createTrumanServer(trumanClient({ baseUrl, token }), guide);
+const server = createTrumanServer(trumanClient({ baseUrl, token }), GUIDE);
 await server.connect(new StdioServerTransport());

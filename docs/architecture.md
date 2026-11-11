@@ -17,32 +17,33 @@ Truman 3 isn't ready for real participants yet. [Deploying](guides/deploying.md#
 
 ### Apps
 
-| Path               | What it is                                                                                                                                                                                                                                                         |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `apps/api`         | The Hono API ([ADR 3](adr/0003-hono-zod-openapi.md)). The only thing that changes study state. Serves its OpenAPI spec at `/openapi.json`                                                                                                                          |
-| `apps/participant` | React app participants use: joining, consent and the study's pages, the feed, posts, profiles, spaces, stories, notifications, messages                                                                                                                            |
-| `apps/admin`       | React app researchers use, always under `/admin/` ([ADR 21](adr/0021-the-api-has-its-own-login-and-admin-lives-under-a-path.md)): the studies list, the builder, Monitor, and Prolific                                                                             |
-| `apps/cli`         | `pnpm study` (validate, test, simulate, import, add-pack, launch, stop, convert, export, withdraw) and `pnpm admin` (setup, add, reset-password)                                                                                                                   |
-| `apps/mcp`         | An MCP server an agent like Claude runs on a researcher's computer, to build and check studies through the admin API with their personal access token ([ADR 64](adr/0064-agents-work-through-tokens-and-an-mcp-server.md)). See [For agents](guides/for-agents.md) |
+| Path               | What it is                                                                                                                                                                                                                                                                                               |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api`         | The Hono API ([ADR 3](adr/0003-hono-zod-openapi.md)). The only thing that changes study state. Serves its OpenAPI spec at `/openapi.json`                                                                                                                                                                |
+| `apps/participant` | React app participants use: joining, consent and the study's pages, the feed, posts, profiles, spaces, stories, notifications, messages                                                                                                                                                                  |
+| `apps/admin`       | React app researchers use, always under `/admin/` ([ADR 21](adr/0021-the-api-has-its-own-login-and-admin-lives-under-a-path.md)): the studies list, the builder, Monitor, and Prolific                                                                                                                   |
+| `apps/cli`         | `pnpm study` (validate, test, simulate, import, add-pack, launch, stop, convert, export, withdraw) and `pnpm admin` (setup, add, reset-password)                                                                                                                                                         |
+| `apps/mcp`         | An MCP server an agent like Claude runs on a researcher's computer, to build and check studies through the admin API with their personal access token ([ADR 64](adr/0064-agents-work-through-tokens-and-an-mcp-server.md)), with the tools in `packages/agent-tools`. See [Agents](guides/for-agents.md) |
 
 Both web apps are built with Vite ([ADR 2](adr/0002-react-with-vite.md)) into static files. Neither has an address built in. Each one calls `/api` on whatever address it's on.
 
 ### Packages
 
-| Path                    | What it is                                                                                                                                         |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/core`         | Shared Zod schemas and types: the study definition and its checks, the event catalog, features and templates, assignment                           |
-| `packages/db`           | Postgres through Drizzle ([ADR 4](adr/0004-postgres-and-drizzle.md)): the schema, migrations, `recordEvent`, and the API's database login          |
-| `packages/feed`         | What a viewer sees and in what order, as plain functions: rankers, comment orders, and scores                                                      |
-| `packages/ui`           | The feed and the page around it, drawn the same way in both apps: features, layouts, and icons                                                     |
-| `packages/study-files`  | Reads study folders (CSV and YAML), `beats.yaml`, `scenarios.yaml`, `personas.yaml`, and uploaded sheets. Converts older Truman studies            |
-| `packages/study-import` | Freezes a study as a version and stores its media. Launches, stops, and withdraws                                                                  |
-| `packages/drafts`       | A study being worked on, saved item by item, with history. Packs and starters                                                                      |
-| `packages/study-export` | Writes a study's data as CSVs with a codebook                                                                                                      |
-| `packages/storage`      | File storage over S3, so the same code works with local storage and AWS                                                                            |
-| `packages/accounts`     | Teams, researcher accounts, and passwords                                                                                                          |
-| `packages/recruit`      | Prolific: the API client, encrypted tokens, and approval rules                                                                                     |
-| `packages/writer`       | The gateway Christof writes through: Claude through the Anthropic SDK, and a stand-in for tests ([ADR 52](adr/0052-christof-actors-write-live.md)) |
+| Path                    | What it is                                                                                                                                            |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agent-tools`  | What an agent can do in Truman, and the guide it reads: used by the MCP server and by "Draft from a brief" ([ADR 65](adr/0065-draft-from-a-brief.md)) |
+| `packages/core`         | Shared Zod schemas and types: the study definition and its checks, the event catalog, features and templates, assignment                              |
+| `packages/db`           | Postgres through Drizzle ([ADR 4](adr/0004-postgres-and-drizzle.md)): the schema, migrations, `recordEvent`, and the API's database login             |
+| `packages/feed`         | What a viewer sees and in what order, as plain functions: rankers, comment orders, and scores                                                         |
+| `packages/ui`           | The feed and the page around it, drawn the same way in both apps: features, layouts, and icons                                                        |
+| `packages/study-files`  | Reads study folders (CSV and YAML), `beats.yaml`, `scenarios.yaml`, `personas.yaml`, and uploaded sheets. Converts older Truman studies               |
+| `packages/study-import` | Freezes a study as a version and stores its media. Launches, stops, and withdraws                                                                     |
+| `packages/drafts`       | A study being worked on, saved item by item, with history. Packs and starters                                                                         |
+| `packages/study-export` | Writes a study's data as CSVs with a codebook                                                                                                         |
+| `packages/storage`      | File storage over S3, so the same code works with local storage and AWS                                                                               |
+| `packages/accounts`     | Teams, researcher accounts, and passwords                                                                                                             |
+| `packages/recruit`      | Prolific: the API client, encrypted tokens, and approval rules                                                                                        |
+| `packages/writer`       | The gateway Christof writes through: Claude through the Anthropic SDK, and a stand-in for tests ([ADR 52](adr/0052-christof-actors-write-live.md))    |
 
 ### Other folders
 

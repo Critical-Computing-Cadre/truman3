@@ -11,6 +11,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ApiError, get, post, type Researcher } from "./api.ts";
 import "./index.css";
+import { AgentPage } from "./pages/AgentPage.tsx";
 import { BeatsPage } from "./pages/BeatsPage.tsx";
 import { CastPage } from "./pages/CastPage.tsx";
 import { DraftPage } from "./pages/DraftPage.tsx";
@@ -165,6 +166,12 @@ const prolificRoute = createRoute({
   component: ProlificPage,
 });
 
+const agentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/drafts/$draftId/agent",
+  component: AgentPage,
+});
+
 const tokensRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/tokens",
@@ -191,6 +198,7 @@ const router = createRouter({
     monitorRoute,
     prolificRoute,
     tokensRoute,
+    agentRoute,
   ]),
 });
 

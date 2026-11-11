@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
+import { betaZodOutputFormat, betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 
 /**
@@ -97,6 +97,45 @@ export interface Acted {
   costUsd: number;
 }
 
+/** A tool an agent can use, with what it takes and what it does. ADR 65. */
+export interface AgentToolSpec {
+  name: string;
+  description: string;
+  input: z.ZodRawShape;
+  run: (input: unknown) => Promise<string>;
+}
+
+/** One thing an agent did, for the researcher to read: a tool it used, or what it said. */
+export interface AgentStep {
+  tool?: string;
+  input?: unknown;
+  /** What the tool answered, shortened, or what the agent said. */
+  text: string;
+  error?: boolean;
+}
+
+export interface AgentRequest {
+  model: string;
+  system: string;
+  prompt: string;
+  tools: AgentToolSpec[];
+  /** The most it may spend, in US dollars. It stops after the step that reaches this. */
+  budgetUsd: number;
+  /** The most model calls it may make. */
+  maxSteps: number;
+  /** Told about each step as it happens, so progress can be shown. */
+  onStep?: (step: AgentStep, spentUsd: number) => void | Promise<void>;
+}
+
+export interface AgentRun {
+  /** What it said at the end: what it did, and what it recommends. */
+  summary: string;
+  model: string;
+  costUsd: number;
+  /** Why it stopped: it finished, reached its budget or step limit, or declined. */
+  stopped: "done" | "budget" | "steps" | "refused";
+}
+
 export interface Writer {
   write(request: WriteRequest): Promise<Written>;
   /** Whether this line can be posted, given the limits it must stay within. */
@@ -106,7 +145,12 @@ export interface Writer {
   rehearse(request: WriteRequest & { count: number }): Promise<Rehearsed>;
   /** A simulated participant's next move. See ADR 60. */
   act(request: ActRequest): Promise<Acted>;
+  /** An agent working with tools, such as drafting a study from a brief. See ADR 65. */
+  runAgent(request: AgentRequest): Promise<AgentRun>;
 }
+
+/** What a tool answered, short enough to keep in a run's log. */
+const forLog = (text: string) => (text.length > 600 ? `${text.slice(0, 600)}…` : text);
 
 /** The model declined, or said nothing usable, so the beat's fallback line is used instead. */
 export class NothingWritten extends Error {}
@@ -324,6 +368,71 @@ export function anthropicWriter(apiKey: string): Writer {
             };
       return { ...acted, model: response.model, costUsd };
     },
+    async runAgent({ model, system, prompt, tools, budgetUsd, maxSteps, onStep }) {
+      let spentUsd = 0;
+      const runner = client.beta.messages.toolRunner({
+        model,
+        max_tokens: 16_000,
+        thinking: { type: "adaptive" },
+        // The guide and instructions are the same on every call, so they're cached.
+        system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+        max_iterations: maxSteps,
+        tools: tools.map((tool) =>
+          betaZodTool({
+            name: tool.name,
+            description: tool.description,
+            inputSchema: z.object(tool.input),
+            run: async (input) => {
+              try {
+                const text = await tool.run(input);
+                await onStep?.({ tool: tool.name, input, text: forLog(text) }, spentUsd);
+                return text;
+              } catch (error) {
+                const text = error instanceof Error ? error.message : String(error);
+                await onStep?.(
+                  { tool: tool.name, input, text: forLog(text), error: true },
+                  spentUsd,
+                );
+                return `That didn't work: ${text}`;
+              }
+            },
+          }),
+        ),
+        messages: [{ role: "user", content: prompt }],
+      });
+      let last: Anthropic.Beta.BetaMessage | null = null;
+      let stopped: AgentRun["stopped"] = "done";
+      let steps = 0;
+      for await (const message of runner) {
+        last = message;
+        steps++;
+        const { usage } = message;
+        // Cached input costs a tenth to read, and a quarter more to write.
+        spentUsd += costOf(
+          message.model,
+          usage.input_tokens +
+            (usage.cache_creation_input_tokens ?? 0) * 1.25 +
+            (usage.cache_read_input_tokens ?? 0) * 0.1,
+          usage.output_tokens,
+        );
+        if (message.stop_reason === "refusal") {
+          stopped = "refused";
+          break;
+        }
+        if (spentUsd >= budgetUsd) {
+          stopped = message.stop_reason === "tool_use" ? "budget" : "done";
+          break;
+        }
+      }
+      if (stopped === "done" && last?.stop_reason === "tool_use" && steps >= maxSteps) {
+        stopped = "steps";
+      }
+      const summary = (last?.content ?? [])
+        .flatMap((block) => (block.type === "text" ? [block.text] : []))
+        .join("\n")
+        .trim();
+      return { summary, model: last?.model ?? model, costUsd: spentUsd, stopped };
+    },
   };
 }
 
@@ -398,6 +507,15 @@ export function standInWriter(
             model: "stand-in",
             costUsd: 0.01,
           };
+    },
+    // Does nothing, so trying a study without a key never changes it.
+    async runAgent() {
+      return {
+        summary: "A stand-in agent doesn't do anything. Set ANTHROPIC_API_KEY to use one.",
+        model: "stand-in",
+        costUsd: 0,
+        stopped: "done" as const,
+      };
     },
   };
 }

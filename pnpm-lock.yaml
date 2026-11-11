@@ -243,6 +243,9 @@ importers:
       '@truman3/accounts':
         specifier: workspace:*
         version: link:../../packages/accounts
+      '@truman3/agent-tools':
+        specifier: workspace:*
+        version: link:../../packages/agent-tools
       '@truman3/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -344,6 +347,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 1.32.2
         version: 1.32.2(zod@4.6.7)
+      '@truman3/agent-tools':
+        specifier: workspace:*
+        version: link:../../packages/agent-tools
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -485,6 +491,19 @@ importers:
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(@opentelemetry/api@1.10.0)(postgres@4.0.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
+  packages/agent-tools:
+    dependencies:
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@types/node':
         specifier: ^24.19.2

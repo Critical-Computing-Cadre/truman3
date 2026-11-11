@@ -585,3 +585,24 @@ test("a researcher archives a study to tidy the list, and deletes one only they 
   await confirm.getByRole("button", { name: "Delete it" }).click();
   await expect(page.getByText(title)).toHaveCount(0);
 });
+
+test("a study can start from a brief for an agent, which says when the server has no Claude key", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+  await signIn(page);
+  await page.getByRole("link", { name: "New study" }).click();
+  await page.getByLabel("Title").fill(`From a brief ${Date.now() % 1_000_000}`);
+  await page.getByRole("radio", { name: /^Uniform/ }).check();
+  await page
+    .getByLabel(/Draft from a brief/)
+    .fill("A bystander study on a photo platform, in two conditions.");
+  await page.getByRole("button", { name: "Start the study" }).click();
+
+  // The test servers have no Claude key, so the Agent page says so instead of starting.
+  await expect(page.getByRole("heading", { name: "Agent" })).toBeVisible();
+  await expect(page.getByText("An agent needs a Claude key on the server")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("agent-without-key.png"), fullPage: true });
+  await page.getByRole("link", { name: "Back to the draft" }).click();
+  await expect(page.getByRole("link", { name: "Agent", exact: true })).toBeVisible();
+});
