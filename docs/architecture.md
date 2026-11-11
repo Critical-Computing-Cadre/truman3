@@ -263,6 +263,7 @@ Beats act through the same tables as scripted reactions, such as `content` with 
 - **Every study belongs to a team** ([ADR 11](adr/0011-teams-own-studies.md)). A researcher's role on a team is owner, editor, or viewer. Every admin route checks it.
 - **Teams are made on the server, or by applying on a hosted Truman.** `pnpm admin setup` creates a team and its first owner, and prints a password. `pnpm admin add` and `pnpm admin reset-password` do the rest.
 - **A hosted Truman** (`HOSTED=true`, [ADR 70](adr/0070-hosted-truman-applying-and-approving.md)) lets a lab apply from the sign-in page. Its team waits as `pending` until an operator approves it on the Labs page, and it can build and test meanwhile. An operator sees counts, never a study's content. A team's `limits` cap new participants a month and studies open at once. A suspended team's studies stop at once. See `docs/guides/hosting.md`.
+- **Email** (`apps/api/src/mail.ts`, [ADR 72](adr/0072-email-to-researchers.md)) resets forgotten passwords and invites people to a team. Links work once, run out, and are kept only as hashes in `researcher_links`. Owners manage their team's members on the Your lab page. Email goes only to researchers, never participants.
 - **Sign-in attempts are rate limited.**
 
 ### Monitor

@@ -55,7 +55,7 @@ test("a lab applies, builds while it waits, and an operator approves it (ADR 70)
 
   // The lab starts on the starter budget, then adds its own Claude key (ADR 71).
   await page.getByRole("link", { name: "Your lab" }).click();
-  const mine = page.getByRole("region", { name: lab });
+  const mine = page.getByRole("region", { name: `${lab} Claude` });
   await expect(mine).toContainText("$0.00 of $5.00 spent");
   await mine.getByLabel("Add your lab's Claude key").fill("sk-ant-e2e-test-key-wxyz");
   await mine.getByRole("button", { name: "Save key" }).click();

@@ -2,7 +2,7 @@
 
 A hosted Truman lets other labs run studies on your server, instead of deploying their own. This guide is for whoever runs it, the **operator**. Why it works this way is in [ADR 70](../adr/0070-hosted-truman-applying-and-approving.md).
 
-A hosted Truman is still being built. This guide covers what's there now: labs applying, approving them, their limits, and paying for Claude. Email and the production stage come next.
+A hosted Truman is still being built. This guide covers what's there now: labs applying, approving them, their limits, paying for Claude, and email. The production stage comes next.
 
 ## Turning it on
 
@@ -23,7 +23,12 @@ You need an account first. `pnpm admin setup` makes one, with a team of your own
 3. **You see it** under **Labs** in the admin app, at the top, with its application and who applied.
 4. **You approve it.** It gets the starting limits: 1,000 new participants in any 30 days, 10 studies open at once, and a $5 starter budget on your Claude key.
 
-Nobody's told by email yet. That's coming. For now, write to the applicant yourself.
+Email keeps everyone told (ADR 72), once it's set up (see Email in `docs/guides/deploying.md`):
+- **The applicant** is told their application arrived.
+- **You and every other operator** are told there's one to look at, with what the lab wants to study.
+- **The lab's owners** are told when it's approved, with its limits, and when it's suspended or reinstated.
+
+A lab invites its own people, and resets its own passwords, by email, so you don't need to.
 
 ## What you can see
 

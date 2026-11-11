@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const LOCAL_PARTICIPANT_APP = "http://localhost:5180";
+const LOCAL_ADMIN_APP = "http://localhost:5181/admin/";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
@@ -17,6 +18,18 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   /** The participant app's public address, used in study links and the link Prolific sends people to. */
   PARTICIPANT_APP_URL: z.url().optional(),
+  /**
+   * The address email to researchers comes from, such as "Truman <no-reply@example.org>", on a
+   * domain verified in Amazon SES. Without it, email is printed in development and not sent
+   * otherwise. ADR 72.
+   */
+  MAIL_FROM: z.string().optional(),
+  /** The AWS region SES sends from. */
+  MAIL_REGION: z.string().default("us-east-1"),
+  /** For browser tests only: email is written to this file instead of being sent. */
+  TEST_MAIL_OUTBOX: z.string().optional(),
+  /** The admin app's public address, for links in email. Defaults to beside the participant app. */
+  ADMIN_APP_URL: z.url().optional(),
   /** "true" makes this a hosted Truman: labs apply, and an operator approves them. ADR 70. */
   HOSTED: z.enum(["true", "false"]).default("false"),
 });
@@ -31,6 +44,12 @@ export function parseServerEnv(env: NodeJS.ProcessEnv) {
   return {
     ...parsed,
     PARTICIPANT_APP_URL: parsed.PARTICIPANT_APP_URL ?? LOCAL_PARTICIPANT_APP,
+    ADMIN_APP_URL:
+      parsed.ADMIN_APP_URL ??
+      // Locally the admin app has its own port. Deployed, it's under /admin/ at the same address.
+      (parsed.PARTICIPANT_APP_URL && env.NODE_ENV !== "development"
+        ? new URL("/admin/", parsed.PARTICIPANT_APP_URL).toString()
+        : LOCAL_ADMIN_APP),
     HOSTED: parsed.HOSTED === "true",
   };
 }

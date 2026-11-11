@@ -11,7 +11,9 @@ import {
 import { type Database, schema, type Transaction } from "@truman3/db";
 import { and, count, countDistinct, eq, gt, isNotNull, isNull, sql, sum } from "drizzle-orm";
 import { setCookie } from "hono/cookie";
+import { sendQuietly } from "../mail.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
+import { emailOperators, emailOwners } from "./accounts.ts";
 import { createResearcherSession, RESEARCHER_COOKIE, researcherFromRequest } from "./session.ts";
 
 /**
@@ -20,6 +22,7 @@ import { createResearcherSession, RESEARCHER_COOKIE, researcherFromRequest } fro
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const dollars = (amount: number) => `$${amount}`;
 /** Long enough to be hard to guess, short enough to type. */
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -109,6 +112,25 @@ export async function teamTakesNewParticipants(
       ),
     );
   return (recent?.n ?? 0) < participantsPerMonth;
+}
+
+/** A lab's limits, in a sentence or two, for the email saying it's approved. */
+function limitsText({ runningStudies, participantsPerMonth, starterBudgetUsd }: TeamLimits) {
+  const parts = [
+    runningStudies === undefined ? null : `${runningStudies} studies open at once`,
+    participantsPerMonth === undefined
+      ? null
+      : `${participantsPerMonth.toLocaleString("en-US")} new participants in any 30 days`,
+  ].filter((part) => part !== null);
+  return [
+    parts.length > 0 ? `Your lab can have ${parts.join(", and ")}.` : "",
+    starterBudgetUsd === undefined
+      ? ""
+      : `It has ${dollars(starterBudgetUsd)} to try Claude with. After that, add your lab's own key under Your lab.`,
+    "If you need more of anything, reply to this email.",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 const slugify = (name: string) =>
@@ -349,6 +371,8 @@ export function createHostingRoutes({
   secureCookies,
   getClientIp,
   allowLoginAttempt,
+  mailer,
+  adminAppUrl = "http://localhost:5181/admin/",
 }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const pleaseSignIn = { error: "Please sign in." };
@@ -421,6 +445,29 @@ export function createHostingRoutes({
       path: "/",
       expires: session.expiresAt,
     });
+    // Told by email, so they know it arrived, and an operator knows to look (ADR 72).
+    await sendQuietly(mailer, {
+      to: email,
+      subject: `We've got ${lab}'s application to use Truman`,
+      text: [
+        `Thanks for applying to use Truman for ${lab}.`,
+        "You can start building, previewing, and testing studies now, here:",
+        adminAppUrl,
+        "Once we've approved your lab, you'll be able to open studies to participants. We'll email you when that happens.",
+      ].join("\n\n"),
+    });
+    await emailOperators(
+      db,
+      mailer,
+      `${lab} applied to use Truman`,
+      [
+        `${name} (${email}) applied for ${lab}, at ${institution}.`,
+        `What they want to study:\n${purpose}`,
+        ...(website ? [`Their web page: ${website}`] : []),
+        "Approve or decline it under Labs:",
+        `${adminAppUrl}operator`,
+      ].join("\n\n"),
+    );
     return c.json({ ok: true as const }, 200);
   });
 
@@ -467,6 +514,43 @@ export function createHostingRoutes({
     }
     if (Object.keys(changes).length > 0) {
       await db.update(schema.teams).set(changes).where(eq(schema.teams.id, teamId));
+    }
+    // The lab's owners are told when their lab is approved or suspended (ADR 72).
+    if (changes.status === "approved" && team.status === "pending") {
+      const limits = teamLimitsSchema.parse(changes.limits ?? team.limits);
+      await emailOwners(
+        db,
+        mailer,
+        team.id,
+        `${team.name} is approved to use Truman`,
+        [
+          `${team.name} is approved. You can now open your studies to participants.`,
+          adminAppUrl,
+          limitsText(limits),
+        ].join("\n\n"),
+      );
+    } else if (changes.status === "approved") {
+      await emailOwners(
+        db,
+        mailer,
+        team.id,
+        `${team.name}'s studies are open again`,
+        [
+          `${team.name} has been reinstated, so its studies are open to participants again.`,
+          adminAppUrl,
+        ].join("\n\n"),
+      );
+    } else if (changes.status === "suspended") {
+      await emailOwners(
+        db,
+        mailer,
+        team.id,
+        `${team.name}'s studies are paused`,
+        [
+          `${team.name}'s account on Truman is suspended, so its studies are closed to participants for now. You can still sign in and export your data.`,
+          "If you weren't expecting this, please reply to this email.",
+        ].join("\n\n"),
+      );
     }
     const [updated] = await operatorTeams(db, new Date(), teamId);
     return c.json(updated as z.infer<typeof operatorTeamSchema>, 200);

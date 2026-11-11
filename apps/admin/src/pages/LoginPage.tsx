@@ -15,8 +15,12 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
+export { Field, inputClass };
+
 export function LoginPage() {
-  const [applying, setApplying] = useState(false);
+  const [mode, setMode] = useState<"sign-in" | "apply" | "forgot">("sign-in");
+  const applying = mode === "apply";
+  const setApplying = (on: boolean) => setMode(on ? "apply" : "sign-in");
   const hosting = useQuery({
     queryKey: ["hosting"],
     queryFn: () => get<{ hosted: boolean }>("/admin/hosting"),
@@ -26,7 +30,20 @@ export function LoginPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 p-6">
       <h1 className="text-center text-3xl font-semibold">Truman 3</h1>
-      {applying ? <ApplyForm /> : <SignInForm />}
+      {mode === "apply" ? (
+        <ApplyForm />
+      ) : mode === "forgot" ? (
+        <ForgotForm onBack={() => setMode("sign-in")} />
+      ) : (
+        <>
+          <SignInForm />
+          <p className="-mt-3 text-center text-sm">
+            <button type="button" className="underline" onClick={() => setMode("forgot")}>
+              Forgot your password?
+            </button>
+          </p>
+        </>
+      )}
       {hosted && (
         <p className="text-center text-sm">
           {applying ? (
@@ -50,7 +67,7 @@ export function LoginPage() {
   );
 }
 
-function SignInForm() {
+export function SignInForm() {
   const client = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -201,6 +218,63 @@ function ApplyForm() {
         className="rounded bg-stone-900 py-2.5 font-medium text-white disabled:opacity-40"
       >
         Apply
+      </button>
+    </form>
+  );
+}
+
+/** Asks for an email with a link to choose a new password (ADR 72). */
+function ForgotForm({ onBack }: { onBack: () => void }) {
+  const [email, setEmail] = useState("");
+  const reset = useMutation({
+    mutationFn: () => post("/admin/password-reset", { email }),
+  });
+  if (reset.isSuccess) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p role="status">
+          If there's an account for {email}, we've sent it a link to choose a new password. It works
+          for an hour.
+        </p>
+        <button type="button" className="underline" onClick={onBack}>
+          Back to sign in
+        </button>
+      </div>
+    );
+  }
+  return (
+    <form
+      className="flex flex-col gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        reset.mutate();
+      }}
+    >
+      <p className="text-stone-600">We'll email you a link to choose a new password.</p>
+      <Field label="Email">
+        <input
+          type="email"
+          required
+          autoComplete="username"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          className={inputClass}
+        />
+      </Field>
+      {reset.error && (
+        <p role="alert" className="text-sm text-rose-700">
+          {reset.error.message}
+        </p>
+      )}
+      <button
+        type="submit"
+        disabled={reset.isPending}
+        className="rounded bg-stone-900 py-2.5 font-medium text-white disabled:opacity-40"
+      >
+        Send the link
+      </button>
+      <button type="button" className="text-sm underline" onClick={onBack}>
+        Back to sign in
       </button>
     </form>
   );

@@ -20,6 +20,8 @@ import {
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 export const STATE_FILE = path.join(import.meta.dirname, ".e2e-state.json");
+/** Where the API writes the email it would send, for tests to follow its links (ADR 72). */
+export const MAIL_FILE = path.join(import.meta.dirname, ".e2e-mail.jsonl");
 
 /**
  * A stand-in for Prolific that the API reaches over a real connection. Tests add submissions with
@@ -208,6 +210,7 @@ export default async function globalSetup() {
     name: "The Operator",
   });
   await makeOperator(database.db, operatorEmail);
+  writeFileSync(MAIL_FILE, "");
   writeFileSync(
     STATE_FILE,
     JSON.stringify({
@@ -238,6 +241,8 @@ export default async function globalSetup() {
         LOGIN_ATTEMPTS_PER_MINUTE: "1000",
         // Labs can apply. Teams made here are approved, with no limits, so other tests don't notice.
         HOSTED: "true",
+        TEST_MAIL_OUTBOX: MAIL_FILE,
+        ADMIN_APP_URL: `http://localhost:${ADMIN_PORT}/admin/`,
       },
       stdio: "inherit",
     }),

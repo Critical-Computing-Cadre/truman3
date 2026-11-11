@@ -80,6 +80,9 @@ Keep the real values out of the repo. `.env.example` describes these too.
 | `PARTICIPANT_APP_URL`                      | Yes              | The participant address, for study links                                                                                                                                                            |
 | `TRUMAN_SECRET_KEY`                        | For Prolific     | Encrypts Prolific tokens. Changing it means everyone connects again                                                                                                                                 |
 | `ANTHROPIC_API_KEY`                        | For live writing | Lets Christof's actors write their own words with Claude. On AWS, store it by hand in Secrets Manager and name the secret in the stage's `anthropicKeySecret`. Without it, beats use fallback lines |
+| `MAIL_FROM`, `MAIL_REGION`                 | For email        | The From address for email to researchers, on a domain verified in SES, and SES's region. Without it, no email is sent (ADR 72). See Email, below                                                   |
+| `ADMIN_APP_URL`                            | No               | The admin app's address, for links in email. Defaults to `/admin/` beside `PARTICIPANT_APP_URL`                                                                                                     |
+| `HOSTED`                                   | No               | `true` for a hosted Truman, where labs apply (ADR 70). See `docs/guides/hosting.md`                                                                                                                 |
 | `TRUSTED_PROXIES`                          | Behind proxies   | How many of your own proxies add to `X-Forwarded-For`. Staging has 2: CloudFront and the load balancer. Too many, and everyone looks like a proxy. Too few, and visitors can fake their address     |
 
 The image sets `NODE_ENV=production`, which turns on secure cookies and the shorter error logs.
@@ -157,6 +160,16 @@ aws ecs update-service --cluster truman3-staging --service truman3-staging-api -
 ```
 
 To turn live writing off for a stage, remove `anthropicKeySecret` from it and deploy. Improvised beats then use their fallback lines.
+
+### Email
+
+Truman emails researchers: password resets, invitations to a team, and, on a hosted Truman, news about a lab's application (ADR 72). On AWS it sends through SES, from the domain in the stage's `mail`.
+
+1. **Deploy.** The stack sets up the domain in SES, and prints three `MailDkimRecord` outputs, each a name and a value.
+2. **Add the three as CNAME records** wherever the domain's DNS is kept. If that's Route 53 in another AWS account, add them there. SES checks them by itself within a few hours, and the domain then shows as verified in the SES console.
+3. **Leave the SES sandbox.** At first, SES sends only to addresses verified in it, and at most 200 a day. In the SES console, under **Account dashboard**, request production access. AWS asks what the email is for, and answers within a day or so. For trying it out before then, verify your own address under **Identities**.
+
+Until the domain is verified, sending fails quietly: the request goes on, and the API logs that the email wasn't sent.
 
 ### Costing less, and removing it
 
