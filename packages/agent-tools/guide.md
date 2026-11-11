@@ -16,12 +16,13 @@ A study is a **draft** while it's being written, and a **version** once it's sav
   - how long it runs
   - the conditions and how people are assigned to them
   - the steps: consent, pages, the feed, and the exit
+  - `worlds`, for shared worlds, where several participants are in one world and see each other. See `docs/guides/shared-worlds.md`. A shared world needs a consent page saying others may be real, and a moderator in the cast.
 - **Items:** the cast (kind `actor`), posts, comments, spaces, and moderation (removals, labels, bans, answers to flags and reports, automatic rules).
   - Each has a time, in hours:minutes from when a participant starts, and can be limited to conditions.
   - What an agent adds is marked as generated, so a methods section can say so.
 - **Pages:** files kept as written.
   - `beats.yaml` is what the cast does in response to each participant. See `docs/guides/writing-beats.md`.
-  - `scenarios.yaml` holds tests: a made-up participant does things at set times, and the study says what should have happened.
+  - `scenarios.yaml` holds tests: a made-up participant does things at set times, and the study says what should have happened. With shared worlds, a scenario can name several participants, with `participants` and `as`. See `docs/guides/testing-studies.md`.
   - `personas.yaml` holds simulated participants a model plays.
   - The consent page and other pages are Markdown.
 
@@ -30,6 +31,7 @@ A study is a **draft** while it's being written, and a **version** once it's sav
 - `flag-source` is about moderation notices
 - `vaccine-frames` changes pictures by condition
 - `eatsnap` is a classic study
+- `town-talk` is a shared world, where participants talk with each other
 
 ## What you can do
 
@@ -46,6 +48,7 @@ These reach real participants or their data, so they're for the researcher, in t
 - launching, stopping, or deleting a study
 - withdrawing a participant
 - downloading data, or participants' photos
+- seeing or removing what participants write in shared worlds
 - anything to do with Prolific
 - approving what the cast says to participants, and Christof's live controls
 - making or revoking tokens

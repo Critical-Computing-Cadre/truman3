@@ -1,0 +1,7 @@
+id,postID,actor,time,body,likes,condition
+dan-civil,main-street,dan_k,-0:30,"I'm a little worried about deliveries for the shops, but I'd be open to a trial run first.",3,civil
+priya-civil,main-street,priya_n,-0:20,"I like it. Walking down Main on a Saturday would be lovely. Fair point about deliveries, though.",2,civil
+tom-civil,main-street,tbecker,-0:10,Could they allow deliveries before 10am? That might work for everyone.,2,civil
+dan-uncivil,main-street,dan_k,-0:30,This is the dumbest idea the council has had yet. Do any of them actually work for a living?,3,uncivil
+priya-uncivil,main-street,priya_n,-0:20,"Typical. People who don't run a business deciding for those who do. Ridiculous.",2,uncivil
+tom-uncivil,main-street,tbecker,-0:10,Anyone who supports this has clearly never tried to park downtown. Clueless.,2,uncivil

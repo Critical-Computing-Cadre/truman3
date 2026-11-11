@@ -1,6 +1,5 @@
 import type { FeedRemoved } from "@truman3/core";
 import { useState } from "react";
-import { useFeature } from "../platform.tsx";
 import type { PostActions } from "../post-props.ts";
 
 /** Where a participant appeals a moderator's removal or label of what they wrote, once. */
@@ -73,7 +72,6 @@ export function RemovedNote({
   actions?: PostActions | undefined;
   className?: string;
 }) {
-  const on = useFeature("removal");
   const box = `rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-600 ${className}`;
   if (item.held) {
     return (
@@ -82,7 +80,9 @@ export function RemovedNote({
       </p>
     );
   }
-  if (!on || !item.removed) {
+  // The server sends a removal only where removals apply: with removal on, or in a shared world,
+  // where a researcher can always take something down (ADR 68).
+  if (!item.removed) {
     return null;
   }
   const { by, reason, appeal } = item.removed;

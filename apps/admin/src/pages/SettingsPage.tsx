@@ -702,11 +702,14 @@ function ArmDifferences({ arm, set }: { arm: EditingArm; set: (arm: EditingArm) 
 
 function ConditionsForm({
   value,
-  set,
+  set: setValue,
 }: {
   value: DraftSections["conditions"];
   set: (value: DraftSections["conditions"]) => void;
 }) {
+  // Changing the conditions keeps the shared worlds setting, which is saved with them.
+  const set = (next: Pick<DraftSections["conditions"], "conditions">) =>
+    setValue({ ...value, ...next });
   const { assignment, arms } = value.conditions;
   const editingArms = arms as EditingArm[];
   const totalWeight = arms.reduce((sum, arm) => sum + arm.weight, 0);
@@ -839,7 +842,66 @@ function ConditionsForm({
           Add a condition
         </button>
       </div>
+      <SharedWorldsField
+        value={value.worlds}
+        set={(worlds) => setValue(withoutUndefined({ ...value, worlds }))}
+      />
     </>
+  );
+}
+
+/** Whether participants share worlds, and how many to a world (ADR 67). */
+function SharedWorldsField({
+  value,
+  set,
+}: {
+  value: DraftSections["conditions"]["worlds"];
+  set: (value: DraftSections["conditions"]["worlds"]) => void;
+}) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium">Shared worlds</legend>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={value !== undefined}
+          onChange={(event) => set(event.target.checked ? { size: 6, waitMinutes: 10 } : undefined)}
+        />
+        Put participants together, so they see each other
+      </label>
+      <Hint>
+        Each world fills up with real participants, who all get its condition. Say so in the consent
+        page, and have a moderator in the cast. See docs/guides/shared-worlds.md.
+      </Hint>
+      {value && (
+        <div className="flex flex-wrap gap-4">
+          <label className={labelClass}>
+            People in a world
+            <input
+              type="number"
+              min="2"
+              max="500"
+              step="1"
+              value={value.size}
+              onChange={(event) => set({ ...value, size: Number(event.target.value) })}
+              className={`${input} w-24`}
+            />
+          </label>
+          <label className={labelClass}>
+            Longest wait for others (minutes)
+            <input
+              type="number"
+              min="0"
+              max="1440"
+              step="1"
+              value={value.waitMinutes}
+              onChange={(event) => set({ ...value, waitMinutes: Number(event.target.value) })}
+              className={`${input} w-24`}
+            />
+          </label>
+        </div>
+      )}
+    </fieldset>
   );
 }
 
@@ -854,6 +916,7 @@ const conditionsToSave = (value: DraftSections["conditions"]) => {
         ...value.conditions,
         arms: arms.map(({ savedAs: _savedAs, added: _added, ...arm }) => arm),
       },
+      ...(value.worlds ? { worlds: value.worlds } : {}),
     },
     renames,
   };

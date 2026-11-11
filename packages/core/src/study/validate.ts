@@ -19,6 +19,9 @@ export interface StudyIssue {
 
 type Source = { file: string; row: number } | undefined;
 
+/** Whether a consent page mentions meeting other participants, or real people. */
+const SAYS_OTHERS_ARE_REAL = /\b(other|real|fellow)\s+(participants?|people|users|humans?)\b/i;
+
 /**
  * Checks the rules that span more than one item, such as whether a post's actor exists.
  * Messages are written for researchers, and this has no file handling, so a visual builder
@@ -39,6 +42,26 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     warning(
       "worlds.waitMinutes is 0, so each world starts as soon as its first person joins, and nobody else can join it.",
     );
+  }
+  if (settings.worlds) {
+    // Participants meet real people, which they should know (ADR 68).
+    const consentPages = settings.flow.flatMap((step) =>
+      step.step === "consent" ? [study.pages[step.page] ?? ""] : [],
+    );
+    if (consentPages.length === 0) {
+      warning(
+        "In shared worlds, participants meet other real people. Add a consent step that tells them so.",
+      );
+    } else if (!consentPages.some((text) => SAYS_OTHERS_ARE_REAL.test(text))) {
+      warning(
+        'The consent page doesn\'t seem to say that others in the study may be real people, as they are in shared worlds. Say so, for example "Some people you meet will be other participants."',
+      );
+    }
+    if (!study.actors.some((actor) => actor.moderator)) {
+      warning(
+        "Nobody in the cast is a moderator, so you can't take things down from the Monitor page while the study runs. Give someone moderator: yes in actors.csv.",
+      );
+    }
   }
 
   const seenArms = new Set<string>();
@@ -1317,9 +1340,32 @@ function checkScenarios(
     if (!arms.has(scenario.condition)) {
       problem(`${label} starts in "${scenario.condition}", which isn't a condition in study.yaml.`);
     }
+    const named = new Set(scenario.participants ?? []);
+    if (named.size !== (scenario.participants ?? []).length) {
+      problem(`${label} names the same participant twice.`);
+    }
+    for (const name of named) {
+      if (usernames.has(name)) {
+        problem(
+          `${label} names a participant "${name}", who is also in the cast. Give them another name.`,
+        );
+      }
+    }
     scenario.steps.forEach((step, index) => {
       const where = `${label}, step ${index + 1},`;
+      if (step.as !== undefined && !named.has(step.as)) {
+        problem(
+          named.size === 0
+            ? `${where} says who does it, but the scenario has only one participant. Name them in participants.`
+            : `${where} is as "${step.as}", who isn't in its participants.`,
+        );
+      }
       const checkTarget = (target: ScenarioTarget | undefined) => {
+        if (target && "participant" in target && !named.has(target.participant)) {
+          problem(
+            `${where} uses what "${target.participant}" wrote, who isn't in its participants.`,
+          );
+        }
         if (target && "post" in target && !posts.has(target.post)) {
           problem(`${where} uses the post "${target.post}", which isn't in this study.`);
         }
@@ -1334,10 +1380,10 @@ function checkScenarios(
       checkTarget(step.like);
       checkTarget(step.repost);
       checkTarget(step.flag);
-      if (step.follow !== undefined && !usernames.has(step.follow)) {
+      if (step.follow !== undefined && !usernames.has(step.follow) && !named.has(step.follow)) {
         problem(`${where} follows "${step.follow}", who isn't in the list of actors.`);
       }
-      if (step.to !== undefined && !usernames.has(step.to)) {
+      if (step.to !== undefined && !usernames.has(step.to) && !named.has(step.to)) {
         problem(`${where} messages "${step.to}", who isn't in the list of actors.`);
       }
       const expected = step.expect;

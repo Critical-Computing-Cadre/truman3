@@ -97,6 +97,7 @@ CloudFront holds the apps, the API, and media at one address, so cookies and lin
 - **The router is a CloudFront Function, not custom error pages.** Error pages apply to the whole distribution, so they'd turn the API's real 403s and 404s into a web page.
 - **The cache key for the apps leaves out the query,** so a recruitment ID in a study link never reaches S3.
 - **CloudFront reaches the load balancer through a VPC origin,** a private connection into the VPC. That's why the load balancer needs no public address and no certificate. Traffic from CloudFront to it is HTTP, inside AWS.
+- **Live updates stay open through CloudFront.** `/api/live` streams server-sent events for as long as a participant in a shared world has the page open (ADR 68). CloudFront waits up to 60 seconds for the API to send something, and the load balancer closes a connection after 60 seconds with nothing sent. The API sends a reminder every 15 seconds, so neither closes it.
 - **Price class 100,** the cheapest set of CloudFront's locations.
 - **Domains are optional.** A stage can list `domains` with a certificate in us-east-1. Staging has none.
 

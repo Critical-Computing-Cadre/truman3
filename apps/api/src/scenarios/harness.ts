@@ -20,6 +20,8 @@ export interface Response {
 export interface TestParticipant {
   participantId: string;
   worldId: string;
+  /** Who they are in their world. */
+  actorId: string;
   /** Sends a request as them. */
   send: (method: string, url: string, body?: object | FormData) => Promise<Response>;
   /** The condition they're in now, which a decision point can change. */
@@ -34,7 +36,12 @@ export interface Harness {
    * Starts a test participant in a condition, at the current time, or null if it can't. A world
    * seed makes what's drawn at random in their world, like delays, the same each time.
    */
-  start: (condition: string, worldSeed?: number) => Promise<TestParticipant | null>;
+  start: (
+    condition: string,
+    worldSeed?: number,
+    /** True starts a shared world, and a world's id joins it. See startPilot. */
+    together?: true | string,
+  ) => Promise<TestParticipant | null>;
 }
 
 export function createHarness({
@@ -87,8 +94,8 @@ export function createHarness({
     setNow: (date) => {
       now = date;
     },
-    start: async (condition, worldSeed) => {
-      const started = await startPilot(db, versionId, condition, now, worldSeed);
+    start: async (condition, worldSeed, together) => {
+      const started = await startPilot(db, versionId, condition, now, worldSeed, together);
       if (!started?.token) {
         return null;
       }
@@ -98,6 +105,7 @@ export function createHarness({
         .select({
           participantId: schema.sessions.participantId,
           worldId: schema.worldMemberships.worldId,
+          actorId: schema.worldMemberships.actorId,
         })
         .from(schema.sessions)
         .innerJoin(
@@ -108,10 +116,11 @@ export function createHarness({
       if (!session) {
         return null;
       }
-      const { participantId, worldId } = session;
+      const { participantId, worldId, actorId } = session;
       return {
         participantId,
         worldId,
+        actorId,
         send: (method, url, body) => request(method, url, cookie, body),
         condition: async () => {
           const [assignment] = await db

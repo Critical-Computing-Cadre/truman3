@@ -8,11 +8,15 @@ import { idSchema, studyTime } from "./beats.ts";
  */
 export const SCENARIOS_FILE = "scenarios.yaml";
 
-/** One of the study's posts or comments, by its id, or what a beat made in this world. */
+/**
+ * One of the study's posts or comments, by its id, what a beat made in this world, or, with several
+ * participants, the latest post one of them wrote.
+ */
 const targetSchema = z.union([
   z.strictObject({ post: z.string().min(1) }),
   z.strictObject({ comment: z.string().min(1) }),
   z.strictObject({ beat: idSchema }),
+  z.strictObject({ participant: idSchema }),
 ]);
 
 /** What should be true at a step. Every part is optional. */
@@ -43,6 +47,8 @@ const stepSchema = z
   .strictObject({
     /** When, from when they start, like "0:05". */
     at: studyTime,
+    /** With several participants, who does this, or whose view is checked. The first by default. */
+    as: idSchema.optional(),
     /** They write a post with this text. */
     post: z.string().min(1).optional(),
     /** They comment with this text, on what `on` says. */
@@ -52,7 +58,7 @@ const stepSchema = z
     repost: targetSchema.optional(),
     /** They flag it. */
     flag: targetSchema.optional(),
-    /** They follow someone in the cast, by username. */
+    /** They follow someone in the cast, by username, or another participant, by name. */
     follow: z.string().min(1).optional(),
     /** They send a direct message with this text, to who `to` says, by username. */
     message: z.string().min(1).optional(),
@@ -79,6 +85,14 @@ export const scenarioSchema = z.strictObject({
   name: z.string().min(1),
   /** The condition they start in. */
   condition: z.string().min(1),
+  /**
+   * Names for several made-up participants, who share one world and see each other (ADR 68).
+   * Leave out for one participant.
+   */
+  participants: z
+    .array(idSchema)
+    .min(2, "Name at least two participants, or leave this out.")
+    .optional(),
   steps: z.array(stepSchema).min(1, "Give at least one step."),
 });
 

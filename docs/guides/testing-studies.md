@@ -89,6 +89,29 @@ An `expect` can say any of these:
 
 Steps run in order of `at`. Before each one, the runner loads the page as the participant would, so anything that came due by then happens first.
 
+## Several participants
+
+In a study with shared worlds, a scenario can name several made-up participants, who share one world and see each other:
+
+```yaml
+- name: Dan answers each participant once
+  condition: uncivil
+  participants: [ann, cal]
+  steps:
+    - { at: "0:02", comment: I think it could be nice, on: { post: main-street } }
+    - { at: "0:03", as: cal, comment: "Not a fan", on: { participant: ann } }
+    - at: "0:06"
+      as: cal
+      expect: { happened: [dan-answers-uncivil], sees: [I think it could be nice] }
+```
+
+- **`as`** says who does a step, or whose view an `expect` checks. Without it, it's the first one.
+- **`on: { participant: ann }`** is the latest post Ann wrote. It works for `like`, `repost`, and `flag` too.
+- **`follow` and `to`** can name a participant, as well as someone in the cast.
+- **`happened`** counts a beat that ran for the whole world, or for whoever the step is for. A beat set off by Ann happened for Ann, not Cal.
+
+`studies/examples/town-talk/scenarios.yaml` has more.
+
 ## How it works
 
 - **The participant** is a test participant, the same kind "Try as a participant" starts, so they're kept out of exports.

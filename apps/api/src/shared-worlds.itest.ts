@@ -2,28 +2,37 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { setUpTeam } from "@truman3/accounts";
 import type { ConversationsResponse, FeedResponse } from "@truman3/core";
 import { schema } from "@truman3/db";
 import { createTestDatabase } from "@truman3/db/testing";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { exportStudy } from "@truman3/study-export";
+import { loadStudyFolder } from "@truman3/study-files";
 import { importStudyFolder, withdrawParticipant } from "@truman3/study-import";
 import { parse } from "csv-parse/sync";
 import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
+import { createLive, type LiveEvent } from "./live.ts";
+import { loadWorldContext } from "./participants/session.ts";
+import { runScenarios } from "./scenarios/run.ts";
+import { simulate } from "./scenarios/simulate.ts";
 
 /** Shared worlds: several participants in one world, who see each other. ADR 67. */
 
 let database: Awaited<ReturnType<typeof createTestDatabase>>;
 let app: ReturnType<typeof createApp>;
+let live: ReturnType<typeof createLive>;
 const storage = createStorage(storageConfigFromEnv());
 const dirs: string[] = [];
 
 beforeAll(async () => {
   database = await createTestDatabase();
   await storage.ensureBucket();
+  live = createLive({ db: database.db, writer: null });
   app = createApp({
+    live,
     pingDatabase: database.ping,
     db: database.db,
     storage,
@@ -43,7 +52,10 @@ afterAll(async () => {
 
 const meta = () => ({ clientEventId: randomUUID(), occurredAt: new Date().toISOString() });
 
-async function study() {
+/** Each study made here, by slug: its folder, and the version imported from it. */
+const made = new Map<string, { dir: string; versionId: string }>();
+
+async function study(teamId?: string, extra: Record<string, string> = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "truman-shared-"));
   dirs.push(dir);
   const slug = `shared-${randomUUID().slice(0, 8)}`;
@@ -63,7 +75,7 @@ platform: { style: mixed, template: classic, features: { messages: true } }
 feed: { ranker: chronological }
 flow: [{ step: feed }, { step: exit }]
 `,
-    "actors.csv": "username,name\nbob,Bob\n",
+    "actors.csv": "username,name,moderator\nbob,Bob,\nmod,Mod,yes\n",
     "posts.csv": "id,body,actor,time\np1,Welcome,bob,-1:00\n",
     "beats.yaml": `
 beats:
@@ -71,13 +83,17 @@ beats:
   - { id: bob-likes, when: { participant: post }, do: { action: like, actor: bob, on: trigger } }
 `,
   };
-  for (const [name, text] of Object.entries(files)) {
+  for (const [name, text] of Object.entries({ ...files, ...extra })) {
     writeFileSync(path.join(dir, name), text);
   }
-  const imported = await importStudyFolder(database.db, storage, dir, { launch: true });
+  const imported = await importStudyFolder(database.db, storage, dir, {
+    launch: true,
+    ...(teamId ? { teamId } : {}),
+  });
   if (imported.status === "failed") {
     throw new Error(imported.issues.map((issue) => issue.message).join("\n"));
   }
+  made.set(slug, { dir, versionId: imported.studyVersionId });
   return slug;
 }
 
@@ -258,5 +274,220 @@ describe("a shared world", () => {
     expect(
       (await cal.call("POST", `/content/${postId}/like`, { ...meta(), active: true })).status,
     ).toBe(404);
+  });
+});
+
+describe("live updates", () => {
+  /** Listens as someone, and keeps what they're told. */
+  async function listenAs(externalId: string) {
+    const { worldId, actorId } = await placeOf(externalId);
+    const context = await loadWorldContext(database.db, worldId, actorId);
+    const events: LiveEvent[] = [];
+    const stop = live.listen(context as NonNullable<typeof context>, (event) => events.push(event));
+    return { events, stop };
+  }
+
+  it("tells each participant what's new for them, and nothing about what they did", async () => {
+    const slug = await study();
+    const ann = await join(slug);
+    const cal = await join(slug);
+    const annHears = await listenAs(ann.externalId);
+    const calHears = await listenAs(cal.externalId);
+    await live.tick(new Date());
+    annHears.events.length = 0;
+    calHears.events.length = 0;
+
+    const postId = await cal.post("Cal posts");
+    await live.tick(new Date());
+    expect(annHears.events).toEqual([{ type: "feed", posts: true }]);
+    // Bob liked Cal's post: that's Cal's notification.
+    expect(calHears.events).toEqual([{ type: "notifications" }]);
+
+    annHears.events.length = 0;
+    calHears.events.length = 0;
+    await ann.call("POST", `/content/${postId}/comments`, { ...meta(), body: "Nice" });
+    await ann.call("POST", `/messages/${cal.username}`, { ...meta(), body: "Hey Cal" });
+    await live.tick(new Date());
+    expect(annHears.events).toEqual([]);
+    expect(calHears.events).toEqual(
+      expect.arrayContaining([
+        { type: "feed", posts: false },
+        { type: "notifications" },
+        { type: "messages" },
+      ]),
+    );
+    // Told once, though the looks overlap.
+    calHears.events.length = 0;
+    await live.tick(new Date());
+    expect(calHears.events).toEqual([]);
+
+    // Two minutes on, Bob's greeting happens without anyone loading a page.
+    annHears.events.length = 0;
+    await live.tick(new Date(Date.now() + 2 * 60_000));
+    expect(annHears.events).toEqual([{ type: "feed", posts: true }]);
+    const { worldId } = await placeOf(ann.externalId);
+    const [greeting] = await database.db
+      .select()
+      .from(schema.beatRuns)
+      .where(and(eq(schema.beatRuns.worldId, worldId), eq(schema.beatRuns.beat, "bob-greets")));
+    expect(greeting?.status).toBe("fired");
+    annHears.stop();
+    calHears.stop();
+    expect(live.listenersIn((await placeOf(ann.externalId)).worldId)).toBe(0);
+  });
+
+  it("streams to a participant in a shared world, and not to anyone on their own", async () => {
+    const slug = await study();
+    const ann = await join(slug);
+    const cal = await join(slug);
+    const response = await ann.call("GET", "/live");
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+    const { worldId } = await placeOf(ann.externalId);
+    await expect.poll(() => live.listenersIn(worldId)).toBe(1);
+
+    await cal.post("Hello Ann");
+    await live.tick(new Date());
+    const { value } = await reader.read();
+    expect(new TextDecoder().decode(value)).toContain("event: feed");
+    await reader.cancel();
+
+    const nobody = await app.request("/live");
+    expect(nobody.status).toBe(401);
+  });
+});
+
+describe("removing what someone wrote, live", () => {
+  it("shows a researcher what's being written, and takes it down for everyone as the moderator", async () => {
+    const id = randomUUID().slice(0, 8);
+    const email = `${id}@example.edu`;
+    const { teamId, password } = await setUpTeam(database.db, {
+      teamName: `lab-${id}`,
+      slug: `lab-${id}`,
+      email,
+      name: "Owner",
+    });
+    const login = await app.request("/admin/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const researcher = (login.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+    const asResearcher = (method: string, url: string, body?: object) =>
+      app.request(url, {
+        method,
+        headers: { "content-type": "application/json", cookie: researcher },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+
+    const slug = await study(teamId);
+    const [row] = await database.db
+      .select({ id: schema.studies.id })
+      .from(schema.studies)
+      .where(eq(schema.studies.slug, slug));
+    const studyId = row?.id as string;
+    const ann = await join(slug);
+    const cal = await join(slug);
+    const postId = await ann.post("Something unkind");
+
+    const watched = (await (
+      await asResearcher("GET", `/admin/studies/${studyId}/live`)
+    ).json()) as {
+      worlds: { people: number }[];
+      content: { id: string; body: string; author: string; removed: boolean }[];
+      moderator: string | null;
+    };
+    expect(watched.worlds).toEqual([expect.objectContaining({ people: 2 })]);
+    expect(watched.moderator).toBe("mod");
+    expect(watched.content).toEqual([
+      expect.objectContaining({
+        id: postId,
+        body: "Something unkind",
+        author: ann.username,
+        removed: false,
+      }),
+    ]);
+
+    const removed = await asResearcher("POST", `/admin/studies/${studyId}/live/${postId}/remove`, {
+      reason: "Keep it kind",
+    });
+    expect(removed.status).toBe(200);
+    // Cal sees a moderator's removal, though this study has removal off, and Ann is told.
+    const seen = (await cal.feed()).find(({ id }) => id === postId);
+    expect(seen).toMatchObject({ body: "", removed: { by: "Mod", reason: "Keep it kind" } });
+    const { notifications } = await ann.json<{ notifications: { type: string }[] }>(
+      "GET",
+      "/notifications",
+    );
+    expect(notifications.map(({ type }) => type)).toContain("remove");
+    const after = (await (await asResearcher("GET", `/admin/studies/${studyId}/live`)).json()) as {
+      content: { removed: boolean }[];
+    };
+    expect(after.content[0]?.removed).toBe(true);
+  });
+});
+
+describe("testing a shared world", () => {
+  it("runs a scenario with several participants, each with their own view and beats", async () => {
+    const slug = await study(undefined, {
+      "scenarios.yaml": `
+scenarios:
+  - name: Ann posts, Cal answers, and Bob likes only Ann's
+    condition: a
+    participants: [ann, cal]
+    steps:
+      - { at: "0:01", post: Ann here }
+      - { at: "0:02", as: cal, comment: Hi Ann, on: { participant: ann } }
+      - { at: "0:03", as: cal, message: Hello, to: ann }
+      - at: "0:04"
+        expect: { happened: [bob-likes], sees: [Hi Ann, Hello] }
+      - at: "0:04"
+        as: cal
+        expect: { notHappened: [bob-likes], sees: [Ann here] }
+`,
+    });
+    const { dir, versionId } = made.get(slug) as { dir: string; versionId: string };
+    const { definition } = loadStudyFolder(dir);
+    const results = await runScenarios({
+      db: database.db,
+      storage,
+      versionId,
+      scenarios: definition?.scenarios ?? [],
+      cleanUp: true,
+    });
+    expect(results).toEqual([expect.objectContaining({ passed: true, problems: [] })]);
+    // Cleaning up after the last of them takes their world too.
+    const left = await database.db
+      .select()
+      .from(schema.worlds)
+      .where(and(eq(schema.worlds.studyVersionId, versionId), eq(schema.worlds.mode, "shared")));
+    expect(left).toEqual([]);
+  });
+
+  it("simulates participants together, in worlds of the study's size", async () => {
+    const slug = await study();
+    const { versionId } = made.get(slug) as { dir: string; versionId: string };
+    const report = await simulate({
+      db: database.db,
+      storage,
+      versionId,
+      settings: { participants: 5, seed: 7 },
+    });
+    expect(report.participants).toBe(5);
+    expect(report.problems).toEqual([]);
+    const worlds = await database.db
+      .select({ id: schema.worlds.id, people: sql<number>`count(*)::int` })
+      .from(schema.worlds)
+      .innerJoin(schema.worldMemberships, eq(schema.worldMemberships.worldId, schema.worlds.id))
+      .where(eq(schema.worlds.studyVersionId, versionId))
+      .groupBy(schema.worlds.id);
+    expect(worlds.map(({ people }) => people).sort()).toEqual([1, 2, 2]);
+    // What they wrote is in their shared worlds.
+    const byParticipants = await database.db
+      .select({ worldId: schema.content.worldId })
+      .from(schema.content)
+      .innerJoin(schema.actors, eq(schema.actors.id, schema.content.authorActorId))
+      .where(and(eq(schema.content.studyVersionId, versionId), eq(schema.actors.driver, "human")));
+    expect(byParticipants.length).toBeGreaterThan(0);
   });
 });

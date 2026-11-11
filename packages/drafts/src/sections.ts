@@ -9,7 +9,8 @@ const { shape } = studySettingsSchema;
  */
 export const SETTINGS_SECTIONS = {
   study: z.strictObject({ title: shape.title, site: shape.site, platform: shape.platform }),
-  conditions: z.strictObject({ conditions: shape.conditions }),
+  /** With shared worlds, since a world's condition is part of how people are assigned. */
+  conditions: z.strictObject({ conditions: shape.conditions, worlds: shape.worlds }),
   feed: z.strictObject({ feed: shape.feed, likes: shape.likes, length: shape.length }),
   flow: z.strictObject({ flow: shape.flow, entry: shape.entry }),
 };
@@ -61,6 +62,12 @@ export function applySections(
     sections.set(section, { revision, value });
     const pageKey = pageKeyOf(section);
     if (pageKey === null) {
+      // What a section leaves out, like shared worlds turned off, is gone, not kept from before.
+      if (isSectionName(section)) {
+        for (const key of Object.keys(SETTINGS_SECTIONS[section].shape)) {
+          delete (raw as Record<string, unknown>)[key];
+        }
+      }
       Object.assign(raw, value);
     } else if (value === null) {
       delete pages[pageKey];

@@ -70,6 +70,8 @@ export interface FlowState {
   canSortComments: boolean;
   /** In a shared world that hasn't started: who's joined, and when it starts at the latest. */
   waiting?: { joined: number; size: number; startsBy: string };
+  /** Whether others share their world, so the page listens for what they do. */
+  shared: boolean;
   site: {
     name: string;
     logoUrl: string | null;

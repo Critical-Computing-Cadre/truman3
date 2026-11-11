@@ -440,7 +440,7 @@ export interface DraftChange {
 /** The parts of a study's settings that are edited together. */
 export interface DraftSections {
   study: Pick<StudySettings, "title" | "site" | "platform">;
-  conditions: Pick<StudySettings, "conditions">;
+  conditions: Pick<StudySettings, "conditions" | "worlds">;
   feed: Pick<StudySettings, "feed" | "likes" | "length">;
   flow: Pick<StudySettings, "flow" | "entry">;
 }

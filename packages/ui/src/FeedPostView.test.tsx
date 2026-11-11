@@ -717,10 +717,15 @@ describe("a removed post", () => {
     expect(screen.getByText("Another comment")).toBeDefined();
   });
 
-  it.each(["classic", "forum"] as const)("shows no note with the feature off, in %s", (layout) => {
-    draw(layout, { ...POST, removed, comments: [] }, { ...features, removal: false });
-    expect(screen.queryByTestId("removed-note")).toBeNull();
-  });
+  // The server sends a removal only where one applies. With the feature off, that's a shared
+  // world, where a researcher took it down (ADR 68).
+  it.each(["classic", "forum"] as const)(
+    "shows the note whenever there's a removal, even with the feature off, in %s",
+    (layout) => {
+      draw(layout, { ...POST, removed, comments: [] }, { ...features, removal: false });
+      expect(screen.getByTestId("removed-note")).toBeDefined();
+    },
+  );
 });
 
 describe("a moderator's warning", () => {

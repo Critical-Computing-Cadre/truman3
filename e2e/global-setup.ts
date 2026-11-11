@@ -136,7 +136,7 @@ export default async function globalSetup() {
   });
   // A lab of its own, so the studies it starts don't crowd the shared study's page.
   const otherLabEmail = "other-lab@example.edu";
-  const { password: otherLabPassword } = await setUpTeam(database.db, {
+  const { password: otherLabPassword, teamId: otherLabId } = await setUpTeam(database.db, {
     teamName: "Other Lab",
     slug: "other-lab",
     email: otherLabEmail,
@@ -193,7 +193,8 @@ export default async function globalSetup() {
     database.db,
     storage,
     path.join(import.meta.dirname, "fixtures/shared"),
-    { launch: true },
+    // The other lab's, so its researcher can watch it on the Monitor page.
+    { launch: true, teamId: otherLabId },
   );
   if (shared.status === "failed") {
     throw new Error(shared.issues.map((issue) => issue.message).join("\n"));

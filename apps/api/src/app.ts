@@ -20,11 +20,13 @@ import { agentLimits, createTokenRoutes } from "./admin/tokens.ts";
 import { describeError } from "./errors.ts";
 import { createFeedRoutes } from "./feed/routes.ts";
 import { createFlowRoutes } from "./flow/routes.ts";
+import { liveStream } from "./live.ts";
 import { createMediaRoutes } from "./media.ts";
 import {
   createParticipantRoutes,
   type ParticipantRouteDependencies,
 } from "./participants/routes.ts";
+import { realClock } from "./participants/session.ts";
 
 const readinessResponseSchema = z.object({
   status: z.enum(["ok", "unavailable"]),
@@ -98,6 +100,11 @@ export function createApp({
   });
 
   app.route("/", createParticipantRoutes(participantDependencies));
+  // Streams, so it isn't in the OpenAPI document.
+  app.get("/live", async (c) => {
+    const { live, db, clock = realClock } = participantDependencies;
+    return live ? await liveStream(c, { db, live, clock }) : c.body(null, 204);
+  });
   app.route("/", createFeedRoutes(participantDependencies));
   app.route("/", createMediaRoutes(participantDependencies));
   app.route("/", createActionRoutes(participantDependencies));

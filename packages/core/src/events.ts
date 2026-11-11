@@ -121,6 +121,11 @@ export const eventPayloadSchemas = {
     choice: z.enum(["posted", "went_back"]),
   }),
   /**
+   * A researcher took down what they wrote in a shared world, from the Monitor page, as the study's
+   * moderator (ADR 68). It's a removal like any other, so others see it as one.
+   */
+  "moderation.removed_live": z.strictObject({ reason: z.string().optional() }),
+  /**
    * They appealed a moderator's removal or label of what they wrote. Appeals from before labels
    * don't say, and were all of removals.
    */

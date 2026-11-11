@@ -524,5 +524,18 @@ describe("deleting a participant's data", () => {
       participantId: null,
       profile: { name: "Withdrawn" },
     });
+
+    // When the last one leaves too, the world goes entirely, with what anyone wrote in it.
+    await deleteData(other!.id);
+    expect(await db.select().from(worlds).where(eq(worlds.id, leaving.world.id))).toHaveLength(0);
+    expect(
+      await db.select().from(content).where(eq(content.worldId, leaving.world.id)),
+    ).toHaveLength(0);
+    expect(await db.select().from(actors).where(eq(actors.worldId, leaving.world.id))).toHaveLength(
+      0,
+    );
+    expect(await db.select().from(events).where(eq(events.worldId, leaving.world.id))).toHaveLength(
+      0,
+    );
   });
 });

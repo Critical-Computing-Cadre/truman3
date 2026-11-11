@@ -15,7 +15,7 @@ import type { Storage } from "@truman3/storage";
 import { parsePersonas } from "@truman3/study-files";
 import { deleteParticipant } from "@truman3/study-import";
 import type { Writer } from "@truman3/writer";
-import { and, eq, gt, isNotNull } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull } from "drizzle-orm";
 import { scriptFor } from "../director/director.ts";
 import { createHarness, type TestParticipant } from "./harness.ts";
 import { type Budget, BudgetSpent, personaBehavior, type Transcript } from "./personas.ts";
@@ -300,43 +300,69 @@ export async function simulate({
   };
 
   const count = playing.length > 0 ? playing.length : settings.participants;
-  for (let n = 0; n < count; n++) {
-    const random = createRandom(settings.seed + n);
-    const persona = playing[n];
-    const condition = persona?.condition ?? (conditionKeys[n % conditionKeys.length] as string);
+  // In shared worlds, they join in worlds of the study's size, and live through it together, so
+  // their visits are taken in time order (ADR 68). Otherwise each has a world of their own.
+  const size = studySettings.worlds?.size ?? 1;
+  const groups: number[][] = [];
+  for (let n = 0; n < count; n += size) {
+    groups.push(Array.from({ length: Math.min(size, count - n) }, (_, i) => n + i));
+  }
+  let spentDuring: number | null = null;
+  for (const [g, group] of groups.entries()) {
+    const first = group[0] as number;
+    const condition =
+      playing[first]?.condition ??
+      (conditionKeys[(size > 1 ? g : first) % conditionKeys.length] as string);
     // Kept ones finish by now, so synthetic data has no times in the future.
     const start = settings.keep ? new Date(Date.now() - lengthMs - 60_000) : new Date();
     harness.setNow(start);
-    // Their world's own draws, like delays and rehearsed lines, come from the run's seed too.
-    const worldSeed = Math.floor(createRandom(settings.seed + n + WORLD_SEEDS)() * 2 ** 31);
-    const participant = await harness.start(condition, worldSeed);
-    if (!participant) {
-      problem(`They couldn't start in "${condition}".`, n);
-      continue;
+    const members: {
+      n: number;
+      random: () => number;
+      participant: TestParticipant;
+      playedBy: ReturnType<typeof personaBehavior> | null;
+      behavior: Behavior;
+    }[] = [];
+    for (const n of group) {
+      const random = createRandom(settings.seed + n);
+      const persona = playing[n];
+      // Their world's own draws, like delays and rehearsed lines, come from the run's seed too.
+      const worldSeed = Math.floor(createRandom(settings.seed + n + WORLD_SEEDS)() * 2 ** 31);
+      const together = size > 1 ? (members[0]?.participant.worldId ?? true) : undefined;
+      const participant = await harness.start(condition, worldSeed, together);
+      if (!participant) {
+        problem(`They couldn't start in "${condition}".`, n);
+        continue;
+      }
+      if (settings.keep) {
+        await db
+          .update(schema.participants)
+          .set({ synthetic: true })
+          .where(eq(schema.participants.id, participant.participantId));
+      }
+      report.participants++;
+      report.conditions[condition] = (report.conditions[condition] ?? 0) + 1;
+      const playedBy =
+        persona && writer
+          ? personaBehavior({
+              persona,
+              condition,
+              features: featuresFor(studySettings, condition),
+              writer,
+              model: cast?.model ?? "",
+              budget,
+            })
+          : null;
+      const behavior = behaviorFor?.(n, random) ?? playedBy ?? randomBehavior(random);
+      members.push({ n, random, participant, playedBy, behavior });
     }
-    if (settings.keep) {
-      await db
-        .update(schema.participants)
-        .set({ synthetic: true })
-        .where(eq(schema.participants.id, participant.participantId));
-    }
-    report.participants++;
-    report.conditions[condition] = (report.conditions[condition] ?? 0) + 1;
-    const playedBy =
-      persona && writer
-        ? personaBehavior({
-            persona,
-            condition,
-            features: featuresFor(studySettings, condition),
-            writer,
-            model: cast?.model ?? "",
-            budget,
-          })
-        : null;
-    const behavior = behaviorFor?.(n, random) ?? playedBy ?? randomBehavior(random);
-    let spent = false;
+
+    const visits = members
+      .flatMap((member) => visitTimes(studySettings, member.random).map((at) => ({ at, member })))
+      .sort((a, b) => a.at - b.at);
     try {
-      for (const at of visitTimes(studySettings, random)) {
+      for (const { at, member } of visits) {
+        const { n, random, participant, playedBy, behavior } = member;
         harness.setNow(new Date(start.getTime() + at));
         await participant.send("GET", "/me");
         const feed = await participant.send("GET", "/feed");
@@ -370,23 +396,32 @@ export async function simulate({
       }
     } catch (error) {
       if (error instanceof BudgetSpent) {
-        spent = true;
+        spentDuring = first;
       } else {
         problem(
           `Something went wrong: ${error instanceof Error ? error.message : String(error)}`,
-          n,
+          first,
         );
       }
     }
-    await tally(db, participant, condition, report);
-    if (playedBy) {
-      report.transcripts.push(playedBy.transcript);
+    await tally(
+      db,
+      members.map(({ participant }) => participant),
+      condition,
+      report,
+    );
+    for (const { playedBy } of members) {
+      if (playedBy) {
+        report.transcripts.push(playedBy.transcript);
+      }
     }
     if (cleanUp && !settings.keep) {
-      await deleteParticipant(db, storage, participant.participantId, "scenario test", "Truman");
+      for (const { participant } of members) {
+        await deleteParticipant(db, storage, participant.participantId, "scenario test", "Truman");
+      }
     }
-    if (spent) {
-      report.stopped = `It reached its $${budget.limitUsd} budget during participant ${n + 1} of ${count}.`;
+    if (spentDuring !== null) {
+      report.stopped = `It reached its $${budget.limitUsd} budget during participant ${spentDuring + 1} of ${count}.`;
       break;
     }
   }
@@ -477,32 +512,46 @@ async function act(
 }
 
 /** Adds what happened in one participant's world to the report. */
+/**
+ * Adds what happened in one world to the report. In a shared world, its runs are counted once, and a
+ * beat happened for someone if it ran for the whole world, or for them (ADR 68).
+ */
 async function tally(
   db: Database,
-  participant: TestParticipant,
+  participants: TestParticipant[],
   condition: string,
   report: SimulationReport,
 ) {
+  const [first] = participants;
+  if (!first) {
+    return;
+  }
   const runs = await db
     .select({
       writing: schema.beatRuns.writing,
       beat: schema.beatRuns.beat,
       status: schema.beatRuns.status,
       reason: schema.beatRuns.reason,
+      forActorId: schema.beatRuns.forActorId,
     })
     .from(schema.beatRuns)
-    .where(eq(schema.beatRuns.worldId, participant.worldId));
+    .where(eq(schema.beatRuns.worldId, first.worldId));
   for (const { writing } of runs) {
     report.castCostUsd += Number((writing as { costUsd?: number } | null)?.costUsd ?? 0);
   }
   for (const beat of report.beats) {
     const mine = runs.filter((run) => run.beat === beat.id);
-    const fired = mine.filter(({ status }) => status === "fired").length;
-    if (fired > 0) {
-      beat.happenedFor[condition] = (beat.happenedFor[condition] ?? 0) + 1;
+    beat.times += mine.filter(({ status }) => status === "fired").length;
+    for (const { actorId } of participants) {
+      const fired = mine.filter(
+        ({ status, forActorId }) =>
+          status === "fired" && (forActorId === null || forActorId === actorId),
+      ).length;
+      if (fired > 0) {
+        beat.happenedFor[condition] = (beat.happenedFor[condition] ?? 0) + 1;
+      }
+      beat.mostForOne = Math.max(beat.mostForOne, fired);
     }
-    beat.times += fired;
-    beat.mostForOne = Math.max(beat.mostForOne, fired);
     for (const run of mine) {
       if (run.status === "skipped") {
         const reason = run.reason ?? "no reason recorded";
@@ -522,7 +571,10 @@ async function tally(
     .innerJoin(schema.conditions, eq(schema.conditions.id, schema.assignments.conditionId))
     .where(
       and(
-        eq(schema.assignments.participantId, participant.participantId),
+        inArray(
+          schema.assignments.participantId,
+          participants.map(({ participantId }) => participantId),
+        ),
         isNotNull(schema.assignments.decisionPoint),
       ),
     );

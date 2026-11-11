@@ -341,6 +341,11 @@ export async function startPilot(
   conditionKey: string,
   now: Date,
   worldSeed?: number,
+  /**
+   * For scenario tests and simulations with several participants in one world (ADR 68): true starts
+   * a shared world, starting now, and a world's id joins that one.
+   */
+  together?: true | string,
 ) {
   return db.transaction(async (tx) => {
     const [version] = await tx
@@ -378,7 +383,33 @@ export async function startPilot(
       method: "pilot",
       probability: 1,
     });
-    const place = await createWorld(tx, version, participantId, now, worldSeed);
+    let place: Awaited<ReturnType<typeof joinWorld>>;
+    if (typeof together === "string") {
+      const [world] = await tx.select().from(schema.worlds).where(eq(schema.worlds.id, together));
+      if (world?.mode !== "shared" || world.studyVersionId !== version.id) {
+        return null;
+      }
+      place = await joinWorld(tx, version, world, participantId);
+    } else if (together) {
+      const [world] = await tx
+        .insert(schema.worlds)
+        .values({
+          studyVersionId: version.id,
+          mode: "shared",
+          seed: worldSeed ?? randomInt(MAX_SEED),
+          startedAt: now,
+          conditionId: condition.id,
+        })
+        .returning();
+      place = await joinWorld(
+        tx,
+        version,
+        world as typeof schema.worlds.$inferSelect,
+        participantId,
+      );
+    } else {
+      place = await createWorld(tx, version, participantId, now, worldSeed);
+    }
 
     const settings = studySettingsSchema.parse(version.settings);
     await notifyTags(tx, version.id, settings, condition.key, place);

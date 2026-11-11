@@ -57,6 +57,20 @@ test("a researcher changes settings, and a new participant gets them", async ({
   await conditions.getByRole("button", { name: "Save changes" }).click();
   await expect(conditions.locator("details")).toHaveCount(5);
 
+  // Shared worlds are saved with the conditions, and stay after a reload. Then off again, since
+  // other tests use this study.
+  await conditions.getByLabel("Put participants together, so they see each other").check();
+  await conditions.getByLabel("People in a world").fill("4");
+  await conditions.getByRole("button", { name: "Save changes" }).click();
+  await expect(conditions.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  await page.reload();
+  await expect(conditions.getByLabel("People in a world")).toHaveValue("4");
+  await conditions.getByLabel("Put participants together, so they see each other").uncheck();
+  await conditions.getByRole("button", { name: "Save changes" }).click();
+  await expect(conditions.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  await page.reload();
+  await expect(conditions.getByLabel("People in a world")).toHaveCount(0);
+
   // Comment boxes, for the whole study.
   await study.getByLabel(/^After pressing Reply/).check();
   await study.getByRole("button", { name: "Save changes" }).click();
