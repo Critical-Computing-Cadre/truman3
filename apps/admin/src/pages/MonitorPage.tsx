@@ -23,6 +23,7 @@ interface Monitor {
     key: string;
     expectedShare: number | null;
     enrolled: number;
+    now: number;
     completed: number;
     posts: number;
     comments: number;
@@ -31,6 +32,7 @@ interface Monitor {
     flags: number;
   }[];
   steps: { version: number; steps: { label: string; people: number }[] }[];
+  reRandomized: boolean;
   enrolledByDay: { day: string; people: number }[];
   exports: { by: string; at: string; includedRecruitmentIds: boolean; contents: string }[];
 }
@@ -395,7 +397,8 @@ export function MonitorPage() {
           <thead className="border-b border-stone-200 text-stone-600">
             <tr>
               <th className={th}>Condition</th>
-              <th className={th}>People</th>
+              <th className={th}>{monitor.reRandomized ? "Started here" : "People"}</th>
+              {monitor.reRandomized && <th className={th}>In it now</th>}
               <th className={th}>Share (planned)</th>
               <th className={th}>Finished</th>
               <th className={th}>Posts</th>
@@ -410,6 +413,7 @@ export function MonitorPage() {
               <tr key={arm.key}>
                 <td className="px-2 py-1 font-medium">{arm.key}</td>
                 <td className={td}>{arm.enrolled}</td>
+                {monitor.reRandomized && <td className={td}>{arm.now}</td>}
                 <td className={td}>
                   {monitor.enrolled > 0 ? percent(arm.enrolled / monitor.enrolled) : "-"}
                   {arm.expectedShare !== null && (

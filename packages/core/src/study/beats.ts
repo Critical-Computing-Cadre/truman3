@@ -173,6 +173,34 @@ const actionSchema = z.discriminatedUnion("action", [
   z
     .strictObject({ action: z.literal("message"), actor: z.string().min(1), ...wording })
     .superRefine(checkWording),
+  /** A moderator takes something down, with the reason they give. */
+  z.strictObject({
+    action: z.literal("remove"),
+    actor: z.string().min(1),
+    on: targetSchema,
+    reason: z.string().min(1).max(500).optional(),
+  }),
+  /** A moderator labels something, such as "Misleading". */
+  z.strictObject({
+    action: z.literal("label"),
+    actor: z.string().min(1),
+    on: targetSchema,
+    label: z.string().min(1).max(40),
+  }),
+  /** A moderator warns the participant about something they wrote. */
+  z.strictObject({
+    action: z.literal("warn"),
+    actor: z.string().min(1),
+    on: targetSchema,
+    warning: z.string().min(1).max(500),
+  }),
+  /** A moderator bans someone in the cast, from everywhere, by username. */
+  z.strictObject({
+    action: z.literal("ban"),
+    actor: z.string().min(1),
+    who: z.string().min(1),
+    reason: z.string().min(1).max(500).optional(),
+  }),
 ]);
 
 /** A fixed delay, or a range that each world draws from, the same way every time. */

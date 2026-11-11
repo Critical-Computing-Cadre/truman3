@@ -50,6 +50,15 @@ flow: [{ step: consent, page: pages/consent.md }, { step: feed }]
       "c3,only b,ann,p1,0,-0:10,b",
     ].join("\n"),
     "reactions.csv": "on,nth,type,actor,after,body\npost,0,reply,ann,0:01,Nice\n",
+    "beats.yaml": `# Ann welcomes them
+beats:
+  - { id: welcome, when: { time: "0:01" }, conditions: [a], do: { action: post, actor: ann, text: Welcome! } }
+`,
+    "scenarios.yaml": `scenarios:
+  - name: Ann welcomes them
+    condition: a
+    steps: [{ at: "0:02", expect: { happened: [welcome] } }]
+`,
   };
   for (const [name, text] of Object.entries(files)) {
     writeFileSync(path.join(dir, name), text);
@@ -209,6 +218,22 @@ describe("content packs", () => {
       .join();
     expect(text).toContain("your IRB approved");
     expect(text).not.toContain("Another lab");
+  });
+
+  it("brings its beats and scenario tests, as written, but not with just the background", async () => {
+    const team = await lab();
+    const pagesOf = async (draftId: string) =>
+      (
+        (await (await team.call("GET", `/admin/drafts/${draftId}/settings`)).json()) as {
+          pages: Record<string, { text: string }>;
+        }
+      ).pages;
+    const whole = await pagesOf(await startedDraft(team, { packId }));
+    expect(whole["beats.yaml"]?.text).toContain("# Ann welcomes them");
+    expect(whole["scenarios.yaml"]?.text).toContain("Ann welcomes them");
+    const background = await pagesOf(await startedDraft(team, { packId, keep: "background" }));
+    expect(background["beats.yaml"]).toBeUndefined();
+    expect(background["scenarios.yaml"]).toBeUndefined();
   });
 
   it("just the background leaves out what's limited to a condition, and what depended on it", async () => {

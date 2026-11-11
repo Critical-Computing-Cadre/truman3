@@ -381,6 +381,38 @@ beats:
     expect((await runsIn(cookie))[0]).toMatchObject({ status: "fired" });
   });
 
+  it("moderates: removes, labels, warns, and bans, and tells the participant only about theirs", async () => {
+    const slug = await study(
+      `
+beats:
+  - { id: bob-removes, when: { time: "0:00" }, do: { action: remove, actor: bob, on: { post: p1 }, reason: Off topic } }
+  - { id: bob-bans, when: { time: "0:00" }, do: { action: ban, actor: bob, who: ann, reason: Spam } }
+  - { id: bob-labels, when: { participant: post }, do: { action: label, actor: bob, on: trigger, label: Unverified } }
+  - { id: bob-warns, when: { participant: post }, do: { action: warn, actor: bob, on: trigger, warning: Please keep it civil } }
+`,
+      ", features: { removal: true, labels: true, warnings: true, bans: true, modLog: false }",
+    );
+    const cookie = await join(slug);
+    const mine = await write(cookie, "Hot take");
+    const posts = await feed(cookie);
+    const p1 = posts.find(({ author }) => author.username === "ann");
+    expect(p1?.removed).toMatchObject({ by: "Bob", reason: "Off topic" });
+    expect(p1?.author.banned).toBe(true);
+    expect(posts.find(({ id }) => id === mine)?.labels?.map(({ text }) => text)).toEqual([
+      "Unverified",
+    ]);
+    const { warnings } = (await (await call(cookie, "GET", "/warnings")).json()) as {
+      warnings: { text: string }[];
+    };
+    expect(warnings).toHaveLength(1);
+    const { notifications } = (await (await call(cookie, "GET", "/notifications")).json()) as {
+      notifications: { type: string }[];
+    };
+    expect(notifications.map(({ type }) => type).sort()).toEqual(["label", "warn"]);
+    const runs = await runsIn(cookie);
+    expect(runs.every(({ status }) => status === "fired")).toBe(true);
+  });
+
   it("is skipped, with a reason, when what it needs is off", async () => {
     const slug = await study(
       `

@@ -61,7 +61,10 @@ const monitorRoute = createRoute({
                 key: z.string(),
                 /** The share of people the design expects, from the live or latest version. */
                 expectedShare: z.number().nullable(),
+                /** People who started in it. */
                 enrolled: z.number(),
+                /** People in it now, after any decision points moved them (ADR 55). */
+                now: z.number(),
                 completed: z.number(),
                 posts: z.number(),
                 comments: z.number(),
@@ -76,6 +79,8 @@ const monitorRoute = createRoute({
                 steps: z.array(z.object({ label: z.string(), people: z.number() })),
               }),
             ),
+            /** Whether anyone has been moved between conditions by a decision point. */
+            reRandomized: z.boolean(),
             enrolledByDay: z.array(z.object({ day: z.string(), people: z.number() })),
             exports: z.array(
               z.object({
@@ -269,6 +274,29 @@ export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencie
       .where(and(realPeople, isNull(schema.assignments.decisionPoint)))
       .groupBy(schema.conditions.key, schema.participants.status);
 
+    // Where each person is now: their latest assignment, which a decision point may have changed.
+    const allAssignments = await db
+      .select({
+        participantId: schema.assignments.participantId,
+        key: schema.conditions.key,
+        decisionPoint: schema.assignments.decisionPoint,
+      })
+      .from(schema.assignments)
+      .innerJoin(schema.participants, eq(schema.participants.id, schema.assignments.participantId))
+      .innerJoin(schema.conditions, eq(schema.conditions.id, schema.assignments.conditionId))
+      .where(realPeople)
+      .orderBy(asc(schema.assignments.assignedAt), asc(schema.assignments.id));
+    const currentKey = new Map<string, string>();
+    const startKey = new Map<string, string>();
+    for (const { participantId, key, decisionPoint } of allAssignments) {
+      currentKey.set(participantId, key);
+      if (decisionPoint === null) {
+        startKey.set(participantId, key);
+      }
+    }
+    const reRandomized = [...currentKey].some(([id, key]) => startKey.get(id) !== key);
+    const nowIn = (key: string) => [...currentKey.values()].filter((each) => each === key).length;
+
     const actions = await db
       .select({
         key: schema.conditions.key,
@@ -290,7 +318,13 @@ export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencie
 
     const arms = currentSettings?.conditions.arms ?? [];
     const totalWeight = arms.reduce((sum, arm) => sum + arm.weight, 0);
-    const keys = [...new Set([...arms.map(({ key }) => key), ...armCounts.map(({ key }) => key)])];
+    const keys = [
+      ...new Set([
+        ...arms.map(({ key }) => key),
+        ...armCounts.map(({ key }) => key),
+        ...currentKey.values(),
+      ]),
+    ];
     const actionCount = (key: string, type: string, kind: string | null = null) =>
       actions.find(
         (row) => row.key === key && row.type === type && (kind === null || row.kind === kind),
@@ -362,6 +396,7 @@ export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencie
             key,
             expectedShare: arm && totalWeight > 0 ? arm.weight / totalWeight : null,
             enrolled: counts.reduce((sum, { people }) => sum + people, 0),
+            now: nowIn(key),
             completed: counts.find(({ status }) => status === "completed")?.people ?? 0,
             posts: actionCount(key, "content.created", "post"),
             comments: actionCount(key, "content.created", "comment"),
@@ -384,6 +419,7 @@ export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencie
                 },
               ];
         }),
+        reRandomized,
         enrolledByDay,
         exports: exports.map(({ by, at, includedRecruitmentIds, contents }) => ({
           by,

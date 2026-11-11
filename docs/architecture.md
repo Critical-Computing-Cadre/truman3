@@ -200,7 +200,7 @@ Participant screens never say this is a research platform unless the study does,
 
 ## Christof, the director
 
-Christof makes things happen in each participant's world, from what the study wrote. [Writing beats](guides/writing-beats.md) is the guide for researchers. ADRs 51 to 57, 59, 60, and 61 explain each part.
+Christof makes things happen in each participant's world, from what the study wrote. [Writing beats](guides/writing-beats.md) is the guide for researchers. ADRs 51 to 57 and 59 to 62 explain each part.
 
 | Part                        | What it does                                                                                                                                                                                          | Read                                                                                                          |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |

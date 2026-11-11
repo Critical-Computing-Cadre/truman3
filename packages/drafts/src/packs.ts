@@ -1,9 +1,12 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import {
+  BEATS_FILE,
   createRandom,
   hasErrors,
+  PERSONAS_FILE,
   pickFrom,
+  SCENARIOS_FILE,
   STARTING_CONSENT,
   type StudyDefinition,
   type StudyIssue,
@@ -40,9 +43,12 @@ type AutoRule = StudyDefinition["autoRules"][number];
 type AppealAnswer = StudyDefinition["appealAnswers"][number];
 type ReportAnswer = StudyDefinition["reportAnswers"][number];
 
+/** The pages a pack carries: what the cast does, and the tests and personas for it. ADR 62. */
+export const PACKED_PAGES = [BEATS_FILE, SCENARIOS_FILE, PERSONAS_FILE] as const;
+
 /**
  * What a pack holds. Consent text and the study's flow aren't in it: those belong to one study and
- * its IRB approval, and shouldn't quietly travel to another.
+ * its IRB approval, and shouldn't quietly travel to another. Its beats do, with their tests.
  */
 export interface PackContents {
   settings: Pick<StudySettings, "site" | "platform" | "feed" | "likes" | "length">;
@@ -69,6 +75,8 @@ export interface PackContents {
   contextNotes?: ContextNote[];
   /** Packs saved before stories don't have this. */
   stories?: Story[];
+  /** beats.yaml, scenarios.yaml, and personas.yaml, as written. Older packs don't have these. */
+  pages?: Partial<Record<(typeof PACKED_PAGES)[number], string>>;
   /** Each post and comment's history before the pack, by kind and reference. */
   provenance: Record<string, Provenance>;
 }
@@ -109,6 +117,7 @@ export function packContents(
     appealAnswers,
     contextNotes,
     stories,
+    pages,
   }: StudyDefinition,
   mediaKeys: Map<string, string>,
   provenance: Map<string, Provenance> = new Map(),
@@ -116,6 +125,9 @@ export function packContents(
   const stored = (folder: string, picture: string | undefined) =>
     picture ? { picture: mediaKeys.get(path.join(folder, picture)) ?? picture } : {};
 
+  const packed = Object.fromEntries(
+    PACKED_PAGES.flatMap((file) => (pages[file] ? [[file, pages[file]]] : [])),
+  );
   const site = { ...settings.site };
   for (const field of ["logo", "favicon", "homepageImage"] as const) {
     const image = site[field];
@@ -175,6 +187,7 @@ export function packContents(
           })),
         }
       : {}),
+    ...(Object.keys(packed).length > 0 ? { pages: packed } : {}),
     provenance: Object.fromEntries(provenance),
   };
 }
@@ -411,7 +424,11 @@ export async function startStudy(
       .values({
         studyId: study.id,
         settings,
-        pages: { [consentPage]: STARTING_CONSENT },
+        // Beats name the pack's conditions and people, so only a whole pack brings them.
+        pages: {
+          [consentPage]: STARTING_CONSENT,
+          ...(background ? {} : (contents?.pages ?? {})),
+        },
         createdBy: researcherId,
       })
       .returning({ id: schema.studyDrafts.id });
