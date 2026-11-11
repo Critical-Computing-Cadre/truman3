@@ -33,3 +33,10 @@ Profiling the feed locally showed where the time goes:
 ## Afterwards
 
 With 1 vCPU, every new post reached the others within 5 seconds, and the API's CPU averaged 25–40%. But the feed's median load was still 1.16 s. The load test had all 49 others load their feed the instant a post arrived, so they queued behind each other. Real participants get the "New posts" button, and press it when they notice it. So `pnpm load-test` now has each made-up participant press it 1 to 6 seconds later. It reports when the button appeared, and when the post was on screen, and counts those feed loads apart from the ones made when opening the page.
+
+Run that way on staging, with 50 participants for 30 minutes, every target was met:
+- every request was under a second
+- feed loads had a median of about 80 ms
+- every new post reached the others as the button within 5 seconds, with a median of 1.0 s and the slowest at 2.0 s
+
+The API's CPU averaged 20–30%, and the database's stayed under 15%.
