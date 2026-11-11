@@ -1006,6 +1006,14 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
       value,
       baseRevision,
       ...(renames ? { renames } : {}),
+      ...(editing.researcher.token
+        ? {
+            generated: {
+              origin: "generated" as const,
+              detail: { by: "agent", token: editing.researcher.token.name },
+            },
+          }
+        : {}),
     });
     if ("problem" in result) {
       if (result.problem === "not-found") {

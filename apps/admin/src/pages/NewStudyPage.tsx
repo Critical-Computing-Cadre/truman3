@@ -127,6 +127,8 @@ export function NewStudyPage() {
   const [assignment, setAssignment] = useState<"uniform" | "blocked" | null>(null);
   /** Left alone, a pack keeps the platform it came with, and anything else is Classic. */
   const [template, setTemplate] = useState<TemplateKey | null>(null);
+  /** An optional brief for an agent, which starts drafting once the study exists. ADR 65. */
+  const [brief, setBrief] = useState("");
 
   const slug = typedSlug ?? toLinkName(title);
   const teams = list.data?.teams ?? [];
@@ -136,8 +138,8 @@ export function NewStudyPage() {
   const withSample = sample && starter !== undefined;
 
   const start = useMutation({
-    mutationFn: () =>
-      post<{ draftId: string }>("/admin/studies", {
+    mutationFn: async () => {
+      const made = await post<{ draftId: string }>("/admin/studies", {
         teamId,
         title,
         slug,
@@ -146,8 +148,17 @@ export function NewStudyPage() {
         ...(withSample ? { starter: true } : {}),
         ...(pack ? { keep } : {}),
         ...(template ? { template } : {}),
-      }),
-    onSuccess: ({ draftId }) => navigate({ to: "/drafts/$draftId", params: { draftId } }),
+      });
+      if (brief.trim()) {
+        // The study exists either way. Without a Claude key, the Agent page says so.
+        await post(`/admin/drafts/${made.draftId}/agent`, { brief: brief.trim() }).catch(() => {});
+      }
+      return made;
+    },
+    onSuccess: ({ draftId }) =>
+      brief.trim()
+        ? navigate({ to: "/drafts/$draftId/agent", params: { draftId } })
+        : navigate({ to: "/drafts/$draftId", params: { draftId } }),
   });
 
   const submit = (event: FormEvent) => {
@@ -334,6 +345,23 @@ export function NewStudyPage() {
             </span>
           </label>
         </fieldset>
+
+        <label className="block space-y-1">
+          <span className="font-medium">Draft from a brief (optional)</span>
+          <span className="block text-sm text-stone-600">
+            Describe the study, and an agent drafts it for you to review: the cast, posts, beats,
+            and tests. It runs on the server within a $2 budget, and what it writes is marked as
+            generated. Leave this empty to start the study yourself.
+          </span>
+          <textarea
+            value={brief}
+            onChange={(event) => setBrief(event.target.value)}
+            rows={4}
+            maxLength={8000}
+            placeholder="A cyberbullying bystander study, photo platform, two conditions: someone defends the person being mocked, or nobody does."
+            className="w-full rounded border border-stone-300 p-2 text-sm"
+          />
+        </label>
 
         {start.error && (
           <p role="alert" className="text-sm text-rose-700">

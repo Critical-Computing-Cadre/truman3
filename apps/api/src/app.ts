@@ -3,6 +3,7 @@ import { healthResponseSchema } from "@truman3/core";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { createActionRoutes } from "./actions/routes.ts";
+import { createAgentRoutes } from "./admin/agent.ts";
 import { createArchiveRoutes } from "./admin/archive.ts";
 import { createChristofRoutes } from "./admin/christof.ts";
 import { createDraftRoutes } from "./admin/drafts.ts";
@@ -105,6 +106,14 @@ export function createApp({
   app.use("/admin/*", agentLimits);
   app.route("/", createAdminRoutes(participantDependencies));
   app.route("/", createTokenRoutes(participantDependencies));
+  // The agent calls this same API, in this process, with a token made for its run.
+  app.route(
+    "/",
+    createAgentRoutes({
+      ...participantDependencies,
+      selfRequest: (path, init) => app.request(path, init),
+    }),
+  );
   app.route("/", createDraftRoutes(participantDependencies));
   app.route("/", createPackRoutes(participantDependencies));
   app.route("/", createSheetRoutes(participantDependencies));

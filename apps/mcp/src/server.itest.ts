@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { setUpTeam } from "@truman3/accounts";
+import { trumanClient } from "@truman3/agent-tools";
 import { createApp } from "@truman3/api/app";
 import { createTestDatabase } from "@truman3/db/testing";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { trumanClient } from "./client.ts";
 import { createTrumanServer } from "./server.ts";
 
 /** The MCP server, used the way an MCP client would, against the real API. ADR 64. */

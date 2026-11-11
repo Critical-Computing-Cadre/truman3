@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
+    "@truman3/agent-tools": "workspace:*",
     "zod": "4.6.7"
   }
 }

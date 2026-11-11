@@ -981,6 +981,11 @@ export interface SaveSection {
   baseRevision: number;
   /** For conditions: old name to new name, so what's limited to a condition stays with it. */
   renames?: Record<string, string>;
+  /**
+   * Who wrote it, when it's an agent (ADR 65). An agent's save marks the section generated. A
+   * person's save of a generated section marks it edited, as it does for items.
+   */
+  generated?: Provenance;
 }
 
 /**
@@ -991,7 +996,7 @@ export async function saveSection(
   db: Database,
   draftId: string,
   researcherId: string,
-  { section, value, baseRevision, renames = {} }: SaveSection,
+  { section, value, baseRevision, renames = {}, generated }: SaveSection,
 ): Promise<{ revision: number } | EditProblem> {
   const pageKey = pageKeyOf(section);
   if (pageKey !== null ? !pageKeySchema.safeParse(pageKey).success : !isSectionName(section)) {
@@ -1120,10 +1125,16 @@ export async function saveSection(
     const data: SectionItem = { section, value: parsed.data };
     const revision = baseRevision + 1;
     let itemId = existing?.id;
+    const earlier = existing?.provenance as Provenance | undefined;
+    const provenance: Provenance =
+      generated ??
+      (earlier && earlier.origin !== "researcher"
+        ? { ...earlier, edited: true }
+        : { origin: "researcher" });
     if (itemId) {
       await tx
         .update(schema.draftItems)
-        .set({ data, revision, updatedBy: researcherId, updatedAt: new Date() })
+        .set({ data, revision, provenance, updatedBy: researcherId, updatedAt: new Date() })
         .where(eq(schema.draftItems.id, itemId));
     } else {
       const [created] = await tx
@@ -1133,7 +1144,7 @@ export async function saveSection(
           kind: "setting",
           data,
           revision,
-          provenance: { origin: "researcher" },
+          provenance,
           updatedBy: researcherId,
         })
         .returning({ id: schema.draftItems.id });
