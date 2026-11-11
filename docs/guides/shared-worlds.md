@@ -48,7 +48,7 @@ When someone withdraws, everything about them is deleted, as usual. What they wr
 
 - **Scenario tests** can have several participants in one world. See [Testing studies](testing-studies.md#several-participants).
 - **Simulations** put simulated participants in worlds of the study's size, and they meet, as real ones would.
-- **A load test:** `pnpm load-test <address> <slug> [participants] [minutes]` sends made-up participants to a running Truman, through its public address. It reports how long pages took, and how long new posts took to reach the others. Use it only with a study made for it, like `studies/load-test`, never one with real participants. Their IDs start with `load-`, to withdraw afterwards.
+- **A load test:** `pnpm load-test <address> <slug> [participants] [minutes]` sends made-up participants to a running Truman, through its public address. It reports how long pages took, and how long new posts took to reach the others: as the "New posts" button, and on screen once each made-up participant pressed it, 1 to 6 seconds later, as a person would. Use it only with a study made for it, like `studies/load-test`, never one with real participants. Their IDs start with `load-`, to withdraw afterwards.
 
 ## The export
 

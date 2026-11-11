@@ -2,7 +2,8 @@
  * A load test of a shared world (ADR 68): many made-up participants use a running Truman at once,
  * through its public address, as browsers would. They join one world, listen for live updates, and
  * look at the feed, post, comment, and like for a while. It reports how long pages took, and how
- * long it took for what one person posted to reach the others' screens.
+ * long it took for what one person posted to reach the others: first as the "New posts" button,
+ * then on their screen once they pressed it, a few seconds later, as a person would (ADR 69).
  *
  *   pnpm load-test <address> <slug> [participants] [minutes]
  *
@@ -27,10 +28,14 @@ const SEEN_TARGET_MS = 5_000;
 /** How long each kind of request took, in milliseconds. */
 const timings = new Map<string, number[]>();
 const failures = new Map<string, number>();
-/** When each participant's post was made, by id, so others can tell how long it took to reach them. */
-const posted = new Map<string, number>();
+/** When each participant's post was made, and by whom, so others can tell how long it took. */
+const posted = new Map<string, { at: number; by: number }>();
+/** How long a post took to reach another participant as the "New posts" button, once each. */
+const told: number[] = [];
 /** How long a post took to appear on another participant's screen, once each. */
 const seen: number[] = [];
+/** How long someone takes to notice the "New posts" button and press it. */
+const PRESS_AFTER_MS = [1_000, 6_000] as const;
 let liveEvents = 0;
 let liveDrops = 0;
 
@@ -57,6 +62,10 @@ class Participant {
   cookie = "";
   /** Posts already on this person's screen, so each new one's time is counted once. */
   onScreen = new Set<string>();
+  /** Posts they've been told about. */
+  heard = new Set<string>();
+  /** Whether the "New posts" button is showing, waiting to be pressed. */
+  buttonShowing = false;
   stopped = false;
 
   readonly n: number;
@@ -133,14 +142,14 @@ class Participant {
   }
 
   /** Fetches the feed, and counts how long new posts by others took to get here. */
-  async look() {
-    const feed = await this.call("feed", "GET", "/feed");
+  async look(kind = "feed") {
+    const feed = await this.call(kind, "GET", "/feed");
     const posts = ((feed.json.posts ?? []) as FeedPost[]).filter(({ author }) => !author.isViewer);
     const now = Date.now();
     for (const { id } of posts) {
       if (!this.onScreen.has(id)) {
         this.onScreen.add(id);
-        const at = posted.get(id);
+        const at = posted.get(id)?.at;
         if (at !== undefined) {
           seen.push(now - at);
         }
@@ -149,7 +158,29 @@ class Participant {
     return posts;
   }
 
-  /** Listens for live updates, and looks again when there's a new post, as pressing "New posts" does. */
+  /** Shows the "New posts" button, and presses it a few seconds later, as a person would. */
+  showButton() {
+    const now = Date.now();
+    for (const [id, { at, by }] of posted) {
+      if (by !== this.n && !this.heard.has(id)) {
+        this.heard.add(id);
+        told.push(now - at);
+      }
+    }
+    if (this.buttonShowing) {
+      return;
+    }
+    this.buttonShowing = true;
+    const [least, most] = PRESS_AFTER_MS;
+    void sleep(least + Math.random() * (most - least)).then(async () => {
+      this.buttonShowing = false;
+      if (!this.stopped) {
+        await this.look("feed (new posts)");
+      }
+    });
+  }
+
+  /** Listens for live updates, and shows the "New posts" button when there's a new post. */
   async listen() {
     while (!this.stopped) {
       try {
@@ -176,7 +207,7 @@ class Participant {
             if (message.startsWith("event: feed")) {
               liveEvents++;
               if (message.includes('"posts":true')) {
-                void this.look();
+                this.showButton();
               }
             } else if (message.startsWith("event:")) {
               liveEvents++;
@@ -212,7 +243,7 @@ class Participant {
         }
         const made = await this.call("post", "POST", "/posts", form);
         if (made.ok && typeof made.json.id === "string") {
-          posted.set(made.json.id, Date.now());
+          posted.set(made.json.id, { at: Date.now(), by: this.n });
         }
       } else if (roll < 0.2 && posts.length > 0) {
         await this.call("comment", "POST", `/content/${pick(posts).id}/comments`, {
@@ -241,15 +272,19 @@ function report() {
   for (const [kind, list] of [...timings].sort()) {
     const slow = list.filter((value) => value > PAGE_TARGET_MS).length;
     console.log(
-      `  ${kind.padEnd(8)} ${String(list.length).padStart(6)}  median ${ms(percentile(list, 50))}, 95% ${ms(percentile(list, 95))}, 99% ${ms(percentile(list, 99))}, slowest ${ms(Math.max(...list))}, over target ${slow}, failed ${failures.get(kind) ?? 0}`,
+      `  ${kind.padEnd(17)} ${String(list.length).padStart(6)}  median ${ms(percentile(list, 50))}, 95% ${ms(percentile(list, 95))}, 99% ${ms(percentile(list, 99))}, slowest ${ms(Math.max(...list))}, over target ${slow}, failed ${failures.get(kind) ?? 0}`,
     );
   }
-  const within = seen.filter((value) => value <= SEEN_TARGET_MS).length;
+  const summary = (list: number[]) => {
+    const within = list.filter((value) => value <= SEEN_TARGET_MS).length;
+    return list.length === 0
+      ? "None."
+      : `${list.length} times: median ${ms(percentile(list, 50))}, 95% ${ms(percentile(list, 95))}, slowest ${ms(Math.max(...list))}, within ${SEEN_TARGET_MS / 1000} s ${((within / list.length) * 100).toFixed(1)}%`;
+  };
   console.log(`\nNew posts reaching others (target: within ${SEEN_TARGET_MS / 1000} s):`);
+  console.log(`  As the "New posts" button: ${summary(told)}`);
   console.log(
-    seen.length === 0
-      ? "  None were seen."
-      : `  ${seen.length} times: median ${ms(percentile(seen, 50))}, 95% ${ms(percentile(seen, 95))}, slowest ${ms(Math.max(...seen))}, within target ${((within / seen.length) * 100).toFixed(1)}%`,
+    `  On screen, after pressing it ${PRESS_AFTER_MS[0] / 1000}–${PRESS_AFTER_MS[1] / 1000} s later: ${summary(seen)}`,
   );
   console.log(
     `\nLive updates: ${liveEvents} received, ${liveDrops} connections dropped and reopened.`,
@@ -278,7 +313,7 @@ async function main() {
   const listening = inside.map((person) => person.listen());
   const progress = setInterval(() => {
     const left = Math.max(0, Math.round((until - Date.now()) / 60_000));
-    console.log(`${left} minutes left. ${posted.size} posts, seen ${seen.length} times so far.`);
+    console.log(`${left} minutes left. ${posted.size} posts, told ${told.length} times so far.`);
   }, 60_000);
   await Promise.all(inside.map((person) => person.use(until)));
   clearInterval(progress);
