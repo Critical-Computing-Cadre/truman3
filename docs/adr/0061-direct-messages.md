@@ -32,5 +32,5 @@ Direct messages are the biggest idea from TrumanAgents, by Qian Yang and the Cor
 
 - Migration 0048 adds `content.recipient_actor_id`, and the rules above.
 - The bystander study (reference #2) turns messages on. Maya messages a participant who stood up to Jake, and Jake and Maya answer messages. Two scenarios test it.
-- Personas in simulations (ADR 60) don't read or send messages yet.
+- Personas in simulations (ADR 60) didn't read or send messages at first. Now they do: they see their conversations under their feed, with what's new marked, and can message anyone who wrote something, or answer in a conversation.
 - On a phone, the classic layout's header wraps to a second line when messages, notifications, and the profile are all on.

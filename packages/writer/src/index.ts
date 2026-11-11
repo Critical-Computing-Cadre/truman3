@@ -67,6 +67,7 @@ export const ACTS = [
   "follow",
   "post",
   "flag",
+  "message",
 ] as const;
 
 /**

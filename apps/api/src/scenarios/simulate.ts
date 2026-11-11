@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto";
 import {
+  type ConversationsResponse,
   createRandom,
   type FeedResponse,
+  featureOn,
   featuresFor,
   PERSONAS_FILE,
   pickFrom,
   type StudySettings,
+  type ThreadResponse,
 } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
@@ -35,6 +38,16 @@ export interface View {
   /** How long since they started, in milliseconds. */
   at: number;
   posts: readonly FeedPost[];
+  /** Their direct messages, where the study has them, for personas. Newest conversation first. */
+  conversations?: readonly ViewConversation[];
+}
+
+/** A conversation as a persona sees it: the latest messages, and whether any are new. */
+export interface ViewConversation {
+  username: string;
+  name: string;
+  messages: readonly { mine: boolean; body: string }[];
+  unread: number;
 }
 
 /** One thing a simulated participant does. A comment's `on` can be a post or, with threads, a comment. */
@@ -42,7 +55,8 @@ export type SimulatedAction =
   | { do: "like" | "upvote" | "downvote" | "repost" | "flag"; on: string }
   | { do: "comment"; on: string; text: string }
   | { do: "post"; text: string }
-  | { do: "follow"; username: string };
+  | { do: "follow"; username: string }
+  | { do: "message"; to: string; text: string };
 
 /** Decides what one simulated participant does each time they look. Null is doing nothing. */
 export interface Behavior {
@@ -341,7 +355,15 @@ export async function simulate({
             posts[posts.indexOf(post)] = full;
           }
         }
-        const action = await behavior.next({ at, posts });
+        const conversations =
+          playedBy && featureOn(studySettings, condition, "messages")
+            ? await conversationsOf(participant)
+            : undefined;
+        const action = await behavior.next({
+          at,
+          posts,
+          ...(conversations ? { conversations } : {}),
+        });
         if (action) {
           await act(participant, action, harness.now(), report, (text) => problem(text, n));
         }
@@ -372,6 +394,35 @@ export async function simulate({
   return report;
 }
 
+/** How many of a conversation's latest messages a persona reads. */
+const MESSAGES_READ = 6;
+
+/**
+ * A persona's conversations: the latest messages in each, opening the ones with something new, as
+ * someone would, which marks them read.
+ */
+async function conversationsOf(participant: TestParticipant): Promise<ViewConversation[]> {
+  const list = await participant.send("GET", "/messages");
+  const conversations = (list.json as unknown as ConversationsResponse).conversations ?? [];
+  const seen: ViewConversation[] = [];
+  for (const conversation of conversations) {
+    const { username, name } = conversation.with;
+    if (conversation.unread === 0) {
+      seen.push({ username, name, messages: [conversation.last], unread: 0 });
+      continue;
+    }
+    const thread = await participant.send("GET", `/messages/${username}`);
+    const messages = (thread.json as unknown as ThreadResponse).messages ?? [];
+    seen.push({
+      username,
+      name,
+      messages: messages.slice(-MESSAGES_READ),
+      unread: conversation.unread,
+    });
+  }
+  return seen;
+}
+
 async function act(
   participant: TestParticipant,
   action: SimulatedAction,
@@ -391,6 +442,11 @@ async function act(
     done = await participant.send("POST", `/actors/${action.username}/relation`, {
       ...meta,
       action: "follow",
+    });
+  } else if (action.do === "message") {
+    done = await participant.send("POST", `/messages/${action.to}`, {
+      ...meta,
+      body: action.text,
     });
   } else if (action.do === "upvote" || action.do === "downvote") {
     done = await participant.send("POST", `/content/${action.on}/vote`, {

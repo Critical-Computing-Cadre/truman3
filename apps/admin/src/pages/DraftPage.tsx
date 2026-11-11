@@ -93,11 +93,14 @@ export function useDraftEdits(draftId: string) {
         itemId,
         file,
         field = "picture",
+        condition,
       }: {
         itemId: string;
         file: File;
         /** Which of an item's images this is: its picture, or a space's banner. */
         field?: "picture" | "banner";
+        /** Someone's picture in one condition, with the ones they have in others. */
+        condition?: { key: string; others: Record<string, string> };
       }) => {
         const form = new FormData();
         form.append("image", file);
@@ -105,7 +108,11 @@ export function useDraftEdits(draftId: string) {
           `/admin/drafts/${draftId}/images`,
           form,
         );
-        return send("PATCH", `${base}/${itemId}`, { changes: { [field]: picture } });
+        return send("PATCH", `${base}/${itemId}`, {
+          changes: condition
+            ? { conditionPictures: { ...condition.others, [condition.key]: picture } }
+            : { [field]: picture },
+        });
       },
       onSettled: refresh,
     }),

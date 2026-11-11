@@ -76,6 +76,7 @@ const social: PersonaFeatures = {
   following: true,
   posting: true,
   flagging: true,
+  messages: false,
 };
 const forum: PersonaFeatures = { ...social, likes: false, votes: true, following: false };
 
@@ -213,5 +214,47 @@ describe("a persona", () => {
       "Nice painting. (It chose to like, which this study doesn't have here.)",
     );
     expect(upvoted?.did).toBe('Upvoted: Maya (@maya) posted: "My first painting!" (score 0)');
+  });
+
+  it("reads its messages, what's new among them, and can answer", async () => {
+    const prompts: string[] = [];
+    const writer = scripted({
+      action: "message",
+      item: 4,
+      text: "It wasn't nice, Jake.",
+      why: "He should hear it.",
+    });
+    const behavior = personaBehavior({
+      persona,
+      condition: "silent",
+      writer: {
+        ...writer,
+        act: (request) => {
+          prompts.push(request.prompt);
+          return writer.act(request);
+        },
+      },
+      features: { ...social, messages: true },
+      model: "stand-in",
+      budget: { limitUsd: 5, spentUsd: 0 },
+    });
+    const action = await behavior.next({
+      at: 0,
+      posts: feed,
+      conversations: [
+        {
+          username: "jake",
+          name: "Jake",
+          messages: [{ mine: false, body: "why do you care" }],
+          unread: 1,
+        },
+      ],
+    });
+    expect(action).toEqual({ do: "message", to: "jake", text: "It wasn't nice, Jake." });
+    expect(prompts[0]).toContain('[4] With Jake (@jake), 1 new:\n    Jake: "why do you care"');
+    expect(prompts[0]).toContain("- message:");
+    const [entry] = behavior.transcript.entries;
+    expect(entry?.saw).toContainEqual({ who: "Jake", text: "why do you care" });
+    expect(entry?.did).toBe('Messaged @jake: "It wasn\'t nice, Jake."');
   });
 });
