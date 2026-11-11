@@ -423,6 +423,8 @@ export const content = pgTable(
     class: text(),
     /** The ID this had in the study definition, such as a row in posts.csv. */
     sourceRef: text("source_ref"),
+    /** For a message to the participant, when it was sent to their phone, in the app. */
+    pushedAt: time("pushed_at"),
     createdAt: time("created_at").notNull().defaultNow(),
   },
   (table) => [
@@ -968,6 +970,8 @@ export const notifications = pgTable(
     /** For a warning, when they pressed its button. */
     acknowledgedAt: time("acknowledged_at"),
     dueAt: time("due_at").notNull(),
+    /** When it was sent to their phone as a push notification, in the app. */
+    pushedAt: time("pushed_at"),
   },
   (table) => [
     index("notifications_recipient").on(table.worldId, table.recipientActorId, table.dueAt),
@@ -1049,6 +1053,13 @@ export const sessions = pgTable(
       .references(() => participants.id, { onDelete: "cascade" }),
     createdAt: time("created_at").notNull().defaultNow(),
     expiresAt: time("expires_at").notNull(),
+    /**
+     * In the app, where to send push notifications, from Expo, and since when. It goes with the
+     * session, so withdrawing removes it. See ADR 66.
+     */
+    pushToken: text("push_token"),
+    pushPlatform: text("push_platform", { enum: ["ios", "android"] }),
+    pushSince: time("push_since"),
   },
   (table) => [index("sessions_participant").on(table.participantId)],
 );

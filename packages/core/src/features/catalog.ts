@@ -396,6 +396,13 @@ export const FEATURES = {
     version: 1,
     events: ["content.created", "messages.opened"],
   },
+  push: {
+    name: "Push notifications",
+    description:
+      "In the app, participants get a notification on their phone for what their Notifications page says, and for direct messages, if they allow it.",
+    version: 1,
+    events: ["push.permission", "push.sent", "push.opened"],
+  },
 } as const satisfies Record<string, FeatureDefinition>;
 
 export type FeatureKey = keyof typeof FEATURES;

@@ -11,7 +11,12 @@ type ReportedEvent =
       type: "content.viewed";
       targetContentId: string;
       payload: { dwellMs: number; surface: string };
-    };
+    }
+  // From Truman's app, around this site (ADR 66).
+  | { type: "app.opened"; payload: { platform: "ios" | "android" } }
+  | { type: "app.closed"; payload: { secondsOpen: number } }
+  | { type: "push.permission"; payload: { granted: boolean } }
+  | { type: "push.opened"; payload: { kind: "notification" | "message" } };
 
 let openedFrom = "direct";
 

@@ -5,7 +5,7 @@ import type { Storage } from "@truman3/storage";
 import type { Writer } from "@truman3/writer";
 import { eq } from "drizzle-orm";
 import type { Context } from "hono";
-import { setCookie } from "hono/cookie";
+import { getCookie, setCookie } from "hono/cookie";
 import { unreadMessages } from "../actions/messages.ts";
 import { countUnreadNotifications } from "../actions/notifications.ts";
 import type { ProlificConfig } from "../admin/prolific.ts";
@@ -13,7 +13,7 @@ import { catchUp } from "../director/director.ts";
 import { mediaUrl, participantKarma } from "../feed/build.ts";
 import { summarizeDevice } from "./device.ts";
 import { enterStudy, entrySettings } from "./enter.ts";
-import { participantFromRequest, realClock, SESSION_COOKIE } from "./session.ts";
+import { hashSessionToken, participantFromRequest, realClock, SESSION_COOKIE } from "./session.ts";
 
 const errorSchema = z.object({ error: z.string() });
 
@@ -71,6 +71,40 @@ const enterRoute = createRoute({
     429: {
       description: "Too many attempts",
       content: { "application/json": { schema: errorSchema } },
+    },
+  },
+});
+
+const pushRoute = createRoute({
+  method: "post",
+  path: "/me/push",
+  summary: "In the app, where to send this participant's push notifications. See ADR 66",
+  request: {
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: z.object({
+            /** An Expo push token, from the app. */
+            token: z.string().regex(/^(Exponent|Expo)PushToken\[[\w-]+\]$/),
+            platform: z.enum(["ios", "android"]),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Saved with this session",
+      content: { "application/json": { schema: z.object({ ok: z.literal(true) }) } },
+    },
+    401: {
+      description: "Not signed in",
+      content: { "application/json": { schema: z.object({ error: z.string() }) } },
+    },
+    403: {
+      description: "This study doesn't send push notifications",
+      content: { "application/json": { schema: z.object({ error: z.string() }) } },
     },
   },
 });
@@ -249,6 +283,24 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
       },
       200,
     );
+  });
+
+  app.openapi(pushRoute, async (c) => {
+    const context = await participantFromRequest(c, db, clock());
+    if (!context) {
+      return c.json({ error: "Please sign in." }, 401);
+    }
+    if (!featureOn(context.settings, context.conditionKey, "push")) {
+      return c.json({ error: "This study doesn't send push notifications." }, 403);
+    }
+    const { token, platform } = c.req.valid("json");
+    const session = getCookie(c, SESSION_COOKIE) ?? "";
+    // Only what comes after this is sent, so they aren't sent everything that happened before.
+    await db
+      .update(schema.sessions)
+      .set({ pushToken: token, pushPlatform: platform, pushSince: clock() })
+      .where(eq(schema.sessions.tokenHash, hashSessionToken(session)));
+    return c.json({ ok: true as const }, 200);
   });
 
   return app;

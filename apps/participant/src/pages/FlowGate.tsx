@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { ApiError, type FlowState, get, meQuery, post, postForm } from "../api.ts";
+import { startAppBridge } from "../app-bridge.ts";
 import { ProfileForm } from "../components/ProfileForm.tsx";
 import { Shell } from "../components/Shell.tsx";
 import { startTracking } from "../tracking.ts";
@@ -199,6 +200,8 @@ export function FlowGate() {
   useEffect(() => {
     if (flow.data?.step === "feed") {
       startTracking();
+      // Inside Truman's app, the app's events and push notifications start here too.
+      startAppBridge();
     }
   }, [flow.data?.step]);
 
