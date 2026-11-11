@@ -24,6 +24,7 @@ Truman 3 isn't ready for real participants yet. [Deploying](guides/deploying.md#
 | `apps/admin`       | React app researchers use, always under `/admin/` ([ADR 21](adr/0021-the-api-has-its-own-login-and-admin-lives-under-a-path.md)): the studies list, the builder, Monitor, and Prolific                                                                                                                   |
 | `apps/cli`         | `pnpm study` (validate, test, simulate, import, add-pack, launch, stop, convert, export, withdraw) and `pnpm admin` (setup, add, reset-password)                                                                                                                                                         |
 | `apps/mcp`         | An MCP server an agent like Claude runs on a researcher's computer, to build and check studies through the admin API with their personal access token ([ADR 64](adr/0064-agents-work-through-tokens-and-an-mcp-server.md)), with the tools in `packages/agent-tools`. See [Agents](guides/for-agents.md) |
+| `apps/mobile`      | Truman's phone app for participants: an Expo shell around the participant site, with push notifications ([ADR 66](adr/0066-the-app-is-a-shell-with-push.md)). Its own npm project, outside the workspace                                                                                                 |
 
 Both web apps are built with Vite ([ADR 2](adr/0002-react-with-vite.md)) into static files. Neither has an address built in. Each one calls `/api` on whatever address it's on.
 

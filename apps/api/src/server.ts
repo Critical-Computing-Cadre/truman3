@@ -7,6 +7,7 @@ import { createApp } from "./app.ts";
 import { forwardedAddress } from "./client-address.ts";
 import { parseServerEnv } from "./env.ts";
 import { describeError } from "./errors.ts";
+import { expoPush, startPushing } from "./push.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 
 const env = parseServerEnv(process.env);
@@ -25,6 +26,8 @@ await storage.ensureBucket();
 /** Generous, since many participants can share one address on a campus network. */
 const ENTRY_ATTEMPTS_PER_MINUTE = 120;
 
+const writer = env.ANTHROPIC_API_KEY ? anthropicWriter(env.ANTHROPIC_API_KEY) : null;
+
 const app = createApp({
   allowEntryAttempt: createRateLimiter({ max: ENTRY_ATTEMPTS_PER_MINUTE, windowMs: 60_000 }),
   allowLoginAttempt: createRateLimiter({ max: env.LOGIN_ATTEMPTS_PER_MINUTE, windowMs: 60_000 }),
@@ -35,7 +38,7 @@ const app = createApp({
   mediaPublicUrl: env.MEDIA_PUBLIC_URL,
   secureCookies: env.NODE_ENV !== "development",
   participantAppUrl: env.PARTICIPANT_APP_URL,
-  writer: env.ANTHROPIC_API_KEY ? anthropicWriter(env.ANTHROPIC_API_KEY) : null,
+  writer,
   prolific: {
     secretKey: env.TRUMAN_SECRET_KEY,
     apiUrl: env.PROLIFIC_API_URL,
@@ -49,11 +52,15 @@ const app = createApp({
   },
 });
 
+// Push notifications for participants in the app (ADR 66). Only studies that turn push on use it.
+const stopPushing = startPushing({ db: database.db, writer, send: expoPush });
+
 const server = serve({ fetch: app.fetch, port: env.PORT }, ({ port }) => {
   console.log(`API listening on http://localhost:${port}`);
 });
 
 function shutdown() {
+  stopPushing();
   server.close(async () => {
     storage.close();
     await database.close();

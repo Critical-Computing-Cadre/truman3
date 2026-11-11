@@ -1,0 +1,6 @@
+node_modules/
+.expo/
+dist/
+# Made by `expo prebuild`; the app is built from app.config.ts instead.
+ios/
+android/

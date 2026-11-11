@@ -36,6 +36,7 @@ export const TEMPLATES = {
       ...allFeatures,
       // Off unless a study turns it on, so studies that launched before it look the same.
       messages: false,
+      push: false,
       threads: false,
       votes: false,
       galleries: false,
@@ -98,6 +99,7 @@ export const TEMPLATES = {
       ...allFeatures,
       // Off unless a study turns it on, so studies that launched before it look the same.
       messages: false,
+      push: false,
       likes: false,
       following: false,
       adultTags: false,
@@ -138,6 +140,7 @@ export const TEMPLATES = {
       ...allFeatures,
       // Off unless a study turns it on, so studies that launched before it look the same.
       messages: false,
+      push: false,
       votes: false,
       titles: false,
       karma: false,
@@ -168,6 +171,7 @@ export const TEMPLATES = {
       ...allFeatures,
       // Off unless a study turns it on, so studies that launched before it look the same.
       messages: false,
+      push: false,
       votes: false,
       titles: false,
       karma: false,

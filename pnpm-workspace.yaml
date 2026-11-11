@@ -1,5 +1,7 @@
 packages:
   - apps/*
+  # The phone app is its own Expo project, with npm, so React Native stays out of the rest (ADR 66).
+  - "!apps/mobile"
   - packages/*
   - e2e
   - infra

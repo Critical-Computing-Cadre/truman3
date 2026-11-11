@@ -321,7 +321,10 @@ async function lastViewedAt(db: Database, context: ParticipantContext): Promise<
 const ABOUT_A_THREAD = ["read", "like", "reply", "repost", "tag"];
 
 /** The posts this person muted notifications about, on a platform with that. */
-async function mutedThreads(db: Database, context: ParticipantContext): Promise<Set<string>> {
+export async function mutedThreads(
+  db: Database,
+  context: ParticipantContext,
+): Promise<Set<string>> {
   if (!featureOn(context.settings, context.conditionKey, "threadMuting")) {
     return new Set();
   }
@@ -339,7 +342,7 @@ async function mutedThreads(db: Database, context: ParticipantContext): Promise<
 }
 
 /** The post at the top of each of these, following parents up. */
-async function postsAbove(db: Database, ids: string[]): Promise<Map<string, string>> {
+export async function postsAbove(db: Database, ids: string[]): Promise<Map<string, string>> {
   const parents = new Map<string, string | null>();
   let missing = [...new Set(ids)];
   while (missing.length > 0) {
@@ -443,7 +446,7 @@ export interface NotificationItem {
 }
 
 /** Votes change a score without telling anyone who voted, as on the platforms that have them. */
-const SHOWN_TO_PARTICIPANTS = [
+export const SHOWN_TO_PARTICIPANTS = [
   "read",
   "like",
   "reply",

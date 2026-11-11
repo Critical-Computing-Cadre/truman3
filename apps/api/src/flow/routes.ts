@@ -164,6 +164,10 @@ const reportedEventSchema = z.discriminatedUnion("type", [
     type: z.literal("session.heartbeat"),
     payload: eventPayloadSchemas["session.heartbeat"],
   }),
+  // From the app, through the page inside it (ADR 66).
+  ...(["app.opened", "app.closed", "push.permission", "push.opened"] as const).map((type) =>
+    actionMetaSchema.extend({ type: z.literal(type), payload: eventPayloadSchemas[type] }),
+  ),
   actionMetaSchema.extend({
     type: z.literal("content.viewed"),
     payload: eventPayloadSchemas["content.viewed"],

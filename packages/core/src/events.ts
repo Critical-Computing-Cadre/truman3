@@ -94,6 +94,16 @@ export const eventPayloadSchemas = {
   "notifications.viewed": empty,
   /** They opened their conversation with someone in the cast. `targetActorId` is who. */
   "messages.opened": empty,
+  /** The app came to the front, on their phone. See ADR 66. */
+  "app.opened": z.strictObject({ platform: z.enum(["ios", "android"]) }),
+  /** The app went to the background, after this long in front. */
+  "app.closed": z.strictObject({ secondsOpen: z.number().nonnegative() }),
+  /** Whether they allowed push notifications, when the app asked. */
+  "push.permission": z.strictObject({ granted: z.boolean() }),
+  /** A push notification was sent to their phone: for a notification, or a direct message. */
+  "push.sent": z.strictObject({ kind: z.enum(["notification", "message"]), about: z.string() }),
+  /** They opened the app from a push notification. */
+  "push.opened": z.strictObject({ kind: z.enum(["notification", "message"]) }),
   /** They pressed the button on a moderator's warning. `targetContentId` is what it was about. */
   "moderation.warning_acknowledged": empty,
   /**
