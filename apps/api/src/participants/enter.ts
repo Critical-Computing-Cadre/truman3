@@ -8,7 +8,7 @@ import {
   studySettingsSchema,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import type { DeviceSummary } from "./device.ts";
 import { hashSessionToken, newSessionToken } from "./session.ts";
 
@@ -132,7 +132,16 @@ async function createWorld(
   if (!world) {
     throw new Error("The world wasn't created.");
   }
+  return joinWorld(tx, version, world, participantId);
+}
 
+/** An actor for a participant in a world, solo or shared, and their membership in it. */
+async function joinWorld(
+  tx: Transaction,
+  version: VersionRow,
+  world: typeof schema.worlds.$inferSelect,
+  participantId: string,
+) {
   const [actor] = await tx
     .insert(schema.actors)
     .values({
@@ -197,6 +206,84 @@ async function notifyTags(
 }
 
 /** Everything a new participant needs: a condition, their own world, and an actor to act as. */
+/**
+ * A place in a shared world (ADR 67): the oldest one still waiting for people, or a new one. A world
+ * waits until it's full or `waitMinutes` have passed, and starts then, so everyone's study time
+ * starts together. Its condition is drawn when it's made, and everyone who joins it gets it.
+ */
+async function joinSharedWorld(
+  tx: Transaction,
+  version: VersionRow,
+  settings: StudySettings,
+  shared: NonNullable<StudySettings["worlds"]>,
+  participantId: string,
+  now: Date,
+) {
+  // Locked, so two people joining at once can't both take its last place.
+  const [open] = await tx
+    .select()
+    .from(schema.worlds)
+    .where(
+      and(
+        eq(schema.worlds.studyVersionId, version.id),
+        eq(schema.worlds.mode, "shared"),
+        isNull(schema.worlds.closedAt),
+        gt(schema.worlds.startedAt, now),
+      ),
+    )
+    .orderBy(asc(schema.worlds.startedAt))
+    .limit(1)
+    .for("update");
+
+  let world = open;
+  let condition: typeof schema.conditions.$inferSelect;
+  if (world?.conditionId) {
+    const [found] = await tx
+      .select()
+      .from(schema.conditions)
+      .where(eq(schema.conditions.id, world.conditionId));
+    condition = found as typeof schema.conditions.$inferSelect;
+    const arms = settings.conditions.arms.map(({ key, weight }) => ({ key, weight }));
+    // Their condition is the world's, which was drawn with this chance when it was made.
+    await tx.insert(schema.assignments).values({
+      participantId,
+      studyVersionId: version.id,
+      conditionId: condition.id,
+      method: "world",
+      probability: armProbability(arms, condition.key),
+      details: { worldId: world.id },
+    });
+  } else {
+    condition = await assignCondition(tx, version, settings, participantId);
+    const [made] = await tx
+      .insert(schema.worlds)
+      .values({
+        studyVersionId: version.id,
+        mode: "shared",
+        seed: randomInt(MAX_SEED),
+        startedAt: new Date(now.getTime() + shared.waitMinutes * 60_000),
+        conditionId: condition.id,
+      })
+      .returning();
+    if (!made) {
+      throw new Error("The world wasn't created.");
+    }
+    world = made;
+  }
+  const place = await joinWorld(tx, version, world, participantId);
+
+  // Full, it starts now, if that's sooner than its wait would have ended.
+  const [members] = await tx
+    .select({ total: count() })
+    .from(schema.worldMemberships)
+    .where(eq(schema.worldMemberships.worldId, world.id));
+  if ((members?.total ?? 0) >= shared.size && world.startedAt > now) {
+    await tx.update(schema.worlds).set({ startedAt: now }).where(eq(schema.worlds.id, world.id));
+    place.startedAt = now;
+  }
+  return { condition, world: place };
+}
+
 async function enroll(
   tx: Transaction,
   version: VersionRow,
@@ -204,8 +291,13 @@ async function enroll(
   participantId: string,
   now: Date,
 ) {
-  const condition = await assignCondition(tx, version, settings, participantId);
-  const world = await createWorld(tx, version, participantId, now);
+  const joined = settings.worlds
+    ? await joinSharedWorld(tx, version, settings, settings.worlds, participantId, now)
+    : {
+        condition: await assignCondition(tx, version, settings, participantId),
+        world: await createWorld(tx, version, participantId, now),
+      };
+  const { condition, world } = joined;
 
   // Who someone starts out following is the study's choice. After this it's theirs.
   if (featureOn(settings, condition.key, "following")) {

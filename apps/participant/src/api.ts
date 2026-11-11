@@ -68,7 +68,16 @@ export interface FlowState {
   canJoinSpaces: boolean;
   canSort: boolean;
   canSortComments: boolean;
-  site: { name: string; logoUrl: string | null; faviconUrl: string | null; hasRules: boolean };
+  /** In a shared world that hasn't started: who's joined, and when it starts at the latest. */
+  waiting?: { joined: number; size: number; startsBy: string };
+  site: {
+    name: string;
+    logoUrl: string | null;
+    faviconUrl: string | null;
+    hasRules: boolean;
+    hasTerms: boolean;
+    hasPrivacy: boolean;
+  };
 }
 
 export interface Me {

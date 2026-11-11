@@ -34,6 +34,13 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
   const { settings } = study;
   const armKeys = new Set(settings.conditions.arms.map((arm) => arm.key));
 
+  // Shared worlds (ADR 67).
+  if (settings.worlds?.waitMinutes === 0) {
+    warning(
+      "worlds.waitMinutes is 0, so each world starts as soon as its first person joins, and nobody else can join it.",
+    );
+  }
+
   const seenArms = new Set<string>();
   for (const arm of settings.conditions.arms) {
     if (seenArms.has(arm.key)) {
@@ -1108,6 +1115,13 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
   }
 
   checkDecisions(study, decisions, beatIds, beatLengthMs, usernames, beatProblem);
+  // Everyone in a shared world is in its condition, so nobody in one can be moved (ADR 67).
+  if (settings.worlds && decisions.length > 0) {
+    beatProblem(
+      "error",
+      "Decision points can't move people between conditions in shared worlds, where everyone in a world is in its condition.",
+    );
+  }
   checkScenarios(
     study,
     new Set([...beatIds.keys(), ...decisionIds]),

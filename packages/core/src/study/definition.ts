@@ -189,8 +189,26 @@ export const studySettingsSchema = z.strictObject({
     homepageImage: z.string().optional(),
     /** A page of community rules, like pages/rules.md, that participants can open any time. */
     rules: z.string().min(1).optional(),
+    /** The site's own terms of service and privacy policy, for a believable site. ADR 67. */
+    terms: z.string().min(1).optional(),
+    privacy: z.string().min(1).optional(),
   }),
   length: z.strictObject({ days: z.number().positive() }),
+  /**
+   * Shared worlds: several participants in one world, who see each other. A world fills up to `size`
+   * people, and starts when it's full or when `waitMinutes` have passed since its first person
+   * joined, with whoever's there. Everyone in a world is in its condition. Without this, everyone
+   * has a world of their own. See ADR 67.
+   */
+  worlds: z
+    .strictObject({
+      size: z.number().int().min(2).max(500),
+      waitMinutes: z
+        .number()
+        .min(0)
+        .max(24 * 60),
+    })
+    .optional(),
   entry: z.strictObject({
     /** The URL parameter holding the participant's recruitment ID, e.g. PROLIFIC_PID. */
     idParam: z.string().min(1),

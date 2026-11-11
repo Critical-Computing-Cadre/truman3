@@ -13,7 +13,7 @@ import { type Database, schema, type Transaction } from "@truman3/db";
 import { parseBeats } from "@truman3/study-files";
 import type { Writer } from "@truman3/writer";
 import { and, asc, eq, inArray, isNull, lte } from "drizzle-orm";
-import type { ParticipantContext } from "../participants/session.ts";
+import { loadWorldContext, type ParticipantContext } from "../participants/session.ts";
 import { decide } from "./decisions.ts";
 import { chooseWords, mightWrite, saysSomething, type Writing } from "./wording.ts";
 
@@ -53,7 +53,8 @@ type Script = Pick<BeatsFile, "beats" | "live" | "cast" | "decide">;
  * Anything Christof schedules: a beat, or a decision point, which is reached the same way but
  * changes the participant's condition instead of doing something in their world.
  */
-type Cue = Pick<BeatDefinition, "id" | "when" | "conditions" | "max" | "delay" | "unless">;
+type Cue = Pick<BeatDefinition, "id" | "when" | "conditions" | "max" | "delay" | "unless"> &
+  Partial<Pick<BeatDefinition, "per" | "do">>;
 
 const asCue = (decision: DecisionDefinition): Cue => ({
   ...decision,
@@ -109,6 +110,26 @@ function delayOf(beat: Cue, context: ParticipantContext, run: number) {
 }
 
 /** Writes a beat down as pending, unless it's already used up its runs in this world. */
+/** Actions a beat does to "the participant", so in a shared world each participant gets their own. */
+const TO_THE_PARTICIPANT = new Set(["message", "follow", "warn"]);
+
+/**
+ * Who a run is for (ADR 67). In a world of one, it's always them, so runs are counted for the world.
+ * In a shared world, a beat set off by a participant is theirs, and one at a set time happens once,
+ * unless what it does is to "the participant". A beat's `per` says otherwise.
+ */
+function forActorOf(beat: Cue, context: ParticipantContext): string | null {
+  if (context.worldMode !== "shared") {
+    return null;
+  }
+  const per =
+    beat.per ??
+    ("participant" in beat.when || (beat.do && TO_THE_PARTICIPANT.has(beat.do.action))
+      ? "participant"
+      : "world");
+  return per === "participant" ? context.actorId : null;
+}
+
 async function schedule(
   tx: Transaction,
   context: ParticipantContext,
@@ -116,10 +137,19 @@ async function schedule(
   trigger: Trigger,
   at: Date,
 ) {
+  const forActorId = forActorOf(beat, context);
   const runs = await tx
     .select({ run: schema.beatRuns.run })
     .from(schema.beatRuns)
-    .where(and(eq(schema.beatRuns.worldId, context.worldId), eq(schema.beatRuns.beat, beat.id)));
+    .where(
+      and(
+        eq(schema.beatRuns.worldId, context.worldId),
+        eq(schema.beatRuns.beat, beat.id),
+        forActorId
+          ? eq(schema.beatRuns.forActorId, forActorId)
+          : isNull(schema.beatRuns.forActorId),
+      ),
+    );
   if (runs.length >= beat.max) {
     return;
   }
@@ -134,6 +164,7 @@ async function schedule(
       trigger,
       triggeredAt: at,
       dueAt: new Date(at.getTime() + delayOf(beat, context, run)),
+      forActorId,
     })
     // Two loads at once can both get here. The first one wins.
     .onConflictDoNothing();
@@ -513,10 +544,11 @@ async function scheduleTimed(tx: Transaction, context: ParticipantContext, now: 
   if (timed.length === 0) {
     return;
   }
+  // Started for this participant, or for the world, whichever the beat is (ADR 67).
   const started = new Set(
     (
       await tx
-        .select({ beat: schema.beatRuns.beat })
+        .select({ beat: schema.beatRuns.beat, forActorId: schema.beatRuns.forActorId })
         .from(schema.beatRuns)
         .where(
           and(
@@ -527,11 +559,12 @@ async function scheduleTimed(tx: Transaction, context: ParticipantContext, now: 
             ),
           ),
         )
-    ).map(({ beat }) => beat),
+    ).map(({ beat, forActorId }) => `${beat}:${forActorId ?? ""}`),
   );
   for (const beat of timed) {
     const at = startMs + (beat.when as { time: number }).time;
-    if (!started.has(beat.id) && at <= now.getTime()) {
+    const key = `${beat.id}:${forActorOf(beat, context) ?? ""}`;
+    if (!started.has(key) && at <= now.getTime()) {
       await schedule(tx, context, beat, { kind: "time" }, new Date(at));
     }
   }
@@ -627,19 +660,28 @@ export async function catchUp(
     }
     const record = (values: Partial<typeof schema.beatRuns.$inferInsert>) =>
       db.update(schema.beatRuns).set(values).where(eq(schema.beatRuns.id, run.id));
+    // In a shared world, a run is decided as the participant it's for, whoever's load got here.
+    const here =
+      run.forActorId && run.forActorId !== context.actorId
+        ? await loadWorldContext(db, context.worldId, run.forActorId)
+        : context;
+    if (!here) {
+      await record({ reason: "they've left the study" });
+      continue;
+    }
     const decision = decisions.get(run.beat);
     if (decision) {
-      if (!inCondition(asCue(decision), context)) {
+      if (!inCondition(asCue(decision), here)) {
         await record({ reason: `they're not in its conditions any more` });
         continue;
       }
       await db.transaction(async (tx) => {
-        const reason = await decide(tx, context, decision, run.dueAt, now);
+        const reason = await decide(tx, here, decision, run.dueAt, now);
         await tx
           .update(schema.beatRuns)
           .set({ status: "fired", reason })
           .where(eq(schema.beatRuns.id, run.id));
-        await scheduleFollowers(tx, context, cues, decision.id, run.id, null, run.dueAt);
+        await scheduleFollowers(tx, here, cues, decision.id, run.id, null, run.dueAt);
       });
       continue;
     }
@@ -648,8 +690,8 @@ export async function catchUp(
       continue;
     }
     // A decision point may have moved them since this was written down.
-    if (!inCondition(beat, context)) {
-      await record({ reason: `it isn't in "${context.conditionKey}", their condition now` });
+    if (!inCondition(beat, here)) {
+      await record({ reason: `it isn't in "${here.conditionKey}", their condition now` });
       continue;
     }
     const blockers = beat.unless.length
@@ -658,7 +700,7 @@ export async function catchUp(
           .from(schema.beatRuns)
           .where(
             and(
-              eq(schema.beatRuns.worldId, context.worldId),
+              eq(schema.beatRuns.worldId, here.worldId),
               eq(schema.beatRuns.status, "fired"),
               inArray(schema.beatRuns.beat, beat.unless),
               lte(schema.beatRuns.dueAt, run.dueAt),
@@ -671,7 +713,7 @@ export async function catchUp(
       continue;
     }
     const trigger = run.trigger as Trigger;
-    const prepared = await prepare(db, context, beat, trigger, run.dueAt);
+    const prepared = await prepare(db, here, beat, trigger, run.dueAt);
     if (!prepared.ready) {
       await record({ reason: prepared.reason });
       continue;
@@ -681,7 +723,7 @@ export async function catchUp(
     const chosen = saysSomething(action)
       ? await chooseWords(
           db,
-          context,
+          here,
           script,
           action,
           prepared.actorId,
@@ -701,7 +743,7 @@ export async function catchUp(
       });
       continue;
     }
-    await fire(db, context, cues, beat, run, prepared, chosen.text, chosen.writing, run.dueAt);
+    await fire(db, here, cues, beat, run, prepared, chosen.text, chosen.writing, run.dueAt);
   }
 }
 
@@ -812,8 +854,16 @@ async function timeOutApprovals(
     if (!claimed || !beat) {
       continue;
     }
+    // In a shared world, it happens as the participant it's for (ADR 67).
+    const owner =
+      run.forActorId && run.forActorId !== context.actorId
+        ? await loadWorldContext(db, context.worldId, run.forActorId)
+        : context;
+    if (!owner) {
+      continue;
+    }
     const at = new Date((run.decidedAt as Date).getTime() + approvalTimeout);
-    const prepared = await prepare(db, context, beat, run.trigger as Trigger, at);
+    const prepared = await prepare(db, owner, beat, run.trigger as Trigger, at);
     const line = unattendedLine(beat, (run.writing ?? {}) as Writing);
     const writing = {
       ...(run.writing as Writing),
@@ -827,7 +877,7 @@ async function timeOutApprovals(
         .where(eq(schema.beatRuns.id, run.id));
       continue;
     }
-    await fire(db, context, cuesOf(script), beat, run, prepared, line.text, writing, at);
+    await fire(db, owner, cuesOf(script), beat, run, prepared, line.text, writing, at);
   }
 }
 

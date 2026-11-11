@@ -262,6 +262,21 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
             <TextLinksContext.Provider value={TEXT_LINKS}>
               <Outlet />
             </TextLinksContext.Provider>
+            {(flow.site.hasTerms || flow.site.hasPrivacy) && (
+              // Small print at the bottom, as real sites have.
+              <footer className="mt-8 flex justify-center gap-4 text-xs text-stone-500">
+                {flow.site.hasTerms && (
+                  <Link to="/terms" className="hover:underline">
+                    Terms of service
+                  </Link>
+                )}
+                {flow.site.hasPrivacy && (
+                  <Link to="/privacy" className="hover:underline">
+                    Privacy policy
+                  </Link>
+                )}
+              </footer>
+            )}
           </main>
         </PageBody>
       </div>

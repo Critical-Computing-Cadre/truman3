@@ -785,17 +785,20 @@ export function readStudyTables(
       }
     }
   }
-  const rulesPage = settings.site.rules;
-  if (rulesPage && !only) {
-    const rules = source.read(rulesPage);
-    if (rules === null) {
-      issues.push({
-        severity: "error",
-        file: rulesPage,
-        message: "This file is missing. site.rules in study.yaml names it.",
-      });
-    } else {
-      pages[rulesPage] = rules;
+  // The site's own pages: its community rules, terms of service, and privacy policy.
+  for (const field of ["rules", "terms", "privacy"] as const) {
+    const page = settings.site[field];
+    if (page && !only) {
+      const text = source.read(page);
+      if (text === null) {
+        issues.push({
+          severity: "error",
+          file: page,
+          message: `This file is missing. site.${field} in study.yaml names it.`,
+        });
+      } else {
+        pages[page] = text;
+      }
     }
   }
 

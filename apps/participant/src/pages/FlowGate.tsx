@@ -236,7 +236,12 @@ export function FlowGate() {
     case "account":
       return <AccountStep flow={flow.data} onDone={refresh} />;
     case "feed":
-      return <Shell flow={flow.data} onAdvanced={refresh} />;
+      // In a shared world, everyone starts together once it's full or the wait is over.
+      return flow.data.waiting ? (
+        <WaitingRoom waiting={flow.data.waiting} onStarted={refresh} />
+      ) : (
+        <Shell flow={flow.data} onAdvanced={refresh} />
+      );
     case "exit":
     case "done":
       return (
@@ -252,4 +257,40 @@ export function FlowGate() {
         />
       );
   }
+}
+
+/** How often the waiting room checks whether the world has started. */
+const WAITING_CHECK_MS = 3_000;
+
+/**
+ * Before a shared world starts: who's joined so far, and how long until it starts anyway. It checks
+ * every few seconds, and the feed opens for everyone at once. See ADR 67.
+ */
+function WaitingRoom({
+  waiting,
+  onStarted,
+}: {
+  waiting: { joined: number; size: number; startsBy: string };
+  onStarted: () => void;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+      onStarted();
+    }, WAITING_CHECK_MS);
+    return () => clearInterval(timer);
+  }, [onStarted]);
+  const secondsLeft = Math.max(0, Math.round((new Date(waiting.startsBy).getTime() - now) / 1000));
+  const minutes = Math.floor(secondsLeft / 60);
+  const seconds = String(secondsLeft % 60).padStart(2, "0");
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-3 p-6 text-center">
+      <h1 className="text-2xl font-semibold">Waiting for others to join</h1>
+      <p role="status" className="text-stone-600" data-testid="waiting">
+        {waiting.joined} of {waiting.size} are here. It starts when everyone has joined, or in{" "}
+        {minutes}:{seconds} at the latest.
+      </p>
+    </main>
+  );
 }

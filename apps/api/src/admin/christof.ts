@@ -302,12 +302,18 @@ export function createChristofRoutes({
       return c.json({ error: "You can view this study, but not change it." }, 403);
     }
     const [run] = await db
-      .select({ worldId: schema.beatRuns.worldId, studyId: schema.studyVersions.studyId })
+      .select({
+        worldId: schema.beatRuns.worldId,
+        forActorId: schema.beatRuns.forActorId,
+        studyId: schema.studyVersions.studyId,
+      })
       .from(schema.beatRuns)
       .innerJoin(schema.worlds, eq(schema.worlds.id, schema.beatRuns.worldId))
       .innerJoin(schema.studyVersions, eq(schema.studyVersions.id, schema.worlds.studyVersionId))
       .where(eq(schema.beatRuns.id, runId));
-    const context = run?.studyId === studyId ? await loadWorldContext(db, run.worldId) : null;
+    // In a shared world, as the participant the beat is for (ADR 67).
+    const context =
+      run?.studyId === studyId ? await loadWorldContext(db, run.worldId, run.forActorId) : null;
     if (!context) {
       return c.json(notAvailable, 404);
     }

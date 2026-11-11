@@ -446,13 +446,83 @@ describe("deleting a participant's data", () => {
     expect(failure).toContain("append-only");
   });
 
-  it("refuses participants in shared worlds rather than guessing", async () => {
+  it("in a shared world, takes what was theirs, and wipes what they wrote, leaving the others'", async () => {
     const setup = await createVersion();
-    const person = await enroll(setup, "P1", "shared");
+    const leaving = await enroll(setup, "P1", "shared");
+    // Someone else in the same world.
+    const [other] = await db
+      .insert(participants)
+      .values({ studyId: setup.study.id, externalId: "P2", source: "test" })
+      .returning();
+    const [otherActor] = await db
+      .insert(actors)
+      .values({
+        studyVersionId: setup.version.id,
+        worldId: leaving.world.id,
+        participantId: other!.id,
+        username: "me-P2",
+        driver: "human",
+      })
+      .returning();
+    await db
+      .insert(worldMemberships)
+      .values({ worldId: leaving.world.id, participantId: other!.id, actorId: otherActor!.id });
 
-    expect(await failureOf(() => deleteData(person.participant.id))).toContain("shared world");
+    const [post] = await db
+      .insert(content)
+      .values({
+        studyVersionId: setup.version.id,
+        worldId: leaving.world.id,
+        authorActorId: leaving.actor.id,
+        kind: "post",
+        body: "Something I wrote",
+        visibleAt: new Date(),
+      })
+      .returning();
+    const [reply] = await db
+      .insert(content)
+      .values({
+        studyVersionId: setup.version.id,
+        worldId: leaving.world.id,
+        authorActorId: otherActor!.id,
+        kind: "comment",
+        parentId: post!.id,
+        body: "My reply",
+        visibleAt: new Date(),
+      })
+      .returning();
+    // The other person liked it, which their record keeps.
+    await recordEvent(db, {
+      type: "content.liked",
+      payload: {},
+      worldId: leaving.world.id,
+      studyVersionId: setup.version.id,
+      participantId: other!.id,
+      conditionId: setup.conditionA.id,
+      actorId: otherActor!.id,
+      targetContentId: post!.id,
+      source: "participant",
+      occurredAt: new Date(),
+    });
+
+    await deleteData(leaving.participant.id);
+
     expect(
-      await db.select().from(participants).where(eq(participants.id, person.participant.id)),
-    ).toHaveLength(1);
+      await db.select().from(participants).where(eq(participants.id, leaving.participant.id)),
+    ).toHaveLength(0);
+    const [wiped] = await db.select().from(content).where(eq(content.id, post!.id));
+    expect(wiped).toMatchObject({ body: "", withdrawnAt: expect.any(Date) });
+    const [kept] = await db.select().from(content).where(eq(content.id, reply!.id));
+    expect(kept).toMatchObject({ body: "My reply", withdrawnAt: null });
+    expect(await db.select().from(events).where(eq(events.participantId, other!.id))).toHaveLength(
+      1,
+    );
+    expect(await db.select().from(worlds).where(eq(worlds.id, leaving.world.id))).toHaveLength(1);
+    const [actor] = await db.select().from(actors).where(eq(actors.id, leaving.actor.id));
+    expect(actor).toMatchObject({
+      driver: "withdrawn",
+      participantId: null,
+      profile: { name: "Withdrawn" },
+    });
   });
 });

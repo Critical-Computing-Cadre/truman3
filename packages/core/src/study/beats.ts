@@ -220,8 +220,14 @@ export const beatSchema = z.strictObject({
   delay: delaySchema.default({ minMs: 0, maxMs: 0 }),
   /** Leave out for every condition. */
   conditions: z.array(z.string().min(1)).default([]),
-  /** How many times it can happen in one world. Most beats happen once. */
+  /** How many times it can happen in one world, or for each participant. Most beats happen once. */
   max: z.number().int().positive().default(1),
+  /**
+   * In a shared world (ADR 67), whether it happens for each participant, or once for the world.
+   * Leave out for the usual: a beat set off by a participant is theirs, and one at a set time
+   * happens once, unless what it does is to "the participant", like a message, which each gets.
+   */
+  per: z.enum(["participant", "world"]).optional(),
   /** Not if any of these beats has already happened by the time this one is due. */
   unless: z.array(idSchema).default([]),
   /**

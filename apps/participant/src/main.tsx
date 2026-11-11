@@ -21,7 +21,7 @@ import { NotificationsPage } from "./pages/NotificationsPage.tsx";
 import { PilotPage } from "./pages/PilotPage.tsx";
 import { PostPage } from "./pages/PostPage.tsx";
 import { ProfilePage } from "./pages/ProfilePage.tsx";
-import { RulesPage } from "./pages/RulesPage.tsx";
+import { RulesPage, SitePage } from "./pages/RulesPage.tsx";
 import { SpacePage, SpacesPage } from "./pages/SpacesPage.tsx";
 import { track } from "./tracking.ts";
 
@@ -109,6 +109,18 @@ const rulesRoute = createRoute({
   component: RulesPage,
 });
 
+const termsRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/terms",
+  component: () => <SitePage page="terms" />,
+});
+
+const privacyRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/privacy",
+  component: () => <SitePage page="privacy" />,
+});
+
 const exploreRoute = createRoute({
   getParentRoute: () => gateRoute,
   path: "/explore",
@@ -163,6 +175,8 @@ const router = createRouter({
       notificationsRoute,
       messagesRoute,
       rulesRoute,
+      termsRoute,
+      privacyRoute,
       conversationRoute,
       modLogRoute,
       exploreRoute,

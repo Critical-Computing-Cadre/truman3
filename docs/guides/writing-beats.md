@@ -83,6 +83,24 @@ If a beat needs something that's off in a condition, like comments, it's skipped
     fallback: "it was a joke. why do you care"
 ```
 
+## In a shared world
+
+In a shared world, several participants are in one world (see [Shared worlds](shared-worlds.md)). A beat then happens either once for the whole world, or once for each participant:
+- **Set off by a participant:** theirs. Each person's first post can get its own reply from Jake, and `max` counts for each of them.
+- **Doing something to the participant,** like `message`, `follow`, or `warn`: once for each of them, so everyone gets Jake's message.
+- **Anything else, like a timed post:** once for the world, since everyone sees the same post.
+
+`per: participant` or `per: world` changes this. For example, one post for everyone after anyone's first comment:
+
+```yaml
+- id: mod-reminds
+  per: world
+  when: { participant: comment, nth: 0 }
+  do: { action: post, actor: mod, text: A reminder to keep it civil, everyone }
+```
+
+Decision points aren't available in shared worlds yet.
+
 ## What's recorded
 
 Every time Christof considers a beat in someone's world, it's a row in `beat_runs.csv` in the export:
