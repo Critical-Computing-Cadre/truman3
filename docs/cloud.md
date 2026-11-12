@@ -278,6 +278,7 @@ Everything else in `truman-stack.ts` is the same for every stage, including the 
 - **DNS:** truman-research.org's zone is in production, made by hand. The domain is registered in Social Design Lab's account, with its name servers pointing there. The stack adds `app.truman-research.org`, its certificate, and the email records. Staging's email records were added to the zone by hand.
 - **Alerts:** six alarms and a monthly budget go to the SNS topic `truman3-production-alerts`. Its email subscribers are added by hand, with the command in the `AlertsTopic` output.
 - **Restoring:** [Restoring from a backup](guides/restoring.md) checks a restore works, and says how to replace the database.
+- **The public site** ([ADR 75](adr/0075-the-public-site.md)): `site` adds `apps/site` at truman-research.org, from a bucket and a CloudFront distribution of its own. `site-router.js` gives pages clean addresses and sends www to the bare domain.
 - **Participant domains** ([ADR 74](adr/0074-participant-domains.md)): `participantDomains` adds domains studies can run at. Each has its own zone, and they share the stage's certificate. The router answers 404 for the admin app and the admin API there. Production offers clikbrite.com, as the default.
 
 **Before real participants,** [Deploying](guides/deploying.md#not-ready-yet) lists what's still missing.

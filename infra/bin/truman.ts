@@ -16,7 +16,8 @@ if (!stage) {
 
 const participantDist = path.join(ROOT, "apps/participant/dist");
 const adminDist = path.join(ROOT, "apps/admin/dist");
-for (const dist of [participantDist, adminDist]) {
+const siteDist = path.join(ROOT, "apps/site/.vitepress/dist");
+for (const dist of [participantDist, adminDist, ...(stage.site ? [siteDist] : [])]) {
   if (!existsSync(path.join(dist, "index.html"))) {
     throw new Error(`${dist} isn't built. Run pnpm build first.`);
   }
@@ -31,4 +32,5 @@ new TrumanStack(app, `truman3-${stage.name}`, {
   imageDirectory: ROOT,
   participantDist,
   adminDist,
+  ...(stage.site ? { siteDist } : {}),
 });

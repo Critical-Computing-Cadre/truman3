@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import vm from "node:vm";
@@ -13,7 +13,12 @@ const ROOT = path.resolve(import.meta.dirname, "../..");
 const staging = STAGES.staging as Stage;
 const real: Stage = { ...staging, name: "production", holdsRealData: true };
 let work: string;
-let files: { imageDirectory: string; participantDist: string; adminDist: string };
+let files: {
+  imageDirectory: string;
+  participantDist: string;
+  adminDist: string;
+  siteDist: string;
+};
 
 const build = (stage: Stage) =>
   Template.fromStack(
@@ -39,7 +44,12 @@ beforeAll(() => {
   const imageDirectory = path.join(work, "image");
   mkdirSync(imageDirectory);
   writeFileSync(path.join(imageDirectory, "Dockerfile"), "FROM scratch\n");
-  files = { imageDirectory, participantDist: dist("participant"), adminDist: dist("admin") };
+  files = {
+    imageDirectory,
+    participantDist: dist("participant"),
+    adminDist: dist("admin"),
+    siteDist: dist("site"),
+  };
   template = build(staging);
   realTemplate = build(real);
 });
@@ -717,5 +727,68 @@ describe("participant domains (ADR 74)", () => {
   it("needs a stage whose own addresses are in a zone, for one certificate", () => {
     const { domains: _, ...withoutZone } = withDomains;
     expect(() => build(withoutZone)).toThrow(/hosted zone/);
+  });
+});
+
+describe("the public site (ADR 75)", () => {
+  const route = (uri: string, host = "truman-research.org") => {
+    const context = vm.createContext({});
+    vm.runInContext(
+      readFileSync(path.join(import.meta.dirname, "site-router.js"), "utf8"),
+      context,
+    );
+    return (
+      context as {
+        handler: (event: unknown) => {
+          uri?: string;
+          statusCode?: number;
+          headers?: { location: { value: string } };
+        };
+      }
+    ).handler({ request: { uri, headers: { host: { value: host } } } });
+  };
+
+  it.each([
+    ["/", "/index.html"],
+    ["/about", "/about.html"],
+    ["/guides/", "/guides/index.html"],
+    ["/guides/first-study", "/guides/first-study.html"],
+    ["/assets/app.abc.js", "/assets/app.abc.js"],
+    ["/home/pizza.jpg", "/home/pizza.jpg"],
+    ["/llms.txt", "/llms.txt"],
+  ])("serves %s from %s", (from, to) => {
+    expect(route(from).uri).toBe(to);
+  });
+
+  it("sends www to the bare domain, keeping the page", () => {
+    const moved = route("/about", "www.truman-research.org");
+    expect(moved.statusCode).toBe(301);
+    expect(moved.headers?.location.value).toBe("https://truman-research.org/about");
+  });
+
+  it("is served on production from its own bucket and distribution, at truman-research.org", () => {
+    const production = build(STAGES.production as Stage);
+    production.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({
+        Aliases: ["truman-research.org", "www.truman-research.org"],
+      }),
+    });
+    production.hasResourceProperties("AWS::CertificateManager::Certificate", {
+      DomainName: "truman-research.org",
+      SubjectAlternativeNames: ["www.truman-research.org"],
+    });
+    for (const name of ["truman-research.org.", "www.truman-research.org."]) {
+      production.hasResourceProperties("AWS::Route53::RecordSet", { Name: name, Type: "A" });
+    }
+    // The site's distribution reaches only the site's bucket: no API, and no apps.
+    const site = Object.values(production.findResources("AWS::CloudFront::Distribution")).find(
+      (distribution) => JSON.stringify(distribution).includes("public site"),
+    ) as { Properties: { DistributionConfig: { Origins: unknown[]; CacheBehaviors?: unknown[] } } };
+    expect(site.Properties.DistributionConfig.Origins).toHaveLength(1);
+    expect(site.Properties.DistributionConfig.CacheBehaviors ?? []).toHaveLength(0);
+  });
+
+  it("isn't on staging", () => {
+    template.resourceCountIs("AWS::CloudFront::Distribution", 1);
   });
 });

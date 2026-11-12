@@ -78,6 +78,8 @@ export interface TrumanStackProps extends StackProps {
   /** The apps' built files. */
   participantDist: string;
   adminDist: string;
+  /** The public site's built files. Needed when the stage has a `site`. */
+  siteDist?: string;
 }
 
 /** One deployment of Truman. See docs/guides/deploying.md and ADR 23. */
@@ -557,6 +559,95 @@ export class TrumanStack extends Stack {
     };
     publish("Participant", props.participantDist, "");
     publish("Admin", props.adminDist, "admin/");
+
+    // The public site (ADR 75): static pages in a bucket of their own, behind their own
+    // distribution, so nothing about the apps or the API is reachable from the site's address.
+    if (stage.site) {
+      if (!props.siteDist) {
+        throw new Error("This stage has a site, so it needs the site's built files (siteDist).");
+      }
+      const siteZone = route53.HostedZone.fromHostedZoneAttributes(this, "SiteZone", {
+        hostedZoneId: stage.site.hostedZone.id,
+        zoneName: stage.site.hostedZone.name,
+      });
+      const siteBucket = new s3.Bucket(this, "Site", {
+        ...bucketDefaults,
+        // Only built files are here, and a deployment puts them back.
+        removalPolicy: RemovalPolicy.DESTROY,
+        autoDeleteObjects: true,
+      });
+      const siteRouter = new cloudfront.Function(this, "SiteRouter", {
+        functionName: `${prefix}-site-router`,
+        runtime: cloudfront.FunctionRuntime.JS_2_0,
+        code: cloudfront.FunctionCode.fromInline(
+          readFileSync(path.join(import.meta.dirname, "site-router.js"), "utf8"),
+        ),
+      });
+      const siteEdge = new cloudfront.Distribution(this, "SiteEdge", {
+        comment: `Truman 3 ${stage.name} public site`,
+        priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+        domainNames: stage.site.names,
+        minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
+        certificate: new acm.Certificate(this, "SiteCertificate", {
+          domainName: stage.site.names[0],
+          subjectAlternativeNames: stage.site.names.slice(1),
+          validation: acm.CertificateValidation.fromDns(siteZone),
+        }),
+        defaultBehavior: {
+          origin: origins.S3BucketOrigin.withOriginAccessControl(siteBucket),
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+          responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+          functionAssociations: [
+            { eventType: cloudfront.FunctionEventType.VIEWER_REQUEST, function: siteRouter },
+          ],
+        },
+        // A page that isn't there gets the site's own "not found" page.
+        errorResponses: [
+          { httpStatus: 403, responseHttpStatus: 404, responsePagePath: "/404.html" },
+        ],
+      });
+      for (const [index, name] of stage.site.names.entries()) {
+        const target = route53.RecordTarget.fromAlias(
+          new route53Targets.CloudFrontTarget(siteEdge),
+        );
+        new route53.ARecord(this, `SiteAddress${index + 1}`, {
+          zone: siteZone,
+          recordName: name,
+          target,
+        });
+        new route53.AaaaRecord(this, `SiteAddress${index + 1}Ipv6`, {
+          zone: siteZone,
+          recordName: name,
+          target,
+        });
+      }
+      // Hashed files first and kept for a long time, then the pages, which aren't cached.
+      const siteAssets = new deploy.BucketDeployment(this, "SiteAssets", {
+        sources: [deploy.Source.asset(path.join(props.siteDist, "assets"))],
+        destinationBucket: siteBucket,
+        destinationKeyPrefix: "assets",
+        cacheControl: [
+          deploy.CacheControl.setPublic(),
+          deploy.CacheControl.maxAge(Duration.days(365)),
+          deploy.CacheControl.immutable(),
+        ],
+        prune: false,
+      });
+      const sitePages = new deploy.BucketDeployment(this, "SitePages", {
+        sources: [deploy.Source.asset(props.siteDist, { exclude: ["assets", "assets/**"] })],
+        destinationBucket: siteBucket,
+        cacheControl: [deploy.CacheControl.noCache()],
+        prune: false,
+        distribution: siteEdge,
+        distributionPaths: ["/*"],
+      });
+      sitePages.node.addDependency(siteAssets);
+      new CfnOutput(this, "SiteAddress", {
+        value: `https://${stage.site.names[0]}`,
+        description: "The public site",
+      });
+    }
 
     const taskNetwork = `awsvpcConfiguration={subnets=[${vpc.publicSubnets
       .map(({ subnetId }) => subnetId)

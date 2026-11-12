@@ -14,3 +14,6 @@ cdk.out/
 
 # Worktrees Claude Code makes for background agents.
 .claude/worktrees/
+
+# The public site's build cache
+apps/site/.vitepress/cache/
