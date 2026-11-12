@@ -83,6 +83,7 @@ Keep the real values out of the repo. `.env.example` describes these too.
 | `MAIL_FROM`, `MAIL_REGION`                 | For email        | The From address for email to researchers, on a domain verified in SES, and SES's region. Without it, no email is sent (ADR 72). See Email, below                                                   |
 | `ADMIN_APP_URL`                            | No               | The admin app's address, for links in email. Defaults to `/admin/` beside `PARTICIPANT_APP_URL`                                                                                                     |
 | `PARTICIPANT_DOMAINS`                      | No               | Domains a study can run at instead of `PARTICIPANT_APP_URL`, separated by commas (ADR 74). See Participant domains, below                                                                           |
+| `PARTICIPANT_DOMAIN_DEFAULT`               | No               | The participant domain a study gets until its researcher chooses. Without it, `PARTICIPANT_APP_URL`. The stack sets the domain marked `default`                                                     |
 | `HOSTED`                                   | No               | `true` for a hosted Truman, where labs apply (ADR 70). See `docs/guides/hosting.md`                                                                                                                 |
 | `TRUSTED_PROXIES`                          | Behind proxies   | How many of your own proxies add to `X-Forwarded-For`. Staging has 2: CloudFront and the load balancer. Too many, and everyone looks like a proxy. Too few, and visitors can fake their address     |
 
@@ -195,7 +196,7 @@ A study can run at a domain that doesn't say "research", such as eatsnap.love ([
 3. **Add it to the stage's `participantDomains`** in `infra/lib/stages.ts`, with the zone's ID. The stage also needs its own `domains` in a zone.
 4. **Deploy.** The stack adds the domain to the certificate, which is checked through its zone, so the name servers have to have moved. It also points the domain at the distribution, and tells the API and the router.
 
-Researchers then see **Participants go to** on the Studies page, for each study they can edit. On the domain, `/admin` and `/api/admin` answer 404.
+Researchers then see **Participants go to** on the Studies page, for each study they can edit. On the domain, `/admin` and `/api/admin` answer 404. Mark one domain `default: true` and studies go there until a researcher chooses otherwise. Production does this with clikbrite.com.
 
 ### Costing less, and removing it
 

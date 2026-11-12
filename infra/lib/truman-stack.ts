@@ -451,6 +451,12 @@ export class TrumanStack extends Stack {
         // The same address as the page, so images load from a participant domain too (ADR 74).
         MEDIA_PUBLIC_URL: "/",
         PARTICIPANT_DOMAINS: (stage.participantDomains ?? []).map(({ name }) => name).join(","),
+        ...(stage.participantDomains?.find((domain) => domain.default)
+          ? {
+              PARTICIPANT_DOMAIN_DEFAULT: stage.participantDomains.find((domain) => domain.default)
+                ?.name,
+            }
+          : {}),
         PARTICIPANT_APP_URL: address,
         HOSTED: stage.hosted ? "true" : "false",
         ADMIN_APP_URL: `${address}/admin/`,

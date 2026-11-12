@@ -95,7 +95,8 @@ describe("a study's address (ADR 74)", () => {
   it("offers this Truman's participant domains, and uses the one a study chooses", async () => {
     const owner = await lab();
     expect(await (await call(owner.cookie, "GET", "/admin/addresses")).json()).toEqual({
-      default: "https://app.truman.test",
+      default: "app.truman.test",
+      app: "app.truman.test",
       domains: ["eatsnap.test", "clickbright.test"],
     });
     const [study] = await studies(owner.cookie);
@@ -116,6 +117,41 @@ describe("a study's address (ADR 74)", () => {
     // Back to the usual address.
     await call(owner.cookie, "PUT", `/admin/studies/${study?.id}/address`, { domain: null });
     expect((await studies(owner.cookie))[0]?.participantUrl).toBe("https://app.truman.test");
+  });
+
+  it("sends a study that hasn't chosen to the default domain, and lets it choose the app's own", async () => {
+    const withDefault = createApp({
+      pingDatabase: database.ping,
+      db: database.db,
+      storage,
+      mediaPublicUrl: "/",
+      getClientIp: () => undefined,
+      secureCookies: false,
+      participantAppUrl: "https://app.truman.test",
+      participantDomains: ["eatsnap.test", "clickbright.test"],
+      participantDomainDefault: "eatsnap.test",
+    });
+    const owner = await lab();
+    const ask = (method: string, url: string, body?: object) =>
+      withDefault.request(url, {
+        method,
+        headers: { "content-type": "application/json", cookie: owner.cookie },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+    expect(await (await ask("GET", "/admin/addresses")).json()).toMatchObject({
+      default: "eatsnap.test",
+      app: "app.truman.test",
+    });
+    const listed = async () =>
+      ((await (await ask("GET", "/admin/studies")).json()) as { studies: Listed[] }).studies[0];
+    const study = await listed();
+    expect(study?.participantUrl).toBe("https://eatsnap.test");
+
+    const own = await ask("PUT", `/admin/studies/${study?.id}/address`, {
+      domain: "app.truman.test",
+    });
+    expect(await own.json()).toEqual({ participantUrl: "https://app.truman.test" });
+    expect((await listed())?.participantUrl).toBe("https://app.truman.test");
   });
 
   it("refuses a domain this Truman doesn't offer, and a viewer", async () => {

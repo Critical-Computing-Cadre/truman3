@@ -248,6 +248,7 @@ export function createAdminRoutes({
   allowLoginAttempt,
   participantAppUrl = "http://localhost:5180",
   participantDomains = [],
+  participantDomainDefault,
   hosted = false,
 }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
@@ -399,11 +400,11 @@ export function createAdminRoutes({
             .filter((version) => version.studyId === study.id)
             .reduce((sum, version) => sum + participantsOn(version.id), 0),
           liveVersionId: study.liveVersionId,
-          participantUrl: studyAddress(
-            study.participantDomain,
+          participantUrl: studyAddress(study.participantDomain, {
             participantAppUrl,
             participantDomains,
-          ),
+            participantDomainDefault,
+          }),
           participantDomain: study.participantDomain,
           role,
           warnUntested: study.warnUntested,

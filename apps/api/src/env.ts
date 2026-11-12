@@ -36,6 +36,8 @@ const envSchema = z.object({
    * "eatsnap.love,clickbright.com". Each has to reach this server over HTTPS. ADR 74.
    */
   PARTICIPANT_DOMAINS: z.string().default(""),
+  /** The participant domain a study gets if it hasn't chosen. Leave out for PARTICIPANT_APP_URL. */
+  PARTICIPANT_DOMAIN_DEFAULT: z.string().optional(),
   /** "true" makes this a hosted Truman: labs apply, and an operator approves them. ADR 70. */
   HOSTED: z.enum(["true", "false"]).default("false"),
 });
@@ -60,5 +62,7 @@ export function parseServerEnv(env: NodeJS.ProcessEnv) {
     PARTICIPANT_DOMAINS: parsed.PARTICIPANT_DOMAINS.split(",")
       .map((domain) => domain.trim().toLowerCase())
       .filter(Boolean),
+    PARTICIPANT_DOMAIN_DEFAULT:
+      parsed.PARTICIPANT_DOMAIN_DEFAULT?.trim().toLowerCase() || undefined,
   };
 }

@@ -50,7 +50,7 @@ export interface Stage {
    * its certificate and records. The admin app and admin API don't answer at them. Needs `domains`
    * with a hosted zone.
    */
-  participantDomains?: { name: string; hostedZoneId: string }[];
+  participantDomains?: { name: string; hostedZoneId: string; default?: boolean }[];
   /** The database's size. A small one has twice the memory of a micro. Defaults to micro. */
   databaseSize?: "micro" | "small";
   /**
@@ -109,6 +109,11 @@ export const STAGES: Record<string, Stage> = {
       names: ["app.truman-research.org"],
       hostedZone: { id: "Z0760791OM9Y8AHGYNE6", name: "truman-research.org" },
     },
+    // Registered in Social Design Lab's account, with its name servers pointing at this zone.
+    // Studies go here unless they choose otherwise.
+    participantDomains: [
+      { name: "clikbrite.com", hostedZoneId: "Z033394513YLTT9F3EV6U", default: true },
+    ],
     alerts: { monthlyBudgetUsd: 150 },
   },
 };

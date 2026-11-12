@@ -61,6 +61,7 @@ const app = createApp({
   secureCookies: env.NODE_ENV !== "development",
   participantAppUrl: env.PARTICIPANT_APP_URL,
   participantDomains: env.PARTICIPANT_DOMAINS,
+  participantDomainDefault: env.PARTICIPANT_DOMAIN_DEFAULT,
   hosted: env.HOSTED,
   secretKey: env.TRUMAN_SECRET_KEY,
   mailer,
