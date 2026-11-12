@@ -5,7 +5,7 @@ import { YamlPage } from "../components/YamlPage.tsx";
 /** What a study with no personas starts from. */
 const EXAMPLE = `# Personas: who simulated participants are, for a model to play while you pilot the study.
 # Run them from the Simulate page beside a saved version.
-# See docs/guides/testing-studies.md.
+# See https://truman-research.org/guide/testing
 model: claude-sonnet-5-5
 personas:
   - id: shy-first-year

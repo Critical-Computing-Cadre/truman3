@@ -871,7 +871,16 @@ function SharedWorldsField({
       </label>
       <Hint>
         Each world fills up with real participants, who all get its condition. Say so in the consent
-        page, and have a moderator in the cast. See docs/guides/shared-worlds.md.
+        page, and have a moderator in the cast. See{" "}
+        <a
+          className="underline"
+          href="https://truman-research.org/guide/shared-worlds"
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          Several real people together
+        </a>
+        .
       </Hint>
       {value && (
         <div className="flex flex-wrap gap-4">

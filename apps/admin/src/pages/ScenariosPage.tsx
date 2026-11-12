@@ -5,7 +5,7 @@ import { YamlPage } from "../components/YamlPage.tsx";
 /** What a study with no scenarios starts from, which does nothing until it's saved. */
 const EXAMPLE = `# Scenario tests: a made-up participant does these things, in a world fast-forwarded
 # through the study, and each expect says what should be true by then.
-# See docs/guides/testing-studies.md.
+# See https://truman-research.org/guide/testing
 scenarios:
   - name: Someone replies to their first post
     condition: your-condition-here
@@ -46,6 +46,20 @@ function Reference() {
             <td className={row}>
               They like or repost something, the same as <code>on</code>, or follow someone by
               username
+            </td>
+          </tr>
+          <tr>
+            <th className={`${row} font-mono`}>flag, message</th>
+            <td className={row}>
+              They flag something, the same as <code>on</code>, or send a direct message, with{" "}
+              <code>to</code> for who gets it
+            </td>
+          </tr>
+          <tr>
+            <th className={`${row} font-mono`}>participants, as</th>
+            <td className={row}>
+              For a shared world: <code>participants: [ann, cal]</code> puts several people in one,
+              and a step's <code>as</code> says which of them it's about
             </td>
           </tr>
           <tr>

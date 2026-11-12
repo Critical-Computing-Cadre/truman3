@@ -104,3 +104,14 @@ They can suspend a lab for abuse or a security problem. A suspended lab's studie
 ## Where your participants go
 
 Studies on hosted Truman run at clikbrite.com by default, so the address bar doesn't say "research". See [Running a study](/guide/running).
+
+## What's left before real participants
+
+Hosted Truman is in beta. These have to be done before anyone runs a real study on it:
+
+- **Terms of service and a privacy policy,** reviewed by the university that hosts it.
+- **Each lab's data encrypted with its own key,** with any access by the host logged and told to the lab.
+- **Scanning the photos participants upload.**
+- **A limit on how much each lab stores.**
+
+Until then, use it to build and pilot. Everything you make now stays when it opens.
