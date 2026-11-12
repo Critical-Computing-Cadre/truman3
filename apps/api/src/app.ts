@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { createActionRoutes } from "./actions/routes.ts";
 import { createAccountRoutes } from "./admin/accounts.ts";
+import { createAddressRoutes } from "./admin/addresses.ts";
 import { createAgentRoutes } from "./admin/agent.ts";
 import { createArchiveRoutes } from "./admin/archive.ts";
 import { createChristofRoutes } from "./admin/christof.ts";
@@ -117,6 +118,7 @@ export function createApp({
   app.route("/", createAdminRoutes(participantDependencies));
   app.route("/", createHostingRoutes(participantDependencies));
   app.route("/", createAccountRoutes(participantDependencies));
+  app.route("/", createAddressRoutes(participantDependencies));
   app.route("/", createTeamAiRoutes(participantDependencies));
   app.route("/", createTokenRoutes(participantDependencies));
   // The agent calls this same API, in this process, with a token made for its run.

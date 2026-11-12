@@ -81,6 +81,16 @@ export interface TrumanStackProps extends StackProps {
 }
 
 /** One deployment of Truman. See docs/guides/deploying.md and ADR 23. */
+/** The CloudFront router, with the stage's participant domains written in (ADR 74). */
+export function routerCode(participantHosts: string[]) {
+  const code = readFileSync(path.join(import.meta.dirname, "app-router.js"), "utf8");
+  const line = "var PARTICIPANT_HOSTS = [];";
+  if (!code.includes(line)) {
+    throw new Error(`app-router.js has to have the line ${line}`);
+  }
+  return code.replace(line, `var PARTICIPANT_HOSTS = ${JSON.stringify(participantHosts)};`);
+}
+
 export class TrumanStack extends Stack {
   private readonly zones: string[];
 
@@ -238,7 +248,7 @@ export class TrumanStack extends Stack {
       functionName: `${prefix}-app-router`,
       runtime: cloudfront.FunctionRuntime.JS_2_0,
       code: cloudfront.FunctionCode.fromInline(
-        readFileSync(path.join(import.meta.dirname, "app-router.js"), "utf8"),
+        routerCode((stage.participantDomains ?? []).map(({ name }) => name)),
       ),
     });
     const mediaBehavior: cloudfront.BehaviorOptions = {
@@ -256,21 +266,43 @@ export class TrumanStack extends Stack {
             zoneName: stage.domains.hostedZone.name,
           })
         : null;
+    // Participant domains each have a zone of their own (ADR 74).
+    const participantZones = (stage.participantDomains ?? []).map(({ name, hostedZoneId }) => ({
+      name,
+      zone: route53.HostedZone.fromHostedZoneAttributes(this, `ParticipantZone-${name}`, {
+        hostedZoneId,
+        zoneName: name,
+      }),
+    }));
+    if (participantZones.length > 0 && !zone) {
+      throw new Error(
+        "Participant domains need `domains` with a hosted zone, for one certificate.",
+      );
+    }
+    const allNames = [
+      ...(stage.domains?.names ?? []),
+      ...participantZones.map(({ name }) => name),
+    ] as [string, ...string[]];
     const certificate = !stage.domains
       ? null
       : "certificateArn" in stage.domains
         ? acm.Certificate.fromCertificateArn(this, "Certificate", stage.domains.certificateArn)
         : new acm.Certificate(this, "Certificate", {
-            domainName: stage.domains.names[0],
-            subjectAlternativeNames: stage.domains.names.slice(1),
-            validation: acm.CertificateValidation.fromDns(zone as route53.IHostedZone),
+            domainName: allNames[0],
+            subjectAlternativeNames: allNames.slice(1),
+            validation: acm.CertificateValidation.fromDnsMultiZone(
+              Object.fromEntries([
+                ...stage.domains.names.map((name) => [name, zone as route53.IHostedZone]),
+                ...participantZones.map(({ name, zone: own }) => [name, own]),
+              ]),
+            ),
           });
     const distribution = new cloudfront.Distribution(this, "Edge", {
       comment: `Truman 3 ${stage.name}`,
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
       ...(stage.domains && certificate
         ? {
-            domainNames: stage.domains.names,
+            domainNames: allNames,
             minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
             certificate,
           }
@@ -291,11 +323,22 @@ export class TrumanStack extends Stack {
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+          // So the admin API doesn't answer on participant domains (ADR 74).
+          functionAssociations: [
+            { eventType: cloudfront.FunctionEventType.VIEWER_REQUEST, function: router },
+          ],
         },
         "/media/*": mediaBehavior,
       },
     });
     const address = `https://${stage.domains?.names[0] ?? distribution.distributionDomainName}`;
+    for (const { name, zone: own } of participantZones) {
+      const target = route53.RecordTarget.fromAlias(
+        new route53Targets.CloudFrontTarget(distribution),
+      );
+      new route53.ARecord(this, `Participants-${name}`, { zone: own, target });
+      new route53.AaaaRecord(this, `Participants-${name}-Ipv6`, { zone: own, target });
+    }
     if (zone && stage.domains) {
       for (const [index, name] of stage.domains.names.entries()) {
         const target = route53.RecordTarget.fromAlias(
@@ -405,7 +448,9 @@ export class TrumanStack extends Stack {
         ...databaseLocation,
         S3_REGION: stage.region,
         S3_BUCKET: mediaBucket.bucketName,
-        MEDIA_PUBLIC_URL: address,
+        // The same address as the page, so images load from a participant domain too (ADR 74).
+        MEDIA_PUBLIC_URL: "/",
+        PARTICIPANT_DOMAINS: (stage.participantDomains ?? []).map(({ name }) => name).join(","),
         PARTICIPANT_APP_URL: address,
         HOSTED: stage.hosted ? "true" : "false",
         ADMIN_APP_URL: `${address}/admin/`,

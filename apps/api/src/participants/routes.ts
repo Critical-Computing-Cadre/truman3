@@ -169,6 +169,8 @@ export interface ParticipantRouteDependencies {
   allowLoginAttempt?: (key: string) => boolean;
   /** The participant app's public address, shown to researchers as the study link. */
   participantAppUrl?: string;
+  /** Domains a study can run at instead, so the address doesn't say "research" (ADR 74). */
+  participantDomains?: string[];
   /** What writes improvised lines for Christof. Without one, beats use their fallback lines. */
   writer?: Writer | null;
   /**

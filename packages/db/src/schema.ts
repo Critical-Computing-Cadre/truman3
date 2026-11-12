@@ -143,6 +143,11 @@ export const studies = pgTable("studies", {
   /** When it was archived: hidden from the Studies page until it's restored. ADR 58. */
   archivedAt: time("archived_at"),
   createdAt: time("created_at").notNull().defaultNow(),
+  /**
+   * The domain its participants use, such as eatsnap.love, so the address doesn't say "research".
+   * One of the server's PARTICIPANT_DOMAINS. Empty means PARTICIPANT_APP_URL. ADR 74.
+   */
+  participantDomain: text("participant_domain"),
 });
 
 export const studyVersions = pgTable(

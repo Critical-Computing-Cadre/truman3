@@ -1,0 +1,1 @@
+ALTER TABLE "studies" ADD COLUMN "participant_domain" text;

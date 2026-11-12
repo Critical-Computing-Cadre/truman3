@@ -480,6 +480,47 @@ function StopButton({ study }: { study: StudySummary }) {
   );
 }
 
+/**
+ * Which domain a study's participants use, so the address bar needn't say "research" (ADR 74).
+ * Only shown when this Truman has participant domains.
+ */
+function AddressPicker({ study }: { study: StudySummary }) {
+  const client = useQueryClient();
+  const addresses = useQuery({
+    queryKey: ["addresses"],
+    queryFn: () => get<{ default: string; domains: string[] }>("/admin/addresses"),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  const choose = useMutation({
+    mutationFn: (domain: string | null) =>
+      send("PUT", `/admin/studies/${study.id}/address`, { domain }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["studies"] }),
+  });
+  const domains = addresses.data?.domains ?? [];
+  if (domains.length === 0 || study.role === "viewer") {
+    return null;
+  }
+  return (
+    <label className="flex flex-wrap items-center gap-2 text-sm text-stone-600">
+      Participants go to
+      <select
+        value={study.participantDomain ?? ""}
+        disabled={choose.isPending}
+        onChange={(event) => choose.mutate(event.target.value || null)}
+        className="rounded border border-stone-300 px-2 py-1"
+      >
+        <option value="">{new URL(addresses.data?.default ?? "http://localhost").host}</option>
+        {domains.map((domain) => (
+          <option key={domain} value={domain}>
+            {domain}
+          </option>
+        ))}
+      </select>
+      {choose.error && <span className="text-rose-700">{choose.error.message}</span>}
+    </label>
+  );
+}
+
 export function StudiesPage() {
   const [showArchived, setShowArchived] = useState(false);
   const list = useQuery({
@@ -549,6 +590,7 @@ export function StudiesPage() {
                       </code>
                     </p>
                   )}
+                  <AddressPicker study={study} />
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link

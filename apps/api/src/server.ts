@@ -60,6 +60,7 @@ const app = createApp({
   mediaPublicUrl: env.MEDIA_PUBLIC_URL,
   secureCookies: env.NODE_ENV !== "development",
   participantAppUrl: env.PARTICIPANT_APP_URL,
+  participantDomains: env.PARTICIPANT_DOMAINS,
   hosted: env.HOSTED,
   secretKey: env.TRUMAN_SECRET_KEY,
   mailer,

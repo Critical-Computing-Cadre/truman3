@@ -134,6 +134,8 @@ export interface StudySummary {
   role: string;
   liveVersionId: string | null;
   participantUrl: string;
+  /** The participant domain it uses, if any (ADR 74). */
+  participantDomain: string | null;
   openDraftId: string | null;
   draftTitle: string | null;
   versions: {

@@ -242,6 +242,8 @@ export default async function globalSetup() {
         // Labs can apply. Teams made here are approved, with no limits, so other tests don't notice.
         HOSTED: "true",
         TEST_MAIL_OUTBOX: MAIL_FILE,
+        // A domain a study can choose, to see the picker. Nothing serves it here (ADR 74).
+        PARTICIPANT_DOMAINS: "eatsnap.test",
         ADMIN_APP_URL: `http://localhost:${ADMIN_PORT}/admin/`,
       },
       stdio: "inherit",

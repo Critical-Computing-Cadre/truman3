@@ -6,7 +6,8 @@ const LOCAL_ADMIN_APP = "http://localhost:5181/admin/";
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   PORT: z.coerce.number().int().positive().default(3000),
-  MEDIA_PUBLIC_URL: z.url(),
+  /** Where browsers fetch study images from, or "/" for the same address as the page (ADR 74). */
+  MEDIA_PUBLIC_URL: z.union([z.url(), z.literal("/")]),
   NODE_ENV: z.string().optional(),
   /** How many proxies of ours add to X-Forwarded-For. See client-address.ts. */
   TRUSTED_PROXIES: z.coerce.number().int().nonnegative().default(0),
@@ -30,6 +31,11 @@ const envSchema = z.object({
   TEST_MAIL_OUTBOX: z.string().optional(),
   /** The admin app's public address, for links in email. Defaults to beside the participant app. */
   ADMIN_APP_URL: z.url().optional(),
+  /**
+   * Domains studies can run at instead of PARTICIPANT_APP_URL, separated by commas, such as
+   * "eatsnap.love,clickbright.com". Each has to reach this server over HTTPS. ADR 74.
+   */
+  PARTICIPANT_DOMAINS: z.string().default(""),
   /** "true" makes this a hosted Truman: labs apply, and an operator approves them. ADR 70. */
   HOSTED: z.enum(["true", "false"]).default("false"),
 });
@@ -51,5 +57,8 @@ export function parseServerEnv(env: NodeJS.ProcessEnv) {
         ? new URL("/admin/", parsed.PARTICIPANT_APP_URL).toString()
         : LOCAL_ADMIN_APP),
     HOSTED: parsed.HOSTED === "true",
+    PARTICIPANT_DOMAINS: parsed.PARTICIPANT_DOMAINS.split(",")
+      .map((domain) => domain.trim().toLowerCase())
+      .filter(Boolean),
   };
 }
