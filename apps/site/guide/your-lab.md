@@ -8,6 +8,8 @@ description: How a lab applies for hosted Truman, what it can do while it waits,
 
 Hosted Truman is a Truman that's run for you. Your lab gets an account, and everyone in the lab builds and runs studies from the browser. This page covers getting in and what your lab gets.
 
+![The Your lab page: who's on the team, invitations, and the lab's Claude key](/shots/your-lab.png)
+
 ## Apply
 
 1. Go to [app.truman-research.org/admin](https://app.truman-research.org/admin/).
@@ -21,20 +23,20 @@ Hosted Truman is a Truman that's run for you. Your lab gets an account, and ever
    - **Choose a password**, at least 12 characters
 4. Press **Apply**.
 
-You're signed in straight away, as the owner of your lab. You'll get an email saying the application arrived.
+You're signed in straight away, as the owner of your lab. You'll also get an email saying the application arrived.
 
 ## While you wait
 
 A person reads each application, so approval isn't instant. Until then a bar at the top of every page says your lab is waiting to be approved.
 
-While you wait, you can:
+You don't have to sit idle, though. While you wait, you can:
 
 - build studies
 - preview them at any time in the study
 - save versions and go through them as a test participant
 - run scenario tests and random simulated participants
 
-You can't launch a study, so no real participant can reach anything you build. Launching tells you why. You also can't use Claude yet, so live writing, rehearsing lines, personas, and agents wait for approval.
+You can't launch a study, so no real participant can reach anything you build. If you try, launching tells you why. You also can't use Claude yet, so live writing, rehearsing lines, personas, and agents wait for approval.
 
 When your lab is approved, its owners get an email with its limits.
 
@@ -52,7 +54,9 @@ An approved lab starts with:
 
 **Studies open at once** counts launched studies. Launching another is refused until you stop one.
 
+::: tip Planning something bigger
 Whoever runs hosted Truman can raise any of these for your lab. If you're planning a study that needs more, ask before you recruit.
+:::
 
 ## Teammates and roles
 
@@ -83,7 +87,7 @@ Four things in Truman call Claude, an AI model made by Anthropic:
 - personas, where a model plays a participant (see [Testing a study](/guide/testing))
 - agents that draft parts of a study for you
 
-Each call costs a little. Your lab starts with a **$5 starter budget**, paid for by hosted Truman. It's a one-time amount, counted across all your studies. The **Claude** section of the **Your lab** page shows how much is spent.
+Each call costs a little. To get you started, your lab has a **$5 starter budget**, paid for by hosted Truman. It's a one-time amount, counted across all your studies. The **Claude** section of the **Your lab** page shows how much is spent.
 
 When the starter budget is gone, nothing breaks. Studies use the fixed lines they were written with until you add a key.
 

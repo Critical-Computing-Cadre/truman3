@@ -6,7 +6,7 @@ description: Five ways to check a study before real participants see it, from pr
 
 # Testing a study
 
-By the end of this page you'll know your study does what you meant, in every condition, before anyone real arrives. There are five ways to check. None of them put anything in your real data.
+Before anyone real arrives, you want to know that your study does what you meant, in every condition. Truman gives you five ways to check. None of them put anything in your real data.
 
 ## Preview, at any time
 
@@ -20,15 +20,17 @@ If the page says some posts can never appear, they're timed after the study ends
 
 For a saved version, press **See the feed** beside it on the **Studies** page. It's the same view, drawn as participants see it, and nothing can be changed.
 
-Preview shows what's scripted to a time. It doesn't show beats, which depend on what a participant does.
+Keep in mind that preview shows what's scripted to a time. It doesn't show beats, which depend on what a participant does.
 
 ## Try as a participant
+
+To see beats, go through the study yourself.
 
 1. Save a version. In the builder, press **Save as new version**, then **Save version**.
 2. On the **Studies** page, find the version. Pick a condition in the dropdown, and press **Try as a participant**.
 3. Press **Open as a test participant**.
 
-You go through the real thing in a new tab: consent, profile, feed, exit. Beats happen. The cast answers you.
+You go through the real thing in a new tab: consent, profile, feed, exit. Beats happen, and the cast answers you.
 
 Test participants are left out of exports and counts, and don't use up places in blocked assignment. This works before the study is launched, and while your lab is waiting for approval.
 
@@ -36,7 +38,7 @@ Do this once in every condition.
 
 ## Scenario tests
 
-A scenario is a made-up participant who does set things at set times. Each `expect` says what should be true by then. It runs in a world that's fast-forwarded through the study, so two days take a moment.
+Going through a study by hand gets slow once it has a few paths. A scenario does it for you. It's a made-up participant who does set things at set times, and each `expect` says what should be true by then. It runs in a world that's fast-forwarded through the study, so two days take a moment.
 
 Use them for the logic you care most about: Sam steps in by minute 10 in one condition, and never in the other.
 
@@ -78,7 +80,11 @@ The report starts with **Worth a look:** beats that never happened for anyone wh
 
 A beat that's rare isn't necessarily wrong. Run more participants, or write a scenario for that path.
 
-**Repeat the last run** uses the same random choices again, which is useful after you change something. Random runs use no model and cost nothing. The participants are deleted afterwards.
+::: tip Rerun after a change
+**Repeat the last run** uses the same random choices again, which is useful after you change something.
+:::
+
+Random runs use no model and cost nothing. The participants are deleted afterwards.
 
 ## Personas
 
@@ -103,9 +109,11 @@ Each transcript goes in order, with what was new each time that persona looked. 
 
 If the study writes live, the cast writes live for personas too, from the study's own live-writing budget.
 
-Personas need Claude. On hosted Truman that means an approved lab with starter budget left, or its own key. See [Your lab on hosted Truman](/guide/your-lab).
+Personas need Claude. On hosted Truman that means an approved lab with starter budget left, or its own key. See [Your lab on hosted Truman](/guide/your-lab). Personas are one of several places Truman uses a model, and [AI in Truman](/guide/ai) has the overview.
 
 ## Before you launch
+
+Here's the checklist we'd run through before opening a study:
 
 - Compare every pair of conditions side by side, start to end.
 - Go through every condition as a test participant.

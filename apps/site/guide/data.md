@@ -6,7 +6,7 @@ description: What a Truman export contains, how to read the codebook and the eve
 
 # Your data
 
-By the end of this page you'll have a zip of spreadsheets with what every participant saw and did, a codebook that explains each column, and you'll know how to delete one person's data when they ask.
+A Truman export is a zip of spreadsheets with what every participant saw and did, plus a codebook that explains each column. This page covers how to get it and how to read it. It also covers how to delete one person's data when they ask.
 
 ## Download it
 
@@ -43,7 +43,7 @@ Test participants are never in a download.
 
 ## The codebook
 
-Open `codebook.md` first. It's written for this export. It lists every file and column, each version of the study with its settings and the features on in each condition, when each version was open, and the event types that appear. It also says how many people's data was deleted, split into declined consent and withdrew.
+Open `codebook.md` first. It's written for this export, so it describes exactly what you have. It lists every file and column, each version of the study with its settings and the features on in each condition, when each version was open, and the event types that appear. It also says how many people's data was deleted, split into declined consent and withdrew.
 
 Whatever your study used is frozen with its version, so you can write your methods section from here.
 
@@ -60,7 +60,7 @@ Whatever your study used is frozen with its version, so you can write your metho
 | `actor.followed`                                     | They followed someone                                    |
 | `flow.step_completed`                                | They finished a step such as consent                     |
 
-Three things to know when reading it:
+Three things are worth knowing when you read it:
 
 - **Scripted content appearing on schedule isn't an event.** The version already says when each post appears. To see what someone was shown, use `impressions.csv`.
 - **Being in `impressions.csv` doesn't mean it was seen.** It means the post was in the list sent to their browser. `content.viewed` records time actually on screen.
@@ -74,17 +74,19 @@ When a participant asks to withdraw, you delete their data:
 2. Under **Withdraw a participant**, type **Their recruitment ID** and a **Reason**.
 3. Press **Withdraw**, then **Delete their data** to confirm.
 
-This permanently deletes everything about them in this study, including their events and any photos they uploaded. It can't be undone. The page tells you how many recorded events were deleted.
+::: warning This can't be undone
+This permanently deletes everything about them in this study, including their events and any photos they uploaded. The page tells you how many recorded events were deleted.
+:::
 
 What's kept is a record that a deletion happened, with its reason, and a scrambled form of their ID that stops it entering this study again. They can still join other studies. Declining consent does the same thing automatically.
 
-Deleted participants don't appear in any later download. Truman can't reach a zip you already downloaded, so if you exported before a withdrawal, delete that person from your own copies too.
+Deleted participants don't appear in any later download. Truman can't reach a zip you already downloaded, though, so if you exported before a withdrawal, delete that person from your own copies too.
 
 In a shared world, what a withdrawn person wrote is blanked and marked `withdrawn`, so other participants' events still make sense. See [Several real people together](/guide/shared-worlds).
 
 ## Synthetic data
 
-You can have data shaped like your study's before a single participant arrives, to write and debug your analysis ahead of time.
+You can have data shaped like your study's before a single participant arrives. That lets you write and debug your analysis ahead of time.
 
 1. On the **Studies** page, press **Simulate** beside a saved version.
 2. Choose **At random** or **Personas**, and how many.

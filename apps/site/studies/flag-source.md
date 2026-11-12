@@ -6,7 +6,9 @@ description: A two-day, 3 x 2 study of whether the source of a flag changes what
 
 # Who flagged this?
 
-A comment in the feed carries a notice saying it was flagged as harassment. The notice names who flagged it, or it doesn't. Further down, someone else is being harassed and nobody has flagged that yet.
+Does it matter who flagged a comment? And does that change whether a bystander flags the next one themselves?
+
+A participant is scrolling a food-photo site when they reach a comment with a notice on it, saying it was flagged as harassment. The notice names who flagged it, or it doesn't. Further down, someone else is being harassed, and nobody has flagged that yet. What the participant does about the second comment is what the study is after.
 
 ## Where it comes from
 
@@ -16,11 +18,11 @@ This is a rebuild, for testing, of:
 
 The same study is also written up in Ozanne et al. (2022) in _Big Data & Society_.
 
-We rebuilt the design on Truman 3 to check the platform can run it. These are not the original study's materials or settings. If you want to replicate the paper, start from the paper.
+We rebuilt the design on Truman 3 to check the platform can run it.
 
-## The question
-
-Does it matter who flagged a comment? And does that change whether a bystander flags the next one themselves?
+::: warning These aren't the original materials
+These are not the original study's materials or settings. If you want to replicate the paper, start from the paper.
+:::
 
 ## What a participant sees and does
 
@@ -28,18 +30,18 @@ Does it matter who flagged a comment? And does that change whether a bystander f
 2. They read the community rules for EatSnap.Love, a food-photo site. The first rule is no bullying or harassment.
 3. They make an account and land in the feed.
 
-They stay for two days, logging in twice a day and posting once a day. They can post, like, comment, and flag.
+They stay for two days, logging in twice a day and posting once a day. While they're there, they can post, like, comment, and flag.
 
 ## What's scripted
 
-The cast posts twelve food photos, six on each day. Two things are planted on each day:
+The cast posts twelve food photos, six on each day. Among them, two things are planted on each day:
 
 - **Near the top, a flagged comment.** One cast member's harassing comment on another's food post has a notice on it: "Flagged as harassment". The notice asks "Do you agree with this flag?" Answering offers to show the community rules.
 - **Lower down, an unflagged comment.** A second harassing comment, on a different post, with no notice. On day 1 it's "When will you get into your head that nobody likes your stupid ass". On day 2 it's "Everyone hates you". It is the same in every condition.
 
 ## The conditions
 
-Six, from two factors. Assignment is blocked in sixes, so every six participants fill each condition once.
+There are six, from two factors. Assignment is blocked in sixes, so every six participants fill each condition once.
 
 **Source: who the notice says flagged it**
 
@@ -60,7 +62,7 @@ The flagged comment is by the same person, on the same post, at the same time in
 
 ## What gets measured
 
-The main measure is whether the participant flags the unflagged comment. Truman also records:
+The main measure is whether the participant flags the unflagged comment. Alongside that, Truman also records:
 
 - their answer to "Do you agree with this flag?"
 - whether they opened the community rules
@@ -73,7 +75,7 @@ Two days.
 
 ## How it's built
 
-The notices are labels, a feature that puts a notice on a post or comment. Each notice is one row in `labels.csv`, with the condition it belongs to. The two "sources" are cast members marked as moderators, named "Other EatSnap.Love users" and "Our automated system".
+If you want to build something similar, here's how this one is put together. The notices are labels, a feature that puts a notice on a post or comment. Each notice is one row in `labels.csv`, with the condition it belongs to. The two "sources" are cast members marked as moderators, named "Other EatSnap.Love users" and "Our automated system".
 
 The folder also has scenario tests. They put a made-up participant in each condition and check, on both days, that the right comment and the right notice show up and the wrong ones don't. [Testing a study](/guide/testing) explains how to run them.
 

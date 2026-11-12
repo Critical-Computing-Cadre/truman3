@@ -6,9 +6,11 @@ description: How to set up a study's conditions, how participants are assigned t
 
 # Conditions
 
-By the end of this page your study has two or more conditions, each participant is assigned to one, and you can look at any two side by side to check that they differ only where you meant them to.
+A condition is one version of the study. This page shows you how to add two or more, how each participant gets assigned to one, and how to look at any two side by side to check that they differ only where you meant them to.
 
-A condition is one version of the study. In the bystander example there are two, `defended` and `silent`. Someone mocks a painting in both. In `defended` another user steps in. In `silent` nobody does.
+The bystander example has two conditions, `defended` and `silent`. Someone mocks a painting in both. In `defended` another user steps in, and in `silent` nobody does.
+
+![The Conditions card on the Settings page](/shots/conditions.png)
 
 ## Add conditions
 
@@ -24,14 +26,14 @@ Renaming a condition later keeps the posts and comments that were limited to it.
 
 ## How people are assigned
 
-You have to choose one. Truman has no default here, because the choice shapes your analysis.
+You have to choose a method. Truman has no default here, because the choice shapes your analysis.
 
 - **Uniform:** each person is assigned at random, so counts can drift apart.
 - **Blocked:** random within blocks, which keeps the counts close together. Set a **Block size**. It has to divide evenly by the total of the weights, so with two equal conditions use 2, 4, 6, and so on.
 
 Every assignment is recorded with its method and its probability. A returning participant always gets the condition they already have.
 
-Test participants choose their condition and don't use up places in a block.
+Test participants are the exception: they choose their condition and don't use up places in a block.
 
 ## What can differ
 
@@ -76,7 +78,9 @@ At the top of the builder:
 
 The two feeds appear side by side, at the same moment in the study. Move the time slider and both move together. You can edit in either one.
 
-Do this before every launch. Scroll both feeds from the start of the study to the end and look for anything that differs that shouldn't.
+::: tip Do this before every launch
+Scroll both feeds from the start of the study to the end and look for anything that differs that shouldn't.
+:::
 
 The same controls are on the read-only preview of a saved version. On the **Studies** page, press **See the feed** beside a version.
 

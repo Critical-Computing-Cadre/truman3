@@ -6,13 +6,13 @@ description: Someone's first painting gets mocked, and what the cast does next d
 
 # Bystander
 
-Maya posts her first real painting. "Be nice lol," she writes. Three minutes after the participant arrives, Jake isn't.
-
-This one is made up for testing. It isn't from a published study. We wrote it to show beats: things the cast does at a set time, or because of what the participant just did.
-
-## The question
-
 What does a bystander do when a pile-on starts? Does it change if someone else speaks up first, or if someone else quietly sides with the bully?
+
+Maya posts her first real painting. "Be nice lol," she writes. Three minutes after the participant arrives, Jake isn't. He mocks the painting, then mocks it again, and from there the cast reacts to whatever the participant does next: stepping in, staying quiet, or messaging Maya or Jake privately.
+
+::: info Made up for testing
+This one is made up for testing. It isn't from a published study. We wrote it to show beats: things the cast does at a set time, or because of what the participant just did.
+:::
 
 ## What a participant sees and does
 
@@ -20,11 +20,11 @@ What does a bystander do when a pile-on starts? Does it change if someone else s
 2. They make an account.
 3. They land in the feed of a site called Commons.
 
-It's a small site. Five people, three posts: Priya's pasta, Leo asking about the art fair, and Maya's painting with nine likes. The participant can post, like, comment, reply under a specific comment, and send private messages to people in the cast.
+It's a small site, with five people and three posts: Priya's pasta, Leo asking about the art fair, and Maya's painting with nine likes. The participant can post, like, comment, reply under a specific comment, and send private messages to people in the cast.
 
 ## The conditions
 
-Two, assigned in blocks of two.
+There are two, assigned in blocks of two. They differ in what the rest of the cast does once Jake starts.
 
 | Condition  | What happens after Jake mocks the painting                                        |
 | ---------- | --------------------------------------------------------------------------------- |
@@ -32,6 +32,8 @@ Two, assigned in blocks of two.
 | `silent`   | Nobody defends her. Leo likes Jake's comment, as if agreeing.                     |
 
 ## What's scripted to happen
+
+Some of the script plays out for everyone, some depends on the condition, and some depends on the participant.
 
 **To everyone:**
 
@@ -58,7 +60,7 @@ Delays are drawn at random within a range, so replies don't arrive on the dot.
 
 As shipped, every line is written ahead of time. Maya has three thank-you lines, and each participant gets one of them.
 
-The study is also set up for live writing, which is turned off. With it on, an AI model writes Jake's and Maya's replies to fit what the participant actually said. Each has a short character card. Jake is "lowercase, short, sarcastic". Maya is "warm and a little shy". The study sets a red line, "Insulting anyone's appearance, family, or identity", and a $5 budget. Every line is checked before it's posted, and if the check fails, the written fallback line is used. [A cast that writes for itself](/guide/live-writing) explains how it works.
+The study is also set up for live writing, which is turned off. If you turn it on, an AI model writes Jake's and Maya's replies to fit what the participant actually said. Each of them has a short character card: Jake is "lowercase, short, sarcastic", and Maya is "warm and a little shy". The study sets a red line, "Insulting anyone's appearance, family, or identity", and a $5 budget. Every line is checked before it's posted, and if the check fails, the written fallback line is used. [A cast that writes for itself](/guide/live-writing) explains how it works.
 
 ## What gets recorded
 
@@ -74,9 +76,11 @@ The study is set to one day. The scripted events are over within about ten minut
 
 ## Trying it before anyone real does
 
-The folder has six scenario tests. Each one has a made-up participant do something at a set minute and checks what should be true afterward. For example: answer Jake at minute 3, and by minute 10 Jake has answered back and Sam hasn't stepped in.
+With this many branches, it helps to check the script before a real participant meets it. The folder comes with two ways to do that.
 
-It also has two personas for piloting: a quiet bystander who rarely gets involved, and an upstander who is quick to defend people. A model plays each one through the study, and you read what they saw and did. [Testing a study](/guide/testing) covers both.
+The first is six scenario tests. Each one has a made-up participant do something at a set minute and checks what should be true afterward. For example: answer Jake at minute 3, and by minute 10 Jake has answered back and Sam hasn't stepped in.
+
+The second is two personas for piloting: a quiet bystander who rarely gets involved, and an upstander who is quick to defend people. A model plays each one through the study, and you read what they saw and did. [Testing a study](/guide/testing) covers both.
 
 ## Getting it
 

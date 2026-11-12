@@ -6,11 +6,13 @@ description: How to put several real participants in one world, how the waiting 
 
 # Several real people together
 
-By the end of this page, groups of real participants share one site. They see each other's posts, reply to each other, follow and message each other. The cast is there too, as usual.
+Usually every participant has a world of their own, and everyone they meet is made up. A shared world changes that. Groups of real participants share one site, where they see each other's posts, reply to each other, and follow and message each other. The cast is there too, as usual.
 
-Usually every participant has a world of their own, and everyone they meet is made up. A shared world changes that. In the town-talk example, six real people join one town forum. The cast's first answers are polite in one condition and rude in the other. How civil the participants are to each other is the measure.
+In the town-talk example, six real people join one town forum. The cast's first answers are polite in one condition and rude in the other. How civil the participants are to each other is the measure.
 
-Real people can be unkind to each other. Read the safety section before you turn this on.
+::: warning Read the safety section first
+Real people can be unkind to each other. Read [the safety section](#safety-before-you-run-one) before you turn this on.
+:::
 
 ## Turn it on
 
@@ -26,6 +28,8 @@ A world fills up as people join. When it has the number you set, it starts for a
 
 While they wait, after consent and making their profile, participants see "Waiting for others to join" with how many are there. The study's clock starts when the world does, so nobody misses anything by arriving first.
 
+Two things help worlds fill well:
+
 - **Recruit in bursts,** so people arrive close together. On Prolific, open places at a set time.
 - **Don't set the wait to 0.** Nobody would wait, so everyone would be alone. The builder warns you.
 
@@ -37,7 +41,7 @@ A new post from someone else shows as a "New posts" button at the top of the hom
 
 ## What changes for beats and moderation
 
-A beat now happens either once for the world or once for each participant:
+With several people in a world, a beat now happens either once for the world or once for each participant:
 
 - **Set off by a participant:** it's theirs. Each person's first post can get its own reply from Jake.
 - **Done to the participant,** like a message, a follow, or a warning: once for each of them.

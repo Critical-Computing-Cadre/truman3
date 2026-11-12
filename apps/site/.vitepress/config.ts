@@ -26,6 +26,7 @@ const guide = [
       { text: "Making things happen", link: "/guide/beats" },
       { text: "A cast that writes for itself", link: "/guide/live-writing" },
       { text: "Several real people together", link: "/guide/shared-worlds" },
+      { text: "AI in Truman", link: "/guide/ai" },
     ],
   },
   {
@@ -34,6 +35,7 @@ const guide = [
       { text: "Testing a study", link: "/guide/testing" },
       { text: "Running a study", link: "/guide/running" },
       { text: "Your data", link: "/guide/data" },
+      { text: "The phone app", link: "/guide/mobile-app" },
       { text: "Ethics", link: "/guide/ethics" },
     ],
   },

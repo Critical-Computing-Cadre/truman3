@@ -6,15 +6,19 @@ description: What Truman is technically, where the code lives, and where to read
 
 # Overview
 
-Truman is a social media site that researchers build to run experiments. A participant joins a study, is put in a condition, and uses a feed that looks like a real platform. Everyone else on it is the study's cast, written ahead of time. What the participant does is recorded for analysis.
+Truman is a social media site that researchers build to run experiments. A participant joins a study, is put in a condition, and uses a feed that looks like a real platform. Everyone else on it is the study's cast, and everything they say was written ahead of time. What the participant does is recorded for analysis.
 
-This section is for web developers and research software engineers who want to host Truman themselves, change it, or script it. You should know TypeScript and the command line. You don't need to know this codebase yet.
+This section is for web developers and research software engineers who want to host Truman themselves, change it, or script it. We assume you know TypeScript and are comfortable on the command line. You don't need to know this codebase yet, and this page is the place to start.
 
-If you only want to run a study, you don't need any of this. Start with [the guide](/guide/) and use the hosted version at [app.truman-research.org](https://app.truman-research.org/admin/).
+::: tip If you only want to run a study
+You don't need any of this. Start with [the guide](/guide/) and use the hosted version at [app.truman-research.org](https://app.truman-research.org/admin/).
+:::
 
 ## What it's made of
 
-The code is at [github.com/Critical-Computing-Cadre/truman3](https://github.com/Critical-Computing-Cadre/truman3), under the MIT license. It's one pnpm monorepo, all TypeScript. Node 24 runs the TypeScript directly, so the server has no build step.
+The code is at [github.com/Critical-Computing-Cadre/truman3](https://github.com/Critical-Computing-Cadre/truman3), under the MIT license. It's one pnpm monorepo, and all of it is TypeScript. Node 24 runs the TypeScript directly, so the server has no build step.
+
+Here's the stack, layer by layer:
 
 | Layer            | What it uses                                                       |
 | ---------------- | ------------------------------------------------------------------ |
@@ -27,7 +31,7 @@ The code is at [github.com/Critical-Computing-Cadre/truman3](https://github.com/
 
 ## Where things live
 
-There are three folders to know first.
+When you first open the repo, there are three folders to know.
 
 `apps/` holds what runs:
 
@@ -37,7 +41,7 @@ There are three folders to know first.
 - `apps/cli` is the command line: `pnpm study` and `pnpm admin`.
 - `apps/mcp` is an MCP server, so an AI agent can build and check studies.
 
-`packages/` holds what the apps share. `packages/core` has the Zod schemas for a study and for events. `packages/db` has the database schema and migrations. The rest are listed in [How it's built](/developers/architecture).
+`packages/` holds what the apps share. The two you'll meet first are `packages/core`, which has the Zod schemas for a study and for events, and `packages/db`, which has the database schema and migrations. The rest are listed in [How it's built](/developers/architecture).
 
 `studies/` holds studies as folders of CSV and YAML files. `studies/examples` has five finished ones, and `studies/starters` has sample content for each kind of site.
 
@@ -45,7 +49,7 @@ Two more folders matter later: `infra/` is the AWS deployment, and `e2e/` is the
 
 ## The ideas to hold on to
 
-These explain most of the code you'll read.
+Most of the code you'll read makes sense once you know these five things.
 
 - **A study is data.** It's a definition that can be checked and frozen as a version. Nobody forks the code to run a study.
 - **Everything goes through one API.** Participants, the cast, researchers, and agents all change state through `apps/api`.
@@ -54,6 +58,8 @@ These explain most of the code you'll read.
 - **The director has no worker or scheduler.** It's called Christof, and it decides what's due when a page loads.
 
 ## The pages in this section
+
+You don't have to read these in order. Pick the one that matches what you're trying to do.
 
 | Page                                             | Read it when                                                            |
 | ------------------------------------------------ | ----------------------------------------------------------------------- |
@@ -65,7 +71,7 @@ These explain most of the code you'll read.
 
 ## Deeper docs in the repo
 
-These pages are a summary. The full docs are Markdown files in the repo, kept next to the code they describe.
+The pages here are a summary. The full docs are Markdown files in the repo, kept next to the code they describe, so that's where to go once you need the detail.
 
 | Doc                                                                                                                              | What's in it                                                                   |
 | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -80,4 +86,6 @@ These pages are a summary. The full docs are Markdown files in the repo, kept ne
 | [docs/guides/for-agents.md](https://github.com/Critical-Computing-Cadre/truman3/blob/main/docs/guides/for-agents.md)             | Connecting an AI agent                                                         |
 | [docs/adr/](https://github.com/Critical-Computing-Cadre/truman3/tree/main/docs/adr)                                              | One short record for each decision, with the alternatives that were considered |
 
-When you wonder why something is the way it is, look in `docs/adr/` first. The records are numbered, and the other docs cite them by number.
+::: tip When you wonder why something is the way it is
+Look in `docs/adr/` first. The records are numbered, and the other docs cite them by number.
+:::

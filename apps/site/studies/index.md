@@ -6,9 +6,11 @@ description: Five finished studies that come with Truman, each built to answer o
 
 # Example studies
 
-Truman comes with five finished studies. Each one answers a question, and each uses a different part of the platform. Read the one closest to what you want to run, then change it.
+Truman comes with five finished studies. Each one answers a question, and each uses a different part of the platform. The quickest way to start your own is to read the one closest to what you want to run, then change it.
 
+::: info About the rebuilds
 Three of them are rebuilds of published designs. We made them to check that Truman 3 can run that kind of study. They are not the original authors' materials, and each page says so.
+:::
 
 ## What do people do when someone is cruel to a stranger?
 
@@ -18,13 +20,13 @@ Start here if you want a large, lived-in feed that runs over two days.
 
 ## Does it matter who flagged a post?
 
-**[Who flagged this?](/studies/flag-source)** puts a "Flagged as harassment" notice on one comment each day. The notice says other users flagged it, or an automated system did, or it doesn't say. Lower in the feed is a second harassing comment that nobody has flagged. The question is whether the participant flags that one.
+**[Who flagged this?](/studies/flag-source)** puts a "Flagged as harassment" notice on one comment each day. The notice says other users flagged it, or an automated system did, or it doesn't say. Lower in the feed is a second harassing comment that nobody has flagged, and the question is whether the participant flags that one.
 
 It's a rebuild of Bhandari et al. (2021). Start here for a study with two factors, or one that uses labels on posts.
 
 ## If more people seem vaccinated, do you think it's the norm?
 
-**[Vaccine frames](/studies/vaccine-frames)** is a one-minute scroll through 30 everyday posts. Two, five, or nine of the 30 people have a "vaccinated" frame on their profile picture. Then a survey asks what the participant thinks is normal.
+**[Vaccine frames](/studies/vaccine-frames)** is a one-minute scroll through 30 everyday posts. Two, five, or nine of the 30 people have a "vaccinated" frame on their profile picture. Afterward, a survey asks what the participant thinks is normal.
 
 It's a rebuild of Aghajari et al. (2024). Start here for a short study where the measures are in a survey afterward.
 
@@ -41,6 +43,8 @@ It's inspired by Cheng et al. (2017), and it isn't a rebuild of it. Start here i
 It's made up for testing and isn't from a published study. Start here to see how beats work, including private messages and a cast that can write its own replies.
 
 ## Side by side
+
+If you're choosing between them, this table lines up the basics.
 
 | Study                                     | Conditions | Runs for         | Participants together | Uses                                                                 |
 | ----------------------------------------- | ---------- | ---------------- | --------------------- | -------------------------------------------------------------------- |
@@ -60,4 +64,6 @@ pnpm study import studies/examples/bystander
 
 [Studies as files](/developers/study-files) explains what's in the folder. Four of the five also come with scenario tests, which [Testing a study](/guide/testing) covers.
 
-The consent pages in all five are placeholders. A real study uses the text its ethics board approved. [For IRBs](/irb) has what your board will want to know about Truman itself.
+::: warning The consent pages are placeholders
+That's true of all five. A real study uses the text its ethics board approved. [For IRBs](/irb) has what your board will want to know about Truman itself.
+:::

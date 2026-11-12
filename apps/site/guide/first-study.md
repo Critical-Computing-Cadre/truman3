@@ -6,9 +6,9 @@ description: Go from an empty account to a study you can walk through yourself a
 
 # Your first study
 
-By the end of this page you'll have a small study with sample people and posts, and a link you can open to go through it as a participant would. Nobody else can reach it.
+This page walks you through building a small study from start to finish. By the end you'll have sample people and posts, and a link you can open to go through the study as a participant would. Nobody else can reach it.
 
-You need to be signed in to the admin app. On hosted Truman that's [app.truman-research.org/admin](https://app.truman-research.org/admin/). If your lab hasn't applied yet, do that first: see [Your lab on hosted Truman](/guide/your-lab). You can do everything on this page while your lab waits for approval.
+You need to be signed in to the admin app. On hosted Truman that's [app.truman-research.org/admin](https://app.truman-research.org/admin/). If your lab hasn't applied yet, do that first: see [Your lab on hosted Truman](/guide/your-lab). You don't have to wait for approval, though. Everything on this page works while your lab is waiting.
 
 ## 1. Start the study
 
@@ -22,7 +22,11 @@ You need to be signed in to the admin app. On hosted Truman that's [app.truman-r
 
 You land in the builder, looking at the feed as a participant would see it.
 
+![The New study page, filled in: a title, a link name, the four kinds of platform, and where to start](/shots/new-study.png)
+
 ## 2. Change something
+
+The builder is where you'll spend most of your time, so it's worth trying a few edits to see how it behaves.
 
 1. Click the text of any post and type. It saves when you click away. The top of the page says **All changes saved** when it has.
 2. Under a post, open **Details** to change who wrote it, when it appears, and how many likes it has.
@@ -30,7 +34,9 @@ You land in the builder, looking at the feed as a participant would see it.
 4. Press **Cast** to see the people. Press **Add a person** to add one, then **Back to the feed**.
 5. Use **New post here** to write a post for someone in the cast.
 
-Made a mistake? Open **Recent changes** and press **Undo**.
+If you make a mistake, open **Recent changes** and press **Undo**.
+
+![The builder, showing the study's feed as a participant would see it, with buttons for Cast, Settings, and saving a version](/shots/builder.png)
 
 ## 3. Write the consent page
 
@@ -41,13 +47,15 @@ Made a mistake? Open **Recent changes** and press **Undo**.
 
 ## 4. Save a version
 
-A draft is where you work. A version is a frozen copy that participants can be given.
+So far you've been working in a draft. A draft is where you work, and a version is a frozen copy that participants can be given.
 
 1. Go **Back to the feed** and press **Save as new version**.
 2. Read what it tells you. If anything needs fixing first, it's listed there.
 3. Press **Save version**.
 
 Participants don't see a saved version until you launch it. You're taken back to the **Studies** page, where the version is listed under your study.
+
+![Saving a version: a summary of the study, and anything to check first](/shots/save-version.png)
 
 ## 5. Go through it yourself
 
@@ -58,7 +66,11 @@ Participants don't see a saved version until you launch it. You're taken back to
 
 That link is the one to send yourself. You're a test participant, so nothing you do ends up in the study's data.
 
+![A study on the Studies page, with version 1 and a link to open it as a test participant](/shots/studies.png)
+
 ## What to do next
+
+From here, you can go in a few directions:
 
 - Press **Edit a copy of version 1** on the Studies page to go back to building. Saving again makes version 2.
 - Add a second condition and limit a comment to it. See [Conditions](/guide/conditions).

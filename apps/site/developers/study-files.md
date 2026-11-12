@@ -6,9 +6,13 @@ description: The study folder format, and the pnpm study commands that check, te
 
 # Studies as files
 
-A study can be a folder of CSV and YAML files. You can keep it in git, review it in a pull request, and check it from the command line. The builder in the admin app produces the same thing, and both paths go through the same checks in `packages/core/src/study/validate.ts`.
+A study can be a folder of CSV and YAML files. That means you can keep it in git, review it in a pull request, and check it from the command line, the same way you'd treat code. The builder in the admin app produces the same thing, and both paths go through the same checks in `packages/core/src/study/validate.ts`.
+
+This page covers what goes in a folder, the `pnpm study` commands that work on one, and how to get an example study running on your own computer.
 
 ## What's in a folder
+
+Three files are always needed. The rest are there when a study uses them.
 
 | File             | What it holds                                                                                                   | Needed                     |
 | ---------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------- |
@@ -25,13 +29,15 @@ A study can be a folder of CSV and YAML files. You can keep it in git, review it
 
 Features that need a sheet of their own have one, such as `spaces.csv`, `labels.csv`, `removals.csv`, and `auto-rules.csv`. The column lists for every sheet are at the top of `packages/study-files/src/load.ts`.
 
+Two conventions run through all the sheets.
+
 Times are hours and minutes from when a participant starts. `0:03` is three minutes in. A negative time is before they arrived, so `-40:00` is a post that's already forty hours old when they first open the feed.
 
 Any row can have a `condition` column, to limit it to some conditions.
 
 ## A small example
 
-This is `studies/starters/classic/study.yaml`, the sample content for the Classic template:
+The quickest way to get a feel for the format is to read a real one. This is `studies/starters/classic/study.yaml`, the sample content for the Classic template:
 
 ```yaml
 schemaVersion: 1
@@ -52,9 +58,9 @@ flow:
   - { step: exit }
 ```
 
-`slug` is the study's address: participants join at `/join/<slug>`. `entry.idParam` is the query parameter that carries the recruitment ID. `flow` is the steps in order.
+A few of these are worth pointing out. `slug` is the study's address: participants join at `/join/<slug>`. `entry.idParam` is the query parameter that carries the recruitment ID. `flow` is the steps in order.
 
-The first rows of its `posts.csv`:
+Here are the first rows of its `posts.csv`:
 
 ```csv
 id,actor,time,body,picture,likes
@@ -69,7 +75,7 @@ id,postID,actor,time,body
 k1,c1,sam_w,-39:00,Beautiful! Which trailhead did you start from?
 ```
 
-A beat, from `studies/examples/bystander/beats.yaml`:
+Beats look a little different, since they describe something happening. This one is from `studies/examples/bystander/beats.yaml`:
 
 ```yaml
 beats:
@@ -87,7 +93,7 @@ beats:
 
 ## The commands
 
-All of these run from the repo's root. They're defined in `apps/cli/src/main.ts`.
+Everything you do with a study folder goes through `pnpm study`. All of these run from the repo's root, and they're defined in `apps/cli/src/main.ts`.
 
 | Command                                                            | What it does                                                                                                                      |
 | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -110,11 +116,13 @@ Some notes on these:
 - `export` leaves out recruitment IDs unless you add `--include-recruitment-ids`. It also takes `--min-dwell-ms N` and `--max-dwell-ms N`.
 - `convert` writes a `study.yaml` that's a starting point. You still have to make the design decisions it marks, then run `validate`.
 
+::: warning Check which database you're pointed at
 `import`, `add-pack`, `launch`, `stop`, `export`, and `withdraw` work on the database in `DATABASE_URL`, from `.env`.
+:::
 
 ## Importing an example study
 
-The repo has five reference studies in `studies/examples`:
+The repo has five reference studies in `studies/examples`, and each one shows off a different part of the format:
 
 | Folder           | What it shows                                                                      |
 | ---------------- | ---------------------------------------------------------------------------------- |
@@ -124,7 +132,7 @@ The repo has five reference studies in `studies/examples`:
 | `vaccine-frames` | Profile pictures that change by condition                                          |
 | `town-talk`      | A shared world, where participants see each other                                  |
 
-With the local setup from [Run your own Truman](/developers/run-your-own) running:
+Let's bring one in. With the local setup from [Run your own Truman](/developers/run-your-own) running:
 
 ```
 pnpm study validate studies/examples/bystander
@@ -133,12 +141,12 @@ pnpm study import studies/examples/bystander
 pnpm study launch bystander
 ```
 
-Then open `http://localhost:5180/join/bystander`. The page asks for a Prolific ID. Type anything.
+Then open `http://localhost:5180/join/bystander`. The page asks for a Prolific ID, and you can type anything.
 
 To change a study, edit the folder and import it again. That saves a new version. People already in the study stay on the version they started with, and `launch` moves new participants to the new one.
 
 ## Testing before you launch
 
-`scenarios.yaml` sits beside `study.yaml`. Each scenario is a made-up participant in a condition, who does things at set times. An `expect` step says what should be true by then: which beats have happened, and what's in their feed. `studies/examples/bystander/scenarios.yaml` is a good one to read.
+A study with beats has a lot of ways to go, and you'll want to know they work before a real participant finds out for you. That's what `scenarios.yaml` is for. It sits beside `study.yaml`. Each scenario is a made-up participant in a condition, who does things at set times. An `expect` step says what should be true by then: which beats have happened, and what's in their feed. `studies/examples/bystander/scenarios.yaml` is a good one to read.
 
 The runner goes through the API's own routes with a clock it moves forward, so the test exercises what a real participant would. [docs/guides/testing-studies.md](https://github.com/Critical-Computing-Cadre/truman3/blob/main/docs/guides/testing-studies.md) lists every step and every kind of `expect`.
