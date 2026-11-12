@@ -51,6 +51,11 @@ export interface Stage {
    * with a hosted zone.
    */
   participantDomains?: { name: string; hostedZoneId: string; default?: boolean }[];
+  /**
+   * The public site, apps/site, at its own addresses (ADR 75). The first name is the site's
+   * address. A name starting with "www." is sent to the same name without it.
+   */
+  site?: { names: [string, ...string[]]; hostedZone: { id: string; name: string } };
   /** The database's size. A small one has twice the memory of a micro. Defaults to micro. */
   databaseSize?: "micro" | "small";
   /**
@@ -107,6 +112,10 @@ export const STAGES: Record<string, Stage> = {
     // itself is kept for the public site.
     domains: {
       names: ["app.truman-research.org"],
+      hostedZone: { id: "Z0760791OM9Y8AHGYNE6", name: "truman-research.org" },
+    },
+    site: {
+      names: ["truman-research.org", "www.truman-research.org"],
       hostedZone: { id: "Z0760791OM9Y8AHGYNE6", name: "truman-research.org" },
     },
     // Registered in Social Design Lab's account, with its name servers pointing at this zone.

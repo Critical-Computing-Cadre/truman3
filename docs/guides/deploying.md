@@ -187,6 +187,10 @@ Truman emails researchers: password resets, invitations to a team, and, on a hos
 
 Until the domain is verified, sending fails quietly: the request goes on, and the API logs that the email wasn't sent.
 
+### The public site
+
+The site in `apps/site` is deployed with a stage that has `site` ([ADR 75](../adr/0075-the-public-site.md)). `pnpm build` builds it with everything else, and the deploy copies it to its bucket. Try it locally with `pnpm --filter @truman3/site dev`, at http://localhost:5182.
+
 ### Participant domains
 
 A study can run at a domain that doesn't say "research", such as eatsnap.love ([ADR 74](../adr/0074-participant-domains.md)). To offer one on a stage:

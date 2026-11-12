@@ -1,0 +1,13 @@
+{
+  "name": "@truman3/site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev --port 5182",
+    "build": "vitepress build"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4"
+  }
+}

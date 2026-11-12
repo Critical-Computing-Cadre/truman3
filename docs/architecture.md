@@ -25,6 +25,7 @@ Truman 3 isn't ready for real participants yet. [Deploying](guides/deploying.md#
 | `apps/cli`         | `pnpm study` (validate, test, simulate, import, add-pack, launch, stop, convert, export, withdraw) and `pnpm admin` (setup, add, reset-password)                                                                                                                                                         |
 | `apps/mcp`         | An MCP server an agent like Claude runs on a researcher's computer, to build and check studies through the admin API with their personal access token ([ADR 64](adr/0064-agents-work-through-tokens-and-an-mcp-server.md)), with the tools in `packages/agent-tools`. See [Agents](guides/for-agents.md) |
 | `apps/mobile`      | Truman's phone app for participants: an Expo shell around the participant site, with push notifications ([ADR 66](adr/0066-the-app-is-a-shell-with-push.md)). Its own npm project, outside the workspace                                                                                                 |
+| `apps/site`        | The public site at truman-research.org, built with VitePress ([ADR 75](adr/0075-the-public-site.md)): a home page that puts the visitor in a small study, and, as they're written, the researcher guides                                                                                                 |
 
 Both web apps are built with Vite ([ADR 2](adr/0002-react-with-vite.md)) into static files. Neither has an address built in. Each one calls `/api` on whatever address it's on.
 
