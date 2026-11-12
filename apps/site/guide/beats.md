@@ -6,19 +6,21 @@ description: How to write beats, which make the cast do things at set times or i
 
 # Making things happen
 
-By the end of this page, things happen in your study while the participant is there. Someone mocks a post three minutes in. A bystander steps in. The bully answers whoever replies to him.
+A feed of scripted posts only goes so far. Often you want things to happen while the participant is there: someone mocks a post three minutes in, a bystander steps in, the bully answers whoever replies to him.
 
-Each of those is a beat. A beat says what sets it off, who does what, and in which conditions. The part of Truman that runs them is called Christof, the director. Every decision Christof makes is recorded and ends up in your export.
+Each of those is a beat. A beat says what sets it off, who does what, and in which conditions. The part of Truman that runs them is called Christof, the director, and every decision Christof makes is recorded and ends up in your export.
+
+![The Beats page, where a study's beats are written](/shots/beats.png)
 
 ## Where beats are written
 
 In the builder, press **Beats**. The page has a text editor, with a reference table called **How beats work** beside it. A study with no beats shows one to start from.
 
-Beats are written as text, in a format called YAML: indented lines of `name: value`. Copy an example, change the values, and press **Save beats**. The page says **No problems found**, or names the beat and what's wrong with it, such as a person who isn't in the cast.
+Beats are written as text, in a format called YAML: indented lines of `name: value`. The easiest way to start is to copy an example, change the values, and press **Save beats**. The page says **No problems found**, or names the beat and what's wrong with it, such as a person who isn't in the cast.
 
 ## A first beat
 
-Someone replies to the participant's first post, a minute or two later:
+Here's a small one to start with. Someone replies to the participant's first post, a minute or two later:
 
 ```yaml
 beats:
@@ -71,13 +73,15 @@ Give exactly one `when`:
 
 ## Limits on a beat
 
+Three optional settings narrow down when a beat happens:
+
 - `conditions: [silent]` makes it happen only in those conditions. Leave it out for all.
 - `max: 3` lets it happen up to three times in one participant's world. The default is once.
 - `unless: [sam-defends]` cancels it if any of those beats has happened by the time it's due.
 
 ## A scene
 
-This is cut down from the bystander example. Jake mocks a painting. In `defended`, Sam steps in a minute or more later, unless the participant has already answered Jake.
+Beats get more interesting when they refer to each other. This scene is cut down from the bystander example. Jake mocks a painting. In `defended`, Sam steps in a minute or more later, unless the participant has already answered Jake.
 
 ```yaml
 beats:
@@ -118,7 +122,7 @@ Beats are logic, and logic has paths you didn't think of. Before launch, go thro
 
 ## Words that aren't fixed
 
-A comment can have `improvise` in place of `text`: an instruction for an AI model that writes the line in that character's voice. A beat can also wait for you to approve its line before it posts. Both are in [A cast that writes for itself](/guide/live-writing).
+The lines in a beat don't have to be written ahead of time. A comment can have `improvise` in place of `text`: an instruction for an AI model that writes the line in that character's voice. A beat can also wait for you to approve its line before it posts. Both are in [A cast that writes for itself](/guide/live-writing).
 
 ## Decision points
 
@@ -145,4 +149,6 @@ A measure counts something the participant did, such as posts, comments, likes, 
 
 A condition that's only reached this way has a weight of 0 in Settings, so nobody starts in it. Every assignment, including staying, is recorded with its probability in `assignments.csv`, so a standard SMART analysis can weight it.
 
+::: info Not in shared worlds yet
 Decision points aren't available in shared worlds yet. For how beats behave there, see [Several real people together](/guide/shared-worlds).
+:::

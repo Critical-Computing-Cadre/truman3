@@ -6,9 +6,9 @@ description: How to launch and stop a study, where its link points, how to recru
 
 # Running a study
 
-By the end of this page your study is open, real participants are arriving through its link, and you know how to watch it, stop it, and change it.
+This page takes you from a tested version to a study that's open, with real participants arriving through its link. It also covers how to watch a study, stop it, and change it.
 
-Saving a version never changes what participants get. A study points at one live version, and new participants get that one. You launch a version on purpose, and each launch and stop is recorded in your codebook.
+One idea runs through all of it: saving a version never changes what participants get. A study points at one live version, and new participants get that one. You launch a version on purpose, and each launch and stop is recorded in your codebook.
 
 ## Launch
 
@@ -21,7 +21,9 @@ Saving a version never changes what participants get. A study points at one live
 
 The study now says **Open to participants**, the version is marked **Live**, and the **Study link** appears under the study's name.
 
-On hosted Truman, a lab has to be approved before it can launch, and there's a limit on studies open at once. See [Your lab on hosted Truman](/guide/your-lab).
+::: info On hosted Truman
+A lab has to be approved before it can launch, and there's a limit on studies open at once. See [Your lab on hosted Truman](/guide/your-lab).
+:::
 
 ## The study link, and where participants go
 
@@ -34,6 +36,8 @@ https://clikbrite.com/join/your-link-name?PROLIFIC_PID=TEST123
 If the ID isn't in the link, the page asks for it. To come back on a later day, participants use the same link.
 
 Participant screens don't say Truman or research unless your study does. That includes the address. On hosted Truman, studies run at clikbrite.com by default. To choose another address the server offers, use **Participants go to** under the study's name on the **Studies** page. The study link, test participant links, and the link Prolific uses all follow it.
+
+Participants open the link in a browser, on a computer or a phone. There's also a phone app that adds push notifications, though it isn't in the app stores yet. See [The phone app](/guide/mobile-app).
 
 ## Recruit on Prolific
 
@@ -64,11 +68,11 @@ The page also has the **Christof, the director** card, covered in [A cast that w
 
 ## Stop
 
-Press **Stop new participants** beside the live version, then confirm. New people can't join. Anyone already in the study can still come back. You can launch again whenever you like.
+Press **Stop new participants** beside the live version, then confirm. New people can't join, but anyone already in the study can still come back. You can launch again whenever you like.
 
 ## Changing a study that's running
 
-A saved version can't be changed. To change a running study, make a new version and launch it.
+A saved version can't be changed. To change a running study, you make a new version and launch it.
 
 1. On the **Studies** page, press **Edit a copy of version** and its number.
 2. Make your changes and press **Save as new version**.

@@ -6,7 +6,9 @@ description: A one-minute study of whether seeing more "vaccinated" profile fram
 
 # Vaccine frames
 
-A participant scrolls a feed of ordinary posts for about a minute. Some of the people in it have a "vaccinated" frame around their profile picture. How many depends on the condition.
+If more people in a community visibly show they're vaccinated, do newcomers think vaccination is the norm there? And does that change how they say they'd respond to misinformation?
+
+A participant scrolls a feed of ordinary posts for about a minute: a new ramen place, a first 10k, a sunset from the pier. Some of the people posting have a "vaccinated" frame around their profile picture. How many depends on the condition. Then the participant moves on to a survey.
 
 ## Where it comes from
 
@@ -14,11 +16,11 @@ This is a rebuild, for testing, of:
 
 > Aghajari, Z., Baumer, E. P. S., Lazard, A., Dasgupta, N., & DiFranzo, D. (2024). Investigating the mechanisms by which prevalent online community behaviors influence responses to misinformation: Do perceived norms really act as a mediator? _CHI '24_.
 
-It follows the paper's design. It doesn't use the paper's materials. The frame here is a plain teal border standing in for real artwork, and the 30 posts were written for this example. A lab running it would swap in a proper frame, like the one in the paper's Figure 3b.
+It follows the paper's design. It doesn't use the paper's materials.
 
-## The question
-
-If more people in a community visibly show they're vaccinated, do newcomers think vaccination is the norm there? And does that change how they say they'd respond to misinformation?
+::: info What a lab would replace
+The frame here is a plain teal border standing in for real artwork, and the 30 posts were written for this example. A lab running it would swap in a proper frame, like the one in the paper's Figure 3b.
+:::
 
 ## What a participant sees and does
 
@@ -37,7 +39,7 @@ Nothing happens in response to the participant. The feed is the same from the mo
 
 ## The conditions
 
-Three, assigned in blocks of three.
+There are three, assigned in blocks of three.
 
 | Condition | People with a frame | Share of the 30 |
 | --------- | ------------------- | --------------- |
@@ -61,13 +63,17 @@ Truman still records what each participant was shown, how long each post was on 
 
 ## How long it runs
 
-About a minute. One thing differs from the original here. The original session ended at one minute. A Truman feed step can say when someone may move on, and it can't force them out, so this version lets them leave after a minute.
+About a minute.
+
+::: info One difference from the original
+The original session ended at one minute. A Truman feed step can say when someone may move on, and it can't force them out, so this version lets them leave after a minute.
+:::
 
 ## How it's built
 
-The frames are done with one column. In `actors.csv`, a `pictures` column gives a person a different profile picture in named conditions. The "updated their profile picture" posts are ordinary posts that only appear in the conditions where that person is framed.
+The frames take one column. In `actors.csv`, a `pictures` column gives a person a different profile picture in named conditions. The "updated their profile picture" posts are ordinary posts that only appear in the conditions where that person is framed.
 
-The scenario tests check which of those posts a participant sees in each condition. They can't check the frames themselves, since those are pictures. Look at those by previewing the study in each condition, as [Testing a study](/guide/testing) describes.
+The scenario tests check which of those posts a participant sees in each condition. They can't check the frames themselves, since those are pictures. To check the frames, preview the study in each condition and look, as [Testing a study](/guide/testing) describes.
 
 ## Getting it
 

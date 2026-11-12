@@ -6,9 +6,9 @@ description: How cast members can write their own lines with an AI model, inside
 
 # A cast that writes for itself
 
-By the end of this page, someone in your cast can answer a participant in their own words. A participant defends Maya's painting, and Maya thanks them for what they actually said.
+A fixed line can't respond to what a participant actually wrote. With live writing, someone in your cast can answer a participant in their own words. A participant defends Maya's painting, and Maya thanks them for what they actually said.
 
-You still decide what happens and when. The beat says "Maya thanks them". An AI model, Claude, only fills in the wording. You choose how much freedom it gets:
+You still decide what happens and when. The beat says "Maya thanks them", and an AI model, Claude, only fills in the wording. You choose how much freedom it gets:
 
 1. **Fixed text.** The beat has `text`, and that's what's posted.
 2. **Rehearsed lines, live writing off.** Each participant's world gets one of a few lines you read ahead of time. No model runs during the study, so it costs nothing.
@@ -16,6 +16,8 @@ You still decide what happens and when. The beat says "Maya thanks them". An AI 
 4. **Live writing.** The model writes the line, and a second check reads it before it's posted.
 
 Add approval to any of these and a researcher reads every line before it goes out.
+
+This page covers the details. For how live writing fits with the other AI features, see [AI in Truman](/guide/ai).
 
 ## Improvise and fallback
 
@@ -33,7 +35,7 @@ do:
     - "this is so kind, thank you!!"
 ```
 
-`lines` are the rehearsed lines. Write them yourself, or have the model draft them:
+`lines` are the rehearsed lines. You can write them yourself, or have the model draft them:
 
 1. On the **Beats** page, find **Rehearse lines**. It lists each beat that improvises.
 2. Press **Rehearse** beside one. The model drafts five lines, adds them to the beat in the editor, and says what the call cost.
@@ -57,7 +59,7 @@ live:
 - `redLines` are things no character in this study may write.
 - `stray` decides what happens when no rehearsed line fits. `choose`, the default, lets the model write its own. `never` keeps it to the rehearsed lines. `always` ignores them.
 
-Persona cards say who each character is. They go under `cast:` on the same page, and everything in a card is optional.
+To tell the model who each character is, write persona cards. They go under `cast:` on the same page, and everything in a card is optional.
 
 ```yaml
 cast:
@@ -83,7 +85,9 @@ Every line a model writes is read by a second model call before it's posted. The
 
 A rehearsed line, or the fallback if there are none, is used when live writing is off, there's no Claude key, the budget is used up, a researcher paused it, the model declines or can't be reached, or the check stops the line. The reason is recorded. The participant sees a line either way.
 
+::: info Pages never wait for a model
 A page someone is looking at never waits for a model. A live line is written in the background, so it can appear up to 30 seconds later than it was due.
+:::
 
 ## Approval, for Wizard of Oz studies
 
@@ -111,7 +115,7 @@ If nobody decides within the timeout, ten minutes unless you set one, the fallba
 
 Each call costs a little, and two limits apply. The study's `budgetUsd` is one, and the Christof card shows what's been spent against it. Your lab's Claude budget is the other. On hosted Truman a lab starts with a $5 starter budget, then uses its own key. See [Your lab on hosted Truman](/guide/your-lab).
 
-On the same card, **Pause all live writing** switches the whole study to fallback lines until you press **Resume live writing**. Under **Pause one person**, tick a cast member and only their beats use fallback lines. Beats keep happening on schedule either way.
+You can also stop live writing while a study runs. On the same card, **Pause all live writing** switches the whole study to fallback lines until you press **Resume live writing**. Under **Pause one person**, tick a cast member and only their beats use fallback lines. Beats keep happening on schedule either way.
 
 ## What's recorded
 

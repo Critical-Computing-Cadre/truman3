@@ -6,9 +6,11 @@ description: How to set the steps a participant goes through, write the consent 
 
 # Consent, surveys, and debriefing
 
-By the end of this page your study has a consent page with your own text, a debriefing page if you want one inside Truman, and an exit that hands each participant to your survey with their ID attached.
+This page covers everything around the feed: the consent page with your own text, a debriefing page if you want one inside Truman, and an exit that hands each participant to your survey with their ID attached.
 
 All of it is on one card. In the builder, press **Settings** and scroll to **Study flow**.
+
+![The Study flow card on the Settings page, with each step a participant goes through](/shots/flow.png)
 
 ## The steps
 
@@ -28,7 +30,7 @@ Press **Save changes** on the card when you're done.
 
 ## The consent page
 
-Under the **Consent** step is a box labelled **Page text**. A new study has placeholder text there. Replace it with the text your IRB approved. A `#` at the start of a line makes a heading, and `**bold**` makes bold text. Press **See it as participants will** to check it.
+Under the **Consent** step is a box labelled **Page text**. A new study has placeholder text there, which you replace with the text your IRB approved. A `#` at the start of a line makes a heading, and `**bold**` makes bold text. Press **See it as participants will** to check it.
 
 If you try to launch while the placeholder is still there, the Launch window warns you. You have to tick **This is only a test, so launch it anyway** to go on.
 
@@ -37,17 +39,17 @@ If you try to launch while the placeholder is still there, the Launch window war
 - **What someone sees after declining** is a short message. On Prolific, it should say to return their submission.
 - **Or send them to a link after declining** replaces the message with a redirect.
 
-**If consent happens in a survey before Truman,** people who don't agree should end there and never reach your site. Remove the **Consent** step.
+**If consent happens in a survey before Truman,** people who don't agree should end there and never reach your site. In that case, remove the **Consent** step.
 
 ## How long they stay in the feed
 
 The study's length in days is on the **Feed** card. Once it has passed, a participant still in the feed is moved on to the steps after it on their next visit, so they still get your debriefing and survey.
 
-To let people leave earlier, fill in **When someone may choose to finish (minutes)** on **The feed** step. Left blank, they stay until the study ends.
+To let people leave earlier, fill in **When someone may choose to finish (minutes)** on **The feed** step. If you leave it blank, they stay until the study ends.
 
 ## Debriefing
 
-Truman has no special debriefing step. You have two places to put one:
+Truman has no special debriefing step. Instead, you have two places to put one:
 
 - **Inside Truman:** add **A page of text**, move it after **The feed**, and write the debriefing in its **Page text** box. Everyone who gets past the feed sees it before the exit.
 - **In your survey:** put it at the end of the survey that the exit sends people to.
@@ -77,7 +79,11 @@ https://YOUR-ORG.qualtrics.com/jfe/form/SV_XXXX?PROLIFIC_PID={externalId}&USER_I
 | `{externalId}`    | Their recruitment ID, such as their Prolific ID             |
 | `{participantId}` | The ID in your Truman export, which isn't their Prolific ID |
 
-Include both. `USER_ID` is what you'll use to match survey answers to study data without handling Prolific IDs. Participants can see the names in the address bar, so keep them neutral if your study has a cover story.
+Include both. `USER_ID` is what you'll use to match survey answers to study data without handling Prolific IDs.
+
+::: tip Keep the names neutral
+Participants can see the names in the address bar, so keep them neutral if your study has a cover story.
+:::
 
 Press **Try this link with a test ID** under the field. It opens your survey the way a participant's link would, with a test ID filled in.
 
@@ -97,4 +103,4 @@ Make the survey your study URL in Prolific, save `PROLIFIC_PID` in it as embedde
 
 Survey tools and Prolific change, so test with their preview links before you launch. Go from the first link to the last with a made-up ID, then confirm it shows up in your survey data. Use a new ID each time, because finishing locks that ID out.
 
-Your survey data will now contain Prolific IDs. Remove that column before you share it.
+One last thing: your survey data will now contain Prolific IDs. Remove that column before you share it.

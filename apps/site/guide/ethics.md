@@ -6,11 +6,13 @@ description: What a researcher has to decide and justify when running a Truman s
 
 # Ethics
 
-By the end of this page you'll know which parts of a Truman study your ethics board will ask about, what the software does in each, and what's left to you.
+This page goes through the parts of a Truman study your ethics board will ask about. For each one, it says what the software does and what's left to you.
 
 Most Truman studies deceive participants on purpose. That's what makes the tool useful, and it's what your board will look at hardest. Truman doesn't decide whether your deception is justified. Your protocol does.
 
+::: tip For your ethics board
 If your board wants to know what the software does with participants and their data, send them [For IRBs](/irb). It's written for them.
+:::
 
 ## Deception
 
@@ -44,13 +46,13 @@ What goes in it is for you and your board. For a Truman study it usually needs t
 - whether any of the cast's words were written by an AI
 - how to withdraw their data
 
-People who leave partway never reach a debriefing page inside Truman. Plan how you'll reach them.
+People who leave partway never reach a debriefing page inside Truman, so plan how you'll reach them.
 
 ## Withdrawal
 
 A participant withdraws by contacting you. You then withdraw them on the Monitor page, and Truman deletes everything about them in that study, including what they wrote and uploaded. It keeps a note that a deletion happened and a scrambled form of their ID, so the same person can't re-enter. See [Your data](/guide/data).
 
-Participants can't withdraw themselves from inside the site, so your consent and debriefing pages need to say how to reach you. Deletion also can't reach data you've already downloaded. Remove the person from your own copies.
+Participants can't withdraw themselves from inside the site, so your consent and debriefing pages need to say how to reach you. Deletion also can't reach data you've already downloaded, so remove the person from your own copies.
 
 ## AI-written content
 
@@ -69,6 +71,8 @@ Usually each participant is alone with the cast, and nothing they write is seen 
 **What's left to you.** Consent that says other participants may be real. Someone watching while participants are active. A plan for what you'll do if a participant is targeted or discloses something serious. A debriefing that says who was real and who was the cast.
 
 ## Whose job is what
+
+To sum up, here's how the work divides.
 
 **Truman's job:**
 

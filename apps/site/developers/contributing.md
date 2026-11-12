@@ -6,7 +6,7 @@ description: How the Truman project works, the tests to run, the code rules, and
 
 # Contributing
 
-Truman is built to be followed and extended by people who weren't there when it was written, including students who join a lab later. The habits below exist for them.
+Thanks for thinking about contributing. Truman is built to be followed and extended by people who weren't there when it was written, including students who join a lab later. The habits on this page exist for them, and they're what we'll look for in a pull request.
 
 ## How the project works
 
@@ -19,7 +19,7 @@ Before you start, get the local setup from [Run your own Truman](/developers/run
 
 ## Checks and tests
 
-Run these before you open a pull request.
+Run these before you open a pull request. The first three need nothing running, so you can repeat them as you work.
 
 | Command                    | What it does                                                                                                   | Needs           |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------- |
@@ -32,7 +32,7 @@ Run these before you open a pull request.
 | `pnpm check:container`     | Builds the API's container image and checks it works                                                           | Docker          |
 | `pnpm study test <folder>` | Runs one study's `scenarios.yaml`                                                                              | Docker services |
 
-"Docker services" means the local Postgres and storage:
+"Docker services" means the local Postgres and storage, which you start with:
 
 ```
 docker compose up --detach --wait
@@ -40,10 +40,12 @@ docker compose up --detach --wait
 
 CI runs these checks and tests on each pull request. The example studies' scenarios run there as part of the integration tests. CI doesn't deploy.
 
-Two things about the tests catch people out:
+::: warning Two things about the tests that catch people out
 
 - Integration and browser tests connect to the database as `truman_app`, the limited login production uses. Something that only works as the database's owner fails there.
 - In CI, the browser tests are split across several jobs, each with its own database. A test file can't count on another having run first.
+
+:::
 
 ## Code rules
 
@@ -54,7 +56,7 @@ Two things about the tests catch people out:
 - **Relative imports include the `.ts` or `.tsx` extension.** Node runs the TypeScript directly ([ADR 1](https://github.com/Critical-Computing-Cadre/truman3/blob/main/docs/adr/0001-typescript-monorepo.md)), so TypeScript features that need compiling, such as `enum`, aren't allowed.
 - **Secrets go in `.env`,** which isn't committed. A new setting gets added to `.env.example`.
 
-A few more that come from how the system works:
+A few more come from how the system works:
 
 - **Participant routes ask the API's clock** and never call `new Date()` themselves. Scenario tests depend on it.
 - **Don't log IDs, tokens, or request bodies.** A log can't be cleaned when a participant withdraws. Use `describeError` when you log an error.
@@ -62,7 +64,9 @@ A few more that come from how the system works:
 
 ## Adding a feature
 
-A feature is one building block of a platform, such as likes or comments. A study turns features on or off by condition. Adding one touches these places, and `flagging` is a small one to copy.
+In Truman, a feature is one building block of a platform, such as likes or comments. A study turns features on or off by condition.
+
+Adding one touches the places below. If you'd like something to copy, `flagging` is a small one.
 
 | Part            | Where                                     | What to do                                                      |
 | --------------- | ----------------------------------------- | --------------------------------------------------------------- |
@@ -75,7 +79,7 @@ A feature is one building block of a platform, such as likes or comments. A stud
 
 Then add two tests: a component test that it disappears when off, and a server test that its route refuses when off.
 
-Some rules for features:
+There are a few rules for features to keep in mind:
 
 - A layout only arranges. If a layout has an `if` about what a feature does, that belongs in the feature.
 - Changing what a feature does means raising its version. Studies report the version they used.

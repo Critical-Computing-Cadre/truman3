@@ -6,7 +6,7 @@ description: How to script a study's moderation, including removals, labels, ans
 
 # Moderation
 
-By the end of this page your site has moderation that participants can watch and run into: a post taken down, a label over a comment, an answer when they flag something. All of it is scripted by you.
+This page shows you how to give your site moderation that participants can watch and run into: a post taken down, a label over a comment, an answer when they flag something. All of it is scripted by you.
 
 Nobody real moderates anything on Truman. You write what a moderator does and when, and it can differ between conditions. The one exception is a researcher taking something down during a shared world. See [Several real people together](/guide/shared-worlds).
 
@@ -16,7 +16,9 @@ Nobody real moderates anything on Truman. You write what a moderator does and wh
 
 **Decide who the moderator is.** A moderator is anyone in the cast, including an account named as automatic. On the **Cast** page, tick **Show a moderator tag on their name**.
 
-**Talk to your IRB.** Telling a real person they broke a rule is a deception. Raise it with your IRB and cover it in your debriefing.
+::: warning Talk to your IRB
+Telling a real person they broke a rule is a deception. Raise it with your IRB and cover it in your debriefing.
+:::
 
 ## The Moderation page
 
@@ -71,7 +73,7 @@ An answer naming a post comes first. So flagging one planted post can get it rem
 
 ### Answering when someone reports a person
 
-The same, for reports of an account. **What happens** is **Answer with a message** or **Ban them**. A ban from a report only applies for the person who reported.
+This works the same way, for reports of an account. **What happens** is **Answer with a message** or **Ban them**. A ban from a report only applies for the person who reported.
 
 ### Banning someone in the cast
 

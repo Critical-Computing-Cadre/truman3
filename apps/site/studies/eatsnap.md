@@ -6,13 +6,19 @@ description: A two-day study on a food-photo site, where the conditions differ i
 
 # EatSnap
 
-EatSnap.Love is a made-up photo site about food. It's the site the first Truman study ran on (DiFranzo et al., CHI '18), and it has been Truman's example study ever since.
+What do people do when someone is cruel to a stranger in their feed?
 
-This version was converted from the example that shipped with the previous Truman (`cornellsml/truman_2023`). Its settings reproduce how that version behaved. It is the classic demo, and it isn't the materials or the design of the 2018 paper.
+A participant joins EatSnap.Love, a made-up photo site about food, and finds it already busy: 76 people posting pictures of their meals, with likes and comments underneath. They can join in with photos of their own. Somewhere in that feed, someone is unkind to someone else, and which unkind comments turn up depends on the condition. The participant can scroll past, flag it, reply, or block the person who wrote it.
 
-## The question
+## Where it comes from
 
-What do people do when someone is cruel to a stranger in their feed? They can scroll past, flag it, reply, or block the person who wrote it.
+EatSnap.Love is the site the first Truman study ran on (DiFranzo et al., CHI '18), and it has been Truman's example study ever since.
+
+This version was converted from the example that shipped with the previous Truman (`cornellsml/truman_2023`). Its settings reproduce how that version behaved.
+
+::: info This isn't the 2018 study
+It is the classic demo. It isn't the materials or the design of the 2018 paper.
+:::
 
 ## What a participant sees and does
 
@@ -22,9 +28,11 @@ What do people do when someone is cruel to a stranger in their feed? They can sc
 4. They read the community rules. The rules ban spam, bullying, discrimination, and anything not safe for work, and ask them to flag what they see.
 5. They land in the feed.
 
-The feed looks like a photo app. It's newest first and reaches back 24 hours. A participant can post their own food photos, and like, comment on, and flag what they see. A new post of their own stays at the top for ten minutes.
+The feed looks like a photo app. It's newest first and reaches back 24 hours. A participant can post their own food photos, and like, comment on, and flag what they see. When they post something new, it stays at the top for ten minutes.
 
 ## The cast and the script
+
+The site feels lived-in because there's a lot of it:
 
 - **76 people,** each with a name, a face, and usually a bio and a hometown.
 - **284 posts,** every one a food photo with a caption.
@@ -38,7 +46,7 @@ Likes on the cast's posts are drawn from a list of small numbers in `study.yaml`
 
 ## The conditions
 
-There are five, and each participant has an equal chance of each. Almost all of the site is identical across them. What differs is which unkind comments appear.
+There are five, and each participant has an equal chance of each. Almost all of the site is identical across them. The only thing that differs is which unkind comments appear.
 
 | Condition      | What's added                                                                                 |
 | -------------- | -------------------------------------------------------------------------------------------- |
@@ -48,7 +56,9 @@ There are five, and each participant has an equal chance of each. Almost all of 
 | `ambig_flag`   | 2 comments in the same places, worded so they could be read either way                       |
 | `unambig_none` | 2 different, plainly cruel comments, both on the second day                                  |
 
+::: tip Rename the conditions if you build on this
 The condition names came over from the older version unchanged. If you build on this, rename them to something your methods section can use.
+:::
 
 ## What gets recorded
 
@@ -59,11 +69,11 @@ Truman records the same things for every study:
 - every like, comment, flag, block, and post, with its time
 - which condition they were in, and how they were assigned
 
-For this study the comparisons of interest are whether a participant flagged, replied to, or ignored the unkind comments in their condition. [Your data](/guide/data) describes the files you get.
+For this study, the comparisons of interest are whether a participant flagged, replied to, or ignored the unkind comments in their condition. [Your data](/guide/data) describes the files you get.
 
 ## How long it runs
 
-The study is set to two days. Participants come back with the same link and their Prolific ID. There's no password.
+The study is set to two days. Participants come back with the same link and their Prolific ID, so there's no password to remember.
 
 ## What it's good for
 
@@ -79,4 +89,4 @@ It's in the repository at `studies/examples/eatsnap`. Import it with:
 pnpm study import studies/examples/eatsnap
 ```
 
-[Studies as files](/developers/study-files) explains the folder. It has no scenario tests of its own.
+[Studies as files](/developers/study-files) explains the folder. This example has no scenario tests of its own.
