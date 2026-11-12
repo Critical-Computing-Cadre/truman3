@@ -1,5 +1,6 @@
 import { type FeedComment, type FeedPost, MAX_REPLY_DEPTH } from "@truman3/core";
 import type { CSSProperties } from "react";
+import { CommentIcon } from "../icons.tsx";
 import { useFeature } from "../platform.tsx";
 import type { PostActions } from "../post-props.ts";
 
@@ -34,15 +35,24 @@ export function CommentReplyButton({
 export function ReplyButton({
   actions,
   post,
+  look = "words",
 }: {
   actions?: PostActions | undefined;
   post: Pick<FeedPost, "locked" | "removed">;
+  /** The word, or a speech bubble beside it, as a layout chooses. */
+  look?: "words" | "both";
 }) {
   if (!useFeature("comments") || post.locked || post.removed) {
     return null;
   }
   return (
-    <button type="button" disabled={!actions} className="py-3" onClick={() => actions?.onReply()}>
+    <button
+      type="button"
+      disabled={!actions}
+      className={look === "both" ? "flex items-center justify-center gap-1.5 py-2" : "py-3"}
+      onClick={() => actions?.onReply()}
+    >
+      {look === "both" && <CommentIcon className="h-5 w-5" />}
       Reply
     </button>
   );

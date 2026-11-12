@@ -194,6 +194,13 @@ export const FEATURES = {
     version: 1,
     events: ["actor.muted", "actor.unmuted"],
   },
+  decor: {
+    name: "Menus and small print for show",
+    description:
+      "What a real site has around its posts: a search box, a longer menu, a place for messages, and small print such as Help and About. Most of it is only for show and does nothing when pressed, which makes the site look used and not built yesterday.",
+    version: 1,
+    events: [],
+  },
   ads: {
     name: "Ads",
     description:

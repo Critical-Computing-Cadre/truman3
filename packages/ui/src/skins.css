@@ -77,3 +77,32 @@
 :root[data-theme="dark"][data-layout="short-posts"] {
   --color-page: var(--color-white);
 }
+
+/*
+ * A microblog's dark is a deep navy and not black, as several are, which also keeps it from
+ * looking like the photo app beside it. The grays are turned around here the way the participant
+ * app's stylesheet turns them for every dark page, only in blue.
+ */
+:root[data-theme="dark"][data-layout="short-posts"] {
+  --color-white: #15202b;
+  --color-black: #ffffff;
+  --color-stone-50: #1b2836;
+  --color-stone-100: #101a24;
+  --color-stone-200: #2b3b4b;
+  --color-stone-300: #3a4c5e;
+  --color-stone-400: #5b7083;
+  --color-stone-500: #8899a6;
+  --color-stone-600: #a5b4c0;
+  --color-stone-700: #c4cfd8;
+  --color-stone-800: #dde5eb;
+  --color-stone-900: #eef3f6;
+  --color-stone-950: #f7f9fa;
+}
+
+/* A photo app's dark is close to black, so photos are the brightest thing on the page. */
+:root[data-theme="dark"][data-layout="photo"] {
+  --color-white: #0a0c0f;
+  --color-stone-50: #14171b;
+  --color-stone-100: #1c2025;
+  --color-stone-200: #262a30;
+}

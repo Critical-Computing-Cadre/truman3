@@ -104,6 +104,17 @@ describe("themeFor", () => {
     expect(themeFor(study("device"), "a")).toBe("device");
   });
 
+  it("starts as its kind of site does: dark for a photo app and a microblog", () => {
+    const of = (template: string) => settings({ platform: { style: "mixed", template } });
+    expect(themeFor(of("classic"), "a")).toBe("light");
+    expect(themeFor(of("forum"), "a")).toBe("light");
+    expect(themeFor(of("photo"), "a")).toBe("dark");
+    expect(themeFor(of("shortPosts"), "a")).toBe("dark");
+    expect(
+      themeFor(settings({ platform: { style: "mixed", template: "photo", theme: "light" } }), "a"),
+    ).toBe("light");
+  });
+
   it("can differ by condition", () => {
     expect(themeFor(study("light", "dark"), "b")).toBe("dark");
     expect(themeFor(study("light", "dark"), "a")).toBe("light");

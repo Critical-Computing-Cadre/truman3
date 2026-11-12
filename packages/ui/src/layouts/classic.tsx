@@ -68,28 +68,30 @@ function Comment({
         <Avatar seed={comment.author.username} url={comment.author.pictureUrl} size="h-8 w-8" />,
       )}
       <div className="min-w-0 flex-1">
-        {labels.covered ? (
-          <p className="text-sm">{author("font-semibold", comment.author.name)}</p>
-        ) : renderBody ? (
-          <div className="text-sm">
-            {author("font-semibold", comment.author.name)}
-            <ModeratorTag author={comment.author} />
-            <AuthorFlair author={comment.author} />
-            <KarmaBadge author={comment.author} />
-            {renderBody(comment.id, comment.body)}
-          </div>
-        ) : (
-          <p className="text-sm break-words whitespace-pre-wrap">
-            {author("mr-1 font-semibold", comment.author.name)}
-            <ModeratorTag author={comment.author} />
-            <AuthorFlair author={comment.author} />
-            <KarmaBadge author={comment.author} /> <PostText text={comment.body} />
-          </p>
-        )}
+        <div className="inline-block max-w-full rounded-2xl bg-stone-100 px-3 py-2">
+          {labels.covered ? (
+            <p className="text-sm">{author("font-semibold", comment.author.name)}</p>
+          ) : renderBody ? (
+            <div className="text-sm">
+              {author("font-semibold", comment.author.name)}
+              <ModeratorTag author={comment.author} />
+              <AuthorFlair author={comment.author} />
+              <KarmaBadge author={comment.author} />
+              {renderBody(comment.id, comment.body)}
+            </div>
+          ) : (
+            <p className="text-sm break-words whitespace-pre-wrap">
+              {author("block font-semibold hover:underline", comment.author.name)}
+              <ModeratorTag author={comment.author} />
+              <AuthorFlair author={comment.author} />
+              <KarmaBadge author={comment.author} /> <PostText text={comment.body} />
+            </p>
+          )}
+        </div>
         <RemovedNote item={comment} actions={actions} className="mt-1" />
         {labels.bar && <div className="mt-1">{labels.bar}</div>}
-        <p className="mt-0.5 flex gap-3 text-xs text-stone-500">
-          <span>{shortTime(comment.at)}</span>
+        <p className="mt-0.5 flex gap-3 px-3 text-xs font-semibold text-stone-500">
+          <span className="font-normal">{shortTime(comment.at)}</span>
           <CommentLikeButton comment={comment} actions={actions} />
           <VoteButtons item={comment} actions={actions} />
           <CommentReplyButton comment={comment} actions={actions} />
@@ -146,10 +148,30 @@ export function ClassicPost({
   const headerAuthor = (
     <>
       <Avatar seed={post.author.username} url={post.author.pictureUrl} />
-      <span className="truncate font-semibold hover:underline">{post.author.name}</span>
-      <ModeratorTag author={post.author} />
-      <AuthorFlair author={post.author} />
-      <KarmaBadge author={post.author} />
+      <span className="min-w-0">
+        <span className="flex items-center">
+          <span className="truncate font-semibold hover:underline">{post.author.name}</span>
+          <ModeratorTag author={post.author} />
+          <AuthorFlair author={post.author} />
+          <KarmaBadge author={post.author} />
+        </span>
+        {/* The time under the name, with a globe for "anyone can see this", as these sites show. */}
+        <span className="flex items-center gap-1 text-xs font-normal text-stone-500">
+          <time dateTime={post.at}>{shortTime(post.at)}</time>
+          <span aria-hidden="true">·</span>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="h-3 w-3"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3c3 3.3 3 14.7 0 18M12 3c-3 3.3-3 14.7 0 18" />
+          </svg>
+        </span>
+      </span>
     </>
   );
   const headerClass = "flex min-w-0 flex-1 items-center gap-3";
@@ -169,9 +191,6 @@ export function ClassicPost({
           <span className={headerClass}>{headerAuthor}</span>
         )}
         <PostBadges post={post} />
-        <time className="text-sm text-stone-500" dateTime={post.at}>
-          {shortTime(post.at)}
-        </time>
       </header>
       <WhoAndWhere post={post} className="-mt-1 px-3 pb-2 text-sm text-stone-600" />
 
@@ -188,16 +207,17 @@ export function ClassicPost({
         {labels.bar && <div className="mx-3 mb-2">{labels.bar}</div>}
         {!labels.covered && (
           <TagCover post={post} actions={actions} editing={Boolean(renderBody)}>
-            {wrapImage ? wrapImage(image) : image}
+            {/* What they wrote, then the picture, as a community feed has it. */}
             {renderBody ? (
-              <div className="p-3">{renderBody(post.id, post.body)}</div>
+              <div className="px-3 pb-3">{renderBody(post.id, post.body)}</div>
             ) : (
               post.body && (
-                <p className="p-3 break-words whitespace-pre-wrap">
+                <p className="px-3 pb-3 break-words whitespace-pre-wrap">
                   <PostText text={post.body} />
                 </p>
               )
             )}
+            {wrapImage ? wrapImage(image) : image}
             <PostLink post={post} actions={actions} />
             <PostPoll post={post} actions={actions} />
             <ContextNoteBox post={post} actions={actions} />
@@ -246,7 +266,7 @@ export function ClassicPost({
         quotesOn) && (
         <div className="mx-3 grid auto-cols-fr grid-flow-col border-t border-stone-200 py-1 text-sm font-medium text-stone-600 [&>button]:rounded-md [&>button:hover]:bg-stone-100">
           <PostLikeButton post={post} look="both" {...(actions ? { actions } : {})} />
-          <ReplyButton actions={actions} post={post} />
+          <ReplyButton actions={actions} post={post} look="both" />
           <VoteButtons item={post} actions={actions} className="py-2" />
           <RepostButton post={post} actions={actions} className="justify-center py-2" look="icon" />
           <ShareButton post={post} actions={actions} look="both" className="justify-center py-2" />

@@ -8,6 +8,7 @@ import {
   type FeatureKey,
   fillLinkTemplate,
   LAYOUT_ACCENTS,
+  LAYOUT_THEMES,
   type StudySettings,
   TEMPLATES,
   type TemplateDefinition,
@@ -344,10 +345,13 @@ function StudyForm({
       />
       <Choice
         legend="Light or dark?"
-        value={value.platform.theme ?? "light"}
+        value={
+          value.platform.theme ??
+          LAYOUT_THEMES[TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].layout]
+        }
         onChange={(theme) => set({ ...value, platform: { ...value.platform, theme } })}
         options={[
-          { value: "light", label: "Light", hint: "The same for everyone. Default." },
+          { value: "light", label: "Light", hint: "The same for everyone." },
           { value: "dark", label: "Dark", hint: "The same for everyone." },
           {
             value: "device",

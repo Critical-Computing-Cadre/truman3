@@ -74,12 +74,20 @@ The same card has:
 
 - **Name of the site**, which is what participants see as the name of the platform
 - **What kind of platform is this?** with **Mixed** (posts can have text, a photo, or both), **Photo** (every post needs a photo), or **Text** (posts can't have photos)
-- **Light or dark?**
+- **Light or dark?** Classic and Forum start light, and Photo and Short posts start dark. Either way it's the same for every participant, unless you choose **Whatever their device uses**.
 - **Main color**, for the site's name, links, and buttons. Each kind comes with its own: blue for Classic, pink for Photo, teal for Short posts, and orange for Forum. Pick another to match your logo, or to make two of your studies look like different sites.
 - **How do comment boxes appear?** with **Always open** or **After pressing Reply**
 - **The most a participant can write in a post or comment**. A short posts site might use 280.
 
 Press **Save changes** on the card when you're done.
+
+### Menus and small print for show
+
+A real site has more on the page than posts: a search box, a long menu, a place for messages in the corner, and small print such as About and Help. Each kind of site draws these the way that kind of platform does, so the study looks like a site people have been using.
+
+Most of it is only for show. It can be pressed, and nothing happens. Where your study really has the thing, the real one is used: the corner opens **Messages** if direct messages are on, the search box goes to a hashtag's page if hashtags are on, and the small print links your own terms and privacy pages.
+
+If your study measures where people click, or you'd rather have a plain page, untick **Menus and small print for show** under **What's on this platform?** Presses on these aren't recorded.
 
 A feature can also differ between conditions, so likes can be on in one condition and off in another. See [Conditions](/guide/conditions).
 

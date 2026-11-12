@@ -1,6 +1,16 @@
 export { Avatar } from "./Avatar.tsx";
 export { BrandName } from "./BrandName.tsx";
 export { CommentBox, CreatePostBar, PhotoIcon, ProfileCard } from "./Composers.tsx";
+export {
+  type Chrome,
+  ChromeProvider,
+  Decor,
+  MessagesDock,
+  SearchBox,
+  SmallPrint,
+  useChrome,
+  useDecor,
+} from "./chrome.tsx";
 export { FeedPostView } from "./FeedPostView.tsx";
 export { KarmaBadge } from "./features/karma.tsx";
 export { type TextLinks, TextLinksContext } from "./features/post-text.tsx";

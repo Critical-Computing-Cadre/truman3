@@ -402,7 +402,9 @@ export function StoriesRow({
       ? "bg-stone-300"
       : group.closeFriends
         ? "bg-green-500"
-        : "bg-gradient-to-tr from-amber-400 to-fuchsia-600";
+        : look === "cards"
+          ? "bg-accent-fill"
+          : "bg-gradient-to-tr from-amber-400 to-fuchsia-600";
   if (look === "cards") {
     return (
       <section aria-label="Stories" className="overflow-x-auto">

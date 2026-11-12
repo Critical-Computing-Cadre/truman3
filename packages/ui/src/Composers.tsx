@@ -1,5 +1,6 @@
 import type { FormEvent, KeyboardEvent, ReactNode, Ref } from "react";
 import { Avatar } from "./Avatar.tsx";
+import { Decor, useChrome, useDecor } from "./chrome.tsx";
 import { KarmaBadge } from "./features/karma.tsx";
 import { PenIcon, PlusIcon } from "./icons.tsx";
 import { usePlatform } from "./platform.tsx";
@@ -35,6 +36,8 @@ export function CreatePostBar({
   onOpen?: () => void;
 }) {
   const { layout } = usePlatform();
+  const decor = useDecor();
+  const first = useChrome()?.viewer?.name.split(" ")[0];
   // Whatever it looks like, it's one button with one name, so it reads the same aloud everywhere.
   const button = { type: "button", disabled: !onOpen, onClick: onOpen } as const;
   const name = "Create a post";
@@ -92,19 +95,47 @@ export function CreatePostBar({
           aria-label={name}
           className="min-w-0 flex-1 rounded-full bg-stone-100 px-4 py-2 text-left text-stone-500 hover:bg-stone-200"
         >
-          What's on your mind?
+          What's on your mind{first ? `, ${first}` : ""}?
         </button>
       </div>
-      {showPhoto && (
-        // Only for show. The window that opens is where a photo is added.
-        <div
-          aria-hidden="true"
-          className="mt-3 flex items-center gap-2 border-t border-stone-200 pt-2 text-sm font-medium text-stone-600"
-        >
-          <span className="text-repost">
-            <PhotoIcon className="h-5 w-5" />
-          </span>
-          Photo
+      {(showPhoto || decor) && (
+        <div className="mt-3 flex border-t border-stone-200 pt-2 text-sm font-semibold text-stone-600 [&>button]:flex [&>button]:flex-1 [&>button]:items-center [&>button]:justify-center [&>button]:gap-2 [&>button]:rounded-lg [&>button]:py-2 [&>button:hover]:bg-stone-100">
+          {decor && (
+            <Decor>
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="#f0445c">
+                <path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v2.500l5-3v11l-5-3V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              </svg>
+              Live video
+            </Decor>
+          )}
+          {showPhoto && (
+            // The window that opens is where a photo is added.
+            <button {...button} aria-label="Add a photo">
+              <span className="text-repost">
+                <PhotoIcon className="h-6 w-6" />
+              </span>
+              Photo
+            </button>
+          )}
+          {decor && (
+            <Decor>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="h-6 w-6"
+                fill="none"
+                stroke="#f5a623"
+                strokeWidth="2"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path
+                  d="M8 14.500a4.5 4.5 0 0 0 8 0M9 9.500h.01M15 9.500h.01"
+                  strokeLinecap="round"
+                />
+              </svg>
+              Feeling
+            </Decor>
+          )}
         </div>
       )}
     </div>

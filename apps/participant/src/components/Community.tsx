@@ -146,7 +146,9 @@ export function CommunitiesCard() {
   }
   return (
     <section aria-label="Communities" className={CARD}>
-      <h2 className="mb-2 font-semibold">Communities</h2>
+      <h2 className="mb-3 text-xs font-semibold tracking-wide text-stone-500 uppercase">
+        Communities
+      </h2>
       <ul className="space-y-3">
         {list.map((space) => (
           <li key={space.key} className="flex items-center gap-2">
