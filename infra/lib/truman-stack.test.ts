@@ -568,10 +568,14 @@ describe("production (ADR 73)", () => {
     production.hasResourceProperties("AWS::CertificateManager::Certificate", {
       DomainName: "app.truman-research.org",
       ValidationMethod: "DNS",
-      DomainValidationOptions: [{ HostedZoneId: "Z0760791OM9Y8AHGYNE6" }],
+      DomainValidationOptions: Match.arrayWith([
+        { DomainName: "app.truman-research.org", HostedZoneId: "Z0760791OM9Y8AHGYNE6" },
+      ]),
     });
     production.hasResourceProperties("AWS::CloudFront::Distribution", {
-      DistributionConfig: Match.objectLike({ Aliases: ["app.truman-research.org"] }),
+      DistributionConfig: Match.objectLike({
+        Aliases: ["app.truman-research.org", "clikbrite.com"],
+      }),
     });
     for (const type of ["A", "AAAA"]) {
       production.hasResourceProperties("AWS::Route53::RecordSet", {
@@ -580,6 +584,25 @@ describe("production (ADR 73)", () => {
         HostedZoneId: "Z0760791OM9Y8AHGYNE6",
       });
     }
+  });
+
+  it("runs studies at clikbrite.com unless they choose otherwise (ADR 74)", () => {
+    production.hasResourceProperties("AWS::CertificateManager::Certificate", {
+      SubjectAlternativeNames: ["clikbrite.com"],
+      DomainValidationOptions: Match.arrayWith([
+        { DomainName: "clikbrite.com", HostedZoneId: "Z033394513YLTT9F3EV6U" },
+      ]),
+    });
+    production.hasResourceProperties("AWS::ECS::TaskDefinition", {
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Environment: Match.arrayWith([
+            { Name: "PARTICIPANT_DOMAINS", Value: "clikbrite.com" },
+            { Name: "PARTICIPANT_DOMAIN_DEFAULT", Value: "clikbrite.com" },
+          ]),
+        }),
+      ]),
+    });
   });
 
   it("sends email from truman-research.org, adding its DKIM records to the zone itself", () => {

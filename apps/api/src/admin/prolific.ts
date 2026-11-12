@@ -308,6 +308,7 @@ export function createProlificRoutes({
   db,
   prolific: config,
   participantDomains = [],
+  participantDomainDefault,
 }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const secretKey = parseSecretKey(config?.secretKey);
@@ -655,11 +656,11 @@ export function createProlificRoutes({
         description: input.description,
         // The study's own address, if it has one, so Prolific sends people there (ADR 74).
         externalStudyUrl: entryUrl(
-          studyAddress(
-            access.study.participantDomain,
-            config.participantAppUrl,
+          studyAddress(access.study.participantDomain, {
+            participantAppUrl: config.participantAppUrl,
             participantDomains,
-          ),
+            participantDomainDefault,
+          }),
           access.study.slug,
           settings.entry.idParam,
         ),
