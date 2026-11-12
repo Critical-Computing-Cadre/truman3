@@ -231,7 +231,6 @@ Look up the Postgres code, and reproduce it locally, where errors log in full. W
 
 These are known gaps. Don't run real participants until they're closed.
 
-- **Several domains.** The apps work on any domain, and a stage can list them with a certificate, but `PARTICIPANT_APP_URL` is one address, so every study's link uses it. A study needs its own address setting.
 - **A restore checked on each stage.** [Restoring from a backup](restoring.md) says how. It's to be run on staging once `pnpm admin counts` is deployed there, and on production after its first deploy.
 - **CI that deploys.** Deploys are run by hand, with the diff read first.
 - **Before real participants on production:**

@@ -1,0 +1,106 @@
+---
+
+title: Your lab on hosted Truman
+description: How a lab applies for hosted Truman, what it can do while it waits, its limits, its people, and how Claude is paid for.
+---
+
+# Your lab on hosted Truman
+
+Hosted Truman is a Truman that's run for you. Your lab gets an account, and everyone in the lab builds and runs studies from the browser. This page covers getting in and what your lab gets.
+
+## Apply
+
+1. Go to [app.truman-research.org/admin](https://app.truman-research.org/admin/).
+2. Under the sign-in form, press **Apply for your lab**.
+3. Fill in the form:
+   - **Lab or group**
+   - **University or institution**
+   - **Lab or faculty web page**, which is optional and helps show who you are
+   - **What you'd like to study with Truman**, in a few sentences
+   - **Your name** and **Your email**. A university address gets you approved sooner.
+   - **Choose a password**, at least 12 characters
+4. Press **Apply**.
+
+You're signed in straight away, as the owner of your lab. You'll get an email saying the application arrived.
+
+## While you wait
+
+A person reads each application, so approval isn't instant. Until then a bar at the top of every page says your lab is waiting to be approved.
+
+While you wait, you can:
+
+- build studies
+- preview them at any time in the study
+- save versions and go through them as a test participant
+- run scenario tests and random simulated participants
+
+You can't launch a study, so no real participant can reach anything you build. Launching tells you why. You also can't use Claude yet, so live writing, rehearsing lines, personas, and agents wait for approval.
+
+When your lab is approved, its owners get an email with its limits.
+
+## Limits
+
+An approved lab starts with:
+
+| Limit                           | Starts at |
+| ------------------------------- | --------- |
+| New participants in any 30 days | 1,000     |
+| Studies open at once            | 10        |
+| Starter budget for Claude       | $5        |
+
+**New participants** counts people entering any of your lab's studies in the last 30 days. When you reach it, your studies take nobody new until the oldest of those entries is more than 30 days old. People already in a study can always come back. Test participants don't count.
+
+**Studies open at once** counts launched studies. Launching another is refused until you stop one.
+
+Whoever runs hosted Truman can raise any of these for your lab. If you're planning a study that needs more, ask before you recruit.
+
+## Teammates and roles
+
+Open **Your lab** in the bar at the top. It lists everyone on the lab and anyone you've invited.
+
+To add someone:
+
+1. Type their address under **Invite by email**.
+2. Choose a role under **As**.
+3. Press **Send invitation**. The link in the email works for 7 days. Press **Cancel invitation** to take it back.
+
+There are three roles:
+
+- **Owner:** everything, including who's on the team.
+- **Editor:** builds, launches, and exports studies.
+- **Viewer:** sees studies and results, changes nothing.
+
+Two things are kept for owners. Only an owner can include recruitment IDs in a data download, and only an owner can change the lab's Claude key. Viewers can't download data at all.
+
+Owners can change someone's role from the same list. Anyone who forgets their password can press **Forgot your password?** on the sign-in page and get a link by email, which works for an hour.
+
+## Claude, and who pays for it
+
+Four things in Truman call Claude, an AI model made by Anthropic:
+
+- cast members writing live (see [A cast that writes for itself](/guide/live-writing))
+- rehearsing lines for a beat
+- personas, where a model plays a participant (see [Testing a study](/guide/testing))
+- agents that draft parts of a study for you
+
+Each call costs a little. Your lab starts with a **$5 starter budget**, paid for by hosted Truman. It's a one-time amount, counted across all your studies. The **Claude** section of the **Your lab** page shows how much is spent.
+
+When the starter budget is gone, nothing breaks. Studies use the fixed lines they were written with until you add a key.
+
+To keep using Claude, an owner adds the lab's own key:
+
+1. Make a key in the Claude Console, under API keys.
+2. On **Your lab**, paste it under **Add your lab's Claude key**.
+3. Press **Save key**.
+
+From then on your lab pays Anthropic for what it uses, and the page shows what's been spent so far and in the last 30 days. The key is stored encrypted. Nobody can read it back, including you. **Remove key** takes it out again.
+
+## What the people running hosted Truman can see
+
+They see your application, your owners' names and emails, and counts: members, studies, open studies, participants, and what's been spent on Claude. They don't see what's in a study or anything a participant did.
+
+They can suspend a lab for abuse or a security problem. A suspended lab's studies close to participants at once. Its researchers can still sign in and export their data.
+
+## Where your participants go
+
+Studies on hosted Truman run at clikbrite.com by default, so the address bar doesn't say "research". See [Running a study](/guide/running).

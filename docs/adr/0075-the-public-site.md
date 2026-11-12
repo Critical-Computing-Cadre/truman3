@@ -24,6 +24,18 @@ The first design, a large heading over four screenshots, was "too corp". The one
   - The certificate and records are made through the truman-research.org zone.
 - **Fonts come from Google Fonts,** except Gill Sans, the logo's typeface, which is used where a visitor's computer has it, with Cabin as the fallback.
 
+## The other pages
+
+Added after the home page:
+- **Studies:** a page for each example study in `studies/examples`, by the question it answers.
+- **Guide:** for researchers, who mostly use the admin app in a browser. It covers building, testing, and running a study, the data, and ethics.
+- **Developers:** for people who run or extend Truman. It's an overview that links to the fuller docs in this repo, so those stay the one place for detail.
+- **For IRBs:** one page a researcher can send to an ethics board. It says what isn't finished, too.
+- **About:** history, papers, how to cite Truman, funding, and people.
+- **Plain-text copies for AI agents:** each build writes `llms.txt`, which lists every page, and `llms-full.txt`, with all of them in one file. They're made from the pages, so they can't fall behind.
+
+Pages other than the home page use VitePress's default theme, with Truman's colors and type (`.vitepress/theme`).
+
 ## Alternatives
 
 - **Screenshots of the four kinds of site.** They're accurate, but hard to tell apart at a glance, and they don't show what's special about Truman.
