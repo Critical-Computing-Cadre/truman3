@@ -9,9 +9,12 @@ import {
   type StackProps,
   Tags,
 } from "aws-cdk-lib";
+import * as budgets from "aws-cdk-lib/aws-budgets";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
+import * as alarmActions from "aws-cdk-lib/aws-cloudwatch-actions";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import { Platform } from "aws-cdk-lib/aws-ecr-assets";
 import * as ecs from "aws-cdk-lib/aws-ecs";
@@ -19,10 +22,13 @@ import * as elb from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as rds from "aws-cdk-lib/aws-rds";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import * as route53Targets from "aws-cdk-lib/aws-route53-targets";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as secrets from "aws-cdk-lib/aws-secretsmanager";
 import * as ses from "aws-cdk-lib/aws-ses";
+import * as sns from "aws-cdk-lib/aws-sns";
 import { IgnoreMode } from "aws-cdk-lib/core";
 import type { Construct } from "constructs";
 import type { Stage } from "./stages.ts";
@@ -148,7 +154,10 @@ export class TrumanStack extends Stack {
 
     const database = new rds.DatabaseInstance(this, "Database", {
       engine: rds.DatabaseInstanceEngine.postgres({ version: rds.PostgresEngineVersion.VER_18 }),
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO),
+      instanceType: ec2.InstanceType.of(
+        ec2.InstanceClass.T4G,
+        stage.databaseSize === "small" ? ec2.InstanceSize.SMALL : ec2.InstanceSize.MICRO,
+      ),
       vpc,
       vpcSubnets: privateSubnets,
       publiclyAccessible: false,
@@ -239,18 +248,31 @@ export class TrumanStack extends Stack {
       // Media shares an address with the apps, so browsers shouldn't guess at what a file is.
       responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
     };
+    // With a zone in this account, the stack makes the certificate and the records itself (ADR 73).
+    const zone =
+      stage.domains && "hostedZone" in stage.domains
+        ? route53.HostedZone.fromHostedZoneAttributes(this, "Zone", {
+            hostedZoneId: stage.domains.hostedZone.id,
+            zoneName: stage.domains.hostedZone.name,
+          })
+        : null;
+    const certificate = !stage.domains
+      ? null
+      : "certificateArn" in stage.domains
+        ? acm.Certificate.fromCertificateArn(this, "Certificate", stage.domains.certificateArn)
+        : new acm.Certificate(this, "Certificate", {
+            domainName: stage.domains.names[0],
+            subjectAlternativeNames: stage.domains.names.slice(1),
+            validation: acm.CertificateValidation.fromDns(zone as route53.IHostedZone),
+          });
     const distribution = new cloudfront.Distribution(this, "Edge", {
       comment: `Truman 3 ${stage.name}`,
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
-      ...(stage.domains
+      ...(stage.domains && certificate
         ? {
             domainNames: stage.domains.names,
             minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
-            certificate: acm.Certificate.fromCertificateArn(
-              this,
-              "Certificate",
-              stage.domains.certificateArn,
-            ),
+            certificate,
           }
         : {}),
       defaultBehavior: {
@@ -274,6 +296,19 @@ export class TrumanStack extends Stack {
       },
     });
     const address = `https://${stage.domains?.names[0] ?? distribution.distributionDomainName}`;
+    if (zone && stage.domains) {
+      for (const [index, name] of stage.domains.names.entries()) {
+        const target = route53.RecordTarget.fromAlias(
+          new route53Targets.CloudFrontTarget(distribution),
+        );
+        new route53.ARecord(this, `Address${index + 1}`, { zone, recordName: name, target });
+        new route53.AaaaRecord(this, `Address${index + 1}Ipv6`, {
+          zone,
+          recordName: name,
+          target,
+        });
+      }
+    }
 
     // What CloudFront can read of the media bucket: study images, and not what participants upload.
     mediaBucket.addToResourcePolicy(
@@ -412,7 +447,7 @@ export class TrumanStack extends Stack {
       protocol: elb.ApplicationProtocol.HTTP,
       open: false,
     });
-    listener.addTargets("Api", {
+    const apiTargets = listener.addTargets("Api", {
       port: API_PORT,
       protocol: elb.ApplicationProtocol.HTTP,
       targets: [service.loadBalancerTarget({ containerName: apiContainer.containerName })],
@@ -480,16 +515,131 @@ export class TrumanStack extends Stack {
 
     // Email to researchers (ADR 72). SES checks the domain through DKIM records, which go wherever
     // the domain's DNS is kept, so they're printed rather than made here.
+    // When the mail domain is the zone this stack has, it adds the records itself.
     if (stage.mail) {
+      const inZone = zone?.zoneName === stage.mail.domain;
       const mailDomain = new ses.EmailIdentity(this, "MailDomain", {
-        identity: ses.Identity.domain(stage.mail.domain),
+        identity:
+          inZone && zone
+            ? ses.Identity.publicHostedZone(zone)
+            : ses.Identity.domain(stage.mail.domain),
       });
       mailDomain.grantSendEmail(apiTask.taskRole);
-      mailDomain.dkimRecords.forEach((record, index) => {
+      (inZone ? [] : mailDomain.dkimRecords).forEach((record, index) => {
         new CfnOutput(this, `MailDkimRecord${index + 1}`, {
           value: `${record.name} CNAME ${record.value}`,
           description: `DKIM record ${index + 1} of ${mailDomain.dkimRecords.length} for ${stage.mail?.domain}. Add it as a CNAME where the domain's DNS is kept.`,
         });
+      });
+    }
+
+    // Alarms and a budget, sent to a topic whose subscribers are added by hand (ADR 73).
+    if (stage.alerts) {
+      const topic = new sns.Topic(this, "Alerts", {
+        topicName: `${prefix}-alerts`,
+        displayName: `Truman 3 ${stage.name}`,
+      });
+      topic.addToResourcePolicy(
+        new iam.PolicyStatement({
+          actions: ["sns:Publish"],
+          principals: [new iam.ServicePrincipal("budgets.amazonaws.com")],
+          resources: [topic.topicArn],
+        }),
+      );
+      const alarm = (
+        id: string,
+        description: string,
+        metric: cloudwatch.IMetric,
+        threshold: number,
+        comparisonOperator: cloudwatch.ComparisonOperator,
+        evaluationPeriods = 3,
+      ) => {
+        new cloudwatch.Alarm(this, id, {
+          alarmName: `${prefix}-${id}`,
+          alarmDescription: description,
+          metric,
+          threshold,
+          comparisonOperator,
+          evaluationPeriods,
+          treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+        }).addAlarmAction(new alarmActions.SnsAction(topic));
+      };
+      const fiveMinutes = { period: Duration.minutes(5) };
+      const above = cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD;
+      const below = cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD;
+      alarm(
+        "api-errors",
+        "The API answered with more than 10 server errors in 5 minutes.",
+        balancer.metrics.httpCodeTarget(elb.HttpCodeTarget.TARGET_5XX_COUNT, {
+          ...fiveMinutes,
+          statistic: "Sum",
+        }),
+        10,
+        above,
+        1,
+      );
+      alarm(
+        "api-slow",
+        "The slowest 5% of API requests took over a second, for 15 minutes.",
+        apiTargets.metrics.targetResponseTime({ ...fiveMinutes, statistic: "p95" }),
+        1,
+        above,
+      );
+      // Stopped on purpose for a database update, it has no healthy hosts, so this is left out then.
+      if (stage.apiTasks > 0) {
+        alarm(
+          "api-down",
+          "No API container has been healthy for 10 minutes.",
+          apiTargets.metrics.healthyHostCount({ ...fiveMinutes, statistic: "Maximum" }),
+          1,
+          below,
+          2,
+        );
+      }
+      alarm(
+        "api-busy",
+        "The API's CPU has been over 85% for 15 minutes.",
+        service.metricCpuUtilization(fiveMinutes),
+        85,
+        above,
+      );
+      alarm(
+        "database-busy",
+        "The database's CPU has been over 80% for 15 minutes.",
+        database.metricCPUUtilization(fiveMinutes),
+        80,
+        above,
+      );
+      alarm(
+        "database-full",
+        "The database has under 2 GB of space left.",
+        database.metricFreeStorageSpace(fiveMinutes),
+        2 * 1024 ** 3,
+        below,
+        1,
+      );
+      const notify = (notificationType: string, threshold: number) => ({
+        notification: {
+          notificationType,
+          comparisonOperator: "GREATER_THAN",
+          threshold,
+          thresholdType: "PERCENTAGE",
+        },
+        subscribers: [{ subscriptionType: "SNS", address: topic.topicArn }],
+      });
+      new budgets.CfnBudget(this, "Budget", {
+        budget: {
+          budgetName: `${prefix}-monthly`,
+          budgetType: "COST",
+          timeUnit: "MONTHLY",
+          budgetLimit: { amount: stage.alerts.monthlyBudgetUsd, unit: "USD" },
+        },
+        notificationsWithSubscribers: [notify("ACTUAL", 80), notify("FORECASTED", 100)],
+      });
+      new CfnOutput(this, "AlertsTopic", {
+        value: topic.topicArn,
+        description:
+          "Where alarms and the budget are sent. Subscribe your email with: aws sns subscribe --topic-arn <this> --protocol email --notification-endpoint <your email>",
       });
     }
 

@@ -251,7 +251,11 @@ ADR 23 lists running migrations automatically as the eventual aim, once CI deplo
 
 ## Staging and production
 
-The code has one switch for this: `holdsRealData` on a stage. Only `staging` is defined, with it off. The tests build a stage with it on, to check it, but no such stage exists yet.
+There are two stages, each in its own AWS account ([ADR 73](adr/0073-production-stage.md)):
+- **`staging`**, in `truman3-staging`: for trying things, with no real participants.
+- **`production`**, in `truman3-production`: for real participants, at `app.truman-research.org`.
+
+The code has one switch for what happens to data: `holdsRealData`, on for production.
 
 | With `holdsRealData`                          | Off (staging)                        | On                                                                                                   |
 | --------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
@@ -262,9 +266,20 @@ The code has one switch for this: `holdsRealData` on a stage. Only `staging` is 
 
 The apps bucket and the logs are deleted with the stack either way. They hold nothing that can't be made again.
 
-Other settings in `Stage` (zones, sizes, `apiTasks`, storage, backups, the Anthropic secret, and domains) are chosen per stage. Everything else in `truman-stack.ts` is the same for every stage, including the single-zone database and how long logs are kept.
+Other settings in `Stage` are chosen per stage:
+- zones, sizes, and `apiTasks`
+- storage and backups
+- the Anthropic secret
+- domains, email, hosting, and alerts
 
-**Before real participants,** [Deploying](guides/deploying.md#not-ready-yet) lists what's still missing: an address per study, a tested restore, and CI that deploys.
+Everything else in `truman-stack.ts` is the same for every stage, including the single-zone database and how long logs are kept.
+
+**Production's extras:**
+- **DNS:** truman-research.org's zone is in production, made by hand. The domain is registered in Social Design Lab's account, with its name servers pointing there. The stack adds `app.truman-research.org`, its certificate, and the email records. Staging's email records were added to the zone by hand.
+- **Alerts:** six alarms and a monthly budget go to the SNS topic `truman3-production-alerts`. Its email subscribers are added by hand, with the command in the `AlertsTopic` output.
+- **Restoring:** [Restoring from a backup](guides/restoring.md) checks a restore works, and says how to replace the database.
+
+**Before real participants,** [Deploying](guides/deploying.md#not-ready-yet) lists what's still missing.
 
 ## Removing it, and costing less
 

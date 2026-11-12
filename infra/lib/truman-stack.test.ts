@@ -516,3 +516,79 @@ describe("email to researchers (ADR 72)", () => {
     build(withoutMail).resourceCountIs("AWS::SES::EmailIdentity", 0);
   });
 });
+
+describe("production (ADR 73)", () => {
+  let production: Template;
+  beforeAll(() => {
+    production = build(STAGES.production as Stage);
+  });
+
+  it("is its own account, keeps real data, and keeps its backups for 30 days", () => {
+    expect(STAGES.production?.account).not.toBe(staging.account);
+    production.hasResourceProperties("AWS::RDS::DBInstance", {
+      DBInstanceClass: "db.t4g.small",
+      BackupRetentionPeriod: 30,
+      DeletionProtection: true,
+    });
+    production.hasResource("AWS::RDS::DBInstance", { DeletionPolicy: "Retain" });
+  });
+
+  it("answers at app.truman-research.org, with a certificate checked through its own zone", () => {
+    production.hasResourceProperties("AWS::CertificateManager::Certificate", {
+      DomainName: "app.truman-research.org",
+      ValidationMethod: "DNS",
+      DomainValidationOptions: [{ HostedZoneId: "Z0760791OM9Y8AHGYNE6" }],
+    });
+    production.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({ Aliases: ["app.truman-research.org"] }),
+    });
+    for (const type of ["A", "AAAA"]) {
+      production.hasResourceProperties("AWS::Route53::RecordSet", {
+        Name: "app.truman-research.org.",
+        Type: type,
+        HostedZoneId: "Z0760791OM9Y8AHGYNE6",
+      });
+    }
+  });
+
+  it("sends email from truman-research.org, adding its DKIM records to the zone itself", () => {
+    production.hasResourceProperties("AWS::SES::EmailIdentity", {
+      EmailIdentity: "truman-research.org",
+    });
+    const dkim = Object.values(production.findResources("AWS::Route53::RecordSet")).filter(
+      (record) => JSON.stringify(record).includes("DkimDNSTokenName"),
+    );
+    expect(dkim).toHaveLength(3);
+    expect(Object.keys(production.findOutputs("MailDkimRecord*"))).toEqual([]);
+  });
+
+  it("raises alarms and a budget to one topic, and staging has none", () => {
+    production.resourceCountIs("AWS::SNS::Topic", 1);
+    for (const name of [
+      "api-errors",
+      "api-slow",
+      "api-down",
+      "api-busy",
+      "database-busy",
+      "database-full",
+    ]) {
+      production.hasResourceProperties("AWS::CloudWatch::Alarm", {
+        AlarmName: `truman3-production-${name}`,
+        AlarmActions: [Match.anyValue()],
+      });
+    }
+    production.hasResourceProperties("AWS::Budgets::Budget", {
+      Budget: Match.objectLike({ BudgetLimit: { Amount: 150, Unit: "USD" } }),
+    });
+    template.resourceCountIs("AWS::CloudWatch::Alarm", 0);
+  });
+
+  it("leaves out the alarm for no healthy API while the API is stopped for a database update", () => {
+    const stopped = build({ ...(STAGES.production as Stage), apiTasks: 0 });
+    expect(
+      Object.values(stopped.findResources("AWS::CloudWatch::Alarm")).some((alarm) =>
+        JSON.stringify(alarm).includes("api-down"),
+      ),
+    ).toBe(false);
+  });
+});

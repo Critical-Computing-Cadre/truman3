@@ -36,8 +36,21 @@ export interface Stage {
    * wherever the domain's DNS is. Leave it out and no email is sent.
    */
   mail?: { domain: string; from: string };
-  /** Addresses other than the one CloudFront gives out. The certificate has to be in us-east-1. */
-  domains?: { names: [string, ...string[]]; certificateArn: string };
+  /**
+   * Addresses other than the one CloudFront gives out. Either a certificate made by hand, which
+   * has to be in us-east-1, or a Route 53 zone in this account, where the stack makes the
+   * certificate and the addresses' records itself (ADR 73).
+   */
+  domains?:
+    | { names: [string, ...string[]]; certificateArn: string }
+    | { names: [string, ...string[]]; hostedZone: { id: string; name: string } };
+  /** The database's size. A small one has twice the memory of a micro. Defaults to micro. */
+  databaseSize?: "micro" | "small";
+  /**
+   * Alarms, and a monthly budget, sent to an SNS topic the stack makes (ADR 73). Who gets them is
+   * subscribed by hand, so no one's email is in the repo.
+   */
+  alerts?: { monthlyBudgetUsd: number };
 }
 
 export const STAGES: Record<string, Stage> = {
@@ -63,5 +76,32 @@ export const STAGES: Record<string, Stage> = {
     },
     // Made by hand in this account and region. The key itself is never in the repo.
     anthropicKeySecret: "truman3-staging/anthropic-api-key",
+  },
+  // Real participants, so everything that holds their data is kept, even if the stack is removed.
+  // Its own account, apart from staging (ADR 73).
+  production: {
+    name: "production",
+    account: "935902555319",
+    region: "us-east-1",
+    holdsRealData: true,
+    // use1-az1 and use1-az2 in this account.
+    availabilityZones: ["us-east-1a", "us-east-1b"],
+    apiCpu: 1024,
+    apiMemoryMb: 2048,
+    apiTasks: 1,
+    databaseStorageGb: 20,
+    databaseSize: "small",
+    backupDays: 30,
+    // Made by hand in this account and region, before the first deploy.
+    anthropicKeySecret: "truman3-production/anthropic-api-key",
+    hosted: true,
+    mail: { domain: "truman-research.org", from: "Truman <no-reply@truman-research.org>" },
+    // The zone was made by hand, and the domain's name servers point to it. truman-research.org
+    // itself is kept for the public site.
+    domains: {
+      names: ["app.truman-research.org"],
+      hostedZone: { id: "Z0760791OM9Y8AHGYNE6", name: "truman-research.org" },
+    },
+    alerts: { monthlyBudgetUsd: 150 },
   },
 };
