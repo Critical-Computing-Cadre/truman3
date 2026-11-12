@@ -6,6 +6,7 @@ import type { StudySettings } from "./definition.ts";
 import { studySettingsSchema } from "./definition.ts";
 import { fillLinkTemplate } from "./links.ts";
 import {
+  accentFor,
   checkNewPost,
   commentBoxFor,
   featuresFor,
@@ -110,6 +111,36 @@ describe("themeFor", () => {
 
   it("takes nothing else", () => {
     expect(() => study("sepia")).toThrow();
+  });
+});
+
+describe("accentFor", () => {
+  const study = (accent?: string, armAccent?: string) =>
+    settings({
+      platform: { style: "photo", ...(accent ? { accent } : {}) },
+      conditions: {
+        assignment: { method: "uniform" },
+        arms: [
+          { key: "a" },
+          { key: "b", ...(armAccent ? { platform: { accent: armAccent } } : {}) },
+        ],
+      },
+    });
+
+  it("leaves the color to the kind of site unless the study picks one", () => {
+    expect(accentFor(study(), "a")).toBeNull();
+    expect(accentFor(study("#225588"), "a")).toBe("#225588");
+  });
+
+  it("can differ by condition", () => {
+    expect(accentFor(study("#225588", "#aa3300"), "b")).toBe("#aa3300");
+    expect(accentFor(study("#225588", "#aa3300"), "a")).toBe("#225588");
+  });
+
+  it("takes only a color written as #rrggbb, so nothing else can reach a page's styles", () => {
+    expect(() => study("red")).toThrow();
+    expect(() => study("#fff")).toThrow();
+    expect(() => study("#225588; background: url(x)")).toThrow();
   });
 });
 

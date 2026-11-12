@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet } from "@tanstack/react-router";
-import type { FeedWarning } from "@truman3/core";
+import { type FeedWarning, textOnAccent } from "@truman3/core";
 import {
+  BrandName,
   LinkIcon,
   PageBody,
   PageHeader,
@@ -18,7 +19,7 @@ import { flushTracking } from "../tracking.ts";
 
 const POLL_EVERY_MS = 30_000;
 
-/** Layouts whose sections show an icon before each word. */
+/** Layouts whose sections show an icon before each word. A forum draws its own (ForumHeader). */
 const ICON_LAYOUTS: string[] = ["photo", "short-posts", "classic"];
 
 /**
@@ -29,7 +30,7 @@ function withIcon(link: PageLink): PageLink {
   return {
     ...link,
     render: (className) => (
-      <span className="relative flex items-center">
+      <span className="relative flex items-center has-[[aria-current=page]]:font-bold has-[[aria-current=page]]:text-accent">
         <LinkIcon name={link.key} className="pointer-events-none absolute left-3 h-6 w-6" />
         {link.render(`${className} pl-12 after:absolute after:inset-0`)}
       </span>
@@ -37,7 +38,7 @@ function withIcon(link: PageLink): PageLink {
   };
 }
 
-const LINK = "font-medium text-sky-800 underline-offset-2 hover:underline";
+const LINK = "font-medium text-accent underline-offset-2 hover:underline";
 const TEXT_LINKS: TextLinks = {
   renderTag: (tag, children) => (
     <Link to="/tags/$tag" params={{ tag }} className={LINK}>
@@ -72,6 +73,32 @@ function useTheme(theme: FlowState["theme"]) {
       root.dataset.theme = "light";
     };
   }, [theme]);
+}
+
+/**
+ * Puts the platform's colors on the whole page, so the page behind posts takes them too, and so
+ * does a window that opens above everything.
+ */
+export function useSkin(
+  layout: FlowState["layout"] | undefined,
+  accent: FlowState["accent"] | undefined,
+) {
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!layout) {
+      return;
+    }
+    root.dataset.layout = layout;
+    if (accent) {
+      root.style.setProperty("--accent-base", accent);
+      root.style.setProperty("--color-on-accent", textOnAccent(accent));
+    }
+    return () => {
+      delete root.dataset.layout;
+      root.style.removeProperty("--accent-base");
+      root.style.removeProperty("--color-on-accent");
+    };
+  }, [layout, accent]);
 }
 
 /** The header and page around everything once someone's in the feed. */
@@ -227,7 +254,7 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
                   className="h-8 max-w-40 object-contain"
                 />
               ) : (
-                <span className="truncate">{flow.site.name}</span>
+                <BrandName name={flow.site.name} />
               )}
             </Link>
           )}
@@ -235,7 +262,8 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
             key: "home",
             label: "Home",
             render: (className) => (
-              <Link to="/" className={className}>
+              // Only on the feed itself, or it would be marked as where they are on every page.
+              <Link to="/" activeOptions={{ exact: true }} className={className}>
                 Home
               </Link>
             ),
@@ -247,7 +275,7 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
                 type="button"
                 onClick={() => finish.mutate()}
                 disabled={finish.isPending}
-                className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white"
+                className="rounded bg-accent-fill px-3 py-1.5 text-sm text-on-accent"
               >
                 Finish
               </button>

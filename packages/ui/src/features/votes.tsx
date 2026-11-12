@@ -1,4 +1,5 @@
 import type { FeedComment, FeedPost } from "@truman3/core";
+import { DownIcon, UpIcon } from "../icons.tsx";
 import { useFeature } from "../platform.tsx";
 import type { PostActions } from "../post-props.ts";
 
@@ -15,26 +16,33 @@ export function VoteButtons({
   if (!useFeature("votes")) {
     return null;
   }
-  const button = (value: "up" | "down", label: string, symbol: string) => (
+  const button = (value: "up" | "down", label: string) => (
     <button
       type="button"
       aria-label={label}
       aria-pressed={item.vote === value}
       disabled={!actions || Boolean(item.removed)}
-      className={`${item.vote === value ? "font-semibold text-sky-700" : ""} ${item.removed ? "opacity-40" : ""}`}
+      className={`${item.vote === value ? (value === "up" ? "text-vote-up" : "text-vote-down") : "hover:text-stone-900"} ${item.removed ? "opacity-40" : ""}`}
       onClick={() => actions?.onVote(item.id, item.vote === value ? null : value)}
     >
-      {symbol}
+      {value === "up" ? (
+        <UpIcon filled={item.vote === "up"} className="h-[1.15em] w-[1.15em]" />
+      ) : (
+        <DownIcon filled={item.vote === "down"} className="h-[1.15em] w-[1.15em]" />
+      )}
     </button>
   );
   return (
     <span className={`inline-flex items-center justify-center gap-1.5 ${className}`}>
-      {button("up", "Vote up", "\u25B2")}
-      <span data-testid="score">
+      {button("up", "Vote up")}
+      <span
+        data-testid="score"
+        className={`font-semibold tabular-nums ${item.vote === "up" ? "text-vote-up" : item.vote === "down" ? "text-vote-down" : ""}`}
+      >
         <span className="sr-only">Score </span>
         {item.ups - item.downs}
       </span>
-      {button("down", "Vote down", "\u25BC")}
+      {button("down", "Vote down")}
     </span>
   );
 }

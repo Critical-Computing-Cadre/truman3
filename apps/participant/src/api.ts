@@ -60,6 +60,7 @@ export interface FlowState {
   platformStyle: "photo" | "text" | "mixed";
   commentBox: "open" | "onReply";
   theme: "light" | "dark" | "device";
+  accent: string | null;
   sureButton: "goBack" | "postAnyway";
   layout: LayoutKey;
   features: FeatureSet;

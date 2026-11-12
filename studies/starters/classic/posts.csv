@@ -1,17 +1,32 @@
 id,actor,time,body,picture,likes
-c1,maya_r,-40:00,Made it up the lake trail before sunrise. Worth every step.,lake-trail.png,34
-c2,dev_patel,-36:30,"First loaf from the new starter! Crust came out better than I expected.",,12
-c3,grace_o,-30:00,Long shift done. Grateful for the coworkers who made it bearable.,,48
-c4,rosa_m,-27:15,Sunday dinner for twelve. Recipe in the comments if anyone wants it.,pasta.png,61
-c5,tom_h,-24:00,Nothing biting today but what a view.,hills-dawn.png,22
-c6,lina_k,-20:45,Does anyone know a good repair shop for espresso machines? Mine is making a terrible noise.,,5
-c7,sam_w,-18:00,City lights from the 30th floor.,city-night.png,77
-c8,ben_c,-15:30,Club 5K this Saturday. All paces welcome. Bring a friend!,,19
-c9,maya_r,-12:00,Trying to eat more greens this month. Day 4 and still going.,salad.png,26
-c10,grace_o,-9:20,"My daughter lost her first tooth today and asked if the tooth fairy takes cards.",,90
-c11,dev_patel,-6:00,Weekend trip to the coast. Already planning the next one.,beach.png,43
-c12,rosa_m,-3:30,Who else thinks pineapple belongs on pizza? Asking for a friend.,,15
-c13,sam_w,-1:00,Evening walk. The sky did all the work.,hills-dusk.png,38
-c14,lina_k,1:30,Found the repair shop. Machine is fixed and so is my mood.,,8
-c15,tom_h,4:00,Finally caught one! Pictures tomorrow when I get home.,,30
-c16,ben_c,8:00,Great turnout at the 5K. Thanks to everyone who came out.,,25
+c1,maya_r,-76:10,Farmers market haul. I went for eggs and came back with five kinds of apples and no eggs.,market-apples.jpg,47
+c2,dev_m,-73:30,First loaf from the new starter!! Crust came out way better than I expected. Crumb is a little tight but I'm not telling the bread that.,first-loaf.jpg,31
+c3,grace_o,-70:00,"Long shift done. Grateful for the coworkers who made it bearable. Going to sleep for 11 hours now, do not text me",,112
+c4,tom_h,-66:20,Does anybody know why the water was brown for a few minutes this morning? Ran it a while and it cleared up.,,6
+c5,rosa_m,-61:00,"Sunday dinner for twelve. Eggplant parm, two trays, and they still asked if there was more. Recipe in the comments if anyone wants it.",eggplant-parm.jpg,203
+c6,lina_k,-57:45,Does anyone know a good repair shop for espresso machines? Mine is making a terrible noise. Like a goose.,,5
+c7,andre_t,-54:00,"Potluck at the community center this Friday, 6pm. Sign up sheet is by the front desk. We have 4 desserts and zero main dishes so far, people.",,38
+c8,megan_d,-50:30,"Cheddar biscuits, test batch #2 for friday. They spread more than I wanted but they taste right",biscuits.jpg,64
+c9,ben_c,-47:00,"Club 5K this Saturday, 8am at the park pavilion. All paces welcome, walkers too. Bring a friend!",,19
+c10,owen_f,-44:15,"found a grey cat hanging around the bike racks behind the library. no collar, very friendly, very loud. anyone missing one??",,27
+c11,sam_w,-41:00,Got up early to shoot the sunrise and it was cloudy. So here is the consolation prize instead.,chai.jpg,58
+c12,grace_o,-37:20,My daughter lost her first tooth today and asked if the tooth fairy takes cards.,,341
+c13,tom_h,-34:00,First tomato of the year. My neighbor said they'd never ripen. Well.,tomato.jpg,96
+c14,linh_t,-30:30,Mom turned 70 today!! She said no fuss. We fussed.,birthday-cake.jpg,187
+c15,carol_b,-27:00,Reminder that the library book sale is this weekend. Paperbacks are 50 cents. I am not responsible for what happens to your shelves.,,22
+c16,maya_r,-24:10,Trying to eat more greens this month. Day 4 and still going. Chopping all this took longer than eating it,chopped-salad.jpg,26
+c17,sione_t,-21:00,"Grill's going. Come by if you're around, there's plenty",grill.jpg,73
+c18,rosa_m,-18:30,Who else thinks pineapple belongs on pizza? Asking for a friend.,,15
+c19,lina_k,-15:00,Whoever keeps leaving their dog's bags ON TOP of the bin instead of in it. Why. The lid opens.,,44
+c20,dev_m,-12:20,"Challah for the potluck. Second try at the braid, the first one looked like a shoelace",challah.jpg,88
+c21,owen_f,-9:40,"update on library cat: he belongs to the house on the corner, his name is Gus, and apparently he does this to everyone",,152
+c22,grace_o,-7:00,Roast chicken in a foil pan because I am not washing a roasting dish tonight.,roast-chicken.jpg,35
+c23,carol_b,-5:10,Made my mother's chocolate bundt for the potluck and it didn't even make it to Friday. Somebody in this house got into it.,bundt-cake.jpg,61
+c24,sam_w,-3:00,Evening walk down by the creek. Counted 3 herons and one guy fishing who did not want to chat.,,12
+c25,ben_c,-1:30,Post long run pancakes. Yes that is banana on top. No I will not be sharing.,pancakes.jpg,40
+c26,lina_k,1:30,Found the repair shop. Machine is fixed and so is my mood.,,8
+c27,tom_h,4:00,Farm stand out on the county road has corn already. Got a dozen. Finally.,corn.jpg,30
+c28,megan_d,9:00,"Funeral potatoes for tomorrow. Yes that's what they're called. No, nobody died.",potluck-potatoes.jpg,52
+c29,owen_f,14:00,ramen place by campus finally reopened. spicy miso. I've missed you,ramen.jpg,17
+c30,andre_t,26:00,"What a turnout last night. Thank you to everybody who cooked, carried tables and stayed to stack chairs. Same time next month?",,67
+c31,ben_c,30:00,Great turnout at the 5K. 41 people and 3 dogs. Thanks to everyone who came out.,,25

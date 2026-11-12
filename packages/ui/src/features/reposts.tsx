@@ -39,7 +39,7 @@ export function RepostButton({
         aria-label={post.reposted ? "Reposted" : "Repost"}
         aria-pressed={Boolean(post.reposted)}
         disabled={!actions?.onRepost}
-        className={`flex items-center gap-1 ${className} ${post.reposted ? "text-emerald-700" : ""}`}
+        className={`flex items-center gap-1 ${className} ${post.reposted ? "text-repost" : ""}`}
         onClick={() => actions?.onRepost?.(post.id, !post.reposted)}
       >
         <RepostIcon />
@@ -52,7 +52,7 @@ export function RepostButton({
       type="button"
       aria-pressed={Boolean(post.reposted)}
       disabled={!actions?.onRepost}
-      className={`${className} ${post.reposted ? "font-semibold text-emerald-700" : ""}`}
+      className={`${className} ${post.reposted ? "font-semibold text-repost" : ""}`}
       onClick={() => actions?.onRepost?.(post.id, !post.reposted)}
     >
       ⟲ {post.reposted ? "Reposted" : "Repost"}

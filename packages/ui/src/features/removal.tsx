@@ -44,7 +44,7 @@ export function Appeal({
       <button
         type="button"
         disabled={!text.trim()}
-        className="rounded bg-stone-900 px-3 py-1 text-white disabled:opacity-40"
+        className="rounded bg-accent-fill px-3 py-1 text-on-accent disabled:opacity-40"
         onClick={() => actions.onAppeal?.(id, text.trim())}
       >
         Send appeal

@@ -117,7 +117,7 @@ function OwnLists({
       type="button"
       aria-pressed={open === key}
       onClick={() => setOpen(open === key ? null : key)}
-      className={`rounded-full px-3 py-1 text-sm font-medium ${open === key ? "bg-stone-900 text-white" : "bg-stone-200 text-stone-700"}`}
+      className={`rounded-full px-3 py-1 text-sm font-medium ${open === key ? "bg-accent-fill text-on-accent" : "bg-stone-200 text-stone-700"}`}
     >
       {label}
     </button>
@@ -220,7 +220,7 @@ export function ProfilePage() {
             {actor.badge && (
               <p
                 data-testid="author-badge"
-                className="rounded bg-sky-100 px-2 py-0.5 text-xs text-sky-900"
+                className="rounded bg-accent-soft px-2 py-0.5 text-xs text-accent"
               >
                 {actor.badge}
               </p>
@@ -336,7 +336,7 @@ export function ProfilePage() {
             <button
               type="submit"
               disabled={!reason}
-              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              className="rounded bg-accent-fill px-3 py-1.5 text-sm text-on-accent disabled:opacity-40"
             >
               Submit
             </button>

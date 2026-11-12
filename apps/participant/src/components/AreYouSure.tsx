@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Written } from "../api.ts";
 import { flowQuery, post } from "../api.ts";
 
-const DARK = "rounded bg-stone-900 px-3 py-1.5 text-white";
+const DARK = "rounded bg-accent-fill px-3 py-1.5 text-on-accent";
 const LIGHT = "rounded border border-stone-400 px-3 py-1.5";
 
 /**

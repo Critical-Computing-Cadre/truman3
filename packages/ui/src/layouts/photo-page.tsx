@@ -22,7 +22,7 @@ export function PhotoHeader({ renderBrand, home, links, action }: PageHeaderProp
           <span key={key} className="contents">
             {/* Words only where the rail is wide enough for them, so they never spill onto posts. */}
             {render(
-              "flex min-h-12 items-center gap-4 rounded-lg px-3 py-3 text-[0px] font-medium hover:bg-stone-100 xl:text-base",
+              "flex min-h-12 items-center gap-4 rounded-full px-3 py-3 text-[0px] font-medium hover:bg-accent-soft xl:text-base",
             )}
             <span className="sr-only">{label}</span>
           </span>
@@ -62,11 +62,12 @@ function RailFeedFrame({
   top,
   children,
   width,
-}: FeedFrameProps & { width: string }) {
+  column,
+}: FeedFrameProps & { width: string; column: string }) {
   return (
     <div>
       <div className="mx-auto flex max-w-[64rem] justify-center gap-10">
-        <div className={`w-full ${width} min-w-0 space-y-3`}>
+        <div className={`w-full ${width} min-w-0 ${column}`}>
           {top}
           {children}
         </div>
@@ -86,10 +87,17 @@ export { LinkIcon };
 
 /** Stories across the top, then posts, with the viewer and suggestions to the right where there's room. */
 export function PhotoFeedFrame(props: FeedFrameProps) {
-  return <RailFeedFrame {...props} width="max-w-[29.5rem]" />;
+  return <RailFeedFrame {...props} width="max-w-[29.5rem]" column="space-y-3" />;
 }
 
 /** The same, with a wider column, for short posts. */
 export function ShortFeedFrame(props: FeedFrameProps) {
-  return <RailFeedFrame {...props} width="max-w-[37.5rem]" />;
+  // Posts run together between two hairlines, with nothing but a line between them.
+  return (
+    <RailFeedFrame
+      {...props}
+      width="max-w-[37.5rem]"
+      column="min-h-dvh border-stone-200 sm:-mt-4 sm:border-x"
+    />
+  );
 }

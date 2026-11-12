@@ -249,6 +249,7 @@ export interface PreviewInfo {
     platformStyle: string;
     commentBox: string;
     layout: LayoutKey;
+    accent: string | null;
     features: FeatureSet;
   }[];
   posts: { offsetMs: number; conditions: string[] }[];

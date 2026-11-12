@@ -111,7 +111,7 @@ export function PhotoPost({
     <article
       ref={rootRef}
       aria-label={`Post by ${post.author.name}`}
-      className="relative border-b border-stone-200 bg-white pb-3 sm:rounded-lg sm:border"
+      className="relative border-b border-stone-200 bg-white pb-4"
     >
       <RepostedBy post={post} />
       <FlaggedPostCover post={post} {...(actions ? { actions } : {})} />
@@ -134,8 +134,11 @@ export function PhotoPost({
           </span>
           <PostPlace post={post} className="truncate text-xs" />
         </span>
-        <PostBadges post={post} className="ml-auto" />
-        {more.collapsed ? more.toggle : null}
+        {/* Against the right edge, whether or not there's a badge beside it. */}
+        <span className="ml-auto flex items-center gap-2">
+          <PostBadges post={post} />
+          {more.collapsed ? more.toggle : null}
+        </span>
       </header>
       <RemovedNote item={post} actions={actions} className="mx-3 mb-2" />
       {labels.bar && <div className="mx-3 mb-2">{labels.bar}</div>}
@@ -173,9 +176,9 @@ export function PhotoPost({
           <ReplyButton actions={actions} post={post} />
         ) : null}
         <RepostButton post={post} actions={actions} look="icon" />
-        <ShareButton post={post} actions={actions} />
+        <ShareButton post={post} actions={actions} look="icon" />
         <span className="ml-auto">
-          <SaveButton post={post} actions={actions} />
+          <SaveButton post={post} actions={actions} look="icon" />
         </span>
         {!more.collapsed && (
           <span className="flex gap-3 text-sm text-stone-500">

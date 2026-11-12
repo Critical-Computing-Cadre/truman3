@@ -181,6 +181,7 @@ const previewInfoRoute = createRoute({
                 platformStyle: z.string(),
                 commentBox: z.string(),
                 layout: z.string(),
+                accent: z.string().nullable(),
                 features: z.record(z.string(), z.boolean()),
               }),
             ),

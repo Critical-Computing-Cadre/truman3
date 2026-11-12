@@ -8,6 +8,17 @@ export const LAYOUT_KEYS = ["classic", "forum", "short-posts", "photo"] as const
 
 export type LayoutKey = (typeof LAYOUT_KEYS)[number];
 
+/**
+ * The main color each layout comes with, which a study can change (ADR 76). The stylesheet that
+ * draws them (packages/ui/src/skins.css) has the same four, and a test keeps the two in step.
+ */
+export const LAYOUT_ACCENTS: Record<LayoutKey, string> = {
+  classic: "#1f5fcf",
+  photo: "#d02a6a",
+  "short-posts": "#0a7d85",
+  forum: "#c9470a",
+};
+
 export interface TemplateDefinition {
   name: string;
   description: string;

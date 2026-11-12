@@ -48,6 +48,8 @@ const flowStateSchema = z.object({
   platformStyle: z.enum(["photo", "text", "mixed"]),
   /** Light, dark, or whatever their device uses. */
   theme: z.enum(["light", "dark", "device"]),
+  /** The site's main color, or null for the one its kind of site comes with. */
+  accent: z.string().nullable(),
   /** Which button an "are you sure?" box makes dark. */
   sureButton: z.enum(["goBack", "postAnyway"]),
   /** Whether the comment box is always there, or appears on Reply. */

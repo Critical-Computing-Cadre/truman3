@@ -1,6 +1,50 @@
 id,postID,actor,time,body
-t1,s4,oldbookshop,-25:30,We have a whole shelf of staff picks. Stop by!
-t2,s4,leah,-25:00,Anything by Ursula K. Le Guin.
-t3,s9,jules,-16:00,Huge win!
-t4,s13,marcus,-5:30,Strongly agree.
-t5,s15,nora.writes,-1:40,Checking on this. Hold on.
+t1,s18,dannyoh,-51:30,15 minutes is a state of mind
+t2,s18,tess,-51:00,"I say ""leaving now"" from the shower"
+t3,s20,dannyoh,-48:00,character building
+t4,s20,pete,-47:40,I have enough character
+t5,s21,imani,-46:30,blocked
+t6,s21,jules,-46:00,I hate that I laughed
+t7,s22,gina,-44:30,"come by the bakery after your shift, I'll set something aside"
+t8,s22,tess,-44:00,gina you are an angel
+t9,s23,marcus,-42:30,putting this on a shirt
+t10,s23,mrbrenner,-42:00,The one on 3rd replaced a perfectly good theater in 1968.
+t11,s24,nora.writes,-40:30,"Walt, message me. I want to do a piece on this."
+t12,s24,mrbrenner,-40:00,FINALLY.
+t13,s26,marcus,-34:30,"the ""I'll just be a minute"" lights"
+t14,s26,erik,-34:00,Paint is not infrastructure. Curbs.
+t15,s27,imani,-32:30,pepper is the only account I trust
+t16,s2,marcus,-27:50,"I'll be there. Third row, annoying sign."
+t17,s3,mrbrenner,-27:00,"Source? Not doubting you, I'd like to read it."
+t18,s3,marcus,-26:40,"Fair ask. It varies, 10 to 25% in the studies I've read. 20 is the middle."
+t19,s4,oldbookshop,-25:30,We have a whole shelf of staff picks. Stop by!
+t20,s4,leah,-25:00,the one with the lighthouse on the cover. I can never remember the title. so good
+t21,s8,gina,-17:40,delivery truck didn't come. whole block is out
+t22,s8,leah,-17:20,so it's not just me. vindicated
+t23,s31,jules,-17:00,short kings. I'd eat six
+t24,s31,dannyoh,-16:50,a bagel is a bagel
+t25,s9,jules,-16:00,Huge win!
+t26,s9,erik,-15:50,About time.
+t27,s32,tess,-15:00,does this mean the 14 will actually show up
+t28,s32,marcus,-14:40,it means it'll show up and then MOVE
+t29,s33,erik,-14:30,And we tore them out. For parking.
+t30,s12,pepper,-9:30,walk??
+t31,s34,gina,-8:40,where
+t32,s34,dannyoh,-8:20,"the window by the bus depot. cash only, guy doesn't talk"
+t33,s13,erik,-5:40,Most buildings too.
+t34,s13,marcus,-5:30,Strongly agree.
+t35,s36,priya_codes,-4:40,the taxes feature is on the roadmap (it is not)
+t36,s37,luke,-2:40,it's good in a curry. still need onions tho
+t37,s15,marcus,-1:50,A YEAR? That can't be right. Where'd you hear this?
+t38,s15,nora.writes,-1:40,Checking on this. Hold on.
+t39,s15,leah,-1:30,someone at the bus stop... ok maybe not the best source
+t40,s16,leah,1:10,ok my bad. cancelling my panic
+t41,s16,tess,1:20,3 weeks I can survive
+t42,s39,imani,3:20,this is the most important job in the city right now
+t43,s39,dannyoh,3:30,a moose-sitter
+t44,s39,pepper,3:40,i could watch them
+t45,s39,gina,3:50,absolutely not pepper
+t46,s17,tess,5:20,and I'm on tonight. of course
+t47,s40,jules,6:50,same honestly
+t48,s41,oldbookshop,12:20,This is the correct response to a blackout.
+t49,s42,mrbrenner,20:20,Mine came back at 3am with every light in the house on.

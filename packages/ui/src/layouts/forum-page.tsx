@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LinkIcon } from "../icons.tsx";
 import type {
   FeedFrameProps,
   PageHeaderProps,
@@ -19,7 +20,9 @@ export function ForumHeader({ renderBrand, home, links, action }: PageHeaderProp
           {renderBrand("mr-auto flex min-w-0 items-center gap-2 text-lg font-bold")}
           {links.map(({ key, render }) => (
             <span key={key} className="hidden md:contents">
-              {render("rounded-full px-3 py-2 text-sm font-medium hover:bg-stone-100")}
+              {render(
+                "rounded-full px-3 py-2 text-sm font-medium hover:bg-stone-100 aria-[current=page]:bg-accent-soft aria-[current=page]:text-accent",
+              )}
             </span>
           ))}
           {action && <span className="ml-2 shrink-0">{action}</span>}
@@ -30,8 +33,14 @@ export function ForumHeader({ renderBrand, home, links, action }: PageHeaderProp
         className="fixed inset-x-0 bottom-0 z-20 flex border-t border-stone-200 bg-white md:hidden"
       >
         {tabs.map(({ key, render }) => (
-          <span key={key} className="contents">
-            {render("min-w-0 flex-1 truncate px-1 py-3 text-center text-xs font-medium")}
+          <span
+            key={key}
+            className="relative flex min-w-0 flex-1 flex-col items-center pt-2 text-stone-600 has-[[aria-current=page]]:text-accent"
+          >
+            <LinkIcon name={key} className="pointer-events-none h-5 w-5" />
+            {render(
+              "w-full truncate px-1 pt-0.5 pb-1.5 text-center text-[0.65rem] font-medium after:absolute after:inset-0",
+            )}
           </span>
         ))}
       </nav>

@@ -126,11 +126,11 @@ export function ConversationPage() {
           <li
             key={message.id}
             className={`max-w-[80%] rounded-2xl px-3 py-2 break-words ${
-              message.mine ? "self-end bg-sky-600 text-white" : "self-start bg-stone-100"
+              message.mine ? "self-end bg-accent-fill text-on-accent" : "self-start bg-stone-100"
             }`}
           >
             <p className="whitespace-pre-wrap">{message.body}</p>
-            <p className={`text-[0.7rem] ${message.mine ? "text-sky-100" : "text-stone-500"}`}>
+            <p className={`text-[0.7rem] ${message.mine ? "text-on-accent/80" : "text-stone-500"}`}>
               {shortTime(message.at)}
             </p>
           </li>
@@ -158,7 +158,7 @@ export function ConversationPage() {
         <button
           type="submit"
           disabled={!draft.trim() || send.isPending}
-          className="rounded-full bg-sky-600 px-4 py-2 text-white disabled:opacity-50"
+          className="rounded-full bg-accent-fill px-4 py-2 text-on-accent disabled:opacity-50"
         >
           Send
         </button>

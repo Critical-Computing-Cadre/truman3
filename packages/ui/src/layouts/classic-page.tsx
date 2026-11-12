@@ -8,14 +8,20 @@ import type {
 
 export function ClassicHeader({ renderBrand, links, action }: PageHeaderProps) {
   return (
-    <header className="sticky top-0 z-20 border-b border-stone-200 bg-white">
-      {/* Wraps on a phone, or a study's name would be squeezed out by the links beside it. */}
-      <nav className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2">
+    <header className="sticky top-0 z-20 bg-white shadow-sm">
+      <nav className="mx-auto flex h-14 max-w-6xl items-center gap-1 px-3">
         {renderBrand("mr-auto flex min-w-0 items-center gap-2 font-semibold")}
-        {links.map(({ key, render }) => (
-          <Fragment key={key}>{render("text-sm")}</Fragment>
+        {links.map(({ key, label, render }) => (
+          <Fragment key={key}>
+            {/* An icon alone on a phone, where the words wouldn't fit beside the name. */}
+            <span className="contents" title={label}>
+              {render(
+                "flex h-11 items-center rounded-lg pr-0 text-[0px] font-medium hover:bg-stone-100 md:pr-3 md:text-sm",
+              )}
+            </span>
+          </Fragment>
         ))}
-        {action}
+        {action && <span className="ml-2 shrink-0">{action}</span>}
       </nav>
     </header>
   );

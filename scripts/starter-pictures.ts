@@ -2,6 +2,10 @@
  * Draws the pictures the starter studies use (studies/starters), so they need no stock photos and
  * have no licence to track. Each is a simple scene: hills, a meal, a city, a beach. Run it again to
  * remake them: node scripts/starter-pictures.ts
+ *
+ * Since ADR 76 the starters use photos from the EatSnap example for nearly everything, and only a
+ * few of these are still used (two banners, a city at night, a community's banner). Running this
+ * writes all of them again, so delete the ones no starter names before committing.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";

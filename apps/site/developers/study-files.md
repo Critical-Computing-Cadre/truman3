@@ -58,21 +58,21 @@ flow:
   - { step: exit }
 ```
 
-A few of these are worth pointing out. `slug` is the study's address: participants join at `/join/<slug>`. `entry.idParam` is the query parameter that carries the recruitment ID. `flow` is the steps in order.
+A few of these are worth pointing out. `slug` is the study's address: participants join at `/join/<slug>`. `entry.idParam` is the query parameter that carries the recruitment ID. `flow` is the steps in order. `platform.template` is the kind of site, and `platform` can also carry `theme` (`light`, `dark`, or `device`) and `accent`, the site's main color as `#rrggbb`, for a study that doesn't want the color its kind comes with.
 
 Here are the first rows of its `posts.csv`:
 
 ```csv
 id,actor,time,body,picture,likes
-c1,maya_r,-40:00,Made it up the lake trail before sunrise. Worth every step.,lake-trail.png,34
-c2,dev_patel,-36:30,"First loaf from the new starter! Crust came out better than I expected.",,12
+c1,maya_r,-76:10,Farmers market haul. I went for eggs and came back with five kinds of apples and no eggs.,market-apples.jpg,47
+c2,dev_m,-73:30,First loaf from the new starter!! Crust came out way better than I expected. Crumb is a little tight but I'm not telling the bread that.,first-loaf.jpg,31
 ```
 
 And its `comments.csv`:
 
 ```csv
-id,postID,actor,time,body
-k1,c1,sam_w,-39:00,Beautiful! Which trailhead did you start from?
+id,postID,actor,time,body,likes
+k1,c1,lina_k,-75:40,the red ones on the left are from the stand by the bakery right? so good,2
 ```
 
 Beats look a little different, since they describe something happening. This one is from `studies/examples/bystander/beats.yaml`:

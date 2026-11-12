@@ -113,6 +113,12 @@ const commentBoxSchema = z.enum(["open", "onReply"]);
 /** Light, dark, or whatever the participant's device uses. */
 export const themeSchema = z.enum(["light", "dark", "device"]);
 
+/**
+ * The site's main color, as #rrggbb, for its name, links, and buttons. Each kind of site has its
+ * own unless a study says otherwise (ADR 76).
+ */
+export const accentSchema = z.string().regex(ACCENT_PATTERN, "A color like #1f5fcf");
+
 /** Which button an "are you sure?" box makes the dark one, the one it nudges people toward. */
 export const sureButtonSchema = z.enum(["goBack", "postAnyway"]);
 
@@ -136,6 +142,8 @@ const armSchema = z.strictObject({
       commentBox: commentBoxSchema.optional(),
       /** Light unless a study says otherwise, so what people see doesn't vary by device. */
       theme: themeSchema.optional(),
+      /** The site's main color. Leave out for the one its kind of site comes with. */
+      accent: accentSchema.optional(),
       /** "Go back and edit" unless a study says otherwise. */
       sureButton: sureButtonSchema.optional(),
       features: featureChangesSchema.optional(),
@@ -227,6 +235,8 @@ export const studySettingsSchema = z.strictObject({
       commentBox: commentBoxSchema.optional(),
       /** Light unless a study says otherwise, so what people see doesn't vary by device. */
       theme: themeSchema.optional(),
+      /** The site's main color. Leave out for the one its kind of site comes with. */
+      accent: accentSchema.optional(),
       /** Which button an "are you sure?" box makes dark. "Go back and edit" unless a study says. */
       sureButton: sureButtonSchema.optional(),
       /** The starting point for this platform. Leave out for Classic. */

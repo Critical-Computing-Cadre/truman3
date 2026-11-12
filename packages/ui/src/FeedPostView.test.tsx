@@ -50,7 +50,7 @@ describe("FeedPostView", () => {
     expect(screen.getByText("A post")).toBeTruthy();
     expect(screen.getByText("2h")).toBeTruthy();
     // Classic counts likes above its buttons, as a community feed does.
-    expect(screen.getByText("♥ 3")).toBeTruthy();
+    expect(screen.getByTestId("like-count").textContent).toBe("3 likes");
     // The post's Like button comes first; each comment has its own.
     expect(screen.getAllByRole("button", { name: "Like" })[0]).toBeTruthy();
     expect(screen.getByText("A comment")).toBeTruthy();

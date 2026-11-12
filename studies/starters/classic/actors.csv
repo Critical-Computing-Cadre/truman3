@@ -1,9 +1,15 @@
-username,name,bio,location
-maya_r,Maya Reyes,Teacher. Weekend hiker. Too many houseplants.,"Denver, Colorado"
-dev_patel,Dev Patel,Software by day. Bread baker by night.,"Austin, Texas"
-grace_o,Grace Okafor,Nurse and mom of two,"Columbus, Ohio"
-tom_h,Tom Hughes,Retired. Fishing whenever I can.,"Duluth, Minnesota"
-lina_k,Lina Kowalski,Coffee first.,"Chicago, Illinois"
-sam_w,Sam Wu,Photography and long walks,"Seattle, Washington"
-rosa_m,Rosa Martinez,Cooking for a crowd since 1998,"San Antonio, Texas"
-ben_c,Ben Carter,Running club captain,"Portland, Maine"
+username,name,bio,location,picture
+maya_r,Maya Reyes,3rd grade teacher. Weekend hiker. Too many houseplants (no such thing).,Alder Creek,maya_r.jpg
+dev_m,Dev Mehta,Software by day. Bread baker by night.,Alder Creek,dev_m.jpg
+grace_o,Grace Okafor,Nurse (nights). Mom of two. Tired.,Alder Creek,grace_o.jpg
+tom_h,Tom Hughes,Retired. Fishing whenever I can. Tomatoes.,"Alder Creek, river side",tom_h.jpg
+lina_k,Lina Kowalski,Coffee first.,Alder Creek,lina_k.jpg
+sam_w,Sam Wu,Photography and long walks,Alder Creek,sam_w.jpg
+rosa_m,Rosa Martinez,Cooking for a crowd since 1998,Alder Creek,rosa_m.jpg
+ben_c,Ben Carter,Running club captain. Slow is a pace.,Alder Creek,ben_c.jpg
+andre_t,Andre Thompson,Community center board. Deacon. Grandpa x3.,Alder Creek,andre_t.jpg
+carol_b,Carol Brennan,Library volunteer. I will find you a book.,Alder Creek,carol_b.jpg
+linh_t,Linh Tran,"designer, daughter, professional snacker",Alder Creek,linh_t.jpg
+owen_f,Owen Fisher,junior at the college. I basically live at the library,Alder Creek,owen_f.jpg
+megan_d,Megan Doyle,"If the oven's on, I'm happy",Alder Creek,megan_d.jpg
+sione_t,Sione Tuala,Bartender. Rugby on weekends. Uncle to everybody's kids.,"Alder Creek, Mill St",sione_t.jpg

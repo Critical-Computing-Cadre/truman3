@@ -157,7 +157,7 @@ export function ForumPost({
     <article
       ref={rootRef}
       aria-label={post.title ?? `Post by ${post.author.name}`}
-      className="overflow-hidden border-b border-stone-200 bg-white sm:rounded-2xl sm:border"
+      className="overflow-hidden border-b border-stone-200 bg-white hover:border-stone-300 sm:rounded-xl sm:border"
     >
       <RepostedBy post={post} />
       <div className="relative">
@@ -215,7 +215,9 @@ export function ForumPost({
         )}
         {renderNote && <div className="px-4 pt-1 empty:hidden">{renderNote(post.id)}</div>}
         <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
-          <div className={PILL}>
+          <div
+            className={`${PILL} ${post.vote === "up" ? "!bg-vote-up/12" : post.vote === "down" ? "!bg-vote-down/12" : ""}`}
+          >
             <VoteButtons item={post} actions={actions} />
           </div>
           <div className={PILL}>

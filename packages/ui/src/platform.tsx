@@ -4,12 +4,39 @@ import {
   type FeatureSet,
   type LayoutKey,
   TEMPLATES,
+  textOnAccent,
 } from "@truman3/core";
-import { createContext, type ReactNode, useContext, useSyncExternalStore } from "react";
+import {
+  type CSSProperties,
+  createContext,
+  type ReactNode,
+  useContext,
+  useSyncExternalStore,
+} from "react";
 
 export interface PlatformChoices {
   layout: LayoutKey;
   features: FeatureSet;
+  /** The study's own main color, as #rrggbb. Without one, the layout's. */
+  accent?: string | null | undefined;
+}
+
+/**
+ * What to put on an element so everything inside takes a platform's colors (skins.css). The study's
+ * own color goes on the same element as the layout's name, where the rest is worked out from it.
+ */
+export function skinProps(platform: Pick<PlatformChoices, "layout" | "accent">) {
+  return {
+    "data-layout": platform.layout,
+    ...(platform.accent
+      ? {
+          style: {
+            "--accent-base": platform.accent,
+            "--color-on-accent": textOnAccent(platform.accent),
+          } as CSSProperties,
+        }
+      : {}),
+  };
 }
 
 const PlatformContext = createContext<PlatformChoices>(TEMPLATES[DEFAULT_TEMPLATE]);
@@ -23,7 +50,12 @@ export function PlatformProvider({
   children: ReactNode;
 }) {
   return platform ? (
-    <PlatformContext.Provider value={platform}>{children}</PlatformContext.Provider>
+    <PlatformContext.Provider value={platform}>
+      {/* Takes up no room of its own. It's only there to carry the platform's colors. */}
+      <div className="contents" {...skinProps(platform)}>
+        {children}
+      </div>
+    </PlatformContext.Provider>
   ) : (
     children
   );

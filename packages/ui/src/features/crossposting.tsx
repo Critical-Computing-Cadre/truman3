@@ -56,7 +56,7 @@ export function CrosspostOriginal({
           {original.body}
         </p>
       )}
-      {original.linkDomain && <p className="text-xs text-sky-800">{original.linkDomain}</p>}
+      {original.linkDomain && <p className="text-xs text-accent">{original.linkDomain}</p>}
       {original.imageUrl && (
         <img
           src={original.imageUrl}

@@ -35,6 +35,12 @@ export function themeFor(
   return arm?.platform?.theme ?? settings.platform.theme ?? "light";
 }
 
+/** The site's main color in a condition, or null for the one its kind of site comes with. */
+export function accentFor(settings: StudySettings, conditionKey: string): string | null {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  return arm?.platform?.accent ?? settings.platform.accent ?? null;
+}
+
 /** How the comment box appears in a condition. */
 export function commentBoxFor(settings: StudySettings, conditionKey: string): CommentBox {
   const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
@@ -147,6 +153,7 @@ export function platformFor(settings: StudySettings, conditionKey: string) {
     platformStyle: platformStyleFor(settings, conditionKey),
     commentBox: commentBoxFor(settings, conditionKey),
     theme: themeFor(settings, conditionKey),
+    accent: accentFor(settings, conditionKey),
     sureButton: sureButtonFor(settings, conditionKey),
     canJoinSpaces: canJoinSpacesFor(settings, conditionKey),
     canSort: canSortFor(settings, conditionKey),

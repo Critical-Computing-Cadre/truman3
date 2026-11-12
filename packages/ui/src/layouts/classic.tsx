@@ -34,6 +34,7 @@ import { QuoteButton, QuotedPost, RepostButton, RepostedBy } from "../features/r
 import { ModeratorTag, SpaceLine } from "../features/spaces.tsx";
 import { PostTitle } from "../features/titles.tsx";
 import { VoteButtons } from "../features/votes.tsx";
+import { ThumbIcon } from "../icons.tsx";
 import { useFeature } from "../platform.tsx";
 import type { FeedPostViewProps } from "../post-props.ts";
 import { shortTime } from "../time.ts";
@@ -145,7 +146,7 @@ export function ClassicPost({
   const headerAuthor = (
     <>
       <Avatar seed={post.author.username} url={post.author.pictureUrl} />
-      <span className="truncate font-semibold">{post.author.name}</span>
+      <span className="truncate font-semibold hover:underline">{post.author.name}</span>
       <ModeratorTag author={post.author} />
       <AuthorFlair author={post.author} />
       <KarmaBadge author={post.author} />
@@ -157,7 +158,7 @@ export function ClassicPost({
     <article
       ref={rootRef}
       aria-label={`Post by ${post.author.name}`}
-      className="overflow-hidden border-y border-stone-200 bg-white sm:rounded-xl sm:border"
+      className="overflow-hidden bg-white shadow-sm sm:rounded-lg"
     >
       <RepostedBy post={post} />
       <SpaceLine post={post} renderSpace={renderSpace} />
@@ -214,7 +215,20 @@ export function ClassicPost({
       {/* A count of reactions and comments above the buttons, as on a community feed. */}
       {(post.likes > 0 || post.commentCount > 0) && (likesOn || commentsOn) && (
         <div className="flex items-center justify-between px-3 pb-2 text-sm text-stone-500">
-          <span>{likesOn && post.likes > 0 ? `♥ ${post.likes.toLocaleString("en-US")}` : ""}</span>
+          <span data-testid="like-count" className="flex items-center gap-1.5">
+            {likesOn && post.likes > 0 && (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="flex h-[1.15rem] w-[1.15rem] items-center justify-center rounded-full bg-accent-fill text-on-accent"
+                >
+                  <ThumbIcon filled className="h-2.5 w-2.5" />
+                </span>
+                {post.likes.toLocaleString("en-US")}
+                <span className="sr-only"> likes</span>
+              </>
+            )}
+          </span>
           {!detail && commentsOn && post.commentCount > 0 && (
             <CommentsLink post={post} {...(renderPostLink ? { renderPostLink } : {})} />
           )}
@@ -230,7 +244,7 @@ export function ClassicPost({
         crosspostingOn ||
         repostsOn ||
         quotesOn) && (
-        <div className="mx-3 grid auto-cols-fr grid-flow-col border-t border-stone-200 text-sm font-medium text-stone-600">
+        <div className="mx-3 grid auto-cols-fr grid-flow-col border-t border-stone-200 py-1 text-sm font-medium text-stone-600 [&>button]:rounded-md [&>button:hover]:bg-stone-100">
           <PostLikeButton post={post} look="both" {...(actions ? { actions } : {})} />
           <ReplyButton actions={actions} post={post} />
           <VoteButtons item={post} actions={actions} className="py-2" />

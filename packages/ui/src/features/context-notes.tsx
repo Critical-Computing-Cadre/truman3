@@ -30,9 +30,9 @@ export function ContextNoteBox({
     <section
       aria-label="Added context"
       data-testid="context-note"
-      className="mx-3 mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm"
+      className="mx-3 mt-2 rounded-lg border border-accent/25 bg-accent-soft px-3 py-2 text-sm"
     >
-      <p className="text-xs font-semibold text-sky-900">Readers added context</p>
+      <p className="text-xs font-semibold text-accent">Readers added context</p>
       <p className="break-words whitespace-pre-wrap">{body}</p>
       <p className="mt-1 flex gap-3 text-xs text-stone-600">
         {button("helpful", "Helpful", helpful)}

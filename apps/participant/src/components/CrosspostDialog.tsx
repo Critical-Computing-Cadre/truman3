@@ -126,7 +126,7 @@ export function CrosspostDialog({
             <button
               type="submit"
               disabled={create.isPending || !spaceKey}
-              className="rounded bg-stone-900 px-4 py-2 text-sm text-white disabled:opacity-40"
+              className="rounded bg-accent-fill px-4 py-2 text-sm text-on-accent disabled:opacity-40"
             >
               Crosspost
             </button>

@@ -71,8 +71,12 @@ test("a researcher changes settings, and a new participant gets them", async ({
   await page.reload();
   await expect(conditions.getByLabel("People in a world")).toHaveCount(0);
 
-  // Comment boxes, for the whole study.
+  // Comment boxes, for the whole study, and a main color of its own in place of Classic's blue.
   await study.getByLabel(/^After pressing Reply/).check();
+  await study.getByLabel("Main color").fill("#2f7d32");
+  await expect(
+    study.getByRole("button", { name: "Use this kind of site's own color" }),
+  ).toBeVisible();
   await study.getByRole("button", { name: "Save changes" }).click();
   await expect(study.getByRole("button", { name: "Save changes" })).toBeDisabled();
 
@@ -118,6 +122,12 @@ test("a researcher changes settings, and a new participant gets them", async ({
     `http://localhost:${APP_PORT}/join/eatsnap?PROLIFIC_PID=SETTINGS-${stamp}`,
   );
   await expect(participant.getByRole("heading", { name: `Edited consent ${stamp}` })).toBeVisible();
+  // The study's color is there from the first page, on a button as well as in the page's settings.
+  await expect(participant.locator("html")).toHaveAttribute("data-layout", "classic");
+  await expect(participant.getByRole("button", { name: "I agree" })).toHaveCSS(
+    "background-color",
+    "rgb(47, 125, 50)",
+  );
   await participant.getByRole("button", { name: "I agree" }).click();
   await participant.getByLabel("Username").fill(`settings_${stamp % 100000}`);
   await participant.getByLabel("Name", { exact: true }).fill("Settings");
