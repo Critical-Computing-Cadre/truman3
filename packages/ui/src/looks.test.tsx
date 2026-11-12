@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { LAYOUT_KEYS, type LayoutKey, TEMPLATES } from "@truman3/core";
 import { afterEach, describe, expect, it } from "vitest";
 import { BrandName } from "./BrandName.tsx";
@@ -92,6 +92,12 @@ describe("what makes each kind of site look like itself", () => {
     expect(screen.getByRole("button", { name: "Create a post" }).textContent).toContain("Ann");
     expect(screen.getByText("Live video").closest("button")?.hasAttribute("data-decor")).toBe(true);
     expect(screen.getByText("About").hasAttribute("data-decor")).toBe(true);
+    // Pressing one says it isn't there, so nobody wonders whether their press was noticed.
+    expect(screen.getByRole("status").textContent).toBe("");
+    fireEvent.click(screen.getByText("Live video"));
+    expect(screen.getByRole("status").textContent).toBe(
+      "Live video isn't available right now. Please try again later.",
+    );
     // The study's own pages are real links among them.
     expect(screen.getByRole("link", { name: "Terms" })).toBeTruthy();
     expect(screen.getByText(/Commons © \d{4}/)).toBeTruthy();

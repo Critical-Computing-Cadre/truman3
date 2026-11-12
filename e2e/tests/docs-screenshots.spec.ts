@@ -131,6 +131,34 @@ test("takes the guide's pictures", async ({ page, browser }, testInfo) => {
     await wide.goto((await link.getAttribute("href")) as string);
     await reachFeed(wide);
     await wide.screenshot({ path: shot(`kind-${kind.file}-wide`) });
+    // The pages beyond the feed, to look over. They aren't used on the site, so they stay with the
+    // test's own output.
+    const origin = new URL(wide.url()).origin;
+    // A kind without a page for each post has no such link, and waiting for one would never end.
+    const first = async (selector: string) => {
+      const links = wide.locator(selector);
+      return (await links.count()) > 0 ? links.first().getAttribute("href") : null;
+    };
+    const someone = await first('article a[href^="/u/"]');
+    const onePost = await first('a[href^="/p/"]');
+    const more: [string, string | null][] = [
+      ["someone", someone],
+      ["post", onePost],
+      ["notifications", "/notifications"],
+      ["explore", "/explore"],
+      ["account", "/account"],
+    ];
+    for (const [name, address] of more) {
+      if (address) {
+        await wide.goto(origin + address);
+        await wide.waitForLoadState("networkidle");
+        await wide.waitForTimeout(300);
+        await wide.screenshot({ path: testInfo.outputPath(`${kind.file}-${name}.png`) });
+      }
+    }
+    await wide.getByRole("link", { name: "Profile" }).first().click();
+    await wide.waitForLoadState("networkidle");
+    await wide.screenshot({ path: testInfo.outputPath(`${kind.file}-me.png`) });
     await desk.close();
   }
 

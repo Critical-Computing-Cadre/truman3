@@ -1,4 +1,11 @@
-import { createContext, type FormEvent, type ReactNode, useContext, useState } from "react";
+import {
+  createContext,
+  type FormEvent,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { Avatar } from "./Avatar.tsx";
 import { SearchIcon } from "./icons.tsx";
 import { useFeature } from "./platform.tsx";
@@ -28,7 +35,39 @@ export interface Chrome {
 }
 
 const ChromeContext = createContext<Chrome | null>(null);
-export const ChromeProvider = ChromeContext.Provider;
+/** Says that something pressed isn't there, where the page has somewhere to say it. */
+const NoticeContext = createContext<(name: string) => void>(() => {});
+
+/** How long the note stays, which is long enough to read and short enough not to be in the way. */
+const NOTICE_MS = 3500;
+
+/**
+ * Gives layouts what they need to draw the page, and says so when someone presses something that's
+ * only for show, the way a real site says a part of it is down.
+ */
+export function ChromeProvider({ value, children }: { value: Chrome; children: ReactNode }) {
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (notice === null) {
+      return;
+    }
+    const timer = setTimeout(() => setNotice(null), NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  return (
+    <ChromeContext.Provider value={value}>
+      <NoticeContext.Provider value={setNotice}>
+        {children}
+        <p
+          role="status"
+          className={`fixed bottom-20 left-1/2 z-40 max-w-[90vw] -translate-x-1/2 rounded-lg bg-stone-900 px-4 py-2.5 text-sm text-white shadow-lg transition-opacity ${notice === null ? "pointer-events-none opacity-0" : "opacity-100"}`}
+        >
+          {notice !== null && `${notice} isn't available right now. Please try again later.`}
+        </p>
+      </NoticeContext.Provider>
+    </ChromeContext.Provider>
+  );
+}
 
 export function useChrome() {
   return useContext(ChromeContext);
@@ -44,8 +83,9 @@ export function useDecor() {
 }
 
 /**
- * Something a real site would have here that this one doesn't. It can be pressed, and nothing
- * happens. It's marked so a study's records and tests can tell it from a real button.
+ * Something a real site would have here that this one doesn't. Pressing it says it isn't available
+ * right now, as a real site would of a part that's down, so nobody is left wondering whether their
+ * press was noticed. It's marked so a study's records and tests can tell it from a real button.
  */
 export function Decor({
   children,
@@ -57,10 +97,12 @@ export function Decor({
   /** What it's called, where it's only an icon. */
   label?: string;
 }) {
+  const say = useContext(NoticeContext);
   return (
     <button
       type="button"
       data-decor=""
+      onClick={(event) => say(label ?? event.currentTarget.textContent?.trim() ?? "This")}
       className={`cursor-pointer text-left ${className}`}
       {...(label ? { "aria-label": label, title: label } : {})}
     >
@@ -82,13 +124,19 @@ export function SearchBox({
   const chrome = useChrome();
   const [words, setWords] = useState("");
   const decor = useDecor();
+  const say = useContext(NoticeContext);
   if (!chrome || (!decor && !chrome.onSearch)) {
     return null;
   }
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (words.trim()) {
-      chrome.onSearch?.(words.trim());
+    if (!words.trim()) {
+      return;
+    }
+    if (chrome.onSearch) {
+      chrome.onSearch(words.trim());
+    } else {
+      say("Search");
     }
   };
   return (

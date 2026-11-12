@@ -1,10 +1,42 @@
 import type { ReactNode } from "react";
 import { Decor, MessagesDock, SearchBox, SmallPrint, useDecor } from "../chrome.tsx";
 import { LinkIcon } from "../icons.tsx";
-import { ForumPostFrame, ForumSpaceFrame } from "./forum-page.tsx";
-import type { FeedFrameProps, PageHeaderProps } from "./page-props.ts";
+import { ForumSpaceFrame } from "./forum-page.tsx";
+import type { FeedFrameProps, PageHeaderProps, PostFrameProps } from "./page-props.ts";
 
-export { ForumPostFrame as PhotoPostFrame, ForumSpaceFrame as PhotoSpaceFrame };
+export { ForumSpaceFrame as PhotoSpaceFrame };
+
+/** One photo and what's said under it, in a column as wide as the feed's, in the middle. */
+export function PhotoPostFrame({ side, children }: PostFrameProps) {
+  return (
+    <div className="mx-auto flex max-w-[60rem] justify-center gap-16">
+      <div className="w-full max-w-[32rem] min-w-0 space-y-3">{children}</div>
+      {side && <aside className="hidden w-80 shrink-0 lg:block">{side}</aside>}
+    </div>
+  );
+}
+
+/** One post and its replies between the same two hairlines as the feed, with search beside it. */
+export function ShortPostFrame({ side, children }: PostFrameProps) {
+  return (
+    <div className="mx-auto flex max-w-[64rem] justify-center gap-8">
+      <div className="min-h-dvh w-full max-w-[37.5rem] min-w-0 space-y-2 border-stone-200 sm:-mt-4 sm:border-x sm:pt-3">
+        {children}
+      </div>
+      <aside className="sticky top-3 hidden w-80 shrink-0 space-y-4 self-start lg:block">
+        <SearchBox
+          placeholder="Search"
+          inputClassName="rounded-full border border-stone-200 bg-stone-50 py-2.5 focus:border-accent"
+        />
+        {side}
+        <SmallPrint
+          words={["About", "Help", "Accessibility", "Ads info", "Blog", "Developers"]}
+          className="px-2"
+        />
+      </aside>
+    </div>
+  );
+}
 
 function Stroke({ d, className = "h-6 w-6" }: { d: string; className?: string }) {
   return (

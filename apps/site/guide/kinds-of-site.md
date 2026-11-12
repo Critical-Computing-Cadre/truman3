@@ -85,7 +85,7 @@ Press **Save changes** on the card when you're done.
 
 A real site has more on the page than posts: a search box, a long menu, a place for messages in the corner, and small print such as About and Help. Each kind of site draws these the way that kind of platform does, so the study looks like a site people have been using.
 
-Most of it is only for show. It can be pressed, and nothing happens. Where your study really has the thing, the real one is used: the corner opens **Messages** if direct messages are on, the search box goes to a hashtag's page if hashtags are on, and the small print links your own terms and privacy pages.
+Most of it is only for show. Pressing one shows a short note that it isn't available right now, as a real site does when part of it is down. Where your study really has the thing, the real one is used: the corner opens **Messages** if direct messages are on, the search box goes to a hashtag's page if hashtags are on, and the small print links your own terms and privacy pages.
 
 If your study measures where people click, or you'd rather have a plain page, untick **Menus and small print for show** under **What's on this platform?** Presses on these aren't recorded.
 
