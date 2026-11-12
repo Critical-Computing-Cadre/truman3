@@ -193,9 +193,11 @@ onUnmounted(() => {
       </a>
       <div class="links">
         <a href="#trick">How it works</a>
-        <a href="#study">Studies</a>
-        <a href="#exit">Is this allowed?</a>
-        <a href="#papers">Papers</a>
+        <a href="/studies/">Studies</a>
+        <a href="/guide/">Guide</a>
+        <a href="/developers/">Developers</a>
+        <a href="/irb">For IRBs</a>
+        <a href="/about">About</a>
       </div>
       <a class="button small" href="https://app.truman-research.org/admin/">Sign in</a>
     </nav>
@@ -257,7 +259,7 @@ onUnmounted(() => {
     </div>
     <div class="parts">
       <div class="part"><h3>The site</h3><p>It can look like a photo app, a short-posts app, a forum, or a plain feed. Give it a name, a logo, and a web address that doesn't say "research" anywhere.</p></div>
-      <div class="part"><h3>The people</h3><p>EatSnap has 81 of them. Each has a name, a face, a bio, and posts going back days. They're yours to write. They can also reply on their own, using an AI model that stays inside rules you set.</p></div>
+      <div class="part"><h3>The people</h3><p>EatSnap has 76 of them. Each has a name, a face, a bio, and posts going back days. They're yours to write. They can also reply on their own, using an AI model that stays inside rules you set.</p></div>
       <div class="part"><h3>The plot</h3><p>Things happen on a clock, or because of what the participant just did.</p><q>Day 2, minute 37: Kitty insults the pizza.</q><q>If the participant flags it: thank them.</q></div>
       <div class="part"><h3>The versions</h3><p>This is the experiment. Half your participants see someone stick up for Jake. Half don't. Nothing else changes, so whatever they do differently is because of that.</p></div>
       <div class="part"><h3>The dry run</h3><p>Before anyone real shows up, walk through it yourself at any minute of any day. Or send in a few hundred pretend participants and see what breaks.</p></div>
@@ -288,14 +290,14 @@ onUnmounted(() => {
     <div class="head">
       <p class="scene">Studies</p>
       <h2>Take one of ours and change it.</h2>
-      <p>These are finished studies. Go through one as a participant, then copy it and make it yours.</p>
+      <p>These are finished studies, with every post, person, and rule written out. Read how one works, then start yours from it.</p>
     </div>
     <div class="questions">
-      <div class="question"><h3>Will anyone stick up for a stranger?</h3><p>The pizza. This is where Truman started, in 2018.</p><a href="#study">EatSnap →</a></div>
-      <div class="question"><h3>Does it matter who flagged a post?</h3><p>Other users, an AI, or a moderator. From Bhandari et al. (2021).</p><a href="#study">Who flagged this? →</a></div>
-      <div class="question"><h3>If everyone seems vaccinated, do you believe more?</h3><p>Profile pictures with a frame on them. From Aghajari et al. (2024).</p><a href="#study">Vaccine frames →</a></div>
-      <div class="question"><h3>Is rudeness contagious?</h3><p>Six real people share one town forum. The fake ones start out polite, or don't.</p><a href="#study">Town talk →</a></div>
-      <div class="question"><h3>What happens when a pile-on starts?</h3><p>Someone posts her first painting. It goes badly.</p><a href="#study">Bystander →</a></div>
+      <div class="question"><h3>Will anyone stick up for a stranger?</h3><p>The pizza. This is where Truman started, in 2018.</p><a href="/studies/eatsnap">EatSnap →</a></div>
+      <div class="question"><h3>Does it matter who flagged a post?</h3><p>Other users, an automated system, or nobody named. From Bhandari et al. (2021).</p><a href="/studies/flag-source">Who flagged this? →</a></div>
+      <div class="question"><h3>If everyone seems vaccinated, do you believe more?</h3><p>Profile pictures with a frame on them. From Aghajari et al. (2024).</p><a href="/studies/vaccine-frames">Vaccine frames →</a></div>
+      <div class="question"><h3>Is rudeness contagious?</h3><p>Six real people share one town forum. The fake ones start out polite, or don't.</p><a href="/studies/town-talk">Town talk →</a></div>
+      <div class="question"><h3>What happens when a pile-on starts?</h3><p>Someone posts her first painting. It goes badly.</p><a href="/studies/bystander">Bystander →</a></div>
     </div>
   </div>
 </section>
@@ -309,11 +311,11 @@ onUnmounted(() => {
         <p>You can't study how people really act online by asking them. So you build a place and watch, and then you owe them the truth.</p>
       </div>
       <ul>
-        <li><b>People agree before they start.</b> Consent is a step in every study.</li>
-        <li><b>People find out at the end.</b> So is the debrief.</li>
-        <li><b>People can leave,</b> and when they do, what they did is deleted.</li>
+        <li><b>People agree before they start.</b> Consent is a step you put in the study, with your approved wording.</li>
+        <li><b>People find out at the end.</b> The debrief is a page you write, shown when they finish.</li>
+        <li><b>People can leave.</b> When someone withdraws, you delete what they did with one click.</li>
         <li><b>The fake people have limits.</b> Anything an AI writes is checked before it's posted, and you can cut it off.</li>
-        <li><b>Your ethics board gets a page of its own</b> that says what's kept and who can see it.</li>
+        <li><b>Your ethics board gets <a href="/irb">a page of its own</a></b> that says what's kept and who can see it.</li>
       </ul>
     </div>
     <svg viewBox="0 0 220 200" role="img" aria-label="Stairs rising along a painted sky to an open door">
@@ -342,6 +344,7 @@ onUnmounted(() => {
       <li>Taylor et al. (2019). Accountability and empathy by design. <i>CSCW.</i></li>
       <li>DiFranzo et al. (2018). Upstanding by design: bystander intervention in cyberbullying. <i>CHI '18.</i></li>
     </ul>
+    <p style="margin-top:1.5rem"><a href="/about">Every paper, and how to cite Truman →</a></p>
   </div>
 </section>
 
@@ -352,16 +355,17 @@ onUnmounted(() => {
       <h2>Go build one.</h2>
     </div>
     <div class="ways">
-      <div class="way"><h3>Use ours</h3><p>Sign your lab up and start building today. Once we've approved you, you can let participants in. It's free.</p><div><a class="button onpaper" href="https://app.truman-research.org/admin/">Sign your lab up</a></div></div>
-      <div class="way"><h3>Run your own</h3><p>It's open source. Put it on your own servers, keep your own data, change whatever you want.</p><div><a class="button quiet" href="https://github.com/Critical-Computing-Cadre/truman3">Get the code</a></div></div>
+      <div class="way"><h3>Use ours</h3><p>Sign your lab up and start building today. Once we've approved you, you can let participants in. It's free.</p><div class="actions"><a class="button onpaper" href="https://app.truman-research.org/admin/">Sign your lab up</a> <a class="button quiet" href="/guide/">Read the guide</a></div></div>
+      <div class="way"><h3>Run your own</h3><p>It's open source. Put it on your own servers, keep your own data, change whatever you want.</p><div class="actions"><a class="button quiet" href="https://github.com/Critical-Computing-Cadre/truman3">Get the code</a> <a class="button quiet" href="/developers/">Developer docs</a></div></div>
     </div>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    <p>Truman was created by Dominic DiFranzo. Truman Agents is by Qian Yang and the Cornell Design and AI Group.</p>
-    <p>The post above, its picture, the faces, and Kitty's comment are from the EatSnap.Love study. Nothing you do on this page is sent anywhere.</p>
+    <p><a href="/studies/">Studies</a> · <a href="/guide/">Guide</a> · <a href="/developers/">Developers</a> · <a href="/irb">For IRBs</a> · <a href="/about">About</a> · <a href="https://github.com/Critical-Computing-Cadre/truman3">GitHub</a></p>
+    <p>Truman was created by Dominic DiFranzo. Truman Agents is by Qian Yang and the Cornell DesignAI Group.</p>
+    <p>The post above, its picture, and the faces are from the EatSnap.Love study. Kitty's comment is from it too, where she left it on someone else's post. The replies to you were written for this page. Nothing you do here is sent anywhere.</p>
   </div>
 </footer>
   </div>

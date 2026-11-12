@@ -1,6 +1,6 @@
 # Cloud architecture
 
-How Truman 3 runs on AWS today. There's one stage, **staging**, which has no real participants. Everything here is written in AWS CDK in `infra/`, so this page describes that code. [Deploying](guides/deploying.md) has the commands to run. [Architecture](architecture.md) describes the application itself.
+How Truman 3 runs on AWS today. There are two stages: **staging**, which has no real participants, and **production**, in an account of its own ([Staging and production](#staging-and-production)). Where they differ, this page describes staging. Everything here is written in AWS CDK in `infra/`, so this page describes that code. [Deploying](guides/deploying.md) has the commands to run. [Architecture](architecture.md) describes the application itself.
 
 Why it's built this way is in [ADR 19](adr/0019-how-truman-runs-in-production.md) (the container and static apps), [ADR 21](adr/0021-the-api-has-its-own-login-and-admin-lives-under-a-path.md) (two database logins, and admin under `/admin/`), [ADR 23](adr/0023-staging-runs-on-aws-from-cdk.md) (staging on AWS), and [ADR 25](adr/0025-participant-photos-go-through-the-api.md) (what participants upload).
 
@@ -9,7 +9,7 @@ Why it's built this way is in [ADR 19](adr/0019-how-truman-runs-in-production.md
 | File                             | What it is                                                                                  |
 | -------------------------------- | ------------------------------------------------------------------------------------------- |
 | `infra/bin/truman.ts`            | What `cdk` runs. Picks the stage, checks the apps are built, and reads `-c apiTasks`        |
-| `infra/lib/stages.ts`            | Each place Truman runs, and what differs between them. Only `staging` exists                |
+| `infra/lib/stages.ts`            | Each place Truman runs, and what differs between them: `staging` and `production`           |
 | `infra/lib/truman-stack.ts`      | Everything in one stack: network, database, buckets, CloudFront, the API, and one-off tasks |
 | `infra/lib/app-router.js`        | A CloudFront Function that sends each app's paths to the right `index.html`                 |
 | `infra/lib/truman-stack.test.ts` | Checks the stack: what's reachable, where secrets go, what's logged, and what's kept        |
@@ -157,7 +157,7 @@ Storing a whole address as a secret would keep the password in two places, and o
 - **RDS for PostgreSQL 18**, `db.t4g.micro`, 20 GB of gp3 storage, in the private subnets.
 - **One zone** (`multiAz: false`). This is set in the stack, not per stage.
 - **Encrypted storage, and no public access.** Connections are encrypted (`sslmode=require`), but don't check the server's certificate. That needs the RDS certificate bundle in the image (ADR 23).
-- **Automatic backups for 7 days** (`backupDays`). Nobody has tested a restore yet.
+- **Automatic backups** (`backupDays`): 7 days on staging, 30 on production. A restore has been checked on both, with [Restoring from a backup](guides/restoring.md).
 - **The database is called `truman`.**
 
 ### Logins and roles

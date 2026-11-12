@@ -2,7 +2,7 @@
 
 A hosted Truman lets other labs run studies on your server, instead of deploying their own. This guide is for whoever runs it, the **operator**. Why it works this way is in [ADR 70](../adr/0070-hosted-truman-applying-and-approving.md).
 
-A hosted Truman is still being built. This guide covers what's there now: labs applying, approving them, their limits, paying for Claude, and email. The production stage comes next.
+This guide covers labs applying, approving them, their limits, paying for Claude, email, and participant domains. Production runs this way, at app.truman-research.org ([ADR 73](../adr/0073-production-stage.md)). What's still to come before labs you don't know sign up is under Not ready yet in `docs/guides/deploying.md`.
 
 ## Turning it on
 
@@ -58,7 +58,7 @@ The Labs page shows what each lab has spent on your key and on its own. You neve
 
 ## Participant domains
 
-Studies can run at a domain that doesn't say "research", such as eatsnap.love, chosen on the Studies page ([ADR 74](../adr/0074-participant-domains.md)). Every lab can use the domains you offer. Adding one is in `docs/guides/deploying.md`, under Participant domains. A lab bringing its own domain comes later.
+Studies can run at a domain that doesn't say "research", such as clikbrite.com on production, chosen on the Studies page ([ADR 74](../adr/0074-participant-domains.md)). Every lab can use the domains you offer. Adding one is in `docs/guides/deploying.md`, under Participant domains. A lab bringing its own domain comes later.
 
 ## Suspending a lab
 
