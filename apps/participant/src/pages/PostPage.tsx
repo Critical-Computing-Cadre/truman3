@@ -92,8 +92,24 @@ export function PostPage() {
   }
   return (
     <PostFrame side={shown?.space ? <CommunityCard spaceKey={shown.space.key} /> : undefined}>
-      <Link to="/" className="block px-3 pt-3 text-sm text-stone-600 underline sm:px-0 sm:pt-0">
-        Back to the feed
+      <Link
+        to="/"
+        aria-label="Back to the feed"
+        className="mx-2 mt-2 inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold hover:bg-stone-200/60 sm:mx-0 sm:mt-0"
+      >
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-5 w-5"
+        >
+          <path d="M19 12H5M11 6l-6 6 6 6" />
+        </svg>
+        Back
       </Link>
       {/* Not before it's loaded, or a choice made meanwhile wouldn't show until the next reload. */}
       {feed.data && <CommentSortPicker sort={feed.data.commentSort ?? null} />}

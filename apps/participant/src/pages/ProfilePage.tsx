@@ -194,7 +194,10 @@ export function ProfilePage() {
     return null;
   }
   const actor = page.data;
-  const button = "rounded border border-stone-300 px-3 py-1.5 text-sm";
+  const button =
+    "rounded-lg bg-stone-200/70 px-3.5 py-1.5 text-sm font-semibold hover:bg-stone-300/70";
+  // The one most people come here to press, in the site's color until it's been pressed.
+  const main = "rounded-lg bg-accent-fill px-4 py-1.5 text-sm font-semibold text-on-accent";
 
   return (
     <div className="mx-auto max-w-xl space-y-3 sm:space-y-4">
@@ -246,7 +249,7 @@ export function ProfilePage() {
               {following && (
                 <button
                   type="button"
-                  className={button}
+                  className={actor.following ? button : main}
                   onClick={() => relate.mutate({ action: actor.following ? "unfollow" : "follow" })}
                 >
                   {actor.following ? "Following" : "Follow"}

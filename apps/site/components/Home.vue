@@ -269,6 +269,22 @@ onUnmounted(() => {
   </div>
 </section>
 
+<section class="wallband" id="looks">
+  <div class="wrap">
+    <div class="head">
+      <p class="scene">What it can look like</p>
+      <h2>Four kinds of site, and they don't look like each other.</h2>
+      <p>These are the four starting points, each with its sample content, as a participant sees them. Change the name, the logo, the color, and what people can do, and it's your site.</p>
+    </div>
+    <div class="looks">
+      <a href="/guide/kinds-of-site#classic"><img src="/shots/kind-classic-wide.png" alt="A community feed in blue, with stories, a menu down the left, and people to follow" loading="lazy" width="1280" height="800"><b>Classic</b><span>A community feed, with comments open under every post.</span></a>
+      <a href="/guide/kinds-of-site#photo"><img src="/shots/kind-photo-wide.png" alt="A dark photo app, with stories across the top and a rail of icons" loading="lazy" width="1280" height="800"><b>Photo</b><span>Square photos, stories, and a profile that's a grid.</span></a>
+      <a href="/guide/kinds-of-site#short-posts"><img src="/shots/kind-short-posts-wide.png" alt="A navy microblog, with short posts, a context note, and what's happening" loading="lazy" width="1280" height="800"><b>Short posts</b><span>A microblog, with reposts, quotes, labels, and context notes.</span></a>
+      <a href="/guide/kinds-of-site#forum"><img src="/shots/kind-forum-wide.png" alt="A forum in orange, with communities, votes, and flair" loading="lazy" width="1280" height="800"><b>Forum</b><span>Communities with votes, threads, rules, and moderators.</span></a>
+    </div>
+  </div>
+</section>
+
 <section class="room" id="debrief">
   <div class="wrap watch">
     <div class="head">
@@ -546,6 +562,15 @@ onUnmounted(() => {
   h2 { font-size: clamp(1.9rem, 4vw, 2.7rem); line-height: 1.1; font-weight: 300; }
   .head { display: grid; gap: 0.7rem; margin-bottom: 2.2rem; max-width: 44rem; }
   .head p:last-child { color: var(--ink-soft); font-size: 1.12rem; }
+
+  .looks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; }
+  .looks a { display: grid; gap: 0.3rem; color: inherit; text-decoration: none; }
+  .looks img { width: 100%; height: auto; border-radius: 0.6rem; border: 1px solid var(--line); box-shadow: 0 10px 30px rgb(0 0 0 / 0.12); margin-bottom: 0.5rem; transition: transform 0.2s; }
+  .looks a:hover img { transform: translateY(-3px); }
+  .looks b { font-size: 1.3rem; font-weight: 600; }
+  .looks span { color: var(--ink-soft); }
+  @media (max-width: 760px) { .looks { grid-template-columns: minmax(0, 1fr); } }
+  @media (prefers-reduced-motion: reduce) { .looks img { transition: none; } }
 
   .parts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem 3.5rem; }
   .part { display: grid; gap: 0.35rem; align-content: start; }

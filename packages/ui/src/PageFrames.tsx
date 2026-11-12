@@ -28,13 +28,15 @@ import {
   ShortBody,
   ShortFeedFrame,
   ShortHeader,
+  ShortPostFrame,
 } from "./layouts/photo-page.tsx";
 import {
   BannerProfileHeader,
   CenteredProfileHeader,
+  CoverProfileHeader,
   PhotoProfileHeader,
 } from "./layouts/profile-headers.tsx";
-import { usePlatform } from "./platform.tsx";
+import { useIsPhone, usePlatform } from "./platform.tsx";
 
 /** The page around posts belongs to a layout too, so these pick the one for this platform. */
 const FRAMES: Record<
@@ -54,7 +56,7 @@ const FRAMES: Record<
     Feed: ClassicFeedFrame,
     Space: ClassicSpaceFrame,
     Post: ClassicPostFrame,
-    Profile: CenteredProfileHeader,
+    Profile: CoverProfileHeader,
     Body: Fragment,
   },
   forum: {
@@ -70,7 +72,7 @@ const FRAMES: Record<
     Header: ShortHeader,
     Feed: ShortFeedFrame,
     Space: ForumSpaceFrame,
-    Post: ForumPostFrame,
+    Post: ShortPostFrame,
     Profile: BannerProfileHeader,
     Body: ShortBody,
   },
@@ -117,5 +119,7 @@ export function ProfileHeader(props: ProfileHeaderProps) {
 
 /** How a layout shows the row of stories: tall cards, as on Facebook, or circles, as on Instagram. */
 export function useStoryLook(): "cards" | "circles" {
-  return usePlatform().layout === "classic" ? "cards" : "circles";
+  // Tall cards need a wide screen. On a phone they'd push the posts off it, so Classic has circles.
+  const phone = useIsPhone();
+  return usePlatform().layout === "classic" && !phone ? "cards" : "circles";
 }

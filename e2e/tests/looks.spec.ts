@@ -12,12 +12,15 @@ const shot = async (page: Page, project: string, name: string) => {
 };
 const app = `http://localhost:${APP_PORT}`;
 
-test("Classic shows stories as tall cards", async ({ page }, testInfo) => {
+test("Classic shows stories as tall cards, and as circles on a phone", async ({
+  page,
+}, testInfo) => {
   const project = testInfo.project.name;
   await page.goto(`${app}/join/classic-stories-e2e?PROLIFIC_PID=CARDS-${project}-${Date.now()}`);
   const row = page.getByRole("region", { name: "Stories" });
+  // Tall cards would push the posts off a phone's screen, so there it's a row of circles.
   await expect(row.getByRole("button", { name: "Add to your story" })).toContainText(
-    "Create story",
+    project === "phone" ? "Your story" : "Create story",
   );
   await expect(row.getByRole("button", { name: "Stories from Ann" })).toBeVisible();
   await shot(page, project, "1-story-cards");

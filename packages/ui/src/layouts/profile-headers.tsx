@@ -64,6 +64,42 @@ export function CenteredProfileHeader(props: ProfileHeaderProps) {
   );
 }
 
+/**
+ * A wide cover with the picture over its lower edge and the name beside it, as a community feed's
+ * profiles have. Without a banner of their own, the cover is a wash of the site's color.
+ */
+export function CoverProfileHeader(props: ProfileHeaderProps) {
+  const { username, name, pictureUrl, bannerUrl, counts, extras, actions } = props;
+  return (
+    <section className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+      <div
+        data-testid="profile-banner"
+        className="h-36 bg-gradient-to-br from-accent/25 via-accent/45 to-accent/70 bg-cover bg-center sm:h-52"
+        style={bannerUrl ? { backgroundImage: `url(${bannerUrl})` } : undefined}
+      />
+      <div className="flex flex-col gap-3 px-4 pb-4 sm:flex-row sm:items-end sm:px-6">
+        <span className="-mt-12 w-fit shrink-0 rounded-full border-4 border-white bg-white sm:-mt-10">
+          <Avatar seed={username} url={pictureUrl} size="h-28 w-28 sm:h-36 sm:w-36" />
+        </span>
+        <div className="min-w-0 flex-1 sm:pb-2">
+          <h1 className="text-2xl font-bold sm:text-3xl">{name}</h1>
+          <p className="text-sm text-stone-500">@{username}</p>
+          <Counts
+            counts={withoutPosts(counts)}
+            className="mt-0.5 flex flex-wrap gap-x-3 text-sm font-medium whitespace-nowrap text-stone-600"
+          />
+          {/* Under the name, where there's room for all of them without squeezing it. */}
+          <div className="mt-3 flex flex-wrap gap-2">{actions}</div>
+        </div>
+      </div>
+      <div className="space-y-1 border-t border-stone-200 px-4 py-3 text-sm sm:px-6">
+        <div className="flex flex-wrap gap-2 empty:hidden">{extras}</div>
+        <About {...props} />
+      </div>
+    </section>
+  );
+}
+
 /** A banner across the top, the picture overlapping it, then the name, counts, and bio. */
 export function BannerProfileHeader(props: ProfileHeaderProps) {
   const { username, name, pictureUrl, bannerUrl, counts, extras, actions } = props;
