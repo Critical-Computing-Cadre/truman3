@@ -61,7 +61,7 @@ export function SharedWorldsCard({ studyId, canEdit }: { studyId: string; canEdi
         {canEdit &&
           (moderator
             ? ` Removing something takes it down for everyone, as ${moderator}.`
-            : " To remove things, give someone in the cast moderator: yes in actors.csv.")}
+            : ' To remove things, tick "Show a moderator tag on their name" for someone on the Cast page.')}
       </p>
       {content.length === 0 ? (
         <p className="text-sm text-stone-500">Nobody has written anything yet.</p>

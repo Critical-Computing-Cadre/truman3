@@ -56,7 +56,16 @@ export function TokensPage() {
         read your studies, write drafts, check them, run their tests, and simulate participants.
         What it writes is marked as generated. It can't launch, stop, or delete a study, withdraw
         anyone, download real data, or touch Prolific. It can recommend those, and you do them here.
-        See docs/guides/for-agents.md.
+        See{" "}
+        <a
+          className="underline"
+          href="https://truman-research.org/developers/api-and-agents"
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          The API and agents
+        </a>
+        .
       </p>
 
       <form

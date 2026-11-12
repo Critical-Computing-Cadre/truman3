@@ -190,6 +190,7 @@ onUnmounted(() => {
           </g>
         </svg>
         truman
+        <span class="beta">beta</span>
       </a>
       <div class="links">
         <a href="#trick">How it works</a>
@@ -355,7 +356,7 @@ onUnmounted(() => {
       <h2>Go build one.</h2>
     </div>
     <div class="ways">
-      <div class="way"><h3>Use ours</h3><p>Sign your lab up and start building today. Once we've approved you, you can let participants in. It's free.</p><div class="actions"><a class="button onpaper" href="https://app.truman-research.org/admin/">Sign your lab up</a> <a class="button quiet" href="/guide/">Read the guide</a></div></div>
+      <div class="way"><h3>Use ours</h3><p>Sign your lab up and start building today. It's free. This is a beta: build, test, and pilot all you like, but hold off on real participants until we say it's ready.</p><div class="actions"><a class="button onpaper" href="https://app.truman-research.org/admin/">Sign your lab up</a> <a class="button quiet" href="/guide/">Read the guide</a></div></div>
       <div class="way"><h3>Run your own</h3><p>It's open source. Put it on your own servers, keep your own data, change whatever you want.</p><div class="actions"><a class="button quiet" href="https://github.com/Critical-Computing-Cadre/truman3">Get the code</a> <a class="button quiet" href="/developers/">Developer docs</a></div></div>
     </div>
   </div>
@@ -427,6 +428,10 @@ onUnmounted(() => {
     font: 400 1.7rem/1 var(--display); letter-spacing: 0.06em;
   }
   .brand svg { width: 2.1rem; height: 2.1rem; }
+  .beta {
+    font: 700 0.7rem/1 var(--script); letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 0.25rem 0.4rem; border-radius: 0.3rem; border: 1px solid var(--mark); color: var(--mark);
+  }
   nav .links { display: flex; gap: 1.2rem; flex-wrap: wrap; }
   nav .links a { text-decoration: none; font-weight: 600; font-size: 0.98rem; color: var(--room-soft); }
   nav .links a:hover { color: var(--room-fg); }

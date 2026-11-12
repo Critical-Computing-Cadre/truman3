@@ -584,14 +584,13 @@ export function StudiesPage() {
                       </span>
                     )}
                   </p>
-                  {study.liveVersionId && (
-                    <p className="text-sm text-stone-600">
-                      Study link:{" "}
-                      <code className="break-all">
-                        {study.participantUrl}/join/{study.slug}
-                      </code>
-                    </p>
-                  )}
+                  <p className="text-sm text-stone-600">
+                    Study link:{" "}
+                    <code className="break-all">
+                      {study.participantUrl}/join/{study.slug}
+                    </code>
+                    {!study.liveVersionId && " (works once the study is open)"}
+                  </p>
                   <AddressPicker study={study} />
                 </div>
                 <div className="flex flex-wrap gap-2">

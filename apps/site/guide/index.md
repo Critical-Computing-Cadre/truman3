@@ -4,6 +4,10 @@ title: What Truman is
 description: Truman is a social media site you build for a study, where every post and every other user is yours and the only real person is the participant.
 ---
 
+::: warning Truman 3 is in beta
+You can build, preview, and test studies today. Don't run real participants on hosted Truman yet: its terms and privacy policy are still being reviewed, and a few safeguards aren't finished. [What's left](/guide/your-lab#what-s-left-before-real-participants).
+:::
+
 # What Truman is
 
 Truman is a social media site built for research. You write every post. You make up every other user. Then a participant signs up and scrolls, thinking it's an ordinary site, and you get a record of what they saw and what they did.

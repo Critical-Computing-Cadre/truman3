@@ -7,7 +7,7 @@ import { SaveStatus, useDraftPresence } from "./DraftPage.tsx";
 
 /** What a study with no beats starts from: one beat to copy, which does nothing until it's saved. */
 const EXAMPLE = `# What Christof, the director, makes happen in each participant's world.
-# Times are hours:minutes from when they start. See docs/guides/writing-beats.md.
+# Times are hours:minutes from when they start. See https://truman-research.org/guide/beats
 beats:
   - id: first-reply
     note: Someone replies to the participant's first post a minute or two later.
@@ -35,9 +35,9 @@ function Reference() {
           <tr>
             <th className={`${row} font-mono`}>when: participant</th>
             <td className={row}>
-              When they post, comment, like, follow, or repost. Add <code>nth</code> for only their
-              nth (from 0), <code>on</code> for only on someone's, or <code>under</code> for only
-              under what a beat made
+              When they post, comment, like, follow, repost, or message. Add <code>nth</code> for
+              only their nth (from 0), <code>on</code> for only on someone's, or <code>under</code>{" "}
+              for only under what a beat made
             </td>
           </tr>
           <tr>
@@ -47,7 +47,21 @@ function Reference() {
           <tr>
             <th className={`${row} font-mono`}>do: action</th>
             <td className={row}>
-              post, comment, like, repost, or follow, by an <code>actor</code> in the cast
+              post, comment, like, repost, follow, or message, by an <code>actor</code> in the cast
+            </td>
+          </tr>
+          <tr>
+            <th className={`${row} font-mono`}>do: remove, label, warn, ban</th>
+            <td className={row}>
+              Moderation, by an <code>actor</code> who's a moderator: take something down, put a
+              label on it, warn the participant, or ban them for a while
+            </td>
+          </tr>
+          <tr>
+            <th className={`${row} font-mono`}>per</th>
+            <td className={row}>
+              When participants share a world: <code>participant</code> for once for each of them,
+              or <code>world</code> for once for everyone
             </td>
           </tr>
           <tr>

@@ -1,6 +1,6 @@
 # Truman 3
 
-The next generation of the Truman social media simulation platform. Work in progress: a study can run from start to finish, but this isn't ready for real participants yet. See [docs/architecture.md](docs/architecture.md).
+The next generation of the Truman social media simulation platform. Work in progress: a study can run from start to finish, but this isn't ready for real participants yet. It's in beta at [truman-research.org](https://truman-research.org), which has a guide for researchers and docs for developers. See [docs/architecture.md](docs/architecture.md).
 
 ## Getting started
 
