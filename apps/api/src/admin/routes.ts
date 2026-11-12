@@ -17,6 +17,7 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { mediaUrl } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { hashSessionToken } from "../participants/session.ts";
+import { studyAddress } from "./addresses.ts";
 import { loadVersion, previewFeed, scriptedContent } from "./preview.ts";
 import { latestRuns, scenarioRunSchema } from "./scenarios.ts";
 import { createResearcherSession, RESEARCHER_COOKIE, researcherFromRequest } from "./session.ts";
@@ -118,6 +119,8 @@ const studiesRoute = createRoute({
                 liveVersionId: z.string().nullable(),
                 /** Where this study's participants go. Built on the server, so builds name no domain. */
                 participantUrl: z.string(),
+                /** The participant domain it uses, if it has one (ADR 74). */
+                participantDomain: z.string().nullable(),
                 role: z.string(),
                 openDraftId: z.string().nullable(),
                 draftTitle: z.string().nullable(),
@@ -244,6 +247,7 @@ export function createAdminRoutes({
   getClientIp,
   allowLoginAttempt,
   participantAppUrl = "http://localhost:5180",
+  participantDomains = [],
   hosted = false,
 }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
@@ -395,7 +399,12 @@ export function createAdminRoutes({
             .filter((version) => version.studyId === study.id)
             .reduce((sum, version) => sum + participantsOn(version.id), 0),
           liveVersionId: study.liveVersionId,
-          participantUrl: participantAppUrl,
+          participantUrl: studyAddress(
+            study.participantDomain,
+            participantAppUrl,
+            participantDomains,
+          ),
+          participantDomain: study.participantDomain,
           role,
           warnUntested: study.warnUntested,
           archived: study.archivedAt !== null,

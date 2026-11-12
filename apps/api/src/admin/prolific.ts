@@ -21,6 +21,7 @@ import {
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { describeError } from "../errors.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
+import { studyAddress } from "./addresses.ts";
 import { researcherFromRequest } from "./session.ts";
 
 /** How this server reaches Prolific. Leave out the secret key and connecting is turned off. */
@@ -303,7 +304,11 @@ const codeLabel = (used: string | null | undefined, codes: CompletionCodes) => {
   return used === codes.declined ? ("declined" as const) : ("other" as const);
 };
 
-export function createProlificRoutes({ db, prolific: config }: ParticipantRouteDependencies) {
+export function createProlificRoutes({
+  db,
+  prolific: config,
+  participantDomains = [],
+}: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const secretKey = parseSecretKey(config?.secretKey);
   const pleaseSignIn = { error: "Please sign in." };
@@ -648,8 +653,13 @@ export function createProlificRoutes({ db, prolific: config }: ParticipantRouteD
       const created = await client.createDraft({
         name: input.name,
         description: input.description,
+        // The study's own address, if it has one, so Prolific sends people there (ADR 74).
         externalStudyUrl: entryUrl(
-          config.participantAppUrl,
+          studyAddress(
+            access.study.participantDomain,
+            config.participantAppUrl,
+            participantDomains,
+          ),
           access.study.slug,
           settings.entry.idParam,
         ),

@@ -154,7 +154,10 @@ export function mediaUrl(key: string, publicUrl: string): string {
   if (/^https?:\/\//.test(key)) {
     return key;
   }
-  return key.startsWith("uploads/") ? `/api/media/${key}` : `${publicUrl}/${key}`;
+  // "/" means the same address as the page, whatever domain that is (ADR 74).
+  return key.startsWith("uploads/")
+    ? `/api/media/${key}`
+    : `${publicUrl.replace(/\/$/, "")}/${key}`;
 }
 
 /** Scripted content is timed from the start of the world. Everything else has an actual time. */

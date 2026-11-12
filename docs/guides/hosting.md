@@ -56,6 +56,10 @@ Live writing, rehearsing lines, personas, and agents call Claude ([ADR 71](../ad
 
 The Labs page shows what each lab has spent on your key and on its own. You never see a lab's key, only whether it has one.
 
+## Participant domains
+
+Studies can run at a domain that doesn't say "research", such as eatsnap.love, chosen on the Studies page ([ADR 74](../adr/0074-participant-domains.md)). Every lab can use the domains you offer. Adding one is in `docs/guides/deploying.md`, under Participant domains. A lab bringing its own domain comes later.
+
 ## Suspending a lab
 
 **Suspend** stops a lab's studies at once:

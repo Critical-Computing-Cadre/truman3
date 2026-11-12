@@ -76,12 +76,13 @@ Keep the real values out of the repo. `.env.example` describes these too.
 | `S3_REGION`, `S3_BUCKET`                   | Yes              | Media storage                                                                                                                                                                                       |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Not on AWS       | Both or neither. Without them, storage uses the container's role                                                                                                                                    |
 | `S3_ENDPOINT`                              | Not on AWS       | For another S3-compatible service                                                                                                                                                                   |
-| `MEDIA_PUBLIC_URL`                         | Yes              | Where browsers fetch media from                                                                                                                                                                     |
+| `MEDIA_PUBLIC_URL`                         | Yes              | Where browsers fetch media from, or `/` for the page's own address, which participant domains need. The stack sets `/`                                                                              |
 | `PARTICIPANT_APP_URL`                      | Yes              | The participant address, for study links                                                                                                                                                            |
 | `TRUMAN_SECRET_KEY`                        | For Prolific     | Encrypts Prolific tokens. Changing it means everyone connects again                                                                                                                                 |
 | `ANTHROPIC_API_KEY`                        | For live writing | Lets Christof's actors write their own words with Claude. On AWS, store it by hand in Secrets Manager and name the secret in the stage's `anthropicKeySecret`. Without it, beats use fallback lines |
 | `MAIL_FROM`, `MAIL_REGION`                 | For email        | The From address for email to researchers, on a domain verified in SES, and SES's region. Without it, no email is sent (ADR 72). See Email, below                                                   |
 | `ADMIN_APP_URL`                            | No               | The admin app's address, for links in email. Defaults to `/admin/` beside `PARTICIPANT_APP_URL`                                                                                                     |
+| `PARTICIPANT_DOMAINS`                      | No               | Domains a study can run at instead of `PARTICIPANT_APP_URL`, separated by commas (ADR 74). See Participant domains, below                                                                           |
 | `HOSTED`                                   | No               | `true` for a hosted Truman, where labs apply (ADR 70). See `docs/guides/hosting.md`                                                                                                                 |
 | `TRUSTED_PROXIES`                          | Behind proxies   | How many of your own proxies add to `X-Forwarded-For`. Staging has 2: CloudFront and the load balancer. Too many, and everyone looks like a proxy. Too few, and visitors can fake their address     |
 
@@ -184,6 +185,17 @@ Truman emails researchers: password resets, invitations to a team, and, on a hos
 3. **Leave the SES sandbox.** At first, SES sends only to addresses verified in it, and at most 200 a day. In the SES console, under **Account dashboard**, request production access. AWS asks what the email is for, and answers within a day or so. For trying it out before then, verify your own address under **Identities**.
 
 Until the domain is verified, sending fails quietly: the request goes on, and the API logs that the email wasn't sent.
+
+### Participant domains
+
+A study can run at a domain that doesn't say "research", such as eatsnap.love ([ADR 74](../adr/0074-participant-domains.md)). To offer one on a stage:
+
+1. **Make a Route 53 zone for the domain in the stage's account,** by hand, like truman-research.org's.
+2. **Point the domain's name servers at it,** wherever it's registered. Check the domain has no records you need first, or copy them into the new zone.
+3. **Add it to the stage's `participantDomains`** in `infra/lib/stages.ts`, with the zone's ID. The stage also needs its own `domains` in a zone.
+4. **Deploy.** The stack adds the domain to the certificate, which is checked through its zone, so the name servers have to have moved. It also points the domain at the distribution, and tells the API and the router.
+
+Researchers then see **Participants go to** on the Studies page, for each study they can edit. On the domain, `/admin` and `/api/admin` answer 404.
 
 ### Costing less, and removing it
 

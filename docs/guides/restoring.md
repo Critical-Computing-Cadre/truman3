@@ -34,7 +34,7 @@ aws rds wait db-instance-available --profile truman-prod --region us-east-1 \
   --db-instance-identifier truman3-production-restore-check
 ```
 
-The wait takes 10 to 30 minutes.
+The wait takes 10 to 30 minutes. It can give up after 30 minutes while the copy is still taking its first backup. If it does, run the next step's `describe-db-instances`: once the copy has an address, and its status is `available` or `backing-up`, it's ready.
 
 **3. Count rows in each.** The admin task can reach both, since the copy has the same logins and the same firewall. First the live database, using the stack's `AdminCommand` output with this added:
 

@@ -414,6 +414,13 @@
       "when": 1794435332570,
       "tag": "0058_researcher_links",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1794448566505,
+      "tag": "0059_participant_domain",
+      "breakpoints": true
     }
   ]
 }

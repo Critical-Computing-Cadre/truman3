@@ -179,6 +179,7 @@ beforeAll(async () => {
     mediaPublicUrl: "http://media.test",
     getClientIp: () => undefined,
     secureCookies: false,
+    participantDomains: ["eatsnap.test"],
     prolific: {
       secretKey: randomBytes(32).toString("base64"),
       apiUrl: "https://prolific.test",
@@ -257,6 +258,24 @@ describe("connecting an account", () => {
 });
 
 describe("creating a draft", () => {
+  it("sends people to the study's own participant domain, if it has one (ADR 74)", async () => {
+    const made = await connected();
+    const chosen = await call(made.cookie, "PUT", `/admin/studies/${made.study.id}/address`, {
+      domain: "eatsnap.test",
+    });
+    expect(chosen.status).toBe(200);
+    const response = await call(
+      made.cookie,
+      "POST",
+      `/admin/studies/${made.study.id}/prolific`,
+      draftBody,
+    );
+    const { prolificStudyId } = (await response.json()) as { prolificStudyId: string };
+    expect(fake.studies.get(prolificStudyId)?.body.external_study_url).toMatch(
+      new RegExp(`^https://eatsnap\\.test/join/${made.slug}\\?`),
+    );
+  });
+
   it("makes an unpublished draft with the study's link and its codes", async () => {
     const { slug, prolificStudyId, cookie, study } = await linked();
     const created = fake.studies.get(prolificStudyId);

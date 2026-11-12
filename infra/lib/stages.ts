@@ -44,6 +44,13 @@ export interface Stage {
   domains?:
     | { names: [string, ...string[]]; certificateArn: string }
     | { names: [string, ...string[]]; hostedZone: { id: string; name: string } };
+  /**
+   * Domains that studies can run at, so participants don't see "research" in the address bar
+   * (ADR 74). Each is a whole domain with its Route 53 zone in this account, where the stack makes
+   * its certificate and records. The admin app and admin API don't answer at them. Needs `domains`
+   * with a hosted zone.
+   */
+  participantDomains?: { name: string; hostedZoneId: string }[];
   /** The database's size. A small one has twice the memory of a micro. Defaults to micro. */
   databaseSize?: "micro" | "small";
   /**

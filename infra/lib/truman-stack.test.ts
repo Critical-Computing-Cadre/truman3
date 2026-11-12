@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import vm from "node:vm";
@@ -7,7 +7,7 @@ import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { STAGES, type Stage } from "./stages.ts";
-import { EDGE_LOG_FIELDS, TrumanStack } from "./truman-stack.ts";
+import { EDGE_LOG_FIELDS, routerCode, TrumanStack } from "./truman-stack.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const staging = STAGES.staging as Stage;
@@ -263,12 +263,12 @@ describe("what the edge does", () => {
 });
 
 describe("the app router", () => {
-  const route = (uri: string) => {
+  const route = (uri: string, host = "app.truman.test", participantHosts: string[] = []) => {
     const context = vm.createContext({});
-    vm.runInContext(readFileSync(path.join(import.meta.dirname, "app-router.js"), "utf8"), context);
+    vm.runInContext(routerCode(participantHosts), context);
     return (
       context as { handler: (event: unknown) => { uri?: string; statusCode?: number } }
-    ).handler({ request: { uri } });
+    ).handler({ request: { uri, headers: { host: { value: host } } } });
   };
 
   it.each([
@@ -286,6 +286,37 @@ describe("the app router", () => {
 
   it("redirects /admin to /admin/", () => {
     expect(route("/admin").statusCode).toBe(301);
+  });
+
+  it("passes the API through untouched", () => {
+    expect(route("/api/feed").uri).toBe("/api/feed");
+    expect(route("/api/admin/studies").uri).toBe("/api/admin/studies");
+  });
+
+  describe("on a participant domain (ADR 74)", () => {
+    const participants = ["eatsnap.test"];
+    it.each([
+      "/admin",
+      "/admin/",
+      "/admin/studies/new",
+      "/admin/assets/app-abc.js",
+      "/api/admin",
+      "/api/admin/login",
+    ])("doesn't answer %s", (uri) => {
+      expect(route(uri, "eatsnap.test", participants).statusCode).toBe(404);
+    });
+
+    it("answers everything a participant uses", () => {
+      expect(route("/join/study", "eatsnap.test", participants).uri).toBe("/index.html");
+      expect(route("/api/feed", "eatsnap.test", participants).uri).toBe("/api/feed");
+      expect(route("/assets/app-abc.js", "eatsnap.test", participants).uri).toBe(
+        "/assets/app-abc.js",
+      );
+    });
+
+    it("still answers the admin app at the researchers' own address", () => {
+      expect(route("/admin/", "app.truman.test", participants).uri).toBe("/admin/index.html");
+    });
   });
 });
 
@@ -590,5 +621,78 @@ describe("production (ADR 73)", () => {
         JSON.stringify(alarm).includes("api-down"),
       ),
     ).toBe(false);
+  });
+});
+
+describe("participant domains (ADR 74)", () => {
+  const withDomains: Stage = {
+    ...(STAGES.production as Stage),
+    participantDomains: [
+      { name: "eatsnap.test", hostedZoneId: "ZEATSNAP" },
+      { name: "clickbright.test", hostedZoneId: "ZCLICKBRIGHT" },
+    ],
+  };
+  let built: Template;
+  beforeAll(() => {
+    built = build(withDomains);
+  });
+
+  it("puts them on the certificate and the distribution, each checked through its own zone", () => {
+    built.hasResourceProperties("AWS::CertificateManager::Certificate", {
+      DomainName: "app.truman-research.org",
+      SubjectAlternativeNames: ["eatsnap.test", "clickbright.test"],
+      DomainValidationOptions: Match.arrayWith([
+        { DomainName: "eatsnap.test", HostedZoneId: "ZEATSNAP" },
+        { DomainName: "clickbright.test", HostedZoneId: "ZCLICKBRIGHT" },
+      ]),
+    });
+    built.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({
+        Aliases: ["app.truman-research.org", "eatsnap.test", "clickbright.test"],
+      }),
+    });
+    for (const zone of ["ZEATSNAP", "ZCLICKBRIGHT"]) {
+      for (const type of ["A", "AAAA"]) {
+        built.hasResourceProperties("AWS::Route53::RecordSet", { HostedZoneId: zone, Type: type });
+      }
+    }
+  });
+
+  it("tells the API and the router about them, and links images to the page's own address", () => {
+    built.hasResourceProperties("AWS::ECS::TaskDefinition", {
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Environment: Match.arrayWith([
+            { Name: "MEDIA_PUBLIC_URL", Value: "/" },
+            { Name: "PARTICIPANT_DOMAINS", Value: "eatsnap.test,clickbright.test" },
+          ]),
+        }),
+      ]),
+    });
+    const [router] = Object.values(built.findResources("AWS::CloudFront::Function"));
+    expect(JSON.stringify(router)).toContain(
+      'PARTICIPANT_HOSTS = [\\"eatsnap.test\\",\\"clickbright.test\\"]',
+    );
+  });
+
+  it("puts the router on the API too, so the admin API doesn't answer on them", () => {
+    const [distribution] = Object.values(built.findResources("AWS::CloudFront::Distribution"));
+    const behaviors = (
+      distribution as {
+        Properties: {
+          DistributionConfig: {
+            CacheBehaviors: { PathPattern: string; FunctionAssociations?: unknown[] }[];
+          };
+        };
+      }
+    ).Properties.DistributionConfig.CacheBehaviors;
+    expect(
+      behaviors.find(({ PathPattern }) => PathPattern === "/api/*")?.FunctionAssociations,
+    ).toHaveLength(1);
+  });
+
+  it("needs a stage whose own addresses are in a zone, for one certificate", () => {
+    const { domains: _, ...withoutZone } = withDomains;
+    expect(() => build(withoutZone)).toThrow(/hosted zone/);
   });
 });
