@@ -10,16 +10,35 @@ import { researcherFromRequest } from "./session.ts";
  * server's participant domains, so the address bar doesn't say "research".
  */
 
+export interface Addresses {
+  /** The participant app's own address, where researchers also are. */
+  participantAppUrl: string;
+  /** Domains a study can run at instead. */
+  participantDomains?: readonly string[];
+  /** Where a study that hasn't chosen goes: one of participantDomains, or none for the app's own. */
+  participantDomainDefault?: string | undefined;
+}
+
+/** The host of the participant app's own address, which a study can also choose. */
+export const appHost = (participantAppUrl: string) => new URL(participantAppUrl).host;
+
 /**
- * A study's address. A domain that's no longer offered falls back to the participant app's own,
- * so a link never points somewhere this server doesn't answer.
+ * A study's address. A study that hasn't chosen, or chose a domain that's no longer offered, gets
+ * the default, so a link never points somewhere this server doesn't answer.
  */
 export function studyAddress(
   domain: string | null,
-  participantAppUrl: string,
-  participantDomains: readonly string[] = [],
+  { participantAppUrl, participantDomains = [], participantDomainDefault }: Addresses,
 ) {
-  return domain && participantDomains.includes(domain) ? `https://${domain}` : participantAppUrl;
+  if (domain === appHost(participantAppUrl)) {
+    return participantAppUrl;
+  }
+  if (domain && participantDomains.includes(domain)) {
+    return `https://${domain}`;
+  }
+  return participantDomainDefault && participantDomains.includes(participantDomainDefault)
+    ? `https://${participantDomainDefault}`
+    : participantAppUrl;
 }
 
 const errorSchema = z.object({ error: z.string() });
@@ -34,10 +53,16 @@ const addressesRoute = createRoute({
   summary: "The addresses a study can use",
   responses: {
     200: {
-      description: "The participant app's own address, and the domains a study can run at",
+      description: "Where a study goes if it hasn't chosen, and every address it can choose",
       content: {
         "application/json": {
-          schema: z.object({ default: z.string(), domains: z.array(z.string()) }),
+          schema: z.object({
+            /** The domain a study gets if it hasn't chosen. */
+            default: z.string(),
+            /** The researchers' own address's domain, which a study can also choose. */
+            app: z.string(),
+            domains: z.array(z.string()),
+          }),
         },
       },
     },
@@ -48,7 +73,7 @@ const addressesRoute = createRoute({
 const setAddressRoute = createRoute({
   method: "put",
   path: "/admin/studies/{studyId}/address",
-  summary: "Choose the domain a study's participants use, or none for the usual address",
+  summary: "Choose the domain a study's participants use, or none for the default",
   request: {
     params: z.object({ studyId: z.uuid() }),
     body: {
@@ -74,14 +99,23 @@ export function createAddressRoutes({
   db,
   participantAppUrl = "http://localhost:5180",
   participantDomains = [],
+  participantDomainDefault,
 }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
+  const addresses = { participantAppUrl, participantDomains, participantDomainDefault };
 
   app.openapi(addressesRoute, async (c) => {
     if (!(await researcherFromRequest(c, db))) {
       return c.json({ error: "Please sign in." }, 401);
     }
-    return c.json({ default: participantAppUrl, domains: [...participantDomains] }, 200);
+    return c.json(
+      {
+        default: new URL(studyAddress(null, addresses)).host,
+        app: appHost(participantAppUrl),
+        domains: [...participantDomains],
+      },
+      200,
+    );
   });
 
   app.openapi(setAddressRoute, async (c) => {
@@ -98,17 +132,14 @@ export function createAddressRoutes({
       return c.json({ error: "You can view this study, but not change it." }, 403);
     }
     const domain = c.req.valid("json").domain?.trim().toLowerCase() || null;
-    if (domain && !participantDomains.includes(domain)) {
+    if (domain && !participantDomains.includes(domain) && domain !== appHost(participantAppUrl)) {
       return c.json({ error: `${domain} isn't one of this Truman's participant domains.` }, 400);
     }
     await db
       .update(schema.studies)
       .set({ participantDomain: domain })
       .where(eq(schema.studies.id, studyId));
-    return c.json(
-      { participantUrl: studyAddress(domain, participantAppUrl, participantDomains) },
-      200,
-    );
+    return c.json({ participantUrl: studyAddress(domain, addresses) }, 200);
   });
 
   return app;

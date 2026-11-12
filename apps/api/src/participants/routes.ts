@@ -171,6 +171,8 @@ export interface ParticipantRouteDependencies {
   participantAppUrl?: string;
   /** Domains a study can run at instead, so the address doesn't say "research" (ADR 74). */
   participantDomains?: string[];
+  /** Where a study that hasn't chosen goes: one of participantDomains. Leave out for the app's own. */
+  participantDomainDefault?: string | undefined;
   /** What writes improvised lines for Christof. Without one, beats use their fallback lines. */
   writer?: Writer | null;
   /**

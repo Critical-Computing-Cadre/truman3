@@ -12,10 +12,11 @@ This ADR is the first part, and the groundwork both need.
 
 ## Decision
 
-- **Each study has an address.** `studies.participant_domain` is one of the server's `PARTICIPANT_DOMAINS`, or empty for `PARTICIPANT_APP_URL`.
+- **Each study has an address.** `studies.participant_domain` is one of the server's `PARTICIPANT_DOMAINS`, the participant app's own host, or empty for the default.
+  - **The default** is `PARTICIPANT_DOMAIN_DEFAULT` if the server sets one, or else `PARTICIPANT_APP_URL`. On production it's clikbrite.com, as Dominic chose, so a study is at a neutral address unless its researcher chooses otherwise.
   - A researcher who can edit the study picks it on the Studies page. The picker only shows when the server offers participant domains.
   - The study's link, its pilot links, and the link Prolific sends people to all use it.
-  - A domain the server stops offering falls back to the usual address, so a link never points where the server doesn't answer.
+  - A domain the server stops offering falls back to the default, so a link never points where the server doesn't answer.
 - **A participant domain shows nothing of Truman.**
   - The CloudFront router (`infra/lib/app-router.js`) now also runs on `/api/*`. On a participant domain, it answers 404 for `/admin` and `/api/admin`, so the admin app and the admin API can't be found there. Everything a participant uses passes through as before.
   - The list of participant domains is written into the router when the stack is built.
@@ -29,7 +30,7 @@ This ADR is the first part, and the groundwork both need.
   - tells the API and the router about it
 
   A stage with participant domains needs its own addresses in a zone too, so there's one certificate for everything.
-- **Production lists none yet.** Adding Dominic's domains is a few lines once their zones are in production's account. That's in `docs/guides/deploying.md`.
+- **Production offers clikbrite.com,** and makes it the default. Its zone is in production's account, made by hand. The domain stays registered in Social Design Lab's account, with its name servers pointing at that zone. Adding another domain is in `docs/guides/deploying.md`.
 
 ## Alternatives
 

@@ -488,7 +488,7 @@ function AddressPicker({ study }: { study: StudySummary }) {
   const client = useQueryClient();
   const addresses = useQuery({
     queryKey: ["addresses"],
-    queryFn: () => get<{ default: string; domains: string[] }>("/admin/addresses"),
+    queryFn: () => get<{ default: string; app: string; domains: string[] }>("/admin/addresses"),
     staleTime: Number.POSITIVE_INFINITY,
   });
   const choose = useMutation({
@@ -509,12 +509,14 @@ function AddressPicker({ study }: { study: StudySummary }) {
         onChange={(event) => choose.mutate(event.target.value || null)}
         className="rounded border border-stone-300 px-2 py-1"
       >
-        <option value="">{new URL(addresses.data?.default ?? "http://localhost").host}</option>
-        {domains.map((domain) => (
-          <option key={domain} value={domain}>
-            {domain}
-          </option>
-        ))}
+        <option value="">{addresses.data?.default} (the default)</option>
+        {[...domains, addresses.data?.app ?? ""]
+          .filter((domain) => domain && domain !== addresses.data?.default)
+          .map((domain) => (
+            <option key={domain} value={domain}>
+              {domain}
+            </option>
+          ))}
       </select>
       {choose.error && <span className="text-rose-700">{choose.error.message}</span>}
     </label>
