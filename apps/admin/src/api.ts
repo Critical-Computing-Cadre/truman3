@@ -250,6 +250,7 @@ export interface PreviewInfo {
     commentBox: string;
     layout: LayoutKey;
     accent: string | null;
+    decor: { hide: string[]; add: string[] };
     features: FeatureSet;
   }[];
   posts: { offsetMs: number; conditions: string[] }[];

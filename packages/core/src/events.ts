@@ -16,6 +16,15 @@ export const eventPayloadSchemas = {
   }),
   "session.heartbeat": z.strictObject({ activeMs: z.number().nonnegative(), page: z.string() }),
   "page.viewed": z.strictObject({ page: z.string() }),
+  /**
+   * They pressed something that's only for show (the `decor` feature), such as Marketplace. `key`
+   * names it, `label` is what it said, and `page` is where they were.
+   */
+  "decor.pressed": z.strictObject({
+    key: z.string().max(80),
+    label: z.string().max(80),
+    page: z.string().max(200),
+  }),
   "flow.step_completed": z.strictObject({ step: z.string() }),
   "flow.exited": z.strictObject({ outcome: z.string() }),
   /** `crosspostOf` is the post a crosspost came from. */

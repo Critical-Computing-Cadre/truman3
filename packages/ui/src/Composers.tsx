@@ -101,7 +101,7 @@ export function CreatePostBar({
       {(showPhoto || decor) && (
         <div className="mt-3 flex border-t border-stone-200 pt-2 text-sm font-semibold text-stone-600 [&>button]:flex [&>button]:flex-1 [&>button]:items-center [&>button]:justify-center [&>button]:gap-2 [&>button]:rounded-lg [&>button]:py-2 [&>button:hover]:bg-stone-100">
           {decor && (
-            <Decor>
+            <Decor id="live-video">
               <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="#f0445c">
                 <path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v2.500l5-3v11l-5-3V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               </svg>
@@ -118,7 +118,7 @@ export function CreatePostBar({
             </button>
           )}
           {decor && (
-            <Decor>
+            <Decor id="feeling">
               <svg
                 aria-hidden="true"
                 viewBox="0 0 24 24"

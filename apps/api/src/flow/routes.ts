@@ -50,6 +50,8 @@ const flowStateSchema = z.object({
   theme: z.enum(["light", "dark", "device"]),
   /** The site's main color, or null for the one its kind of site comes with. */
   accent: z.string().nullable(),
+  /** What's only for show that the study left out, and what it added. */
+  decor: z.object({ hide: z.array(z.string()), add: z.array(z.string()) }),
   /** Which button an "are you sure?" box makes dark. */
   sureButton: z.enum(["goBack", "postAnyway"]),
   /** Whether the comment box is always there, or appears on Reply. */
@@ -173,6 +175,10 @@ const reportedEventSchema = z.discriminatedUnion("type", [
   actionMetaSchema.extend({
     type: z.literal("page.viewed"),
     payload: eventPayloadSchemas["page.viewed"],
+  }),
+  actionMetaSchema.extend({
+    type: z.literal("decor.pressed"),
+    payload: eventPayloadSchemas["decor.pressed"],
   }),
   actionMetaSchema.extend({
     type: z.literal("session.heartbeat"),

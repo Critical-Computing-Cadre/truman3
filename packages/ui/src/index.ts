@@ -2,6 +2,8 @@ export { Avatar } from "./Avatar.tsx";
 export { BrandName } from "./BrandName.tsx";
 export { CommentBox, CreatePostBar, PhotoIcon, ProfileCard } from "./Composers.tsx";
 export {
+  AddedDecor,
+  AddedMark,
   type Chrome,
   ChromeProvider,
   Decor,
@@ -10,6 +12,7 @@ export {
   SmallPrint,
   useChrome,
   useDecor,
+  useDecorShown,
 } from "./chrome.tsx";
 export { FeedPostView } from "./FeedPostView.tsx";
 export { KarmaBadge } from "./features/karma.tsx";

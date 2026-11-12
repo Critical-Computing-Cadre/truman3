@@ -1,3 +1,4 @@
+import { addedDecorKey, DECOR_ITEMS, type DecorTarget } from "@truman3/core";
 import {
   createContext,
   type FormEvent,
@@ -8,7 +9,7 @@ import {
 } from "react";
 import { Avatar } from "./Avatar.tsx";
 import { SearchIcon } from "./icons.tsx";
-import { useFeature } from "./platform.tsx";
+import { useFeature, usePlatform } from "./platform.tsx";
 
 /**
  * What a layout needs to draw the page around posts the way a real site would: who's looking, what
@@ -30,8 +31,13 @@ export interface Chrome {
   messages?:
     | { unread: number; render: (className: string, children: ReactNode) => ReactNode }
     | undefined;
-  /** Real pages the study wrote, such as its terms, for the small print. */
-  pages: { key: string; render: (className: string) => ReactNode }[];
+  /**
+   * The real pages this study has that something for show can open instead of saying it isn't
+   * available. One that's missing here stays for show.
+   */
+  go: Partial<Record<DecorTarget, (className: string, children: ReactNode) => ReactNode>>;
+  /** Someone pressed something that's only for show, to be recorded. */
+  onDecor?: ((key: string, label: string) => void) | undefined;
 }
 
 const ChromeContext = createContext<Chrome | null>(null);
@@ -82,32 +88,115 @@ export function useDecor() {
   return useChrome() !== null && on;
 }
 
+/** Whether one thing that's for show is drawn: the feature is on, and the study hasn't hidden it. */
+export function useDecorShown(id: string) {
+  const decor = useDecor();
+  const hidden = usePlatform().decor?.hide.includes(id) ?? false;
+  return decor && !hidden;
+}
+
+/** What pressing something for show does: says it isn't available, and has it recorded. */
+function usePress() {
+  const say = useContext(NoticeContext);
+  const chrome = useChrome();
+  return (key: string, label: string) => {
+    say(label);
+    chrome?.onDecor?.(key, label);
+  };
+}
+
 /**
- * Something a real site would have here that this one doesn't. Pressing it says it isn't available
- * right now, as a real site would of a part that's down, so nobody is left wondering whether their
- * press was noticed. It's marked so a study's records and tests can tell it from a real button.
+ * Something a real site of this kind would have here, from the list in `DECOR_ITEMS`. Where the
+ * study has a real page for it, it's a link to that page. Otherwise pressing it says it isn't
+ * available right now, as a real site would of a part that's down, and the press is recorded. A
+ * study can hide any of them. One that's only for show is marked `data-decor`, so tests can tell.
  */
 export function Decor({
+  id,
   children,
   className = "",
-  label,
+  iconOnly = false,
 }: {
+  /** Its key in this layout's list. */
+  id: string;
   children: ReactNode;
   className?: string;
-  /** What it's called, where it's only an icon. */
-  label?: string;
+  /** Whether it's drawn as an icon alone, and so needs its name for a screen reader. */
+  iconOnly?: boolean;
 }) {
-  const say = useContext(NoticeContext);
+  const { layout } = usePlatform();
+  const chrome = useChrome();
+  const shown = useDecorShown(id);
+  const press = usePress();
+  if (!shown) {
+    return null;
+  }
+  const item = DECOR_ITEMS[layout].find(({ key }) => key === id);
+  const label = item?.label ?? id;
+  const real = item?.opens ? chrome?.go[item.opens] : undefined;
+  if (real) {
+    return real(
+      className,
+      <>
+        {children}
+        {iconOnly && <span className="sr-only">{label}</span>}
+      </>,
+    );
+  }
   return (
     <button
       type="button"
-      data-decor=""
-      onClick={(event) => say(label ?? event.currentTarget.textContent?.trim() ?? "This")}
+      data-decor={id}
+      onClick={() => press(id, label)}
       className={`cursor-pointer text-left ${className}`}
-      {...(label ? { "aria-label": label, title: label } : {})}
+      {...(iconOnly ? { "aria-label": label, title: label } : {})}
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * What a study added of its own, for a layout's menu. Each does what the rest do: says it isn't
+ * available, and is recorded. A layout says how to draw one, since a rail of icons has no room for
+ * words.
+ */
+export function AddedDecor({
+  className = "",
+  render,
+}: {
+  className?: string;
+  render: (label: string) => ReactNode;
+}) {
+  const added = usePlatform().decor?.add ?? [];
+  const decor = useDecor();
+  const press = usePress();
+  if (!decor) {
+    return null;
+  }
+  return added.map((label) => (
+    <button
+      key={label}
+      type="button"
+      data-decor={addedDecorKey(label)}
+      title={label}
+      onClick={() => press(addedDecorKey(label), label)}
+      className={`cursor-pointer text-left ${className}`}
+    >
+      {render(label)}
+    </button>
+  ));
+}
+
+/** A plain mark for something a study added, which has no icon of its own: its first letter. */
+export function AddedMark({ label, className = "h-8 w-8" }: { label: string; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`flex shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm font-bold text-accent ${className}`}
+    >
+      {label.charAt(0).toUpperCase()}
+    </span>
   );
 }
 
@@ -123,9 +212,10 @@ export function SearchBox({
 }) {
   const chrome = useChrome();
   const [words, setWords] = useState("");
-  const decor = useDecor();
-  const say = useContext(NoticeContext);
-  if (!chrome || (!decor && !chrome.onSearch)) {
+  const shown = useDecorShown("search");
+  const press = usePress();
+  // A study that hides it for show still has it where it really looks something up.
+  if (!chrome || (!shown && !chrome.onSearch)) {
     return null;
   }
   const submit = (event: FormEvent) => {
@@ -136,7 +226,7 @@ export function SearchBox({
     if (chrome.onSearch) {
       chrome.onSearch(words.trim());
     } else {
-      say("Search");
+      press("search", "Search");
     }
   };
   return (
@@ -155,37 +245,34 @@ export function SearchBox({
 }
 
 /**
- * The small print a real site has at the bottom of a column: a few words that go nowhere, the
- * study's own pages where it has them, and a line with the year.
+ * The small print a real site has at the bottom of a column, from this layout's list: words that
+ * are for show, links to the study's own pages where it has them, and a line with the year.
  */
-export function SmallPrint({
-  words,
-  className = "",
-  owner,
-}: {
-  /** Words for show, such as About and Help. */
-  words: readonly string[];
-  className?: string;
-  /** Who the last line says it belongs to. The site's name, unless a layout writes it another way. */
-  owner?: string;
-}) {
+export function SmallPrint({ className = "", owner }: { className?: string; owner?: string }) {
   const chrome = useChrome();
   const decor = useDecor();
-  if (!chrome || (!decor && chrome.pages.length === 0)) {
+  const { layout } = usePlatform();
+  if (!chrome) {
+    return null;
+  }
+  const words = DECOR_ITEMS[layout].filter(({ where }) => where === "Small print");
+  // With what's for show turned off, the study's own pages are still worth a link.
+  const shown = decor ? words : words.filter(({ opens }) => opens && chrome.go[opens]);
+  if (shown.length === 0) {
     return null;
   }
   return (
     <footer className={`text-xs leading-relaxed text-stone-500 ${className}`}>
       <p className="flex flex-wrap gap-x-2">
-        {decor &&
-          words.map((word) => (
-            <Decor key={word} className="hover:underline">
-              {word}
+        {shown.map(({ key, label, opens }) =>
+          decor ? (
+            <Decor key={key} id={key} className="hover:underline">
+              {label}
             </Decor>
-          ))}
-        {chrome.pages.map(({ key, render }) => (
-          <span key={key}>{render("hover:underline")}</span>
-        ))}
+          ) : (
+            <span key={key}>{opens && chrome.go[opens]?.("hover:underline", label)}</span>
+          ),
+        )}
       </p>
       {decor && (
         <p className="mt-2">
@@ -202,8 +289,9 @@ export function SmallPrint({
  */
 export function MessagesDock({ label, className }: { label: string; className: string }) {
   const chrome = useChrome();
-  const decor = useDecor();
-  if (!chrome?.viewer || (!chrome.messages && !decor)) {
+  const shown = useDecorShown("corner");
+  const press = usePress();
+  if (!chrome?.viewer || !shown) {
     return null;
   }
   const inside = (
@@ -223,7 +311,14 @@ export function MessagesDock({ label, className }: { label: string; className: s
       {chrome.messages ? (
         chrome.messages.render(className, inside)
       ) : (
-        <Decor className={className}>{inside}</Decor>
+        <button
+          type="button"
+          data-decor="corner"
+          onClick={() => press("corner", label)}
+          className={`cursor-pointer text-left ${className}`}
+        >
+          {inside}
+        </button>
       )}
     </div>
   );

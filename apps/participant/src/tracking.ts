@@ -6,6 +6,7 @@ const MAX_BATCH = 200;
 
 type ReportedEvent =
   | { type: "page.viewed"; payload: { page: string } }
+  | { type: "decor.pressed"; payload: { key: string; label: string; page: string } }
   | { type: "session.heartbeat"; payload: { activeMs: number; page: string } }
   | {
       type: "content.viewed";

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FEATURE_KEYS } from "../features/catalog.ts";
+import { DECOR_ITEMS, MAX_DECOR_ADDED, MAX_DECOR_LABEL } from "../features/decor.ts";
 import { TEMPLATES } from "../features/templates.ts";
 import { linkDomain, MAX_LINK_LENGTH, safeLink } from "../post-extras.ts";
 import type { StudySettings } from "./definition.ts";
@@ -12,6 +13,7 @@ import {
   featuresFor,
   freezePlatform,
   layoutFor,
+  platformFor,
   platformStyleFor,
   sureButtonFor,
   themeFor,
@@ -122,6 +124,34 @@ describe("themeFor", () => {
 
   it("takes nothing else", () => {
     expect(() => study("sepia")).toThrow();
+  });
+});
+
+describe("what's only for show", () => {
+  it.each(Object.entries(DECOR_ITEMS))("%s's list names each thing once", (_layout, items) => {
+    const keys = items.map(({ key }) => key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("is all shown, with nothing added, until a study says", () => {
+    expect(platformFor(settings(), "a").decor).toEqual({ hide: [], add: [] });
+  });
+
+  it("carries what a study hides and adds to the page", () => {
+    const study = settings({
+      platform: { style: "mixed", decor: { hide: ["events"], add: [{ label: " Coupons " }] } },
+    });
+    expect(platformFor(study, "a").decor).toEqual({ hide: ["events"], add: ["Coupons"] });
+  });
+
+  it("takes a short name for something added, and only so many", () => {
+    const adding = (add: { label: string }[]) =>
+      settings({ platform: { style: "mixed", decor: { add } } });
+    expect(() => adding([{ label: "" }])).toThrow();
+    expect(() => adding([{ label: "x".repeat(MAX_DECOR_LABEL + 1) }])).toThrow();
+    expect(() =>
+      adding(Array.from({ length: MAX_DECOR_ADDED + 1 }, (_, n) => ({ label: `Thing ${n}` }))),
+    ).toThrow();
   });
 });
 

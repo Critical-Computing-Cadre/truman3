@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import {
   contrast,
+  DECOR_ITEMS,
+  DECOR_TARGETS,
   DEFAULT_TEMPLATE,
   FEATURE_KEYS,
   FEATURES,
@@ -9,6 +11,9 @@ import {
   fillLinkTemplate,
   LAYOUT_ACCENTS,
   LAYOUT_THEMES,
+  type LayoutKey,
+  MAX_DECOR_ADDED,
+  MAX_DECOR_LABEL,
   type StudySettings,
   TEMPLATES,
   type TemplateDefinition,
@@ -557,7 +562,148 @@ function StudyForm({
           </label>
         ))}
       </fieldset>
+      {(value.platform.features?.decor ??
+        TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features.decor) && (
+        <ForShow
+          layout={TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].layout}
+          value={value.platform.decor}
+          onChange={(decor) => {
+            const { decor: _, ...platform } = value.platform;
+            set({ ...value, platform: decor ? { ...platform, decor } : platform });
+          }}
+        />
+      )}
     </>
+  );
+}
+
+type DecorChoice = NonNullable<StudySettings["platform"]["decor"]>;
+
+/**
+ * Which of the things that are only for show this study keeps, and any of its own. The list is what
+ * this kind of site draws, grouped by where on the page each one is.
+ */
+function ForShow({
+  layout,
+  value,
+  onChange,
+}: {
+  layout: LayoutKey;
+  value: DecorChoice | undefined;
+  onChange: (value: DecorChoice | undefined) => void;
+}) {
+  const hidden = value?.hide ?? [];
+  const added = value?.add ?? [];
+  const [label, setLabel] = useState("");
+  // Nothing hidden and nothing added is the same as never having chosen, so it isn't written down.
+  const change = (hide: string[], add: DecorChoice["add"] = added) =>
+    onChange(
+      hide.length === 0 && (add ?? []).length === 0
+        ? undefined
+        : { ...(hide.length > 0 ? { hide } : {}), ...(add && add.length > 0 ? { add } : {}) },
+    );
+  const places = [...new Set(DECOR_ITEMS[layout].map(({ where }) => where))];
+  const name = label.trim();
+  const canAdd =
+    name.length > 0 &&
+    added.length < MAX_DECOR_ADDED &&
+    !added.some((item) => item.label.toLowerCase() === name.toLowerCase());
+  return (
+    <fieldset className="space-y-3 rounded border border-stone-200 p-3">
+      <legend className="px-1 text-sm font-medium">What's shown for show?</legend>
+      <Hint>
+        These make the site look used. Pressing one tells the participant it isn't available right
+        now, and is recorded as <code>decor.pressed</code>. Untick any you don't want. One marked
+        "real" opens a page of your study when it has that page.
+      </Hint>
+      {places.map((place) => (
+        <div key={place}>
+          <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase">{place}</p>
+          <div className="mt-1 grid gap-x-4 gap-y-1 sm:grid-cols-2">
+            {DECOR_ITEMS[layout]
+              .filter(({ where }) => where === place)
+              .map(({ key, label: itemLabel, opens }) => (
+                <label key={key} className="flex items-baseline gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={!hidden.includes(key)}
+                    onChange={(event) =>
+                      change(
+                        event.target.checked
+                          ? hidden.filter((other) => other !== key)
+                          : [...hidden, key],
+                      )
+                    }
+                  />
+                  <span>
+                    {itemLabel}
+                    {opens && <Hint> Real: {DECOR_TARGETS[opens].toLowerCase()}.</Hint>}
+                  </span>
+                </label>
+              ))}
+          </div>
+        </div>
+      ))}
+      <div>
+        <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase">Your own</p>
+        <Hint>
+          Added to the menu, with its first letter as its icon. It's recorded like the others.
+        </Hint>
+        <ul className="mt-1 space-y-1">
+          {added.map((item) => (
+            <li key={item.label} className="flex items-center gap-2 text-sm">
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              <button
+                type="button"
+                className={smallButton}
+                aria-label={`Remove ${item.label}`}
+                onClick={() =>
+                  change(
+                    hidden,
+                    added.filter((other) => other.label !== item.label),
+                  )
+                }
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+        {added.length < MAX_DECOR_ADDED && (
+          <div className="mt-2 flex gap-2">
+            <input
+              aria-label="Something of your own to show"
+              placeholder="Such as Coupons"
+              maxLength={MAX_DECOR_LABEL}
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              onKeyDown={(event) => {
+                // Enter would otherwise save the whole card.
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  if (canAdd) {
+                    change(hidden, [...added, { label: name }]);
+                    setLabel("");
+                  }
+                }
+              }}
+              className={`${input} min-w-0 flex-1`}
+            />
+            <button
+              type="button"
+              className={smallButton}
+              disabled={!canAdd}
+              onClick={() => {
+                change(hidden, [...added, { label: name }]);
+                setLabel("");
+              }}
+            >
+              Add
+            </button>
+          </div>
+        )}
+      </div>
+    </fieldset>
   );
 }
 

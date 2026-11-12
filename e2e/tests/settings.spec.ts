@@ -73,6 +73,12 @@ test("a researcher changes settings, and a new participant gets them", async ({
 
   // Comment boxes, for the whole study, and a main color of its own in place of Classic's blue.
   await study.getByLabel(/^After pressing Reply/).check();
+  // What's only for show: one hidden, and one of the study's own added.
+  const forShow = study.getByRole("group", { name: "What's shown for show?" });
+  await forShow.getByLabel("Events").uncheck();
+  await forShow.getByLabel("Something of your own to show").fill("Coupons");
+  await forShow.getByRole("button", { name: "Add" }).click();
+  await expect(forShow.getByRole("button", { name: "Remove Coupons" })).toBeVisible();
   await study.getByLabel("Main color").fill("#2f7d32");
   await expect(
     study.getByRole("button", { name: "Use this kind of site's own color" }),
@@ -136,6 +142,14 @@ test("a researcher changes settings, and a new participant gets them", async ({
   const post = participant.locator("article").first();
   await expect(post).toBeVisible();
   await expect(post.getByLabel("Write a comment")).toHaveCount(0);
+  // The menu has what the study added and not what it hid. Pressing something for show says so.
+  const menu = participant.getByRole("navigation", { name: "More places" });
+  await expect(menu.getByRole("button", { name: "Coupons" })).toBeVisible();
+  await expect(menu.getByRole("button", { name: "Events" })).toHaveCount(0);
+  await menu.getByRole("button", { name: "Marketplace" }).click();
+  await expect(participant.getByRole("status")).toHaveText(
+    "Marketplace isn't available right now. Please try again later.",
+  );
   await post.getByRole("button", { name: "Reply" }).click();
   await expect(post.getByLabel("Write a comment")).toBeFocused();
   await participantContext.close();

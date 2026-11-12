@@ -158,6 +158,10 @@ export function platformFor(settings: StudySettings, conditionKey: string) {
     commentBox: commentBoxFor(settings, conditionKey),
     theme: themeFor(settings, conditionKey),
     accent: accentFor(settings, conditionKey),
+    decor: {
+      hide: settings.platform.decor?.hide ?? [],
+      add: (settings.platform.decor?.add ?? []).map(({ label }) => label),
+    },
     sureButton: sureButtonFor(settings, conditionKey),
     canJoinSpaces: canJoinSpacesFor(settings, conditionKey),
     canSort: canSortFor(settings, conditionKey),

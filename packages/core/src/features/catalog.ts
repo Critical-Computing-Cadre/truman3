@@ -197,9 +197,9 @@ export const FEATURES = {
   decor: {
     name: "Menus and small print for show",
     description:
-      "What a real site has around its posts: a search box, a longer menu, a place for messages, and small print such as Help and About. Most of it is only for show and does nothing when pressed, which makes the site look used and not built yesterday.",
-    version: 1,
-    events: [],
+      "What a real site has around its posts: a search box, a longer menu, a place for messages, and small print such as Help and About. Most of it is only for show and does nothing when pressed, which makes the site look used and not built yesterday. Pressing one says it isn't available right now, and is recorded.",
+    version: 2,
+    events: ["decor.pressed"],
   },
   ads: {
     name: "Ads",

@@ -17,7 +17,7 @@ import {
 import { useEffect } from "react";
 import { type FlowState, get, meQuery, post } from "../api.ts";
 import { useLive } from "../live.ts";
-import { flushTracking } from "../tracking.ts";
+import { flushTracking, track } from "../tracking.ts";
 
 const POLL_EVERY_MS = 30_000;
 
@@ -277,32 +277,73 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
           ),
         }
       : undefined,
-    pages: [
+    go: {
+      ...(flow.features.spaces
+        ? {
+            spaces: (className, children) => (
+              <Link to="/spaces" className={className}>
+                {children}
+              </Link>
+            ),
+          }
+        : {}),
+      ...(flow.features.trending || flow.features.whoToFollow || flow.features.exploreGrid
+        ? {
+            explore: (className, children) => (
+              <Link to="/explore" className={className}>
+                {children}
+              </Link>
+            ),
+          }
+        : {}),
+      ...(flow.features.saving && me.data
+        ? {
+            saved: (className, children) => (
+              <Link to="/u/$username" params={{ username: me.data.username }} className={className}>
+                {children}
+              </Link>
+            ),
+          }
+        : {}),
+      ...(me.data
+        ? {
+            account: (className, children) => (
+              <Link to="/account" className={className}>
+                {children}
+              </Link>
+            ),
+          }
+        : {}),
+      ...(flow.site.hasRules
+        ? {
+            rules: (className, children) => (
+              <Link to="/rules" search={{ from: "menu" }} className={className}>
+                {children}
+              </Link>
+            ),
+          }
+        : {}),
       ...(flow.site.hasTerms
-        ? [
-            {
-              key: "terms",
-              render: (className: string) => (
-                <Link to="/terms" className={className}>
-                  Terms
-                </Link>
-              ),
-            },
-          ]
-        : []),
+        ? {
+            terms: (className, children) => (
+              <Link to="/terms" className={className}>
+                {children}
+              </Link>
+            ),
+          }
+        : {}),
       ...(flow.site.hasPrivacy
-        ? [
-            {
-              key: "privacy",
-              render: (className: string) => (
-                <Link to="/privacy" className={className}>
-                  Privacy
-                </Link>
-              ),
-            },
-          ]
-        : []),
-    ],
+        ? {
+            privacy: (className, children) => (
+              <Link to="/privacy" className={className}>
+                {children}
+              </Link>
+            ),
+          }
+        : {}),
+    },
+    onDecor: (key, label) =>
+      track({ type: "decor.pressed", payload: { key, label, page: window.location.pathname } }),
   };
 
   return (

@@ -122,6 +122,7 @@ const infoRoute = createRoute({
                 commentBox: z.string(),
                 layout: z.string(),
                 accent: z.string().nullable(),
+                decor: z.object({ hide: z.array(z.string()), add: z.array(z.string()) }),
                 features: z.record(z.string(), z.boolean()),
               }),
             ),

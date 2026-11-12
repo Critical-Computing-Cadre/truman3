@@ -6,6 +6,15 @@ export {
   type FeatureSet,
 } from "./catalog.ts";
 export {
+  addedDecorKey,
+  DECOR_ITEMS,
+  DECOR_TARGETS,
+  type DecorItem,
+  type DecorTarget,
+  MAX_DECOR_ADDED,
+  MAX_DECOR_LABEL,
+} from "./decor.ts";
+export {
   DEFAULT_TEMPLATE,
   LAYOUT_ACCENTS,
   LAYOUT_KEYS,

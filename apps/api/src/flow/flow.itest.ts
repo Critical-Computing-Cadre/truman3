@@ -447,6 +447,17 @@ describe("timing reports", () => {
     });
   });
 
+  it("records a press on something that's only for show, with what it was and where", async () => {
+    const person = await enter(await importStudy());
+    const payload = { key: "marketplace", label: "Marketplace", page: "/" };
+
+    const response = await report(person, [{ ...meta(), type: "decor.pressed", payload }]);
+
+    expect(await response.json()).toEqual({ recorded: 1 });
+    const pressed = (await eventsOf(person)).find((event) => event.type === "decor.pressed");
+    expect(pressed).toMatchObject({ payload });
+  });
+
   it("counts a retried report once", async () => {
     const person = await enter(await importStudy());
     const event = { ...meta(), type: "page.viewed", payload: { page: "/feed" } };

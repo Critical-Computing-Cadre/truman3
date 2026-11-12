@@ -19,6 +19,8 @@ export interface PlatformChoices {
   features: FeatureSet;
   /** The study's own main color, as #rrggbb. Without one, the layout's. */
   accent?: string | null | undefined;
+  /** What's only for show that the study left out, by key, and what it added, by label. */
+  decor?: { hide: string[]; add: string[] } | undefined;
 }
 
 /**

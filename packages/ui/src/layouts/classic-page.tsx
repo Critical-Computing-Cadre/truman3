@@ -1,4 +1,14 @@
-import { Decor, MessagesDock, SearchBox, SmallPrint, useChrome, useDecor } from "../chrome.tsx";
+import {
+  AddedDecor,
+  AddedMark,
+  Decor,
+  MessagesDock,
+  SearchBox,
+  SmallPrint,
+  useChrome,
+  useDecor,
+  useDecorShown,
+} from "../chrome.tsx";
 import { SearchIcon } from "../icons.tsx";
 import type {
   FeedFrameProps,
@@ -78,7 +88,12 @@ export function ClassicHeader({ renderBrand, home, links, action }: PageHeaderPr
           ))}
           {decor &&
             (["Video", "Marketplace"] as const).map((word) => (
-              <Decor key={word} label={word} className={`${tab} hidden lg:flex`}>
+              <Decor
+                key={word}
+                id={word === "Video" ? "video" : "marketplace-tab"}
+                iconOnly
+                className={`${tab} hidden lg:flex`}
+              >
                 <svg
                   aria-hidden="true"
                   viewBox="0 0 24 24"
@@ -99,7 +114,7 @@ export function ClassicHeader({ renderBrand, home, links, action }: PageHeaderPr
         </div>
         <div className="ml-auto flex items-center justify-end gap-2 md:ml-0 md:w-80">
           {decor && (
-            <Decor label="Menu" className={`${ROUND} hidden md:flex`}>
+            <Decor id="menu" iconOnly className={`${ROUND} hidden md:flex`}>
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
                 {[4, 12, 20].flatMap((y) =>
                   [4, 12, 20].map((x) => <circle key={`${x},${y}`} cx={x} cy={y} r="2.3" />),
@@ -133,6 +148,7 @@ export function ClassicHeader({ renderBrand, home, links, action }: PageHeaderPr
 export function ClassicFeedFrame({ renderProfile, side, top, children }: FeedFrameProps) {
   const chrome = useChrome();
   const decor = useDecor();
+  const contacts = useDecorShown("contacts");
   const row =
     "flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-[0.95rem] font-medium hover:bg-stone-200/70";
   return (
@@ -144,12 +160,12 @@ export function ClassicFeedFrame({ renderProfile, side, top, children }: FeedFra
           {decor && (
             <nav aria-label="More places" className="space-y-0.5">
               {FOR_SHOW.map(({ word, color, d }) => (
-                <Decor key={word} className={row}>
+                <Decor key={word} id={word.toLowerCase()} className={row}>
                   <ShowIcon color={color} d={d} />
                   {word}
                 </Decor>
               ))}
-              <Decor className={row}>
+              <Decor id="see-more" className={row}>
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-stone-200">
                   <svg
                     aria-hidden="true"
@@ -164,12 +180,18 @@ export function ClassicFeedFrame({ renderProfile, side, top, children }: FeedFra
                 </span>
                 See more
               </Decor>
+              <AddedDecor
+                className={row}
+                render={(label) => (
+                  <>
+                    <AddedMark label={label} />
+                    {label}
+                  </>
+                )}
+              />
             </nav>
           )}
-          <SmallPrint
-            words={["Privacy", "Terms", "Advertising", "Ad Choices", "Cookies", "More"]}
-            className="border-t border-stone-300 px-2 pt-3"
-          />
+          <SmallPrint className="border-t border-stone-300 px-2 pt-3" />
         </div>
       </aside>
       <div className="min-w-0 space-y-3 sm:space-y-4">
@@ -180,13 +202,11 @@ export function ClassicFeedFrame({ renderProfile, side, top, children }: FeedFra
       <aside className="hidden space-y-4 xl:block">
         <div className="sticky top-18 space-y-4">
           {side}
-          {decor && chrome?.viewer && (
+          {contacts && chrome?.viewer && (
             <section aria-label="Contacts" className="px-2 text-sm">
               <h2 className="flex items-center justify-between pb-2 font-semibold text-stone-600">
                 Contacts
-                <Decor label="Search contacts" className="text-stone-500">
-                  <SearchIcon className="h-4 w-4" />
-                </Decor>
+                <SearchIcon className="h-4 w-4 text-stone-500" />
               </h2>
               <p className="text-stone-500">Nobody's online right now.</p>
             </section>
