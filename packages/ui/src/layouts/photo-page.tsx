@@ -1,5 +1,13 @@
 import type { ReactNode } from "react";
-import { Decor, MessagesDock, SearchBox, SmallPrint, useDecor } from "../chrome.tsx";
+import {
+  AddedDecor,
+  AddedMark,
+  Decor,
+  MessagesDock,
+  SearchBox,
+  SmallPrint,
+  useDecor,
+} from "../chrome.tsx";
 import { LinkIcon } from "../icons.tsx";
 import { ForumSpaceFrame } from "./forum-page.tsx";
 import type { FeedFrameProps, PageHeaderProps, PostFrameProps } from "./page-props.ts";
@@ -29,10 +37,7 @@ export function ShortPostFrame({ side, children }: PostFrameProps) {
           inputClassName="rounded-full border border-stone-200 bg-stone-50 py-2.5 focus:border-accent"
         />
         {side}
-        <SmallPrint
-          words={["About", "Help", "Accessibility", "Ads info", "Blog", "Developers"]}
-          className="px-2"
-        />
+        <SmallPrint className="px-2" />
       </aside>
     </div>
   );
@@ -85,18 +90,19 @@ export function PhotoHeader({ renderBrand, home, links, action }: PageHeaderProp
             </span>
           ))}
           {decor && (
-            <Decor label="Reels" className={item}>
+            <Decor id="reels" iconOnly className={item}>
               <Stroke d={REELS} />
             </Decor>
           )}
         </div>
+        <AddedDecor className={item} render={(label) => <AddedMark label={label} />} />
         {action && <span className="mb-3 px-1 text-center">{action}</span>}
         {decor && (
           <>
-            <Decor label="More" className={item}>
+            <Decor id="more" iconOnly className={item}>
               <Stroke d={MENU} />
             </Decor>
-            <Decor label="Also from us" className={item}>
+            <Decor id="also" iconOnly className={item}>
               <Stroke d={APPS} />
             </Decor>
           </>
@@ -154,11 +160,20 @@ export function ShortHeader({ renderBrand, home, links, action }: PageHeaderProp
               ["Settings", "M4 7h10M18 7h2M4 17h2M10 17h10M16 4.500v5M8 14.500v5"],
             ] as const
           ).map(([word, d]) => (
-            <Decor key={word} label={word} className={`${row} w-full`}>
+            <Decor key={word} id={word.toLowerCase()} iconOnly className={`${row} w-full`}>
               <Stroke d={d} />
               <span className="hidden xl:inline">{word}</span>
             </Decor>
           ))}
+        <AddedDecor
+          className={`${row} w-full`}
+          render={(label) => (
+            <>
+              <AddedMark label={label} className="h-6 w-6 text-xs" />
+              <span className="hidden xl:inline">{label}</span>
+            </>
+          )}
+        />
         {action && <span className="mt-auto px-3">{action}</span>}
       </nav>
       <header className="sticky top-0 z-20 flex h-13 items-center gap-2 border-b border-stone-200 bg-white/90 px-4 backdrop-blur md:hidden">
@@ -205,10 +220,7 @@ export function PhotoFeedFrame({ renderProfile, side, top, children }: FeedFrame
       >
         {renderProfile(true)}
         {side}
-        <SmallPrint
-          words={["About", "Help", "Press", "API", "Jobs", "Locations", "Language"]}
-          className="pt-2 [&>p:last-child]:tracking-wide [&>p:last-child]:uppercase"
-        />
+        <SmallPrint className="pt-2 [&>p:last-child]:tracking-wide [&>p:last-child]:uppercase" />
       </aside>
       <MessagesDock
         label="Messages"
@@ -237,10 +249,7 @@ export function ShortFeedFrame({ renderProfile, side, top, children }: FeedFrame
         />
         {side}
         {renderProfile(true)}
-        <SmallPrint
-          words={["About", "Help", "Accessibility", "Ads info", "Blog", "Developers"]}
-          className="px-2"
-        />
+        <SmallPrint className="px-2" />
       </aside>
       <MessagesDock
         label="Chat"

@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { Decor, MessagesDock, SearchBox, SmallPrint, useChrome, useDecor } from "../chrome.tsx";
+import {
+  AddedDecor,
+  AddedMark,
+  Decor,
+  MessagesDock,
+  SearchBox,
+  SmallPrint,
+  useChrome,
+  useDecor,
+} from "../chrome.tsx";
 import { LinkIcon } from "../icons.tsx";
 import type {
   FeedFrameProps,
@@ -108,22 +117,28 @@ export function ForumFeedFrame({ renderProfile, side, top, children }: FeedFrame
               Home
             </p>
             {FEEDS.map(([word, d]) => (
-              <Decor key={word} className={row}>
+              <Decor key={word} id={word.toLowerCase()} className={row}>
                 <Glyph d={d} />
                 {word}
               </Decor>
             ))}
+            <AddedDecor
+              className={row}
+              render={(label) => (
+                <>
+                  <AddedMark label={label} className="h-5 w-5 text-[0.65rem]" />
+                  {label}
+                </>
+              )}
+            />
             <p className={heading}>Resources</p>
             {RESOURCES.map(([word, d]) => (
-              <Decor key={word} className={row}>
+              <Decor key={word} id={word.toLowerCase()} className={row}>
                 <Glyph d={d} />
                 {word}
               </Decor>
             ))}
-            <SmallPrint
-              words={["Rules", "Privacy Policy", "User Agreement", "Accessibility"]}
-              className="mt-4 border-t border-stone-300 px-3 pt-3"
-            />
+            <SmallPrint className="mt-4 border-t border-stone-300 px-3 pt-3" />
           </nav>
         </aside>
       )}
@@ -134,7 +149,7 @@ export function ForumFeedFrame({ renderProfile, side, top, children }: FeedFrame
       <aside aria-label="About you" className="sticky top-18 hidden space-y-4 lg:block">
         {renderProfile(true)}
         {side}
-        {!decor && <SmallPrint words={[]} className="px-3" />}
+        {!decor && <SmallPrint className="px-3" />}
       </aside>
       <MessagesDock
         label="Chat"

@@ -51,14 +51,15 @@ Whatever your study used is frozen with its version, so you can write your metho
 
 `events.csv` has one row for each thing a participant did: a `type`, who did it, what it was done to, a `payload` with the details, and when. Some types you'll use often:
 
-| Type                                                 | Means                                                    |
-| ---------------------------------------------------- | -------------------------------------------------------- |
-| `content.created`                                    | They wrote a post, comment, or message                   |
-| `content.liked`, `content.voted`, `content.reposted` | They reacted to something                                |
-| `content.flagged`, `actor.reported`, `actor.blocked` | They flagged a post, or reported or blocked an account   |
-| `content.viewed`                                     | A post was on their screen, with `dwell_ms` for how long |
-| `actor.followed`                                     | They followed someone                                    |
-| `flow.step_completed`                                | They finished a step such as consent                     |
+| Type                                                 | Means                                                                                                          |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `content.created`                                    | They wrote a post, comment, or message                                                                         |
+| `content.liked`, `content.voted`, `content.reposted` | They reacted to something                                                                                      |
+| `content.flagged`, `actor.reported`, `actor.blocked` | They flagged a post, or reported or blocked an account                                                         |
+| `content.viewed`                                     | A post was on their screen, with `dwell_ms` for how long                                                       |
+| `actor.followed`                                     | They followed someone                                                                                          |
+| `flow.step_completed`                                | They finished a step such as consent                                                                           |
+| `decor.pressed`                                      | They pressed something that's only for show, such as Marketplace. `key` and `label` say what, and `page` where |
 
 Three things are worth knowing when you read it:
 

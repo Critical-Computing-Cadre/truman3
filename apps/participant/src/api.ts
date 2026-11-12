@@ -61,6 +61,7 @@ export interface FlowState {
   commentBox: "open" | "onReply";
   theme: "light" | "dark" | "device";
   accent: string | null;
+  decor: { hide: string[]; add: string[] };
   sureButton: "goBack" | "postAnyway";
   layout: LayoutKey;
   features: FeatureSet;

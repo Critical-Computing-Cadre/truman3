@@ -1,9 +1,10 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { LAYOUT_KEYS, type LayoutKey, TEMPLATES } from "@truman3/core";
-import { afterEach, describe, expect, it } from "vitest";
+import { DECOR_ITEMS, LAYOUT_KEYS, type LayoutKey, TEMPLATES } from "@truman3/core";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { BrandName } from "./BrandName.tsx";
 import { CreatePostBar } from "./Composers.tsx";
 import { type Chrome, ChromeProvider, SmallPrint } from "./chrome.tsx";
+import { FeedFrame, PageHeader } from "./PageFrames.tsx";
 import { PlatformProvider } from "./platform.tsx";
 
 const features = TEMPLATES.classic.features;
@@ -19,16 +20,13 @@ const chrome: Chrome = {
       </a>
     ),
   },
-  pages: [
-    {
-      key: "terms",
-      render: (className) => (
-        <a href="/terms" className={className}>
-          Terms
-        </a>
-      ),
-    },
-  ],
+  go: {
+    terms: (className, children) => (
+      <a href="/terms" className={className}>
+        {children}
+      </a>
+    ),
+  },
 };
 const inLayout = (layout: LayoutKey, accent?: string) => ({
   layout,
@@ -73,48 +71,116 @@ describe("what makes each kind of site look like itself", () => {
     render(
       <PlatformProvider platform={inLayout("classic")}>
         <CreatePostBar seed="ann" pictureUrl={null} showPhoto onOpen={() => {}} />
-        <SmallPrint words={["About", "Help"]} />
+        <SmallPrint />
       </PlatformProvider>,
     );
     expect(screen.queryByText("Live video")).toBeNull();
-    expect(screen.queryByText("About")).toBeNull();
+    expect(screen.queryByText("Advertising")).toBeNull();
   });
 
-  it("draws what's for show around a real page, marked so it can be told from a real button", () => {
+  it("says something for show isn't available when it's pressed, and has the press recorded", () => {
+    const onDecor = vi.fn();
     render(
       <PlatformProvider platform={inLayout("classic")}>
-        <ChromeProvider value={chrome}>
+        <ChromeProvider value={{ ...chrome, onDecor }}>
           <CreatePostBar seed="ann" pictureUrl={null} showPhoto onOpen={() => {}} />
-          <SmallPrint words={["About", "Help"]} />
+          <SmallPrint />
         </ChromeProvider>
       </PlatformProvider>,
     );
     expect(screen.getByRole("button", { name: "Create a post" }).textContent).toContain("Ann");
-    expect(screen.getByText("Live video").closest("button")?.hasAttribute("data-decor")).toBe(true);
-    expect(screen.getByText("About").hasAttribute("data-decor")).toBe(true);
-    // Pressing one says it isn't there, so nobody wonders whether their press was noticed.
+    expect(screen.getByText("Live video").closest("button")?.dataset.decor).toBe("live-video");
     expect(screen.getByRole("status").textContent).toBe("");
     fireEvent.click(screen.getByText("Live video"));
     expect(screen.getByRole("status").textContent).toBe(
       "Live video isn't available right now. Please try again later.",
     );
-    // The study's own pages are real links among them.
-    expect(screen.getByRole("link", { name: "Terms" })).toBeTruthy();
+    expect(onDecor).toHaveBeenCalledWith("live-video", "Live video");
     expect(screen.getByText(/Commons © \d{4}/)).toBeTruthy();
   });
 
-  it("leaves it out when a study turns the feature off, and keeps the study's own pages", () => {
+  it("opens the study's real page where it has one, and that isn't for show or recorded", () => {
+    const onDecor = vi.fn();
+    render(
+      <PlatformProvider platform={inLayout("classic")}>
+        <ChromeProvider value={{ ...chrome, onDecor }}>
+          <SmallPrint />
+        </ChromeProvider>
+      </PlatformProvider>,
+    );
+    const terms = screen.getByRole("link", { name: "Terms" });
+    expect(terms.getAttribute("href")).toBe("/terms");
+    expect(terms.hasAttribute("data-decor")).toBe(false);
+    // The study has no privacy page, so that one stays for show.
+    expect(screen.getByRole("button", { name: "Privacy" }).dataset.decor).toBe("print-privacy");
+  });
+
+  it("leaves out what a study hides, and draws what it adds", () => {
+    const onDecor = vi.fn();
+    const platform = {
+      ...inLayout("classic"),
+      decor: { hide: ["feeling", "print-cookies"], add: ["Coupons"] },
+    };
+    render(
+      <PlatformProvider platform={platform}>
+        <ChromeProvider value={{ ...chrome, onDecor }}>
+          <CreatePostBar seed="ann" pictureUrl={null} showPhoto onOpen={() => {}} />
+          <FeedFrame renderProfile={() => null}>posts</FeedFrame>
+        </ChromeProvider>
+      </PlatformProvider>,
+    );
+    expect(screen.getByText("Live video")).toBeTruthy();
+    expect(screen.queryByText("Feeling")).toBeNull();
+    expect(screen.queryByText("Cookies")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Coupons" }));
+    expect(onDecor).toHaveBeenCalledWith("added-coupons", "Coupons");
+  });
+
+  it("leaves it all out when a study turns the feature off, and keeps the study's own pages", () => {
     render(
       <PlatformProvider platform={{ layout: "classic", features: { ...features, decor: false } }}>
         <ChromeProvider value={chrome}>
           <CreatePostBar seed="ann" pictureUrl={null} showPhoto onOpen={() => {}} />
-          <SmallPrint words={["About", "Help"]} />
+          <SmallPrint />
         </ChromeProvider>
       </PlatformProvider>,
     );
     expect(screen.queryByText("Live video")).toBeNull();
-    expect(screen.queryByText("About")).toBeNull();
+    expect(screen.queryByText("Advertising")).toBeNull();
     expect(screen.getByRole("link", { name: "Terms" })).toBeTruthy();
+  });
+
+  // The builder offers this list to hide from, so it has to be what's really drawn.
+  it.each(LAYOUT_KEYS)("%s: draws exactly the for-show things its list says it has", (layout) => {
+    const link = {
+      key: "home",
+      label: "Home",
+      render: (c: string) => (
+        <a href="/" className={c}>
+          Home
+        </a>
+      ),
+    };
+    const { container } = render(
+      <PlatformProvider platform={inLayout(layout)}>
+        <ChromeProvider value={{ ...chrome, go: {} }}>
+          <PageHeader renderBrand={() => null} home={link} links={[]} />
+          <CreatePostBar seed="ann" pictureUrl={null} showPhoto onOpen={() => {}} />
+          <FeedFrame renderProfile={() => null}>posts</FeedFrame>
+        </ChromeProvider>
+      </PlatformProvider>,
+    );
+    const drawn = new Set(
+      [...container.querySelectorAll<HTMLElement>("[data-decor]")].map((el) => el.dataset.decor),
+    );
+    // The search box and Contacts are for show without being buttons, so they carry no mark.
+    const listed = DECOR_ITEMS[layout]
+      .map(({ key }) => key)
+      .filter((key) => !["search", "contacts"].includes(key));
+    expect([...drawn].sort()).toEqual([...listed].sort());
+    expect(container.querySelector('input[type="search"]') !== null).toBe(
+      DECOR_ITEMS[layout].some(({ key }) => key === "search"),
+    );
   });
 
   it.each(LAYOUT_KEYS)("%s: the site's name is written out, once", (layout) => {

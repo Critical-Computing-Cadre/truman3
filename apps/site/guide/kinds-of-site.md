@@ -85,9 +85,73 @@ Press **Save changes** on the card when you're done.
 
 A real site has more on the page than posts: a search box, a long menu, a place for messages in the corner, and small print such as About and Help. Each kind of site draws these the way that kind of platform does, so the study looks like a site people have been using.
 
-Most of it is only for show. Pressing one shows a short note that it isn't available right now, as a real site does when part of it is down. Where your study really has the thing, the real one is used: the corner opens **Messages** if direct messages are on, the search box goes to a hashtag's page if hashtags are on, and the small print links your own terms and privacy pages.
+Most of it is only for show. Pressing one shows a short note that it isn't available right now, as a real site does when part of it is down. The press is recorded as a `decor.pressed` event, with what was pressed and the page they were on. See [Your data](/guide/data).
 
-If your study measures where people click, or you'd rather have a plain page, untick **Menus and small print for show** under **What's on this platform?** Presses on these aren't recorded.
+Some become real when your study has the page for them. Then they open it, and aren't for show any more.
+
+**Choosing what's shown.** Under the list of features, the **Study and platform** card has **What's shown for show?** It lists everything your kind of site draws, grouped by where on the page it is.
+
+- Untick anything you don't want.
+- Under **Your own**, type a name, such as "Coupons", and press **Add**. It goes in the site's menu with its first letter as its icon. You can add up to 8.
+
+To have none of it, untick **Menus and small print for show** under **What's on this platform?**
+
+Here is what each kind draws.
+
+**Classic**
+
+| Where           | What                                    | Becomes real                                                                 |
+| --------------- | --------------------------------------- | ---------------------------------------------------------------------------- |
+| Top bar         | Search box, Video, Marketplace, Menu    |                                                                              |
+| Menu            | Memories, Events, Marketplace, See more |                                                                              |
+| Menu            | Friends                                 | Opens Explore when the study has trending, who to follow, or an Explore grid |
+| Menu            | Groups                                  | Opens Communities when spaces are on                                         |
+| Menu            | Saved                                   | Opens their own page, where saved posts are, when saving is on               |
+| Post box        | Live video, Feeling                     |                                                                              |
+| Beside the feed | Contacts                                |                                                                              |
+| Corner          | Messaging                               |                                                                              |
+| Small print     | Advertising, Ad Choices, Cookies, More  |                                                                              |
+| Small print     | Privacy                                 | Opens the privacy page when the study has one                                |
+| Small print     | Terms                                   | Opens the terms page when the study has one                                  |
+
+**Photo**
+
+| Where       | What                                               | Becomes real                                  |
+| ----------- | -------------------------------------------------- | --------------------------------------------- |
+| Menu        | Reels, Also from us                                |                                               |
+| Menu        | More                                               | Opens the page where they edit their profile  |
+| Corner      | Messages                                           |                                               |
+| Small print | About, Help, Press, API, Jobs, Locations, Language |                                               |
+| Small print | Privacy                                            | Opens the privacy page when the study has one |
+| Small print | Terms                                              | Opens the terms page when the study has one   |
+
+**Short posts**
+
+| Where           | What                                                   | Becomes real                                                   |
+| --------------- | ------------------------------------------------------ | -------------------------------------------------------------- |
+| Beside the feed | Search box                                             |                                                                |
+| Menu            | Lists                                                  |                                                                |
+| Menu            | Bookmarks                                              | Opens their own page, where saved posts are, when saving is on |
+| Menu            | Settings                                               | Opens the page where they edit their profile                   |
+| Corner          | Chat                                                   |                                                                |
+| Small print     | About, Help, Accessibility, Ads info, Blog, Developers |                                                                |
+| Small print     | Terms                                                  | Opens the terms page when the study has one                    |
+| Small print     | Privacy                                                | Opens the privacy page when the study has one                  |
+
+**Forum**
+
+| Where       | What                                     | Becomes real                                                                 |
+| ----------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
+| Top bar     | Search box                               |                                                                              |
+| Menu        | Answers, All, About, Help, Blog, Careers |                                                                              |
+| Menu        | Popular                                  | Opens Explore when the study has trending, who to follow, or an Explore grid |
+| Corner      | Chat                                     |                                                                              |
+| Small print | Accessibility                            |                                                                              |
+| Small print | Rules                                    | Opens the rules page when the study has one                                  |
+| Small print | Privacy Policy                           | Opens the privacy page when the study has one                                |
+| Small print | User Agreement                           | Opens the terms page when the study has one                                  |
+
+On every kind, the search box goes to a hashtag's page when hashtags are on, and the corner opens **Messages** when direct messages are on.
 
 A feature can also differ between conditions, so likes can be on in one condition and off in another. See [Conditions](/guide/conditions).
 

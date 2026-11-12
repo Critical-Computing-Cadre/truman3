@@ -2,6 +2,7 @@ import { z } from "zod";
 import { MAX_RULE_MATCH_LENGTH } from "../auto-rules.ts";
 import { ACCENT_PATTERN } from "../color.ts";
 import { FEATURE_KEYS } from "../features/catalog.ts";
+import { MAX_DECOR_ADDED, MAX_DECOR_LABEL } from "../features/decor.ts";
 import { LAYOUT_KEYS, TEMPLATE_KEYS } from "../features/templates.ts";
 import { COMMENT_SORTS, FEED_SORTS } from "../orders.ts";
 import { flairSchema, pollSchema } from "../polls-flair.ts";
@@ -118,6 +119,19 @@ export const themeSchema = z.enum(["light", "dark", "device"]);
  * own unless a study says otherwise (ADR 76).
  */
 export const accentSchema = z.string().regex(ACCENT_PATTERN, "A color like #1f5fcf");
+
+/**
+ * What's only for show (the `decor` feature): keys from `DECOR_ITEMS` to leave out, and things of
+ * the study's own to add to the menu. Something added does what the rest do: says it isn't
+ * available, and is recorded.
+ */
+export const decorSchema = z.strictObject({
+  hide: z.array(z.string().max(80)).max(80).optional(),
+  add: z
+    .array(z.strictObject({ label: z.string().trim().min(1).max(MAX_DECOR_LABEL) }))
+    .max(MAX_DECOR_ADDED)
+    .optional(),
+});
 
 /** Which button an "are you sure?" box makes the dark one, the one it nudges people toward. */
 export const sureButtonSchema = z.enum(["goBack", "postAnyway"]);
@@ -237,6 +251,8 @@ export const studySettingsSchema = z.strictObject({
       theme: themeSchema.optional(),
       /** The site's main color. Leave out for the one its kind of site comes with. */
       accent: accentSchema.optional(),
+      /** Which of what's only for show to leave out, and anything of the study's own to add. */
+      decor: decorSchema.optional(),
       /** Which button an "are you sure?" box makes dark. "Go back and edit" unless a study says. */
       sureButton: sureButtonSchema.optional(),
       /** The starting point for this platform. Leave out for Classic. */
