@@ -144,7 +144,7 @@ export function ShortPost({
     <article
       ref={rootRef}
       aria-label={post.title ?? `Post by ${post.author.name}`}
-      className="relative border-b border-stone-200 bg-white"
+      className="relative border-b border-stone-200 bg-white transition-colors hover:bg-stone-50/60"
     >
       <RepostedBy post={post} />
       <FlaggedPostCover post={post} {...(actions ? { actions } : {})} />

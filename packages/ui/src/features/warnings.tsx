@@ -24,7 +24,7 @@ export function WarningNotice({
       <p className="mt-1 break-words whitespace-pre-wrap">{warning.message}</p>
       <button
         type="button"
-        className="mt-2 rounded bg-stone-900 px-3 py-1.5 text-white"
+        className="mt-2 rounded bg-accent-fill px-3 py-1.5 text-on-accent"
         onClick={() => onAcknowledge(warning.id)}
       >
         I understand

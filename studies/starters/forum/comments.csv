@@ -1,21 +1,87 @@
 id,postID,actor,time,body,replyToID,ups,downs
 r1,f1,trailhead,-39:00,Great report. Thanks for packing out your trash!,,240,1
 r2,f1,quietfern,-38:00,How long did the climb take?,,88,0
-r3,f1,saltlake_sam,-37:30,About two hours with breaks.,r2,95,0
-r4,f2,saltlake_sam,-29:00,"Extra socks. Always extra socks.",,310,2
+r3,f1,saltlake_sam,-37:30,About two hours with breaks. I am not fast.,r2,95,0
+r4,f2,saltlake_sam,-29:00,Extra socks. Always extra socks.,,310,2
 r5,f2,trailhead,-28:00,And a map. Phones die.,,280,1
 r6,f2,quietfern,-27:30,Adding both. Thank you!,r4,40,0
-r7,f3,chef_ines,-37:00,That's a beautiful crumb. What hydration?,,520,3
-r8,f3,crumbs_and_co,-36:30,About 78%.,r7,410,1
-r9,f3,midnight_owl,-35:00,Mine still comes out like a brick.,,120,2
-r10,f3,crumbs_and_co,-34:00,Try a longer cold proof. Overnight at least.,r9,200,0
+r7,f3,chef_ines,-37:00,That's a beautiful loaf. What hydration?,,520,3
+r8,f3,crumbs_and_co,-36:30,"About 78%. Up from 70, which is where all the frisbees came from.",r7,410,1
+r9,f3,bench_warmer,-35:00,"""open crumb"" lol. that's a regular loaf. you people will upvote anything with flour on it, get a life",,12,96
+r10,f3,crumbs_and_co,-34:00,"Three months ago it was a coaster, so I'll take regular.",r9,200,0
 r11,f4,crumbs_and_co,-25:00,Chef's knife. Everything else is a luxury.,,330,4
 r12,f6,rustbucket,-33:00,Check for a stuck process. Also clean the vents.,,140,0
-r13,f6,pixel_pusher,-32:00,"It was dust. So much dust. Thank you!",r12,90,0
+r13,f6,pixel_pusher,-32:00,It was dust. So much dust. Thank you!,r12,90,0
 r14,f7,pixel_pusher,-21:00,Painful lesson. Sorry.,,60,0
 r15,f8,rustbucket,-11:00,Replace the battery and keep the phone.,,180,3
 r16,f9,quietfern,-15:00,I'm still not over it.,,45,0
 r17,f9,saltlake_sam,-14:30,Who could have guessed?,r16,30,1
-r18,f10,trailhead,-7:00,Stunning.,,150,0
+r18,f10,trailhead,-7:00,Glad you had the headlamp. That descent isn't one to do by phone light.,,150,0
 r19,f12,chef_ines,-1:30,Add toasted almonds. Trust me.,,70,0
 r20,f5,automod,-19:59,"Reminder: recipes go in the comments, per rule 2.",,5,10
+r21,f1,two_left_boots,-37:00,Is the north lot open yet or still gated? Last time I had to add a mile of road walking.,,61,0
+r22,f1,saltlake_sam,-36:40,Open as of Saturday. Gate was up at 4:30.,r21,40,0
+r23,f1,quietfern,-36:00,two hours I can do. the 4am part I cannot,r3,132,0
+r24,f2,two_left_boots,-27:00,Sleeping pad. You didn't list one and the ground will steal all your heat. Also do one night in the backyard first. You find out what you forgot when it's a 30 second walk to fix it.,,415,3
+r25,f2,quietfern,-26:30,...I did not have a pad on the list. ok. backyard test this week,r24,77,0
+r26,f2,snek_dad,-26:00,something to do at 7pm when it's dark and you're not tired yet. I brought nothing my first time and stared at a tree,,150,1
+r27,f3,midnight_owl,-33:30,"Mine still comes out like a brick. How long is ""longer"" on the cold proof?",,120,2
+r28,f3,crumbs_and_co,-33:00,"Overnight at least. 12 to 16 hours in the fridge, then straight into a hot dutch oven.",r27,180,0
+r29,f3,dal_and_error,-32:00,"the sesame crust is the best part, don't apologize for it",,95,0
+r30,f4,ok_ginny,-24:30,Paring knife. I've had the same one since 1984 and it has outlasted two husbands.,,610,2
+r31,f4,chef_ines,-24:00,This is the best answer I'm going to get.,r30,240,0
+r32,f4,rustbucket,-23:00,Bread knife voter here. It also does tomatoes. I will not be taking questions.,,88,6
+r33,f5,midnight_owl,-19:30,"Fine. Brown a pound of sausage, add sliced peppers, a splash of the pasta water, half a cup of cream, noodles in, done. 20 minutes.",r20,140,1
+r34,f5,chef_ines,-19:00,One pan after 9pm is the correct call. Looks good.,,96,0
+r35,f5,dal_and_error,-18:30,making this tomorrow,r33,22,0
+r36,f6,bench_warmer,-31:30,when did you last open it up? mine had a full felt blanket in there,r12,33,0
+r37,f7,section_214,-20:30,Every few years somebody posts this and every few years I still don't back up. Doing it tonight. Probably.,,210,2
+r38,f7,rustbucket,-20:00,"""Probably"" is how I lost the week.",r37,175,0
+r39,f8,ok_ginny,-10:30,Mine is six years old. The camera is bad and I don't care.,,64,0
+r40,f8,pixel_pusher,-10:00,Battery swap booked. You all saved me a lot of money.,r15,51,0
+r41,f9,section_214,-14:00,I guessed it in week 3 and nobody in my house believed me. I have the texts.,,118,4
+r42,f9,midnight_owl,-13:30,texts or it didn't happen,r41,60,0
+r43,f10,two_left_boots,-6:30,"No regrets until the last half mile, I'm guessing.",,44,0
+r44,f10,saltlake_sam,-6:00,The last half mile was regrets.,r43,71,0
+r45,f11,snek_dad,-4:30,I'll take two if they're still going. Can trade a spider plant.,,9,0
+r46,f12,dal_and_error,-1:00,what's in the sauce? tahini?,,15,0
+r47,f12,crumbs_and_co,-0:40,"Tahini, lemon, garlic, water until it pours. That's the whole recipe.",r46,28,0
+r48,f15,trailhead,-69:00,"Thanks for the heads up. Poles help a lot there. If it looks bad, turning around is always allowed.",,130,0
+r49,f15,saltlake_sam,-68:00,Knee deep on you or knee deep on a normal person,,205,1
+r50,f15,two_left_boots,-67:30,"I'm 6'3, so adjust accordingly.",r49,190,0
+r51,f16,chef_ines,-61:00,"Thick is normal for a first go. Roll it until you can see your hand through it, then go a little further. And flour it more than you think before you cut.",,340,2
+r52,f16,dal_and_error,-60:30,see my HAND through it?? I was nowhere close,r51,85,0
+r53,f16,crumbs_and_co,-60:00,Also let the dough rest 30 minutes before rolling. It fights you less.,,120,0
+r54,f16,ok_ginny,-59:00,My mother used a wine bottle as a rolling pin her whole life. You don't need a machine.,,260,1
+r55,f17,ok_ginny,-55:00,I wore the same sweater to every home game for a season. We lost most of them. I kept wearing it.,,77,0
+r56,f17,section_214,-54:30,This is the way.,r55,31,0
+r57,f17,bench_warmer,-54:00,moved seats once in 2019. never again,,48,0
+r58,f18,midnight_owl,-49:00,how do you hide THREE snakes,,310,0
+r59,f18,snek_dad,-48:30,They're very quiet and she never goes in the office.,r58,420,2
+r60,f18,quietfern,-48:00,what are their names,,90,0
+r61,f18,snek_dad,-47:30,"Noodle, Linguine, and Greg.",r60,880,1
+r62,f18,ok_ginny,-47:00,Greg.,r61,510,0
+r63,f19,rustbucket,-43:00,"Something on your network is scheduled for 9. A backup, an update, a camera uploading. Open the router's device list at 9:05 and see what's eating it.",,95,0
+r64,f19,pixel_pusher,-42:30,Or it's a neighbor's network stepping on yours. Change the channel on the router too.,,40,0
+r65,f19,bench_warmer,-19:00,it was the tv. it updates itself every night at 9. I feel dumb. thanks both,r63,66,0
+r66,f20,automod,-27:59,"Reminder: recipes go in the comments, per rule 2.",,3,8
+r67,f20,ok_ginny,-27:00,"Recipe: cream cheese, crab, green onion, a little garlic powder. Fold, pinch, fry. That is all there is to it, robot.",r66,720,3
+r68,f20,chef_ines,-26:30,Sixty by hand is no joke. Respect.,,210,0
+r69,f20,dal_and_error,-26:00,congrats to the grandson and also to everyone who got one,,54,0
+r70,f21,crumbs_and_co,-12:30,"That isn't as bad as you think. The crumb looks even, it just spread. Shape it tighter and proof it in something with sides.",,160,0
+r71,f21,chef_ines,-12:00,"Agree. It's a shaping problem, not a dough problem.",r70,90,0
+r72,f21,midnight_owl,-11:30,"so I've been blaming the starter for nothing. sorry, starter",r70,140,0
+r73,f21,bench_warmer,-11:00,looks like bread to me,,20,5
+r74,f22,saltlake_sam,-4:00,Trail runners. My feet dry in an hour instead of never.,,88,7
+r75,f22,trailhead,-3:40,Depends on the trail and the ankle. Wear what you've already broken in.,,140,1
+r76,f22,quietfern,-3:20,I only own sneakers. is that a third option,,35,0
+r77,f22,two_left_boots,-3:00,"For a first overnight on a good trail, yes.",r76,52,0
+r78,f23,rustbucket,-2:30,Good follow-up. Marking these solved helps the next person searching.,,30,0
+r79,f13,pixel_pusher,2:30,Check the RAM too. It likes to unseat itself when a case gets bumped.,,25,0
+r80,f24,crumbs_and_co,4:30,Much rounder than golf balls. What changed?,,18,0
+r81,f24,dal_and_error,5:00,smaller scoop and I stopped crowding the pot,r80,12,0
+r82,f14,ok_ginny,6:30,Is it true you shouldn't put them in the dishwasher? I've been doing it for forty years.,,44,0
+r83,f14,chef_ines,7:00,"It's true, and I know I'm not going to be able to stop you.",r82,130,0
+r84,f25,quietfern,10:30,slept in my backyard to test my gear and it WORKED,,25,0
+r85,f25,snek_dad,11:00,Greg ate.,,60,0
+r86,f26,trailhead,20:30,"Uphill has the right of way. In practice, whoever has the better spot to step aside does it.",,40,0

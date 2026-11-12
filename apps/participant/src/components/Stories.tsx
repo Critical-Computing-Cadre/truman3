@@ -366,7 +366,7 @@ function NewStory({ onDone }: { onDone: () => void }) {
           <button
             type="submit"
             disabled={!file || send.isPending}
-            className="rounded bg-stone-900 px-3 py-1.5 text-white disabled:opacity-40"
+            className="rounded bg-accent-fill px-3 py-1.5 text-on-accent disabled:opacity-40"
           >
             Share
           </button>
@@ -402,7 +402,9 @@ export function StoriesRow({
       ? "bg-stone-300"
       : group.closeFriends
         ? "bg-green-500"
-        : "bg-gradient-to-tr from-amber-400 to-fuchsia-600";
+        : look === "cards"
+          ? "bg-accent-fill"
+          : "bg-gradient-to-tr from-amber-400 to-fuchsia-600";
   if (look === "cards") {
     return (
       <section aria-label="Stories" className="overflow-x-auto">
@@ -419,7 +421,7 @@ export function StoriesRow({
                   <Avatar seed={me.username} url={me.pictureUrl} size="h-16 w-16" />
                 </span>
                 <span className="relative pt-5 pb-2">
-                  <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full border-4 border-white bg-white text-sky-600">
+                  <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full border-4 border-white bg-white text-accent">
                     <PlusIcon className="h-6 w-6" />
                   </span>
                   Create story
@@ -478,7 +480,7 @@ export function StoriesRow({
             >
               <span className="relative">
                 <Avatar seed={me.username} url={me.pictureUrl} size="h-14 w-14" />
-                <span className="absolute -right-1 -bottom-1 rounded-full bg-white text-sky-600">
+                <span className="absolute -right-1 -bottom-1 rounded-full bg-white text-accent">
                   <PlusIcon className="h-5 w-5" />
                 </span>
               </span>

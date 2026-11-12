@@ -1,6 +1,7 @@
 import { FEATURE_KEYS, type FeatureKey, type FeatureSet } from "../features/catalog.ts";
 import {
   DEFAULT_TEMPLATE,
+  LAYOUT_THEMES,
   type LayoutKey,
   TEMPLATES,
   type TemplateDefinition,
@@ -26,13 +27,22 @@ export function sureButtonFor(
   return arm?.platform?.sureButton ?? settings.platform.sureButton ?? "goBack";
 }
 
-/** Light, dark, or the participant's device. Light unless a study says otherwise. */
+/**
+ * Light, dark, or the participant's device. Until a study says, it's what its kind of site comes
+ * with, which is the same for everyone and doesn't follow their device.
+ */
 export function themeFor(
   settings: StudySettings,
   conditionKey: string,
 ): "light" | "dark" | "device" {
   const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
-  return arm?.platform?.theme ?? settings.platform.theme ?? "light";
+  return arm?.platform?.theme ?? settings.platform.theme ?? LAYOUT_THEMES[layoutFor(settings)];
+}
+
+/** The site's main color in a condition, or null for the one its kind of site comes with. */
+export function accentFor(settings: StudySettings, conditionKey: string): string | null {
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  return arm?.platform?.accent ?? settings.platform.accent ?? null;
 }
 
 /** How the comment box appears in a condition. */
@@ -147,6 +157,7 @@ export function platformFor(settings: StudySettings, conditionKey: string) {
     platformStyle: platformStyleFor(settings, conditionKey),
     commentBox: commentBoxFor(settings, conditionKey),
     theme: themeFor(settings, conditionKey),
+    accent: accentFor(settings, conditionKey),
     sureButton: sureButtonFor(settings, conditionKey),
     canJoinSpaces: canJoinSpacesFor(settings, conditionKey),
     canSort: canSortFor(settings, conditionKey),

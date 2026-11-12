@@ -4,7 +4,7 @@ import Markdown from "react-markdown";
 import { ApiError, type FlowState, get, meQuery, post, postForm } from "../api.ts";
 import { startAppBridge } from "../app-bridge.ts";
 import { ProfileForm } from "../components/ProfileForm.tsx";
-import { Shell } from "../components/Shell.tsx";
+import { Shell, useSkin } from "../components/Shell.tsx";
 import { startTracking } from "../tracking.ts";
 import { Message } from "./Message.tsx";
 
@@ -44,7 +44,7 @@ function ConsentStep({
               type="button"
               onClick={() => decline.mutate()}
               disabled={decline.isPending}
-              className="rounded bg-stone-900 px-4 py-2 text-white disabled:opacity-40"
+              className="rounded bg-accent-fill px-4 py-2 text-on-accent disabled:opacity-40"
             >
               I don't want to take part
             </button>
@@ -95,7 +95,7 @@ function PageStep({
         type="button"
         onClick={() => advance.mutate()}
         disabled={advance.isPending}
-        className="mt-4 w-full rounded bg-stone-900 py-2.5 font-medium text-white disabled:opacity-40"
+        className="mt-4 w-full rounded bg-accent-fill py-2.5 font-medium text-on-accent disabled:opacity-40"
       >
         {label}
       </button>
@@ -161,7 +161,7 @@ function ExitStep({
           type="button"
           onClick={() => mutate()}
           disabled={finish.isPending}
-          className="rounded bg-stone-900 px-6 py-2.5 font-medium text-white disabled:opacity-40"
+          className="rounded bg-accent-fill px-6 py-2.5 font-medium text-on-accent disabled:opacity-40"
         >
           Continue
         </button>
@@ -184,6 +184,8 @@ export function FlowGate() {
   });
 
   const site = flow.data?.site;
+  // From the first page, so consent and the feed after it look like one site.
+  useSkin(flow.data?.layout, flow.data?.accent);
   useEffect(() => {
     if (!site) {
       return;

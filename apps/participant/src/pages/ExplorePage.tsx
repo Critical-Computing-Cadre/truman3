@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import type { FeedResponse } from "@truman3/core";
-import { Avatar, useFeature } from "@truman3/ui";
+import type { FeedResponse, LayoutKey } from "@truman3/core";
+import { Avatar, useFeature, usePlatform } from "@truman3/ui";
 import { get, post } from "../api.ts";
 import { PostCard } from "../components/PostCard.tsx";
 import { PostGrid } from "../components/PostGrid.tsx";
@@ -19,6 +19,44 @@ interface Explore {
 
 const CARD = "rounded-lg bg-white p-4 shadow-sm";
 
+/**
+ * How the cards beside a feed look on each kind of site: what they're called, what they sit on,
+ * and what the Follow button looks like. A screen reader hears the same names on all four.
+ */
+const SIDE: Record<
+  LayoutKey,
+  { card: string; heading: string; trending: string; suggested: string; follow: string }
+> = {
+  classic: {
+    card: CARD,
+    heading: "mb-2 font-semibold text-stone-600",
+    trending: "Trending",
+    suggested: "People you may know",
+    follow: "rounded-md bg-accent-soft px-3 py-1.5 text-sm font-semibold text-accent",
+  },
+  photo: {
+    card: "px-1",
+    heading: "mb-3 text-sm font-semibold text-stone-500",
+    trending: "Trending",
+    suggested: "Suggested for you",
+    follow: "text-xs font-semibold text-accent",
+  },
+  "short-posts": {
+    card: "rounded-2xl border border-stone-200 p-4",
+    heading: "mb-3 text-xl font-extrabold",
+    trending: "What's happening",
+    suggested: "Who to follow",
+    follow: "rounded-full bg-stone-900 px-4 py-1.5 text-sm font-bold text-white",
+  },
+  forum: {
+    card: "rounded-xl border border-stone-200 bg-white p-4",
+    heading: "mb-3 text-xs font-semibold tracking-wide text-stone-500 uppercase",
+    trending: "Trending today",
+    suggested: "People to follow",
+    follow: "rounded-full border border-accent px-3 py-1 text-sm font-semibold text-accent",
+  },
+};
+
 export const exploreQuery = {
   queryKey: ["explore"],
   queryFn: () => get<Explore>("/explore"),
@@ -34,11 +72,12 @@ export function ExploreCards() {
     onSettled: () => client.invalidateQueries(),
   });
   const { trending = [], suggested = [] } = explore.data ?? {};
+  const look = SIDE[usePlatform().layout];
   return (
     <>
       {trending.length > 0 && (
-        <section aria-label="Trending" className={CARD}>
-          <h2 className="mb-2 font-semibold">Trending</h2>
+        <section aria-label="Trending" className={look.card}>
+          <h2 className={look.heading}>{look.trending}</h2>
           <ul className="space-y-2">
             {trending.map(({ tag, note }) => (
               <li key={tag}>
@@ -56,8 +95,8 @@ export function ExploreCards() {
         </section>
       )}
       {suggested.length > 0 && (
-        <section aria-label="Who to follow" className={CARD}>
-          <h2 className="mb-2 font-semibold">Who to follow</h2>
+        <section aria-label="Who to follow" className={look.card}>
+          <h2 className={look.heading}>{look.suggested}</h2>
           <ul className="space-y-3">
             {suggested.map(({ username, name, pictureUrl, badge, followerCount }) => (
               <li key={username} className="flex items-center gap-2">
@@ -79,7 +118,7 @@ export function ExploreCards() {
                   type="button"
                   disabled={follow.isPending}
                   onClick={() => follow.mutate(username)}
-                  className="rounded-full border border-stone-300 px-3 py-1 text-sm"
+                  className={look.follow}
                 >
                   Follow
                 </button>

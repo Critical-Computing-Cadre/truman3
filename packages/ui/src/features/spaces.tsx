@@ -42,7 +42,7 @@ export function SpaceChip({
       {pictureUrl ? (
         <img src={pictureUrl} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" />
       ) : (
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-stone-200 text-[0.65rem] font-semibold text-stone-600">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-fill text-[0.65rem] font-bold text-on-accent">
           {name.charAt(0).toUpperCase()}
         </span>
       )}
@@ -62,7 +62,7 @@ export function ModeratorTag({ author }: { author: FeedAuthor }) {
     <>
       {author.moderator && <span className={`${tag} bg-stone-200 text-stone-700`}>Moderator</span>}
       {author.badge && (
-        <span data-testid="author-badge" className={`${tag} bg-sky-100 text-sky-900`}>
+        <span data-testid="author-badge" className={`${tag} bg-accent-soft text-accent`}>
           {author.badge}
         </span>
       )}

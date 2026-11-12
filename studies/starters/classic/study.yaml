@@ -9,7 +9,23 @@ entry: { idParam: PROLIFIC_PID, idLabel: Prolific ID, source: prolific }
 conditions:
   assignment: { method: uniform }
   arms: [{ key: control }]
-platform: { style: mixed, template: classic }
+platform:
+  style: mixed
+  template: classic
+  # What a community feed usually has around its posts, so the sample looks like one.
+  features:
+    stories: true
+    whoToFollow: true
+    followCounts: true
+    trending: true
+    hashtags: true
+    sharing: true
+    saving: true
+    ads: true
+  trending:
+    - { tag: aldercreek5k, note: 310 posts }
+    - { tag: potluck }
+    - { tag: librarycat, note: 1.2K posts }
 likes: { posts: [3, 8, 12, 25, 40], comments: [0, 1, 2, 4] }
 flow:
   - { step: consent, page: pages/consent.md }

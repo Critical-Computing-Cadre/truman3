@@ -1,6 +1,6 @@
 import type { FeedPost } from "@truman3/core";
 import { type ReactNode, useState } from "react";
-import { ShareIcon } from "../icons.tsx";
+import { BookmarkIcon, ShareIcon } from "../icons.tsx";
 import { useFeature } from "../platform.tsx";
 import type { PostActions } from "../post-props.ts";
 
@@ -38,7 +38,7 @@ export function PostLink({ post, actions }: { post: FeedPost; actions?: PostActi
       target="_blank"
       rel="noopener noreferrer nofollow"
       onClick={() => actions?.onOpenLink?.(post.id)}
-      className="mx-3 mt-2 flex items-center justify-between gap-2 rounded-lg border border-stone-200 px-3 py-2 text-sm text-sky-800"
+      className="mx-3 mt-2 flex items-center justify-between gap-2 rounded-lg border border-stone-200 px-3 py-2 text-sm text-accent"
     >
       <span className="min-w-0 truncate">{post.link.domain}</span>
       <span aria-hidden="true">↗</span>
@@ -88,22 +88,27 @@ export function SaveButton({
   post,
   actions,
   className = "",
+  look = "words",
 }: {
   post: FeedPost;
   actions?: PostActions | undefined;
   className?: string;
+  /** The word, or a bookmark that fills in, as a layout chooses. */
+  look?: "words" | "icon";
 }) {
   if (!useFeature("saving")) {
     return null;
   }
+  const word = post.saved ? "Saved" : "Save";
   return (
     <button
       type="button"
       disabled={!actions}
       className={className}
+      {...(look === "icon" ? { "aria-label": word } : {})}
       onClick={() => actions?.onSave?.(post.id, !post.saved)}
     >
-      {post.saved ? "Saved" : "Save"}
+      {look === "icon" ? <BookmarkIcon filled={Boolean(post.saved)} /> : word}
     </button>
   );
 }

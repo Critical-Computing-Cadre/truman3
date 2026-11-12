@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, Outlet } from "@tanstack/react-router";
-import type { FeedWarning } from "@truman3/core";
+import { Link, Outlet, useNavigate } from "@tanstack/react-router";
+import { type FeedWarning, textOnAccent } from "@truman3/core";
 import {
+  BrandName,
+  type Chrome,
+  ChromeProvider,
   LinkIcon,
   PageBody,
   PageHeader,
@@ -18,7 +21,7 @@ import { flushTracking } from "../tracking.ts";
 
 const POLL_EVERY_MS = 30_000;
 
-/** Layouts whose sections show an icon before each word. */
+/** Layouts whose sections show an icon before each word. A forum draws its own (ForumHeader). */
 const ICON_LAYOUTS: string[] = ["photo", "short-posts", "classic"];
 
 /**
@@ -29,7 +32,7 @@ function withIcon(link: PageLink): PageLink {
   return {
     ...link,
     render: (className) => (
-      <span className="relative flex items-center">
+      <span className="relative flex items-center has-[[aria-current=page]]:font-bold has-[[aria-current=page]]:text-accent">
         <LinkIcon name={link.key} className="pointer-events-none absolute left-3 h-6 w-6" />
         {link.render(`${className} pl-12 after:absolute after:inset-0`)}
       </span>
@@ -37,7 +40,7 @@ function withIcon(link: PageLink): PageLink {
   };
 }
 
-const LINK = "font-medium text-sky-800 underline-offset-2 hover:underline";
+const LINK = "font-medium text-accent underline-offset-2 hover:underline";
 const TEXT_LINKS: TextLinks = {
   renderTag: (tag, children) => (
     <Link to="/tags/$tag" params={{ tag }} className={LINK}>
@@ -74,6 +77,32 @@ function useTheme(theme: FlowState["theme"]) {
   }, [theme]);
 }
 
+/**
+ * Puts the platform's colors on the whole page, so the page behind posts takes them too, and so
+ * does a window that opens above everything.
+ */
+export function useSkin(
+  layout: FlowState["layout"] | undefined,
+  accent: FlowState["accent"] | undefined,
+) {
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!layout) {
+      return;
+    }
+    root.dataset.layout = layout;
+    if (accent) {
+      root.style.setProperty("--accent-base", accent);
+      root.style.setProperty("--color-on-accent", textOnAccent(accent));
+    }
+    return () => {
+      delete root.dataset.layout;
+      root.style.removeProperty("--accent-base");
+      root.style.removeProperty("--color-on-accent");
+    };
+  }, [layout, accent]);
+}
+
 /** The header and page around everything once someone's in the feed. */
 export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () => void }) {
   const me = useQuery({ ...meQuery, refetchInterval: POLL_EVERY_MS });
@@ -82,6 +111,7 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
   useTheme(flow.theme);
   useLive(flow.shared);
   const client = useQueryClient();
+  const navigate = useNavigate();
   const warnings = useQuery({
     queryKey: ["warnings"],
     queryFn: () => get<{ warnings: FeedWarning[] }>("/warnings"),
@@ -214,74 +244,138 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
       : []),
   ];
 
+  const chrome: Chrome = {
+    siteName: flow.site.name,
+    viewer: me.data
+      ? {
+          name: me.data.name,
+          username: me.data.username,
+          pictureUrl: me.data.pictureUrl,
+          render: (className, children) => (
+            <Link to="/u/$username" params={{ username: me.data.username }} className={className}>
+              {children}
+            </Link>
+          ),
+        }
+      : null,
+    // A search goes to that word's hashtag page, the one place there is to look something up.
+    onSearch: flow.features.hashtags
+      ? (words) => {
+          const tag = words.split(/\s+/)[0]?.replace(/^#/, "").toLowerCase();
+          if (tag) {
+            navigate({ to: "/tags/$tag", params: { tag } });
+          }
+        }
+      : undefined,
+    messages: flow.features.messages
+      ? {
+          unread: unreadMessages,
+          render: (className, children) => (
+            <Link to="/messages" className={className}>
+              {children}
+            </Link>
+          ),
+        }
+      : undefined,
+    pages: [
+      ...(flow.site.hasTerms
+        ? [
+            {
+              key: "terms",
+              render: (className: string) => (
+                <Link to="/terms" className={className}>
+                  Terms
+                </Link>
+              ),
+            },
+          ]
+        : []),
+      ...(flow.site.hasPrivacy
+        ? [
+            {
+              key: "privacy",
+              render: (className: string) => (
+                <Link to="/privacy" className={className}>
+                  Privacy
+                </Link>
+              ),
+            },
+          ]
+        : []),
+    ],
+  };
+
   return (
     <PlatformProvider platform={flow}>
-      <div className="min-h-dvh">
-        <PageHeader
-          renderBrand={(className) => (
-            <Link to="/" className={className}>
-              {flow.site.logoUrl ? (
-                <img
-                  src={flow.site.logoUrl}
-                  alt={flow.site.name}
-                  className="h-8 max-w-40 object-contain"
-                />
-              ) : (
-                <span className="truncate">{flow.site.name}</span>
-              )}
-            </Link>
-          )}
-          home={(ICON_LAYOUTS.includes(flow.layout) ? withIcon : (link: PageLink) => link)({
-            key: "home",
-            label: "Home",
-            render: (className) => (
+      <ChromeProvider value={chrome}>
+        <div className="min-h-dvh">
+          <PageHeader
+            renderBrand={(className) => (
               <Link to="/" className={className}>
-                Home
+                {flow.site.logoUrl ? (
+                  <img
+                    src={flow.site.logoUrl}
+                    alt={flow.site.name}
+                    className="h-8 max-w-40 object-contain"
+                  />
+                ) : (
+                  <BrandName name={flow.site.name} />
+                )}
               </Link>
-            ),
-          })}
-          links={ICON_LAYOUTS.includes(flow.layout) ? links.map(withIcon) : links}
-          action={
-            flow.canFinish ? (
-              <button
-                type="button"
-                onClick={() => finish.mutate()}
-                disabled={finish.isPending}
-                className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white"
-              >
-                Finish
-              </button>
-            ) : undefined
-          }
-        />
-        <PageBody>
-          <main className="mx-auto max-w-6xl pb-16 sm:px-3 sm:pt-4">
-            {(warnings.data?.warnings ?? []).map((warning) => (
-              <div key={warning.id} className="mb-3">
-                <WarningNotice warning={warning} onAcknowledge={(id) => acknowledge.mutate(id)} />
-              </div>
-            ))}
-            <TextLinksContext.Provider value={TEXT_LINKS}>
-              <Outlet />
-            </TextLinksContext.Provider>
-            {(flow.site.hasTerms || flow.site.hasPrivacy) && (
-              // Small print at the bottom, as real sites have.
-              <footer className="mt-8 flex justify-center gap-4 text-xs text-stone-500">
-                {flow.site.hasTerms && (
-                  <Link to="/terms" className="hover:underline">
-                    Terms of service
-                  </Link>
-                )}
-                {flow.site.hasPrivacy && (
-                  <Link to="/privacy" className="hover:underline">
-                    Privacy policy
-                  </Link>
-                )}
-              </footer>
             )}
-          </main>
-        </PageBody>
-      </div>
+            home={(ICON_LAYOUTS.includes(flow.layout) ? withIcon : (link: PageLink) => link)({
+              key: "home",
+              label: "Home",
+              render: (className) => (
+                // Only on the feed itself, or it would be marked as where they are on every page.
+                <Link to="/" activeOptions={{ exact: true }} className={className}>
+                  Home
+                </Link>
+              ),
+            })}
+            links={ICON_LAYOUTS.includes(flow.layout) ? links.map(withIcon) : links}
+            action={
+              flow.canFinish ? (
+                <button
+                  type="button"
+                  onClick={() => finish.mutate()}
+                  disabled={finish.isPending}
+                  className="rounded bg-accent-fill px-3 py-1.5 text-sm text-on-accent"
+                >
+                  Finish
+                </button>
+              ) : undefined
+            }
+          />
+          <PageBody>
+            <main className="mx-auto max-w-[84rem] pb-16 sm:px-3 sm:pt-4">
+              {(warnings.data?.warnings ?? []).map((warning) => (
+                <div key={warning.id} className="mb-3">
+                  <WarningNotice warning={warning} onAcknowledge={(id) => acknowledge.mutate(id)} />
+                </div>
+              ))}
+              <TextLinksContext.Provider value={TEXT_LINKS}>
+                <Outlet />
+              </TextLinksContext.Provider>
+              {(flow.site.hasTerms || flow.site.hasPrivacy) && (
+                // Small print at the bottom, as real sites have.
+                <footer className="mt-8 flex justify-center gap-4 text-xs text-stone-500">
+                  {flow.site.hasTerms && (
+                    <Link to="/terms" className="hover:underline">
+                      Terms of service
+                    </Link>
+                  )}
+                  {flow.site.hasPrivacy && (
+                    <Link to="/privacy" className="hover:underline">
+                      Privacy policy
+                    </Link>
+                  )}
+                </footer>
+              )}
+            </main>
+          </PageBody>
+        </div>
+      </ChromeProvider>
     </PlatformProvider>
   );
 }

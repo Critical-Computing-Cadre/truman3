@@ -13,7 +13,13 @@ export function SpacePicture({ space }: { space: SpaceView }) {
   return space.pictureUrl ? (
     <img src={space.pictureUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
   ) : (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-stone-200 font-semibold text-stone-600">
+    // In the community's own color where it has one, and the site's where it doesn't.
+    <div
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft font-bold text-accent"
+      {...(space.accent
+        ? { style: { backgroundColor: space.accent, color: textOnAccent(space.accent) } }
+        : {})}
+    >
       {space.name.charAt(0).toUpperCase()}
     </div>
   );
@@ -43,7 +49,7 @@ export function JoinButton({ space }: { space: SpaceView }) {
       className={
         space.joined
           ? "shrink-0 rounded-full border border-stone-300 px-3 py-1 text-sm"
-          : "shrink-0 rounded-full bg-stone-900 px-3 py-1 text-sm text-white"
+          : "shrink-0 rounded-full bg-accent-fill px-3 py-1 text-sm text-on-accent"
       }
     >
       {space.joined ? "Leave" : "Join"}
@@ -140,7 +146,9 @@ export function CommunitiesCard() {
   }
   return (
     <section aria-label="Communities" className={CARD}>
-      <h2 className="mb-2 font-semibold">Communities</h2>
+      <h2 className="mb-3 text-xs font-semibold tracking-wide text-stone-500 uppercase">
+        Communities
+      </h2>
       <ul className="space-y-3">
         {list.map((space) => (
           <li key={space.key} className="flex items-center gap-2">

@@ -8,6 +8,28 @@ export const LAYOUT_KEYS = ["classic", "forum", "short-posts", "photo"] as const
 
 export type LayoutKey = (typeof LAYOUT_KEYS)[number];
 
+/**
+ * The main color each layout comes with, which a study can change (ADR 76). The stylesheet that
+ * draws them (packages/ui/src/skins.css) has the same four, and a test keeps the two in step.
+ */
+/**
+ * Whether a layout is light or dark until a study says. A photo app and a microblog are the two
+ * most people use in the dark, and it's one more way the four don't look alike (ADR 76).
+ */
+export const LAYOUT_THEMES: Record<LayoutKey, "light" | "dark"> = {
+  classic: "light",
+  photo: "dark",
+  "short-posts": "dark",
+  forum: "light",
+};
+
+export const LAYOUT_ACCENTS: Record<LayoutKey, string> = {
+  classic: "#1f5fcf",
+  photo: "#d02a6a",
+  "short-posts": "#0a7d85",
+  forum: "#c9470a",
+};
+
 export interface TemplateDefinition {
   name: string;
   description: string;

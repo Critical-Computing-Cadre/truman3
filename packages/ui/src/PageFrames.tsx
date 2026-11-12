@@ -20,12 +20,14 @@ import type {
   SpaceFrameProps,
 } from "./layouts/page-props.ts";
 import {
+  PhotoBody,
   PhotoFeedFrame,
   PhotoHeader,
   PhotoPostFrame,
   PhotoSpaceFrame,
-  RailBody,
+  ShortBody,
   ShortFeedFrame,
+  ShortHeader,
 } from "./layouts/photo-page.tsx";
 import {
   BannerProfileHeader,
@@ -65,12 +67,12 @@ const FRAMES: Record<
   },
   // A menu of icons and words down the left, as Photo has, with a wider column of posts.
   "short-posts": {
-    Header: PhotoHeader,
+    Header: ShortHeader,
     Feed: ShortFeedFrame,
     Space: ForumSpaceFrame,
     Post: ForumPostFrame,
     Profile: BannerProfileHeader,
-    Body: RailBody,
+    Body: ShortBody,
   },
   photo: {
     Header: PhotoHeader,
@@ -78,7 +80,7 @@ const FRAMES: Record<
     Space: PhotoSpaceFrame,
     Post: PhotoPostFrame,
     Profile: PhotoProfileHeader,
-    Body: RailBody,
+    Body: PhotoBody,
   },
 };
 

@@ -1,10 +1,16 @@
-username,name,bio,moderator,karma,flair
-trailhead,trailhead,Mod of r/hiking. Leave no trace.,yes,15200,hiking=Moderator
-automod,AutoModerator,I'm a bot. I do this automatically.,yes,1,
-crumbs_and_co,crumbs_and_co,Sourdough evangelist,,8420,cooking=Home baker
-pixel_pusher,pixel_pusher,Front-end dev. Tabs over spaces.,,22100,tech=Web dev
-midnight_owl,midnight_owl,,,1340,
-quietfern,quietfern,Plant parent,,560,
-rustbucket,rustbucket,Fixes old cars and older computers,,4300,tech=Hardware
-saltlake_sam,saltlake_sam,Day hikes and bad puns,,2900,hiking=Day hiker
-chef_ines,chef_ines,Line cook. Opinions about knives.,,11800,cooking=Professional
+username,name,bio,picture,moderator,karma,flair
+trailhead,trailhead,Hiking mod. Leave no trace.,trailhead.jpg,yes,15200,hiking=Moderator
+automod,AutoModerator,I'm a bot. I do this automatically.,automod.jpg,yes,1,
+crumbs_and_co,crumbs_and_co,Sourdough evangelist. Ask me about my starter (don't),crumbs_and_co.jpg,,8420,cooking=Home baker
+pixel_pusher,pixel_pusher,Front-end dev. Tabs over spaces.,pixel_pusher.jpg,,22100,tech=Web dev
+midnight_owl,midnight_owl,awake,midnight_owl.jpg,,1340,
+quietfern,quietfern,Plant parent. New to hiking.,quietfern.jpg,,560,
+rustbucket,rustbucket,Fixes old cars and older computers,rustbucket.jpg,,4300,tech=Hardware
+saltlake_sam,saltlake_sam,Day hikes and bad puns,saltlake_sam.jpg,,2900,hiking=Day hiker
+chef_ines,chef_ines,Line cook. Opinions about knives.,chef_ines.jpg,,11800,cooking=Professional
+two_left_boots,two_left_boots,Backpacker. Blister expert.,two_left_boots.jpg,,5120,hiking=Backpacker
+dal_and_error,dal_and_error,learning my grandmother's recipes by getting them wrong,dal_and_error.jpg,,2480,cooking=Home baker
+ok_ginny,ok_ginny,"retired, bored, online",ok_ginny.jpg,,980,
+snek_dad,snek_dad,"3 snakes, 1 very patient roommate",snek_dad.jpg,,3150,
+section_214,section_214,same seats since 2009,section_214.jpg,,6900,
+bench_warmer,bench_warmer,second string everything,bench_warmer.jpg,,740,

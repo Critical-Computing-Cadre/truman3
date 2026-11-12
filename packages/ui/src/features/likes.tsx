@@ -1,6 +1,6 @@
 import type { FeedComment, FeedPost } from "@truman3/core";
-import { HeartIcon } from "../icons.tsx";
-import { useFeature } from "../platform.tsx";
+import { HeartIcon, ThumbIcon } from "../icons.tsx";
+import { useFeature, usePlatform } from "../platform.tsx";
 import type { PostActions } from "../post-props.ts";
 
 /** The like button under a post. */
@@ -14,6 +14,8 @@ export function PostLikeButton({
   /** Words, an icon with a count, or an icon with the word, as a layout chooses. */
   look?: "words" | "icon" | "both";
 }) {
+  // A thumb on a community feed, and a heart everywhere else.
+  const LikeIcon = usePlatform().layout === "classic" ? ThumbIcon : HeartIcon;
   if (!useFeature("likes")) {
     return null;
   }
@@ -23,10 +25,10 @@ export function PostLikeButton({
         type="button"
         aria-pressed={post.liked}
         disabled={!actions || Boolean(post.removed)}
-        className={`flex items-center justify-center gap-1.5 py-2 ${post.liked ? "font-semibold text-sky-700" : ""}`}
+        className={`flex items-center justify-center gap-1.5 py-2 ${post.liked ? "font-semibold text-like" : ""}`}
         onClick={() => actions?.onLike(post.id, !post.liked)}
       >
-        <HeartIcon filled={post.liked} className="h-5 w-5" />
+        <LikeIcon filled={post.liked} className="h-5 w-5" />
         Like
       </button>
     );
@@ -38,7 +40,7 @@ export function PostLikeButton({
         aria-label={post.liked ? "Unlike" : "Like"}
         aria-pressed={post.liked}
         disabled={!actions || Boolean(post.removed)}
-        className={`flex items-center gap-1 ${post.liked ? "text-rose-600" : ""}`}
+        className={`flex items-center gap-1 ${post.liked ? "text-like" : ""}`}
         onClick={() => actions?.onLike(post.id, !post.liked)}
       >
         <HeartIcon filled={post.liked} />
@@ -51,7 +53,7 @@ export function PostLikeButton({
       type="button"
       aria-pressed={post.liked}
       disabled={!actions || Boolean(post.removed)}
-      className={`py-3 ${post.liked ? "font-semibold text-rose-600" : ""} ${post.removed ? "opacity-40" : ""}`}
+      className={`py-3 ${post.liked ? "font-semibold text-like" : ""} ${post.removed ? "opacity-40" : ""}`}
       onClick={() => actions?.onLike(post.id, !post.liked)}
     >
       {post.liked ? "♥" : "♡"} Like {post.likes > 0 && <span>({post.likes})</span>}
@@ -74,7 +76,7 @@ export function CommentLikeButton({
     <button
       type="button"
       disabled={!actions || Boolean(comment.removed)}
-      className={`${comment.liked ? "font-semibold text-rose-600" : ""} ${comment.removed ? "opacity-40" : ""}`}
+      className={`${comment.liked ? "font-semibold text-like" : ""} ${comment.removed ? "opacity-40" : ""}`}
       onClick={() => actions?.onLike(comment.id, !comment.liked)}
     >
       {comment.liked ? "Unlike" : "Like"}

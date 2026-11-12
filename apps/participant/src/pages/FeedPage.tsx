@@ -480,7 +480,7 @@ export function NewPostDialog({
             }) !== null ||
             (titles && !title.trim())
           }
-          className="rounded bg-stone-900 px-4 py-2 text-sm text-white disabled:opacity-40"
+          className="rounded bg-accent-fill px-4 py-2 text-sm text-on-accent disabled:opacity-40"
         >
           Post
         </button>
@@ -577,7 +577,7 @@ export function FeedPage() {
               aria-selected={tab === key}
               onClick={() => setChosenTab(key)}
               className={`flex-1 py-3 text-sm font-medium ${
-                tab === key ? "border-b-2 border-stone-900" : "text-stone-500"
+                tab === key ? "border-b-2 border-accent font-semibold" : "text-stone-500"
               }`}
             >
               {key === "home" ? tabs.home : tabs.following}
@@ -594,7 +594,7 @@ export function FeedPage() {
               window.scrollTo({ top: 0 });
               client.invalidateQueries({ queryKey: ["feed", tab] });
             }}
-            className="rounded-full bg-sky-600 px-4 py-1.5 text-sm font-medium text-white shadow"
+            className="rounded-full bg-accent-fill px-4 py-1.5 text-sm font-medium text-on-accent shadow"
           >
             New posts
           </button>

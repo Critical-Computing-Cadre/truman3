@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import {
+  contrast,
   DEFAULT_TEMPLATE,
   FEATURE_KEYS,
   FEATURES,
   type FeatureKey,
   fillLinkTemplate,
+  LAYOUT_ACCENTS,
+  LAYOUT_THEMES,
   type StudySettings,
   TEMPLATES,
   type TemplateDefinition,
@@ -25,6 +28,47 @@ const labelClass = "flex flex-col gap-1 text-sm font-medium";
 
 function Hint({ children }: { children: ReactNode }) {
   return <span className="text-xs font-normal text-stone-500">{children}</span>;
+}
+
+/**
+ * The site's main color: its name, links, and buttons. Each kind of site has its own, and a study
+ * can pick another, to look like a different site or to match its logo.
+ */
+function MainColor({
+  value,
+  own,
+  onChange,
+}: {
+  value: string | undefined;
+  /** The color this kind of site comes with. */
+  own: string;
+  onChange: (value: string | undefined) => void;
+}) {
+  const pale = value !== undefined && contrast(value, "#ffffff") < 3;
+  return (
+    <fieldset className="space-y-1">
+      <legend className="text-sm font-medium">Main color</legend>
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <input
+          type="color"
+          aria-label="Main color"
+          value={value ?? own}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-9 w-14 cursor-pointer rounded border border-stone-300 bg-white p-0.5"
+        />
+        <code>{value ?? own}</code>
+        {value !== undefined && (
+          <button type="button" onClick={() => onChange(undefined)} className="underline">
+            Use this kind of site's own color
+          </button>
+        )}
+      </div>
+      <Hint>
+        For the site's name, links, and buttons. Each kind of site comes with its own.
+        {pale && " This one is pale, so words in it will be hard to read on a white page."}
+      </Hint>
+    </fieldset>
+  );
 }
 
 function Choice<T extends string>({
@@ -301,10 +345,13 @@ function StudyForm({
       />
       <Choice
         legend="Light or dark?"
-        value={value.platform.theme ?? "light"}
+        value={
+          value.platform.theme ??
+          LAYOUT_THEMES[TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].layout]
+        }
         onChange={(theme) => set({ ...value, platform: { ...value.platform, theme } })}
         options={[
-          { value: "light", label: "Light", hint: "The same for everyone. Default." },
+          { value: "light", label: "Light", hint: "The same for everyone." },
           { value: "dark", label: "Dark", hint: "The same for everyone." },
           {
             value: "device",
@@ -312,6 +359,14 @@ function StudyForm({
             hint: "As real platforms do, so two people in a condition may see different colors.",
           },
         ]}
+      />
+      <MainColor
+        value={value.platform.accent}
+        own={LAYOUT_ACCENTS[TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].layout]}
+        onChange={(accent) => {
+          const { accent: _, ...platform } = value.platform;
+          set({ ...value, platform: accent ? { ...platform, accent } : platform });
+        }}
       />
       <Choice
         legend={'In an "are you sure?" box, which button is dark?'}

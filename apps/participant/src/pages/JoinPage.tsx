@@ -97,7 +97,7 @@ export function JoinPage() {
         <button
           type="submit"
           disabled={join.isPending}
-          className="rounded bg-stone-900 py-2.5 font-medium text-white disabled:opacity-40"
+          className="rounded bg-accent-fill py-2.5 font-medium text-on-accent disabled:opacity-40"
         >
           Continue
         </button>

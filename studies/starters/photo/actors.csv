@@ -1,7 +1,15 @@
-username,name,bio,followers,following,startsFollowed,suggested
-sunny.trails,Sunny Alvarez,Mountains > beaches. Sorry.,12800,400,yes,
-eats.with.ellie,Ellie Park,I photograph my food before I eat it,40100,890,yes,
-nightcity,Kai Tanaka,City lights and long exposures,7300,210,yes,
-coastal.co,Coastal Co.,Beach days all year,2200,150,,yes
-dana.m,Dana Moore,,830,640,yes,
-ravi.k,Ravi Kumar,Weekend explorer,1900,700,,yes
+username,name,bio,picture,followers,following,startsFollowed,suggested
+sunny.trails,Sunny Alvarez,Mountains > beaches. Sorry. Will hike for snacks.,sunny.trails.jpg,12800,400,yes,
+eats.with.ellie,Ellie Park,I photograph my food before I eat it. Every time.,eats.with.ellie.jpg,40100,890,yes,
+nightcity,Kai Tanaka,late dinners + long exposures,nightcity.jpg,7300,210,yes,
+coastal.co,Coastal Co.,Coffee & brunch by the water. Open 7 to 3. Closed Mondays.,coastal.co.jpg,2200,150,,yes
+dana.m,Dana Moore,,dana.m.jpg,830,640,yes,
+ravi.k,Ravi Kumar,Weekend explorer. Will travel for dumplings.,ravi.k.jpg,1900,700,,yes
+anika.rao,Anika Rao,food stylist 📷 pretty plates only,anika.rao.jpg,18400,512,yes,
+jas.carter,Jasmine Carter,brunch is a personality,jas.carter.jpg,3100,980,yes,
+lucia.marin,Lucía Marín,pastry school dropout. still baking,lucia.marin.jpg,9600,430,yes,
+marco.dlc,Marco de la Cruz,line cook. off days = eating other people's food,marco.dlc.jpg,5200,610,,yes
+hana.mori,Hana Mori,noodles / sweets / naps,hana.mori.jpg,2700,820,yes,
+bigmatt.bbq,Matt Kowalczyk,sandwiches are a food group,bigmatt.bbq.jpg,6400,300,,yes
+celeste.a,Celeste Adeyemi,juice bar owner 🍊 plants on everything,celeste.a.jpg,11200,740,yes,
+biscuit.the.aussie,Biscuit,i am a dog. i would like some of that,biscuit.the.aussie.jpg,22300,12,yes,

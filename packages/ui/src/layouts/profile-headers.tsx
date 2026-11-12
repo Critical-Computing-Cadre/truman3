@@ -71,7 +71,7 @@ export function BannerProfileHeader(props: ProfileHeaderProps) {
     <section className="overflow-hidden border-b border-stone-200 bg-white sm:rounded-lg sm:border">
       <div
         data-testid="profile-banner"
-        className="h-32 bg-gradient-to-r from-sky-300 to-indigo-300 bg-cover bg-center sm:h-40"
+        className="h-32 bg-gradient-to-r from-accent/40 to-accent/80 bg-cover bg-center sm:h-40"
         style={bannerUrl ? { backgroundImage: `url("${bannerUrl}")` } : undefined}
       />
       <div className="px-4 pb-4">

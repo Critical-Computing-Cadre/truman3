@@ -1,21 +1,94 @@
-id,postID,actor,time,body
-k1,c1,sam_w,-39:00,Beautiful! Which trailhead did you start from?
-k2,c1,maya_r,-38:30,The north lot. Get there before 6 or it fills up.
-k3,c2,lina_k,-36:00,That crumb looks perfect.
-k4,c2,rosa_m,-35:00,Save me a slice!
-k5,c3,maya_r,-29:00,Thank you for everything you do.
-k6,c3,tom_h,-28:40,Get some rest!
-k7,c4,grace_o,-27:00,Yes please on the recipe!
-k8,c4,rosa_m,-26:50,"Garlic, good olive oil, and patience. That's the whole secret."
-k9,c4,ben_c,-26:00,Looks amazing.
-k10,c6,dev_patel,-20:00,There's a place on 5th that fixed mine in a day.
-k11,c7,lina_k,-17:30,Wow. Is that a phone picture?
-k12,c7,sam_w,-17:00,"It is, believe it or not."
-k13,c8,maya_r,-15:00,I'll be there!
-k14,c10,rosa_m,-9:00,Ha! Smart kid.
-k15,c10,lina_k,-8:50,Tell her the tooth fairy takes cash only.
-k16,c11,sam_w,-5:30,Which beach is that?
-k17,c12,tom_h,-3:00,Absolutely not.
-k18,c12,dev_patel,-2:50,Absolutely yes.
-k19,c13,grace_o,-0:40,Gorgeous colors.
-k20,c14,dev_patel,2:00,Told you they were good.
+id,postID,actor,time,body,likes
+k1,c1,lina_k,-75:40,the red ones on the left are from the stand by the bakery right? so good,2
+k2,c1,maya_r,-75:20,yes! no idea what they're called. I just point,1
+k3,c1,carol_b,-74:00,You can borrow eggs. I have eighteen for some reason.,6
+k4,c2,lina_k,-73:00,That crumb looks perfect to me.,1
+k5,c2,rosa_m,-72:10,Save me a slice!,0
+k6,c2,megan_d,-71:30,tight crumb = better for toast. this is known,4
+k7,c2,dev_m,-71:00,this is what I'm telling myself,2
+k8,c3,maya_r,-69:30,Thank you for everything you do.,9
+k9,c3,tom_h,-69:00,Get some rest!,1
+k10,c3,andre_t,-68:15,Praying for you all up there. Rest well.,3
+k11,c4,sione_t,-66:00,same here on Mill St. they were flushing the hydrants I think,1
+k12,c4,carol_b,-65:30,There was a notice on the city page. Hydrant flushing all week.,2
+k13,c4,tom_h,-65:00,Would have been nice to get a notice on paper. Thanks both.,5
+k14,c5,grace_o,-60:30,Yes please on the recipe!,3
+k15,c5,rosa_m,-60:10,"Salt the eggplant and let it sit 30 min. Bread it, bake it, don't fry it. Garlic, good olive oil, and patience. That's the whole secret.",27
+k16,c5,ben_c,-59:00,Looks amazing.,0
+k17,c5,linh_t,-58:20,bake not fry?? ok I'm trying this,1
+k18,c5,rosa_m,-58:00,Hot oven. 425. Flip once.,4
+k19,c6,dev_m,-57:00,There's a place on 5th that fixed mine in a day.,1
+k20,c6,sam_w,-56:30,a goose lol,3
+k21,c6,lina_k,-56:00,an ANGRY goose,7
+k22,c7,megan_d,-53:30,I'll bring biscuits and something with potatoes,2
+k23,c7,rosa_m,-53:00,Put me down for a main. I'll do a big pot of rice and beans.,8
+k24,c7,sione_t,-52:40,I can bring the big cooler + ice,2
+k25,c7,andre_t,-52:00,This is why I love this place. Thank you!,5
+k26,c8,andre_t,-50:00,They look right to me too. Save me two.,1
+k27,c8,dev_m,-49:30,colder butter. freeze it and grate it in,3
+k28,c8,megan_d,-49:10,ooh ok trying that for batch 3,0
+k29,c9,maya_r,-46:30,I'll be there!,1
+k30,c9,owen_f,-46:00,is 'walkers too' code for me. because yes,4
+k31,c9,ben_c,-45:40,It is not code. See you at 8.,2
+k32,c10,carol_b,-44:00,That's the one that sits on the returns cart! We've been calling him Dewey.,11
+k33,c10,linh_t,-43:30,omg post a pic,2
+k34,c10,owen_f,-43:00,he wouldn't hold still. will try again tmrw,0
+k35,c11,lina_k,-40:30,honestly a better subject,3
+k36,c11,maya_r,-40:00,where is this?? that cinnamon roll,1
+k37,c11,sam_w,-39:30,the cafe next to the hardware store. go before 9 or they're gone,2
+k38,c12,rosa_m,-37:00,Ha! Smart kid.,6
+k39,c12,lina_k,-36:40,Tell her the tooth fairy takes cash only.,31
+k40,c12,andre_t,-36:00,What's the going rate these days? Asking as a grandfather.,8
+k41,c12,grace_o,-35:30,She negotiated for $2. I've been had.,19
+k42,c13,sione_t,-33:30,that's a pumpkin,14
+k43,c13,maya_r,-33:00,Gorgeous. What kind is it?,1
+k44,c13,tom_h,-32:30,"Some orange heirloom. Lost the tag. And it is NOT a pumpkin, Sione.",9
+k45,c14,grace_o,-30:00,Happy birthday to your mom!!,2
+k46,c14,carol_b,-29:30,Seventy and fabulous. Tell her from me.,3
+k47,c14,rosa_m,-29:00,Feliz cumpleaños to her! That cake is beautiful,2
+k48,c14,linh_t,-28:30,"thank you all, reading her these. she says 'too much fuss' (she is smiling)",16
+k49,c15,owen_f,-26:30,50 cents?? dangerous,1
+k50,c15,maya_r,-26:00,Any kids books? My classroom shelf is sad.,0
+k51,c15,carol_b,-25:30,"Two full tables. Come Saturday morning, the good ones go fast.",2
+k52,c16,ben_c,-23:30,Day 4 is the hard one. Keep going,1
+k53,c16,lina_k,-23:00,this looks like confetti,5
+k54,c17,owen_f,-20:40,omw,2
+k55,c17,tom_h,-20:20,Are those the hot ones or the sweet ones,0
+k56,c17,sione_t,-20:00,sweet. mostly. it's a surprise,6
+k57,c17,andre_t,-19:30,"Save me a brat, I'm ten minutes out.",1
+k58,c18,tom_h,-18:00,Absolutely not.,8
+k59,c18,dev_m,-17:50,Absolutely yes.,7
+k60,c18,megan_d,-17:30,only with jalapeños. then yes,3
+k61,c18,tom_h,-17:00,I'm muting this whole thread.,12
+k62,c19,sione_t,-14:30,the lid is not even heavy,4
+k63,c19,carol_b,-14:00,"I've seen it too. Mornings, around 7.",2
+k64,c19,lina_k,-13:40,Carol is on the case,9
+k65,c20,megan_d,-12:00,ok THAT is a braid. how,2
+k66,c20,rosa_m,-11:30,"Beautiful, mijo.",3
+k67,c20,dev_m,-11:00,watched the same video about 14 times,5
+k68,c20,linh_t,-10:30,shoelace loaf still would've been eaten,1
+k69,c21,carol_b,-9:10,Gus! We're still calling him Dewey at the library.,13
+k70,c21,linh_t,-9:00,gus the menace,6
+k71,c21,grace_o,-8:30,My kids want to meet Gus now. Thanks for that.,4
+k72,c22,rosa_m,-6:30,That skin! Nothing wrong with a foil pan.,2
+k73,c22,sam_w,-6:00,no dishes dinners are the only dinners,1
+k74,c23,megan_d,-4:50,'somebody',10
+k75,c23,andre_t,-4:30,"You better make another one before Friday, Carol.",3
+k76,c23,carol_b,-4:00,Already in the oven.,7
+k77,c24,tom_h,-2:40,That was me. I was busy.,22
+k78,c24,sam_w,-2:20,ha!! sorry Tom,4
+k79,c24,maya_r,-2:00,3 herons is a good night,1
+k80,c25,owen_f,-1:10,how far was the run tho,0
+k81,c25,ben_c,-1:00,12 miles. I earned the banana.,5
+k82,c26,dev_m,2:00,Told you they were good.,1
+k83,c26,sam_w,2:20,rip goose,4
+k84,c27,sione_t,4:30,already?? which stand,0
+k85,c27,tom_h,4:50,The one past the feed store with the hand painted sign. Cash only.,2
+k86,c28,linh_t,9:20,I have never heard this name and I need them immediately,3
+k87,c28,andre_t,9:40,My wife makes these. Best thing at any gathering.,2
+k88,c29,sam_w,14:20,finally. I walked past it every week hoping,1
+k89,c30,megan_d,26:20,"the potatoes were gone in 20 min, I'm taking that as a review",6
+k90,c30,rosa_m,26:40,Same time next month. I'll bring more.,4
+k91,c30,sione_t,27:00,I still have somebody's serving spoon. blue handle,2
+k92,c31,maya_r,30:20,3 dogs! Best turnout yet,1
+k93,c31,owen_f,30:40,I walked the whole thing and regret nothing,5

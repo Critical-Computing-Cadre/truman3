@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../../../packages/ui/src/skins.css";
 @source "../../../packages/ui/src";
 
 :root {
@@ -28,7 +29,7 @@
 }
 
 body {
-  @apply bg-stone-100 text-stone-900 antialiased;
+  @apply bg-page text-stone-900 antialiased;
 }
 
 .prose-page h1 {

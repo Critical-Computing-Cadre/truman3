@@ -1,5 +1,6 @@
 import type { FeatureKey } from "@truman3/core";
 import { type KeyboardEvent, useId, useRef, useState } from "react";
+import { DotsIcon } from "../icons.tsx";
 import { useIsPhone, usePlatform } from "../platform.tsx";
 
 /**
@@ -20,6 +21,8 @@ export function useMoreMenu(
   const id = useId();
   const button = useRef<HTMLButtonElement>(null);
 
+  // Three dots where the buttons beside it are icons, and the word where they're words.
+  const dots = platform.layout === "photo" || platform.layout === "short-posts";
   const collapsed = phone && features.some((feature) => platform.features[feature]);
   return {
     /** Whether the buttons are behind "More", rather than in the row. */
@@ -33,8 +36,9 @@ export function useMoreMenu(
         aria-controls={id}
         onClick={() => setOpen(!open)}
         className={buttonClassName}
+        {...(dots ? { "aria-label": "More" } : {})}
       >
-        More
+        {dots ? <DotsIcon className="h-5 w-5" /> : "More"}
       </button>
     ) : null,
     panelProps: {

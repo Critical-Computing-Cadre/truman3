@@ -126,7 +126,7 @@ export function ProfileForm({
         <button
           type="submit"
           disabled={saving.isPending}
-          className="flex-1 rounded bg-stone-900 py-2.5 font-medium text-white disabled:opacity-40"
+          className="flex-1 rounded bg-accent-fill py-2.5 font-medium text-on-accent disabled:opacity-40"
         >
           {submitLabel}
         </button>

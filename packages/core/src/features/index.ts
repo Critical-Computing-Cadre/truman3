@@ -7,7 +7,9 @@ export {
 } from "./catalog.ts";
 export {
   DEFAULT_TEMPLATE,
+  LAYOUT_ACCENTS,
   LAYOUT_KEYS,
+  LAYOUT_THEMES,
   type LayoutKey,
   TEMPLATE_KEYS,
   TEMPLATES,

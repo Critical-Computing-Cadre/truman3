@@ -120,6 +120,18 @@ test("takes the guide's pictures", async ({ page, browser }, testInfo) => {
     await reachFeed(participant);
     await participant.screenshot({ path: shot(`kind-${kind.file}`) });
     await phone.close();
+
+    // The same on a wide screen, where each kind lays its page out differently.
+    // The link is for one test participant, so this asks for another.
+    await page.reload();
+    await study.getByRole("button", { name: "Try as a participant" }).click();
+    await expect(link).toBeVisible();
+    const desk = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const wide = await desk.newPage();
+    await wide.goto((await link.getAttribute("href")) as string);
+    await reachFeed(wide);
+    await wide.screenshot({ path: shot(`kind-${kind.file}-wide`) });
+    await desk.close();
   }
 
   await page.getByRole("link", { name: "Your lab" }).click();

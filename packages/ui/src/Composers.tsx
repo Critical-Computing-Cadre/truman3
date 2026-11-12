@@ -1,6 +1,9 @@
 import type { FormEvent, KeyboardEvent, ReactNode, Ref } from "react";
 import { Avatar } from "./Avatar.tsx";
+import { Decor, useChrome, useDecor } from "./chrome.tsx";
 import { KarmaBadge } from "./features/karma.tsx";
+import { PenIcon, PlusIcon } from "./icons.tsx";
+import { usePlatform } from "./platform.tsx";
 
 export function PhotoIcon({ className = "h-6 w-6" }: { className?: string }) {
   return (
@@ -32,18 +35,109 @@ export function CreatePostBar({
   /** Leave this out to show a bar that can't be used, as in a preview. */
   onOpen?: () => void;
 }) {
-  return (
-    <div className="flex items-center gap-2 bg-white p-3 shadow-sm sm:rounded-lg">
-      <Avatar seed={seed} url={pictureUrl} />
+  const { layout } = usePlatform();
+  const decor = useDecor();
+  const first = useChrome()?.viewer?.name.split(" ")[0];
+  // Whatever it looks like, it's one button with one name, so it reads the same aloud everywhere.
+  const button = { type: "button", disabled: !onOpen, onClick: onOpen } as const;
+  const name = "Create a post";
+
+  if (layout === "photo") {
+    // A photo app has no box to type in. Starting a post is one small button.
+    return (
       <button
-        type="button"
-        disabled={!onOpen}
-        onClick={onOpen}
-        className="flex min-w-0 flex-1 items-center justify-between rounded-full bg-stone-100 px-4 py-2 text-left text-stone-500"
+        {...button}
+        aria-label={name}
+        className="flex w-full items-center gap-2 px-3 py-1 text-sm font-semibold text-accent sm:px-0"
       >
-        Create a post
-        {showPhoto && <PhotoIcon />}
+        <PlusIcon className="h-6 w-6" />
+        New post
       </button>
+    );
+  }
+  if (layout === "short-posts") {
+    return (
+      <div className="flex items-center gap-3 border-b border-stone-200 bg-white p-3">
+        <Avatar seed={seed} url={pictureUrl} />
+        <button
+          {...button}
+          aria-label={name}
+          className="flex min-w-0 flex-1 items-center justify-between text-left text-lg text-stone-500"
+        >
+          What's up?
+          <span className="rounded-full bg-accent-fill px-4 py-1.5 text-sm font-bold text-on-accent">
+            Post
+          </span>
+        </button>
+      </div>
+    );
+  }
+  if (layout === "forum") {
+    return (
+      <div className="flex items-center gap-2 border-b border-stone-200 bg-white p-3 sm:rounded-xl sm:border">
+        <Avatar seed={seed} url={pictureUrl} size="h-9 w-9" />
+        <button
+          {...button}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-4 py-2 text-left text-sm text-stone-500 hover:border-accent"
+        >
+          <PenIcon className="h-4 w-4" />
+          {name}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="bg-white p-3 shadow-sm sm:rounded-lg">
+      <div className="flex items-center gap-2">
+        <Avatar seed={seed} url={pictureUrl} />
+        <button
+          {...button}
+          aria-label={name}
+          className="min-w-0 flex-1 rounded-full bg-stone-100 px-4 py-2 text-left text-stone-500 hover:bg-stone-200"
+        >
+          What's on your mind{first ? `, ${first}` : ""}?
+        </button>
+      </div>
+      {(showPhoto || decor) && (
+        <div className="mt-3 flex border-t border-stone-200 pt-2 text-sm font-semibold text-stone-600 [&>button]:flex [&>button]:flex-1 [&>button]:items-center [&>button]:justify-center [&>button]:gap-2 [&>button]:rounded-lg [&>button]:py-2 [&>button:hover]:bg-stone-100">
+          {decor && (
+            <Decor>
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="#f0445c">
+                <path d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v2.500l5-3v11l-5-3V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              </svg>
+              Live video
+            </Decor>
+          )}
+          {showPhoto && (
+            // The window that opens is where a photo is added.
+            <button {...button} aria-label="Add a photo">
+              <span className="text-repost">
+                <PhotoIcon className="h-6 w-6" />
+              </span>
+              Photo
+            </button>
+          )}
+          {decor && (
+            <Decor>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="h-6 w-6"
+                fill="none"
+                stroke="#f5a623"
+                strokeWidth="2"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path
+                  d="M8 14.500a4.5 4.5 0 0 0 8 0M9 9.500h.01M15 9.500h.01"
+                  strokeLinecap="round"
+                />
+              </svg>
+              Feeling
+            </Decor>
+          )}
+        </div>
+      )}
     </div>
   );
 }
