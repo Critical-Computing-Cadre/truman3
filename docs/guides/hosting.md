@@ -60,6 +60,15 @@ The Labs page shows what each lab has spent on your key and on its own. You neve
 
 Studies can run at a domain that doesn't say "research", such as clikbrite.com on production, chosen on the Studies page ([ADR 74](../adr/0074-participant-domains.md)). Every lab can use the domains you offer. Adding one is in `docs/guides/deploying.md`, under Participant domains. A lab bringing its own domain comes later.
 
+## Demos
+
+With `DEMO_STUDIES=true`, the server sets up four of the example studies for anyone to try, at `/join/try-bystander`, `/join/try-eatsnap`, `/join/try-flag-source`, and `/join/try-vaccine-frames` (ADR 78). It does this as it starts, and again whenever an example changes.
+
+- They belong to a team called Demos, which has no researchers. You see it on the Labs page.
+- The Demos team has no budget for Claude, so the cast uses its written lines. Raise its starter budget if you want a demo's cast to improvise, knowing anyone can open it.
+- To close one, stop it like any study. It stays stopped until its example next changes.
+- Nothing deletes what demo visitors post yet.
+
 ## Suspending a lab
 
 **Suspend** stops a lab's studies at once:
