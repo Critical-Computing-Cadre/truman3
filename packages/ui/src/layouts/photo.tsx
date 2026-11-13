@@ -173,7 +173,7 @@ export function PhotoPost({
             </>,
           )
         ) : detail ? (
-          <ReplyButton actions={actions} post={post} />
+          <ReplyButton actions={actions} post={post} look="icon" />
         ) : null}
         <RepostButton post={post} actions={actions} look="icon" />
         <ShareButton post={post} actions={actions} look="icon" />

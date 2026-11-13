@@ -1,0 +1,35 @@
+# What a new account on a microblog gets in its first minutes: a couple of follows and a hello.
+# It's here so Messages and Notifications aren't empty in the sample.
+beats:
+  - id: nora-follows
+    note: Nora follows them as they arrive.
+    when: { time: "0:00" }
+    do: { action: follow, actor: nora.writes }
+
+  - id: nora-says-hi
+    note: Nora says hello.
+    when: { time: "0:00" }
+    do:
+      action: message
+      actor: nora.writes
+      text: "Welcome to Skyline. I follow back anyone who posts about books or bad weather, so you're halfway there."
+
+  - id: marcus-follows
+    note: Marcus follows them a little later.
+    when: { time: "0:02" }
+    do: { action: follow, actor: marcus }
+
+  - id: bookshop-follows
+    note: And the bookshop.
+    when: { time: "0:05" }
+    do: { action: follow, actor: oldbookshop }
+
+  - id: nora-answers
+    note: If they write back to Nora, she answers once.
+    when: { participant: message, on: nora.writes }
+    delay: { min: "0:01", max: "0:02" }
+    max: 1
+    do:
+      action: message
+      actor: nora.writes
+      text: "ha, good. see you on the timeline"

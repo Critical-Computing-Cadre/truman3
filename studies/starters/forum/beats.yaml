@@ -1,0 +1,20 @@
+# What a new account on a discussion site gets as it arrives: a note from a moderator. It's here so
+# Messages isn't empty in the sample.
+beats:
+  - id: trailhead-welcomes
+    note: A moderator sends the note new members get.
+    when: { time: "0:00" }
+    do:
+      action: message
+      actor: trailhead
+      text: "Welcome to Threadly! A few things that help: read each community's rules before posting, search before you ask, and be kind in the comments. Message me if something looks off."
+
+  - id: trailhead-answers
+    note: If they write back, the moderator answers once.
+    when: { participant: message, on: trailhead }
+    delay: { min: "0:01", max: "0:02" }
+    max: 1
+    do:
+      action: message
+      actor: trailhead
+      text: "Got it, thanks. I'll take a look."

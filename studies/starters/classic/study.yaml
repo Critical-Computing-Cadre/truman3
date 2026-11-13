@@ -22,6 +22,7 @@ platform:
     sharing: true
     saving: true
     ads: true
+    messages: true
   trending:
     - { tag: aldercreek5k, note: 310 posts }
     - { tag: potluck }

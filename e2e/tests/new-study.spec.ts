@@ -321,9 +321,9 @@ test("a researcher writes beats in the builder, and sees what's wrong with them"
     await page.getByRole("radio", { name: /Sample content for Forum/ }).check();
   });
   await page.getByRole("link", { name: "Beats" }).click();
-  await expect(page.getByText("This study has no beats yet.")).toBeVisible();
-
+  // The sample comes with the note a new member gets, so there's something to read first.
   const beats = page.getByLabel("Beats", { exact: true });
+  await expect(beats).toHaveValue(/id: trailhead-welcomes/);
   const beat = (actor: string) => `beats:
   - id: welcome
     when: { participant: post, nth: 0 }

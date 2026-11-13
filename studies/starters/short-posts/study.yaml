@@ -13,6 +13,8 @@ platform:
   style: text
   template: shortPosts
   maxPostLength: 300
+  # So the hello a new account gets has somewhere to arrive.
+  features: { messages: true }
   trending:
     - { tag: weather, note: 2.1K posts }
     - { tag: transit }

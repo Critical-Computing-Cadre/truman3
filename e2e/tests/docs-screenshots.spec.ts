@@ -119,6 +119,31 @@ test("takes the guide's pictures", async ({ page, browser }, testInfo) => {
     await participant.goto((await link.getAttribute("href")) as string);
     await reachFeed(participant);
     await participant.screenshot({ path: shot(`kind-${kind.file}`) });
+    // The pages beyond the feed on a phone, to look over.
+    const phoneOrigin = new URL(participant.url()).origin;
+    const firstOnPhone = async (selector: string) => {
+      const links = participant.locator(selector);
+      return (await links.count()) > 0 ? links.first().getAttribute("href") : null;
+    };
+    const phonePages: [string, string | null][] = [
+      ["someone", await firstOnPhone('article a[href^="/u/"]')],
+      ["post", await firstOnPhone('a[href^="/p/"]')],
+      ["notifications", "/notifications"],
+      ["explore", "/explore"],
+      ["spaces", "/spaces"],
+      ["messages", "/messages"],
+      ["account", "/account"],
+    ];
+    for (const [name, address] of phonePages) {
+      if (address) {
+        await participant.goto(phoneOrigin + address);
+        await participant.waitForLoadState("networkidle");
+        await participant.waitForTimeout(300);
+        await participant.screenshot({
+          path: testInfo.outputPath(`${kind.file}-phone-${name}.png`),
+        });
+      }
+    }
     await phone.close();
 
     // The same on a wide screen, where each kind lays its page out differently.
@@ -147,6 +172,9 @@ test("takes the guide's pictures", async ({ page, browser }, testInfo) => {
       ["notifications", "/notifications"],
       ["explore", "/explore"],
       ["account", "/account"],
+      ["spaces", "/spaces"],
+      ["messages", "/messages"],
+      ["rules", "/rules"],
     ];
     for (const [name, address] of more) {
       if (address) {
@@ -159,6 +187,28 @@ test("takes the guide's pictures", async ({ page, browser }, testInfo) => {
     await wide.getByRole("link", { name: "Profile" }).first().click();
     await wide.waitForLoadState("networkidle");
     await wide.screenshot({ path: testInfo.outputPath(`${kind.file}-me.png`) });
+    await wide.goto(`${origin}/messages`);
+    await wide.waitForLoadState("networkidle");
+    const talk = wide.locator('a[href^="/messages/"]');
+    if ((await talk.count()) > 0) {
+      await wide.screenshot({ path: testInfo.outputPath(`${kind.file}-messages.png`) });
+      await talk.first().click();
+      await wide.waitForLoadState("networkidle");
+      await wide.waitForTimeout(300);
+      await wide.screenshot({ path: testInfo.outputPath(`${kind.file}-conversation.png`) });
+    }
+    await wide.goto(`${origin}/notifications`);
+    await wide.waitForLoadState("networkidle");
+    await wide.screenshot({ path: testInfo.outputPath(`${kind.file}-notifications.png`) });
+    await wide.goto(`${origin}/spaces`);
+    await wide.waitForLoadState("networkidle");
+    const space = wide.locator('main a[href^="/spaces/"]');
+    if ((await space.count()) > 0) {
+      await space.first().click();
+      await wide.waitForLoadState("networkidle");
+      await wide.waitForTimeout(300);
+      await wide.screenshot({ path: testInfo.outputPath(`${kind.file}-space.png`) });
+    }
     await desk.close();
   }
 

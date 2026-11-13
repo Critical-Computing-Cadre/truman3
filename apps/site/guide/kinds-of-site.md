@@ -64,7 +64,7 @@ On the **New study** page, each card shows the same sample post drawn the way th
 
 Answer no to all three and it suggests Classic.
 
-Choosing **Sample content** on the same page copies in made-up people and posts that use what that kind has, so you can see it working before you write anything.
+Choosing **Sample content** on the same page copies in made-up people and posts that use what that kind has, so you can see it working before you write anything. Each sample also has a few [beats](/guide/beats): someone sends a hello as you arrive and a couple of people follow you, so Messages and Notifications have something in them. They're on the Beats page, to change or delete like the rest.
 
 ## Turning features on and off
 
