@@ -116,7 +116,7 @@ export function AgentPage() {
   };
 
   return (
-    <main className="mx-auto max-w-3xl space-y-4 p-4">
+    <main className="page page-narrow space-y-4">
       <Link to="/drafts/$draftId" params={{ draftId }} className="text-sm underline">
         Back to the draft
       </Link>

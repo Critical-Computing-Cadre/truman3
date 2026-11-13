@@ -8,10 +8,11 @@ const STATUS_LABEL: Record<TeamStatus, string> = {
   suspended: "Suspended",
 };
 const STATUS_CLASS: Record<TeamStatus, string> = {
-  pending: "bg-amber-100 text-amber-900",
-  approved: "bg-emerald-100 text-emerald-900",
-  suspended: "bg-rose-100 text-rose-900",
+  pending: "badge-wait",
+  approved: "badge-good",
+  suspended: "badge-bad",
 };
+const gb = (bytes: number) => (bytes / 1024 ** 3).toFixed(2);
 
 const date = (iso: string) => new Date(iso).toLocaleDateString();
 
@@ -34,7 +35,7 @@ export function OperatorPage() {
   const waiting = teams.data.teams.filter(({ status }) => status === "pending").length;
 
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4">
+    <main className="page flex flex-col gap-4">
       <div>
         <h1 className="text-2xl font-semibold">Labs</h1>
         <p className="text-stone-600">
@@ -44,6 +45,52 @@ export function OperatorPage() {
           You see what each lab uses, never what's in its studies.
         </p>
       </div>
+      {teams.data.teams.length > 1 && (
+        <div className="card overflow-x-auto">
+          <table className="table">
+            <thead>
+              <tr>
+                <th scope="col">Lab</th>
+                <th scope="col">Status</th>
+                <th scope="col">Owner</th>
+                <th scope="col" className="text-right">
+                  Studies open
+                </th>
+                <th scope="col" className="text-right">
+                  Participants, 30 days
+                </th>
+                <th scope="col" className="text-right">
+                  Claude on your key
+                </th>
+                <th scope="col" className="text-right">
+                  Photos
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {teams.data.teams.map((team) => (
+                <tr key={team.id}>
+                  <td>
+                    <a href={`#lab-${team.id}`} className="font-medium text-primary underline">
+                      {team.name}
+                    </a>
+                  </td>
+                  <td>
+                    <span className={`badge ${STATUS_CLASS[team.status]}`}>
+                      {STATUS_LABEL[team.status]}
+                    </span>
+                  </td>
+                  <td className="text-stone-600">{team.owners[0]?.name ?? "No owner"}</td>
+                  <td className="text-right tabular-nums">{team.usage.runningStudies}</td>
+                  <td className="text-right tabular-nums">{team.usage.participantsLast30Days}</td>
+                  <td className="text-right tabular-nums">${team.usage.hostAiUsd.toFixed(2)}</td>
+                  <td className="text-right tabular-nums">{gb(team.usage.uploadBytes)} GB</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {teams.data.teams.map((team) => (
         <TeamCard key={team.id} team={team} />
       ))}
@@ -63,13 +110,12 @@ function TeamCard({ team }: { team: OperatorTeam }) {
   return (
     <section
       aria-label={team.name}
-      className="flex flex-col gap-3 rounded border border-stone-200 bg-white p-4"
+      id={`lab-${team.id}`}
+      className="card flex scroll-mt-4 flex-col gap-4 p-4"
     >
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="mr-auto text-lg font-semibold">{team.name}</h2>
-        <span className={`rounded px-2 py-0.5 text-sm ${STATUS_CLASS[team.status]}`}>
-          {STATUS_LABEL[team.status]}
-        </span>
+        <span className={`badge ${STATUS_CLASS[team.status]}`}>{STATUS_LABEL[team.status]}</span>
       </div>
       {team.application && (
         <div className="text-sm">
@@ -92,28 +138,56 @@ function TeamCard({ team }: { team: OperatorTeam }) {
           <p className="whitespace-pre-wrap text-stone-700">{team.application.purpose}</p>
         </div>
       )}
-      <p className="text-sm text-stone-600">
-        {team.owners.map(({ name, email }) => `${name} (${email})`).join(", ") || "No owner"} ·
-        applied {date(team.createdAt)}
-        {team.decidedAt && ` · last changed ${date(team.decidedAt)} by ${team.decidedBy}`}
-      </p>
-      <p className="text-sm">
-        {usage.members} {usage.members === 1 ? "member" : "members"} · {usage.studies} studies,{" "}
-        {usage.runningStudies} open · {usage.participants} participants,{" "}
-        {usage.participantsLast30Days} in the last 30 days
-      </p>
-      <p className="text-sm">
-        Claude: ${usage.hostAiUsd.toFixed(2)} on your key
-        {team.limits.starterBudgetUsd !== undefined &&
-          ` of a $${team.limits.starterBudgetUsd} starter budget`}
-        {usage.hasOwnKey
-          ? ` · its own key, $${usage.labAiUsd.toFixed(2)} so far`
-          : " · no key of its own yet"}
-      </p>
-      <p className="text-sm">
-        Photos from participants: {(usage.uploadBytes / 1024 ** 3).toFixed(2)} GB
-        {team.limits.uploadsGb !== undefined && ` of ${team.limits.uploadsGb} GB`}
-      </p>
+      <dl className="facts">
+        <div className="col-span-2">
+          <dt>Owners</dt>
+          <dd>
+            {team.owners.map(({ name, email }) => `${name} (${email})`).join(", ") || "No owner"}
+          </dd>
+        </div>
+        <div>
+          <dt>Applied</dt>
+          <dd>{date(team.createdAt)}</dd>
+        </div>
+        <div>
+          <dt>Last changed</dt>
+          <dd>{team.decidedAt ? `${date(team.decidedAt)} by ${team.decidedBy}` : "Never"}</dd>
+        </div>
+        <div>
+          <dt>Members</dt>
+          <dd>{usage.members}</dd>
+        </div>
+        <div>
+          <dt>Studies</dt>
+          <dd>
+            {usage.studies}, {usage.runningStudies} open
+          </dd>
+        </div>
+        <div>
+          <dt>Participants</dt>
+          <dd>
+            {usage.participants}, {usage.participantsLast30Days} in the last 30 days
+          </dd>
+        </div>
+        <div>
+          <dt>Photos from participants</dt>
+          <dd>
+            {gb(usage.uploadBytes)} GB
+            {team.limits.uploadsGb !== undefined && ` of ${team.limits.uploadsGb} GB`}
+          </dd>
+        </div>
+        <div className="col-span-2">
+          <dt>Claude</dt>
+          <dd>
+            ${usage.hostAiUsd.toFixed(2)} on your key
+            {team.limits.starterBudgetUsd !== undefined &&
+              ` of a $${team.limits.starterBudgetUsd} starter budget`}
+            {usage.hasOwnKey
+              ? ` · its own key, $${usage.labAiUsd.toFixed(2)} so far`
+              : " · no key of its own yet"}
+          </dd>
+        </div>
+      </dl>
       {/* Starts again from what's saved whenever that changes, such as on approval. */}
       <LimitsForm
         key={JSON.stringify(team.limits)}

@@ -41,7 +41,9 @@ test("an owner invites someone by email, who joins, then resets a forgotten pass
   const members = page.getByRole("region", { name: "Operators members" });
   await members.getByLabel("Invite by email").fill(invited);
   await members.getByRole("button", { name: "Send invitation" }).click();
-  await expect(members).toContainText(`${invited} invited as editor`);
+  await expect(members.getByRole("row").filter({ hasText: invited })).toContainText(
+    "invited as editor",
+  );
   await page.screenshot({ path: testInfo.outputPath("members.png"), fullPage: true });
 
   // They follow the emailed link, in a browser of their own, and make an account.

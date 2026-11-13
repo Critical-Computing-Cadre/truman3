@@ -45,8 +45,8 @@ export function TokensPage() {
   };
 
   return (
-    <main className="mx-auto max-w-2xl space-y-4 p-4">
-      <h1 className="text-xl font-semibold">Access for agents</h1>
+    <main className="page page-narrow space-y-4">
+      <h1 className="text-2xl font-semibold">Access for agents</h1>
       <p className="text-sm text-stone-700">
         A token lets an agent, such as Claude through Truman's MCP server, work in Truman for you:
         read your studies, write drafts, check them, run their tests, and simulate participants.
@@ -103,24 +103,44 @@ export function TokensPage() {
         </div>
       )}
 
-      <section aria-label="Your tokens" className="card p-3">
+      <section aria-label="Your tokens" className="card overflow-x-auto">
         {tokens.data?.tokens.length === 0 && (
-          <p className="text-sm text-stone-600">You haven't made any tokens.</p>
+          <p className="p-6 text-center text-sm text-stone-600">You haven't made any tokens.</p>
         )}
-        <ul className="divide-y divide-stone-100">
-          {tokens.data?.tokens.map((token) => (
-            <li key={token.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
-              <span className="mr-auto font-medium">{token.name}</span>
-              <span className="text-stone-600">
-                Made {date(token.createdAt)}, lasts until {date(token.expiresAt)},{" "}
-                {token.lastUsedAt ? `last used ${date(token.lastUsedAt)}` : "not used yet"}
-              </span>
-              <button type="button" className="btn btn-sm" onClick={() => revoke.mutate(token.id)}>
-                Revoke
-              </button>
-            </li>
-          ))}
-        </ul>
+        {(tokens.data?.tokens.length ?? 0) > 0 && (
+          <table className="table">
+            <thead>
+              <tr>
+                <th scope="col">What it's for</th>
+                <th scope="col">Made</th>
+                <th scope="col">Lasts until</th>
+                <th scope="col">Last used</th>
+                <th scope="col" aria-label="Revoke" />
+              </tr>
+            </thead>
+            <tbody>
+              {tokens.data?.tokens.map((token) => (
+                <tr key={token.id}>
+                  <td className="font-medium">{token.name}</td>
+                  <td className="text-stone-600">{date(token.createdAt)}</td>
+                  <td className="text-stone-600">{date(token.expiresAt)}</td>
+                  <td className="text-stone-600">
+                    {token.lastUsedAt ? date(token.lastUsedAt) : "Not used yet"}
+                  </td>
+                  <td className="text-right">
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => revoke.mutate(token.id)}
+                    >
+                      Revoke
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
     </main>
   );

@@ -12,9 +12,13 @@ import { ADMIN_PORT } from "../playwright.config.ts";
 
 const SHOTS = path.resolve(import.meta.dirname, "../../apps/site/public/shots");
 const STATE_FILE = path.resolve(import.meta.dirname, "../.e2e-state.json");
-const { otherLabEmail, otherLabPassword } = JSON.parse(readFileSync(STATE_FILE, "utf8")) as {
+const { otherLabEmail, otherLabPassword, operatorEmail, operatorPassword } = JSON.parse(
+  readFileSync(STATE_FILE, "utf8"),
+) as {
   otherLabEmail: string;
   otherLabPassword: string;
+  operatorEmail: string;
+  operatorPassword: string;
 };
 const ADMIN = `http://localhost:${ADMIN_PORT}`;
 const shot = (name: string) => path.join(SHOTS, `${name}.png`);
@@ -93,6 +97,8 @@ test("takes the guide's pictures", async ({ page, browser }, testInfo) => {
         .getByRole("region", { name: "Conditions" })
         .screenshot({ path: shot("conditions") });
       await page.getByRole("region", { name: "Study flow" }).screenshot({ path: shot("flow") });
+      // The whole page, to look over.
+      await page.screenshot({ path: testInfo.outputPath("admin-settings.png"), fullPage: true });
       await page.getByRole("link", { name: "Feed", exact: true }).click();
       await page.getByRole("link", { name: "Beats", exact: true }).click();
       await page.waitForLoadState("networkidle");
@@ -240,6 +246,18 @@ test("takes the guide's pictures", async ({ page, browser }, testInfo) => {
     await desk.close();
   }
 
+  // Admin pages the guide has no picture of, to look over.
+  await page.getByRole("link", { name: "Monitor and download" }).first().click();
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: testInfo.outputPath("admin-monitor.png"), fullPage: true });
+  await page.getByRole("link", { name: "Studies", exact: true }).click();
+  await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: testInfo.outputPath("admin-studies.png"), fullPage: true });
+  await page.getByRole("link", { name: "Access for agents" }).click();
+  await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: testInfo.outputPath("admin-tokens.png"), fullPage: true });
+
   await page.getByRole("link", { name: "Your lab" }).click();
   await expect(page.getByRole("heading", { name: "Your lab" })).toBeVisible();
   // The page's cards arrive after its heading does.
@@ -247,4 +265,16 @@ test("takes the guide's pictures", async ({ page, browser }, testInfo) => {
   await page.mouse.move(640, 600);
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: shot("your-lab") });
+
+  // What whoever runs this Truman sees, to look over.
+  const running = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+  const operator = await running.newPage();
+  await operator.goto(ADMIN);
+  await operator.getByLabel("Email").fill(operatorEmail);
+  await operator.getByLabel("Password").fill(operatorPassword);
+  await operator.getByRole("button", { name: "Sign in" }).click();
+  await operator.getByRole("link", { name: "Labs" }).click();
+  await expect(operator.getByRole("heading", { level: 2 }).first()).toBeVisible();
+  await operator.screenshot({ path: testInfo.outputPath("admin-labs.png"), fullPage: true });
+  await running.close();
 });
