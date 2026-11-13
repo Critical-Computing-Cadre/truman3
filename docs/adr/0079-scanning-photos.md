@@ -33,6 +33,7 @@ Until now an upload was only a file. Nothing recorded that it existed, how big i
 ## Consequences
 
 - **By default, Amazon may keep what its AI services are sent and use it to improve them.** Opting out is an "AI services opt-out policy" set in AWS Organizations, on the account, by its owner. Until that's set for the hosted account, scanned photos fall under the default. The site says so.
+  - **Since 2026-11-13 the hosted Truman's organization has that policy,** attached to its Root, so both of its accounts are opted out.
 - The scan is wrong sometimes, both ways. The guide tells researchers it's a prompt to look.
 - An upload now takes as long as a scan, usually well under a second.
 - Photos uploaded before this have no row. They're served as before and were never scanned.

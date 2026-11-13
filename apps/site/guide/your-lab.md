@@ -126,9 +126,8 @@ If that list is empty, nobody but the server has used your key. If you get one o
 
 ## What's left before real participants
 
-Hosted Truman is in beta. These have to be done before anyone runs a real study on it:
+Hosted Truman is in beta. One thing has to be done before anyone runs a real study on it:
 
 - **Terms of service and a privacy policy,** reviewed by the university that hosts it.
-- **Opting out of Amazon keeping scanned photos.** Photos participants upload are scanned by Amazon Rekognition. By default Amazon may keep what it scans to improve its services, and hosted Truman's account hasn't opted out yet.
 
 Until then, use it to build and pilot. Everything you make now stays when it opens.

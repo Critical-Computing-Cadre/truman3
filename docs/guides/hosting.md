@@ -126,7 +126,7 @@ With `PHOTO_SCANNING=rekognition`, each photo a participant uploads is scanned b
 
 It needs the photos in S3 and the permission `rekognition:DetectModerationLabels` for the API. The cloud setup in `infra` gives a hosted stage both.
 
-By default Amazon may keep what its AI services are sent, to improve them. To stop that, set an AI services opt-out policy for the account in AWS Organizations.
+By default Amazon may keep what its AI services are sent, to improve them. To stop that, set an AI services opt-out policy in AWS Organizations, from the organization's management account, and attach it to the Root. Making the policy isn't enough: it does nothing until it's attached. To check it from an account, `aws organizations describe-effective-policy --policy-type AISERVICES_OPT_OUT_POLICY` should show `optOut`. The hosted Truman at truman-research.org has had this since 2026-11-13.
 
 ## Suspending a lab
 
