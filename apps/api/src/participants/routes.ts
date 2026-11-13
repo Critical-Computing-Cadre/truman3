@@ -167,6 +167,13 @@ export interface ParticipantRouteDependencies {
   scanner?: PhotoScanner | undefined;
   /** Each lab's own key, for what ties its data to real people (ADR 82). Leave out for none. */
   labKeys?: LabKeys | undefined;
+  /**
+   * What AWS has to send with a report that a lab's key was used or changed (ADR 83). Leave out and
+   * this server takes no such reports.
+   */
+  keyEventsHookKey?: string | undefined;
+  /** This server's own role, whose use of a lab's key is the site running and isn't reported. */
+  ownRole?: string | undefined;
   /** Whether cookies require HTTPS. True everywhere except local development. */
   secureCookies: boolean;
   /** Decides whether an address may try entering right now. Leave out for no limit. */

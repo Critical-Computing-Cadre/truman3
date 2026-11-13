@@ -253,6 +253,8 @@ describe("a hosted Truman (ADR 70)", () => {
       status: "approved",
       limits: { runningStudies: 3, participantsPerMonth: 50, uploadsGb: 2 },
       usage: { participantsLast30Days: 2, runningStudies: 1, uploadBytes: 0 },
+      // This Truman gives labs no keys, so there's none, and nothing to list.
+      key: { made: false, events: [] },
     });
 
     const stranger = await apply();

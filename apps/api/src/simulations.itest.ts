@@ -61,55 +61,69 @@ async function importBystander() {
   };
 }
 
+/**
+ * These send several simulated participants through a whole study. Alone they take six seconds.
+ * Beside the rest of the integration tests they take twenty to thirty, which is the usual limit.
+ */
+const SLOW_MS = 90_000;
+
 describe("simulated participants", () => {
-  it("go through the bystander study, and the report shows what happened in each condition", async () => {
-    const { versionId } = await importBystander();
-    const report = await simulate({
-      db: database.db,
-      storage,
-      versionId,
-      settings: { participants: 12, seed: 7 },
-    });
-    expect(report.participants).toBe(12);
-    expect(report.conditions).toEqual({ defended: 6, silent: 6 });
-    const beat = (id: string) => report.beats.find((item) => item.id === id);
-
-    // Jake mocks Maya a few minutes in, for everyone, once.
-    expect(beat("jake-mocks")?.happenedFor).toEqual({ defended: 6, silent: 6 });
-    expect(beat("jake-mocks")?.mostForOne).toBe(1);
-    // Each condition's beats stay in it.
-    expect(beat("leo-likes-mocking")?.happenedFor.defended).toBe(0);
-    expect(beat("sam-defends")?.happenedFor.silent).toBe(0);
-    expect(findings(report).filter((note) => note.includes("which it isn't in"))).toEqual([]);
-    // They did things, and nothing the API did failed.
-    expect(Object.values(report.actions).reduce((sum, { done }) => sum + done, 0)).toBeGreaterThan(
-      0,
-    );
-    expect(report.problems).toEqual([]);
-  });
-
-  it("repeats exactly with the same seed, and cleans up after itself", async () => {
-    const { versionId } = await importBystander();
-    const run = () =>
-      simulate({
+  it(
+    "go through the bystander study, and the report shows what happened in each condition",
+    async () => {
+      const { versionId } = await importBystander();
+      const report = await simulate({
         db: database.db,
         storage,
         versionId,
-        settings: { participants: 4, seed: 99 },
-        cleanUp: true,
+        settings: { participants: 12, seed: 7 },
       });
-    // What they did is deleted, as with scenario tests. Only a record of each deletion stays.
-    const events = async () =>
-      (
-        await database.db
-          .select({ id: schema.events.id })
-          .from(schema.events)
-          .where(eq(schema.events.studyVersionId, versionId))
-      ).length;
-    const first = await run();
-    expect(await run()).toEqual(first);
-    expect(await events()).toBe(0);
-  });
+      expect(report.participants).toBe(12);
+      expect(report.conditions).toEqual({ defended: 6, silent: 6 });
+      const beat = (id: string) => report.beats.find((item) => item.id === id);
+
+      // Jake mocks Maya a few minutes in, for everyone, once.
+      expect(beat("jake-mocks")?.happenedFor).toEqual({ defended: 6, silent: 6 });
+      expect(beat("jake-mocks")?.mostForOne).toBe(1);
+      // Each condition's beats stay in it.
+      expect(beat("leo-likes-mocking")?.happenedFor.defended).toBe(0);
+      expect(beat("sam-defends")?.happenedFor.silent).toBe(0);
+      expect(findings(report).filter((note) => note.includes("which it isn't in"))).toEqual([]);
+      // They did things, and nothing the API did failed.
+      expect(
+        Object.values(report.actions).reduce((sum, { done }) => sum + done, 0),
+      ).toBeGreaterThan(0);
+      expect(report.problems).toEqual([]);
+    },
+    SLOW_MS,
+  );
+
+  it(
+    "repeats exactly with the same seed, and cleans up after itself",
+    async () => {
+      const { versionId } = await importBystander();
+      const run = () =>
+        simulate({
+          db: database.db,
+          storage,
+          versionId,
+          settings: { participants: 4, seed: 99 },
+          cleanUp: true,
+        });
+      // What they did is deleted, as with scenario tests. Only a record of each deletion stays.
+      const events = async () =>
+        (
+          await database.db
+            .select({ id: schema.events.id })
+            .from(schema.events)
+            .where(eq(schema.events.studyVersionId, versionId))
+        ).length;
+      const first = await run();
+      expect(await run()).toEqual(first);
+      expect(await events()).toBe(0);
+    },
+    SLOW_MS,
+  );
 
   it("names a beat that never happens", async () => {
     const { versionId } = await importBystander();

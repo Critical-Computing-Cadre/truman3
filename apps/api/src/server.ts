@@ -83,6 +83,8 @@ const app = createApp({
   storage,
   scanner,
   labKeys,
+  keyEventsHookKey: env.KEY_EVENTS_HOOK_KEY,
+  ownRole: env.LAB_KEY_ROLES.split(",")[0]?.trim() || undefined,
   mediaPublicUrl: env.MEDIA_PUBLIC_URL,
   secureCookies: env.NODE_ENV !== "development",
   participantAppUrl: env.PARTICIPANT_APP_URL,

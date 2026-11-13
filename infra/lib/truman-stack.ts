@@ -13,12 +13,15 @@ import * as budgets from "aws-cdk-lib/aws-budgets";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as cloudtrail from "aws-cdk-lib/aws-cloudtrail";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import * as alarmActions from "aws-cdk-lib/aws-cloudwatch-actions";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import { Platform } from "aws-cdk-lib/aws-ecr-assets";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as elb from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import * as events from "aws-cdk-lib/aws-events";
+import * as eventTargets from "aws-cdk-lib/aws-events-targets";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as rds from "aws-cdk-lib/aws-rds";
@@ -150,6 +153,17 @@ export class TrumanStack extends Stack {
       generateSecretString: { excludePunctuation: true, passwordLength: 43 },
       removalPolicy,
     });
+
+    // What AWS sends with each report that a lab's key was used or changed, so nobody else can
+    // send one (ADR 83).
+    const keyEventsHookKey = stage.hosted
+      ? new secrets.Secret(this, "KeyEventsHookKey", {
+          secretName: `${prefix}/key-events-hook-key`,
+          description: "Sent with reports to the API that a lab's key was used or changed.",
+          generateSecretString: { excludePunctuation: true, passwordLength: 48 },
+          removalPolicy,
+        })
+      : undefined;
 
     const ownerSecret = new rds.DatabaseSecret(this, "OwnerDatabaseLogin", {
       secretName: `${prefix}/database-owner`,
@@ -440,6 +454,29 @@ export class TrumanStack extends Stack {
     };
 
     const apiTask = taskDefinition("ApiTask", `${prefix}-api`);
+
+    // The host's emergency way to a lab's data (ADR 83). An administrator has to take this role on
+    // purpose, which AWS records, and every use of a lab's key through it is reported to the lab.
+    // It can use labs' keys and read what participants uploaded, and nothing else.
+    const emergencyRole = stage.hosted
+      ? new iam.Role(this, "EmergencyRole", {
+          roleName: `${prefix}-emergency`,
+          description:
+            "Emergency access to labs' data. Every use is recorded and the lab is told. See docs/guides/hosting.md.",
+          assumedBy: new iam.AccountRootPrincipal(),
+          maxSessionDuration: Duration.hours(1),
+        })
+      : undefined;
+    if (emergencyRole) {
+      emergencyRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ["kms:Decrypt", "kms:DescribeKey"],
+          resources: [`arn:aws:kms:${stage.region}:${this.account}:key/*`],
+          conditions: { StringEquals: { "aws:ResourceTag/truman-stage": prefix } },
+        }),
+      );
+      mediaBucket.grantRead(emergencyRole, "uploads/*");
+    }
     mediaBucket.grantReadWrite(apiTask.taskRole);
     mediaBucket.grantDelete(apiTask.taskRole);
     // Scanning the photos participants upload (ADR 79). Rekognition reads each one from the bucket
@@ -509,7 +546,8 @@ export class TrumanStack extends Stack {
           ? {
               LAB_KEYS: "kms",
               LAB_KEY_STAGE: prefix,
-              LAB_KEY_ROLES: apiTask.taskRole.roleArn,
+              // Who may use a lab's key: the API, and the emergency role.
+              LAB_KEY_ROLES: `${apiTask.taskRole.roleArn},${emergencyRole?.roleArn}`,
             }
           : {}),
         ADMIN_APP_URL: `${address}/admin/`,
@@ -520,6 +558,9 @@ export class TrumanStack extends Stack {
       secrets: {
         DATABASE_APP_PASSWORD: ecs.Secret.fromSecretsManager(appPassword),
         TRUMAN_SECRET_KEY: ecs.Secret.fromSecretsManager(secretKey),
+        ...(keyEventsHookKey
+          ? { KEY_EVENTS_HOOK_KEY: ecs.Secret.fromSecretsManager(keyEventsHookKey) }
+          : {}),
         // Made by hand, so the key never passes through the repo or a deploy.
         ...(stage.anthropicKeySecret
           ? {
@@ -833,6 +874,78 @@ export class TrumanStack extends Stack {
         value: topic.topicArn,
         description:
           "Where alarms and the budget are sent. Subscribe your email with: aws sns subscribe --topic-arn <this> --protocol email --notification-endpoint <your email>",
+      });
+    }
+
+    // Telling a lab when its key is used or changed (ADR 83). AWS's record of every call made in
+    // the account is what reports it, so that record is kept here.
+    if (emergencyRole && keyEventsHookKey) {
+      const trailBucket = new s3.Bucket(this, "Trail", {
+        ...bucketDefaults,
+        lifecycleRules: [{ expiration: Duration.days(365) }],
+        // Kept with a stage that holds real data. A test stage's goes with it.
+        removalPolicy,
+        autoDeleteObjects: !stage.holdsRealData,
+      });
+      new cloudtrail.Trail(this, "Calls", {
+        trailName: `${prefix}-calls`,
+        bucket: trailBucket,
+        // This region's calls, which is where the keys are. Signed, so a changed record shows.
+        isMultiRegionTrail: false,
+        enableFileValidation: true,
+      });
+
+      const hook = new events.ApiDestination(this, "KeyEventsHook", {
+        connection: new events.Connection(this, "KeyEventsConnection", {
+          description: "The Truman API, for reports that a lab's key was used or changed.",
+          authorization: events.Authorization.apiKey(
+            "x-truman-hook-key",
+            keyEventsHookKey.secretValue,
+          ),
+        }),
+        endpoint: `${address}/api/hooks/key-events`,
+        httpMethod: events.HttpMethod.POST,
+        // A restore reads many files. The API records each and emails once an hour.
+        rateLimitPerSecond: 10,
+      });
+      const fromTheKeyService = {
+        source: ["aws.kms"],
+        detailType: ["AWS API Call via CloudTrail"],
+      };
+      // Anything read with a key through the emergency role.
+      new events.Rule(this, "KeyUsedInEmergency", {
+        description: "A key was used through the emergency role.",
+        eventPattern: {
+          ...fromTheKeyService,
+          detail: {
+            eventSource: ["kms.amazonaws.com"],
+            userIdentity: { sessionContext: { sessionIssuer: { arn: [emergencyRole.roleArn] } } },
+          },
+        },
+        targets: [new eventTargets.ApiDestination(hook)],
+      });
+      // A key changed, or who may use it, by anyone at all. The API ignores keys that aren't a
+      // lab's.
+      new events.Rule(this, "KeyChanged", {
+        description: "A key, or who may use it, was changed.",
+        eventPattern: {
+          ...fromTheKeyService,
+          detail: {
+            eventSource: ["kms.amazonaws.com"],
+            eventName: [
+              "PutKeyPolicy",
+              "CreateGrant",
+              "DisableKey",
+              "ScheduleKeyDeletion",
+              "DeleteImportedKeyMaterial",
+            ],
+          },
+        },
+        targets: [new eventTargets.ApiDestination(hook)],
+      });
+      new CfnOutput(this, "EmergencyRoleArn", {
+        value: emergencyRole.roleArn,
+        description: "For emergencies only. Every use is recorded, and the lab is told.",
       });
     }
 

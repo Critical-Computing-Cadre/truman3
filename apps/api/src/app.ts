@@ -24,6 +24,7 @@ import { agentLimits, createTokenRoutes } from "./admin/tokens.ts";
 import { describeError } from "./errors.ts";
 import { createFeedRoutes } from "./feed/routes.ts";
 import { createFlowRoutes } from "./flow/routes.ts";
+import { createKeyEventRoutes } from "./key-events.ts";
 import { liveStream } from "./live.ts";
 import { createMediaRoutes } from "./media.ts";
 import {
@@ -120,6 +121,7 @@ export function createApp({
   app.route("/", createAccountRoutes(participantDependencies));
   app.route("/", createAddressRoutes(participantDependencies));
   app.route("/", createTeamAiRoutes(participantDependencies));
+  app.route("/", createKeyEventRoutes(participantDependencies));
   app.route("/", createTokenRoutes(participantDependencies));
   // The agent calls this same API, in this process, with a token made for its run.
   app.route(

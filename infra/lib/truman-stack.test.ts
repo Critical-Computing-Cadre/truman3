@@ -90,9 +90,10 @@ describe("what can be reached from outside", () => {
     }
   });
 
-  it("blocks all public access to both buckets, and requires HTTPS", () => {
+  it("blocks all public access to every bucket, and requires HTTPS", () => {
     const buckets = resources(template, "AWS::S3::Bucket");
-    expect(buckets).toHaveLength(2);
+    // The apps, what participants upload, and AWS's record of calls (ADR 83).
+    expect(buckets).toHaveLength(3);
     for (const bucket of buckets) {
       expect(bucket.Properties.PublicAccessBlockConfiguration).toEqual({
         BlockPublicAcls: true,
@@ -480,6 +481,7 @@ describe("when it's removed", () => {
       "Retain",
       "Retain",
       "Retain",
+      "Retain",
     ]);
     // Nothing goes around and empties a bucket that holds data.
     const buckets = Object.entries(realTemplate.findResources("AWS::S3::Bucket"));
@@ -810,5 +812,54 @@ describe("the public site (ADR 75)", () => {
 
   it("isn't on staging", () => {
     template.resourceCountIs("AWS::CloudFront::Distribution", 1);
+  });
+});
+
+describe("the emergency way to a lab's data (ADR 83)", () => {
+  it("is a role that can use labs' keys and read uploads, and nothing else", () => {
+    template.hasResourceProperties("AWS::IAM::Role", {
+      RoleName: "truman3-staging-emergency",
+      MaxSessionDuration: 3600,
+    });
+    const statements = Object.entries(template.findResources("AWS::IAM::Policy"))
+      .filter(([id]) => id.startsWith("EmergencyRole"))
+      .flatMap(([, policy]) => policy.Properties.PolicyDocument.Statement);
+    const actions = statements.flatMap(({ Action }) => Action).sort();
+    expect(actions).toEqual([
+      "kms:Decrypt",
+      "kms:DescribeKey",
+      "s3:GetBucket*",
+      "s3:GetObject*",
+      "s3:List*",
+    ]);
+    expect(statements.find(({ Action }) => Action.includes("kms:Decrypt"))?.Condition).toEqual({
+      StringEquals: { "aws:ResourceTag/truman-stage": "truman3-staging" },
+    });
+  });
+
+  it("may use a lab's key, beside the API", () => {
+    const api = containers(template).find(({ Command }) => Command.at(-1)?.includes("server.ts"));
+    const roles = (api?.Environment ?? []).find(({ Name }) => Name === "LAB_KEY_ROLES");
+    expect(JSON.stringify(roles)).toContain("EmergencyRole");
+    expect(JSON.stringify(roles)).toContain("ApiTaskTaskRole");
+  });
+
+  it("keeps AWS's record of calls, and sends the API a key used in an emergency or changed", () => {
+    template.hasResourceProperties("AWS::CloudTrail::Trail", {
+      TrailName: "truman3-staging-calls",
+      EnableLogFileValidation: true,
+    });
+    const rules = resources(template, "AWS::Events::Rule").map(
+      (rule) => rule.Properties.EventPattern.detail,
+    );
+    expect(rules).toHaveLength(2);
+    expect(JSON.stringify(rules)).toContain("EmergencyRole");
+    expect(rules.some((detail) => detail.eventName?.includes("PutKeyPolicy"))).toBe(true);
+    template.hasResourceProperties("AWS::Events::ApiDestination", {
+      HttpMethod: "POST",
+      InvocationEndpoint: Match.objectLike({}),
+    });
+    const api = containers(template).find(({ Command }) => Command.at(-1)?.includes("server.ts"));
+    expect((api?.Secrets ?? []).map(({ Name }) => Name)).toContain("KEY_EVENTS_HOOK_KEY");
   });
 });
