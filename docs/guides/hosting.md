@@ -71,6 +71,17 @@ With `DEMO_STUDIES=true`, the server sets up four of the example studies for any
 - To close one, stop it like any study. It stays stopped until its example next changes.
 - A demo visitor's data is deleted a week after they started, with anything they uploaded. Each demo's first page tells them so.
 
+## Each lab's own key
+
+With `LAB_KEYS=kms`, a lab gets a key of its own in AWS KMS the first time it opens a study to participants (ADR 82). A lab that's only building and testing has none, and neither does Demos. Each key costs about a dollar a month.
+
+From then on that lab's recruitment IDs, IP addresses, and uploaded photos are stored under its key. In the database a recruitment ID is a stand-in, `id:v1:...`, with the ID itself sealed beside it.
+
+- **You can't use a lab's key with your everyday AWS login.** The key's policy refuses it to everyone but the API's role. You can still see that the key exists, and what it costs.
+- **Don't delete a lab's key or its `data_key_wrapped`.** Without both, that lab's IDs and photos can't be read by anyone, and there's no way back.
+- A backup holds the wrapped data key and the sealed values. Restoring it needs the lab's KMS key to still exist.
+- Keys are named `alias/<stage>-lab-<team id>` and tagged `truman-stage` and `truman-team`.
+
 ## Photo scanning
 
 With `PHOTO_SCANNING=rekognition`, each photo a participant uploads is scanned by Amazon Rekognition (ADR 79). Flagged photos go to the study's researchers, on their Monitor page. An operator doesn't see them.

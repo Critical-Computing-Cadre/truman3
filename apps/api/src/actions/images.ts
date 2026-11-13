@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
 import { teamHasRoomFor } from "../admin/hosting.ts";
+import type { LabKeys } from "../lab-keys.ts";
 import type { PhotoScanner } from "../scanning.ts";
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -44,8 +45,23 @@ export function uploadPrefix(worldId: string, participantId: string): string {
  * nobody else can see it anyway.
  */
 export async function storeUploadedImage(
-  { db, storage, scanner }: { db: Database; storage: Storage; scanner?: PhotoScanner | undefined },
-  by: { worldId: string; participantId: string; worldMode: "solo" | "shared" },
+  {
+    db,
+    storage,
+    scanner,
+    labKeys,
+  }: {
+    db: Database;
+    storage: Storage;
+    scanner?: PhotoScanner | undefined;
+    labKeys?: LabKeys | undefined;
+  },
+  by: {
+    worldId: string;
+    participantId: string;
+    worldMode: "solo" | "shared";
+    studyVersionId: string;
+  },
   file: File,
 ): Promise<string | null> {
   if (file.size === 0 || file.size > MAX_IMAGE_BYTES) {
@@ -61,7 +77,9 @@ export async function storeUploadedImage(
     return null;
   }
   const key = `${uploadPrefix(by.worldId, by.participantId)}${randomUUID()}.${detected.extension}`;
-  await storage.put(key, bytes, detected.type);
+  // Under the lab's own key, where it has one (ADR 82).
+  const sealer = await labKeys?.forStudyVersion(db, by.studyVersionId);
+  await storage.put(key, bytes, detected.type, { kmsKeyId: sealer?.storageKeyId });
   const result = scanner ? await scanner.scan(key, detected.extension) : null;
   const doubtful = result !== null && result.scan !== "clear";
   await db.insert(schema.uploads).values({

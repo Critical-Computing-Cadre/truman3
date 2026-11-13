@@ -28,7 +28,17 @@ export interface ExportOptions extends DwellLimits {
    * ones. The two are never in the same export. See ADR 60.
    */
   synthetic?: boolean;
+  /**
+   * Opens what the study's lab sealed with its own key: recruitment IDs and IP addresses (ADR 82).
+   * Without it, those are written as "(sealed)".
+   */
+  openSealed?: ((sealed: string) => string) | undefined;
 }
+
+const SEALED = "sealed:";
+/** A value as it goes in a file: opened if it was sealed and there's a way to. */
+const unsealed = (value: unknown, open: ExportOptions["openSealed"]) =>
+  typeof value === "string" && value.startsWith(SEALED) ? (open ? open(value) : "(sealed)") : value;
 
 export type ExportResult =
   | { status: "not-found" }
@@ -796,7 +806,11 @@ export async function exportStudy(
         "ms_since_world_start",
       ],
       events.map((event) => {
-        const payload = event.payload as Record<string, unknown>;
+        const stored = event.payload as Record<string, unknown>;
+        const payload =
+          "ipAddress" in stored
+            ? { ...stored, ipAddress: unsealed(stored.ipAddress, options.openSealed) }
+            : stored;
         const world = worldById.get(event.worldId);
         return {
           event_id: event.id,
@@ -1005,7 +1019,10 @@ export async function exportStudy(
         participants.map((participant) => ({
           participant_id: participant.id,
           source: participant.source,
-          external_id: participant.externalId,
+          external_id: unsealed(
+            participant.externalIdSealed ?? participant.externalId,
+            options.openSealed,
+          ) as string,
         })),
       ),
     );

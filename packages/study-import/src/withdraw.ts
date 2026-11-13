@@ -1,6 +1,6 @@
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 export type WithdrawResult =
   | { status: "not-found" }
@@ -39,7 +39,14 @@ export async function deleteParticipant(
 export async function withdrawParticipant(
   db: Database,
   storage: Storage,
-  request: { slug: string; externalId: string; reason: string; requestedBy: string },
+  request: {
+    slug: string;
+    externalId: string;
+    /** What the ID is stored as where the lab has its own key (ADR 82), to look for as well. */
+    storedAs?: string | undefined;
+    reason: string;
+    requestedBy: string;
+  },
 ): Promise<WithdrawResult> {
   const [participant] = await db
     .select({ id: schema.participants.id })
@@ -48,7 +55,10 @@ export async function withdrawParticipant(
     .where(
       and(
         eq(schema.studies.slug, request.slug),
-        eq(schema.participants.externalId, request.externalId),
+        inArray(schema.participants.externalId, [
+          request.externalId,
+          ...(request.storedAs ? [request.storedAs] : []),
+        ]),
       ),
     );
   if (!participant) {

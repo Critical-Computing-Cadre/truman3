@@ -451,6 +451,36 @@ export class TrumanStack extends Stack {
           resources: ["*"],
         }),
       );
+      // Labs' own keys (ADR 82). The API makes a key for a lab, and may only make and use keys
+      // tagged for this stage. A key isn't known until it's made, so these can't name one.
+      const taggedForThisStage = { "aws:ResourceTag/truman-stage": prefix };
+      const taggingForThisStage = { "aws:RequestTag/truman-stage": prefix };
+      apiTask.taskRole.addToPrincipalPolicy(
+        new iam.PolicyStatement({
+          actions: ["kms:CreateKey", "kms:TagResource"],
+          resources: ["*"],
+          conditions: { StringEquals: taggingForThisStage },
+        }),
+      );
+      apiTask.taskRole.addToPrincipalPolicy(
+        new iam.PolicyStatement({
+          actions: [
+            "kms:CreateAlias",
+            "kms:Decrypt",
+            "kms:DescribeKey",
+            "kms:Encrypt",
+            "kms:GenerateDataKey",
+          ],
+          resources: [`arn:aws:kms:${stage.region}:${this.account}:key/*`],
+          conditions: { StringEquals: taggedForThisStage },
+        }),
+      );
+      apiTask.taskRole.addToPrincipalPolicy(
+        new iam.PolicyStatement({
+          actions: ["kms:CreateAlias"],
+          resources: [`arn:aws:kms:${stage.region}:${this.account}:alias/${prefix}-lab-*`],
+        }),
+      );
     }
     const apiContainer = apiTask.addContainer("api", {
       image,
@@ -474,6 +504,14 @@ export class TrumanStack extends Stack {
         // A hosted Truman has the example studies open for anyone to try (ADR 78).
         DEMO_STUDIES: stage.hosted ? "true" : "false",
         PHOTO_SCANNING: stage.hosted ? "rekognition" : "off",
+        // Each lab's own key, made when it first opens a study to participants (ADR 82).
+        ...(stage.hosted
+          ? {
+              LAB_KEYS: "kms",
+              LAB_KEY_STAGE: prefix,
+              LAB_KEY_ROLES: apiTask.taskRole.roleArn,
+            }
+          : {}),
         ADMIN_APP_URL: `${address}/admin/`,
         ...(stage.mail ? { MAIL_FROM: stage.mail.from, MAIL_REGION: stage.region } : {}),
         // CloudFront, then the load balancer.

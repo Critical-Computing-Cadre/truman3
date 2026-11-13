@@ -95,6 +95,7 @@ const pilotSessionRoute = createRoute({
 
 export function createLaunchRoutes({
   db,
+  labKeys,
   secureCookies,
   clock = realClock,
 }: ParticipantRouteDependencies) {
@@ -129,6 +130,15 @@ export function createLaunchRoutes({
     const notYet = await whyNotLaunchable(db, studyId);
     if (notYet) {
       return c.json({ error: notYet }, 403);
+    }
+    // A lab gets its own key when it first opens a study to participants, and not while it's only
+    // building and testing (ADR 82). Before the launch, so nobody real is ever in without it.
+    const [owner] = await db
+      .select({ teamId: schema.studies.teamId })
+      .from(schema.studies)
+      .where(eq(schema.studies.id, studyId));
+    if (labKeys && owner?.teamId) {
+      await labKeys.ensure(db, owner.teamId);
     }
     const result = await launchVersion(db, studyId, versionId, researcher.email);
     return result.status === "launched"

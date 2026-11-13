@@ -424,8 +424,22 @@ describe("secrets", () => {
     expect(apiPolicies.length).toBeGreaterThan(0);
     // The one thing it may do without naming what to: ask Rekognition about a photo, which has
     // nothing to name (ADR 79). Everything else is limited to what it's for.
+    // And making a key for a lab, only if it's tagged for this stage (ADR 82).
     const anywhere = apiPolicies.filter(({ Resource }) => Resource === "*");
-    expect(anywhere.map(({ Action }) => Action)).toEqual(["rekognition:DetectModerationLabels"]);
+    expect(anywhere.map(({ Action }) => Action)).toEqual([
+      "rekognition:DetectModerationLabels",
+      ["kms:CreateKey", "kms:TagResource"],
+    ]);
+    expect(anywhere[1]?.Condition).toEqual({
+      StringEquals: { "aws:RequestTag/truman-stage": "truman3-staging" },
+    });
+    // Using a key: only ones tagged for this stage.
+    const using = apiPolicies.find(
+      ({ Action }) => Array.isArray(Action) && Action.includes("kms:Decrypt"),
+    );
+    expect(using?.Condition).toEqual({
+      StringEquals: { "aws:ResourceTag/truman-stage": "truman3-staging" },
+    });
     const named = JSON.stringify(
       apiPolicies.filter(({ Resource }) => Resource !== "*").map(({ Resource }) => Resource),
     );

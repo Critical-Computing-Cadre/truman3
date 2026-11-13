@@ -54,6 +54,12 @@ export const teams = pgTable(
     anthropicKeyEncrypted: text("anthropic_key_encrypted"),
     /** The key's last few characters, so the lab can tell which key it is. */
     anthropicKeyHint: text("anthropic_key_hint"),
+    /**
+     * The lab's own key in the key service, made when it first opens a study to participants, and
+     * the data key it wraps. What ties its data to real people is stored under them. ADR 82.
+     */
+    keyId: text("key_id"),
+    dataKeyWrapped: text("data_key_wrapped"),
   },
   (table) => [check("teams_status", inList(table.status, ["pending", "approved", "suspended"]))],
 );
@@ -218,8 +224,13 @@ export const participants = pgTable(
     studyId: uuid("study_id")
       .notNull()
       .references(() => studies.id),
-    /** The recruitment ID, such as a Prolific ID. Exports use `id` instead. */
+    /**
+     * The recruitment ID, such as a Prolific ID. Exports use `id` instead. Where the lab has its own
+     * key (ADR 82), this holds a stand-in that only that key can make, and the ID itself is in
+     * `externalIdSealed`.
+     */
     externalId: text("external_id").notNull(),
+    externalIdSealed: text("external_id_sealed"),
     source: text().notNull(),
     status: text().notNull().default("active"),
     /** Which step of the study's flow they're on, counting from 0. */

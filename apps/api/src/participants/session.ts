@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { type StudySettings, studySettingsSchema } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
-import { and, desc, eq, gt, isNull, ne, or } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import { getCookie } from "hono/cookie";
 
@@ -19,7 +19,10 @@ export function hashSessionToken(token: string): string {
 /** Everything about a signed-in participant that handling a request needs. */
 export interface ParticipantContext {
   participantId: string;
-  /** Their recruitment ID. Never send this to the browser, except inside an exit link. */
+  /**
+   * Their recruitment ID. Never send this to the browser, except inside an exit link. Where their
+   * lab has its own key it's sealed, and has to be opened first (ADR 82).
+   */
   externalId: string;
   studyVersionId: string;
   worldId: string;
@@ -48,7 +51,7 @@ export async function loadParticipantContext(
   const [row] = await db
     .select({
       participantId: schema.sessions.participantId,
-      externalId: schema.participants.externalId,
+      externalId: sql<string>`coalesce(${schema.participants.externalIdSealed}, ${schema.participants.externalId})`,
       worldId: schema.worldMemberships.worldId,
       actorId: schema.worldMemberships.actorId,
       studyVersionId: schema.worlds.studyVersionId,
@@ -127,7 +130,7 @@ export async function loadWorldContext(
   const [row] = await db
     .select({
       participantId: schema.worldMemberships.participantId,
-      externalId: schema.participants.externalId,
+      externalId: sql<string>`coalesce(${schema.participants.externalIdSealed}, ${schema.participants.externalId})`,
       worldId: schema.worldMemberships.worldId,
       actorId: schema.worldMemberships.actorId,
       studyVersionId: schema.worlds.studyVersionId,
