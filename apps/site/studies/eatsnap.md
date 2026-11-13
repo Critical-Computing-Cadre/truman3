@@ -10,6 +10,8 @@ What do people do when someone is cruel to a stranger in their feed?
 
 A participant joins EatSnap.Love, a made-up photo site about food, and finds it already busy: 76 people posting pictures of their meals, with likes and comments underneath. They can join in with photos of their own. Somewhere in that feed, someone is unkind to someone else, and which unkind comments turn up depends on the condition. The participant can scroll past, flag it, reply, or block the person who wrote it.
 
+<TryIt study="eatsnap" name="EatSnap" />
+
 ## Where it comes from
 
 EatSnap.Love is the site the first Truman study ran on (DiFranzo et al., CHI '18), and it has been Truman's example study ever since.

@@ -8,6 +8,8 @@
 !packages
 # Sample content a new study can start with, for each kind of platform.
 !studies/starters
+# The example studies, which a server can set up as demos (ADR 78).
+!studies/examples
 
 packages/ui
 **/node_modules

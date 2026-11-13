@@ -7,6 +7,7 @@ import { anthropicWriter } from "@truman3/writer";
 import { createAi } from "./ai.ts";
 import { createApp } from "./app.ts";
 import { forwardedAddress } from "./client-address.ts";
+import { setUpDemos } from "./demos.ts";
 import { parseServerEnv } from "./env.ts";
 import { describeError } from "./errors.ts";
 import { createLive } from "./live.ts";
@@ -88,6 +89,14 @@ const stopLive = live.start();
 const server = serve({ fetch: app.fetch, port: env.PORT }, ({ port }) => {
   console.log(`API listening on http://localhost:${port}`);
 });
+
+// The example studies, for anyone to try (ADR 78). After the server is up, so a slow upload of
+// their pictures can't hold up a deploy's health check.
+if (env.DEMO_STUDIES) {
+  setUpDemos({ db: database.db, storage }).catch((error) => {
+    console.error("Demos couldn't be set up:", describeError(error));
+  });
+}
 
 function shutdown() {
   stopPushing();

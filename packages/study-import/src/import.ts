@@ -177,12 +177,22 @@ export async function importStudyFolder(
   db: Database,
   storage: Storage,
   folder: string,
-  { teamId, launch = false }: { teamId?: string | undefined; launch?: boolean } = {},
+  {
+    teamId,
+    launch = false,
+    change,
+  }: {
+    teamId?: string | undefined;
+    launch?: boolean;
+    /** Changes the study after it's read and checked, such as giving a copy its own address. */
+    change?: (study: StudyDefinition) => StudyDefinition;
+  } = {},
 ): Promise<ImportResult> {
-  const { definition: study, issues } = loadStudyFolder(folder);
-  if (!study || hasErrors(issues)) {
+  const { definition: read, issues } = loadStudyFolder(folder);
+  if (!read || hasErrors(issues)) {
     return { status: "failed", issues };
   }
+  const study = change ? change(read) : read;
 
   const { keys: mediaKeys, uploaded: mediaUploaded } = await storeMedia(study, folder, storage);
   const result = await freezeStudy(db, study, mediaKeys, issues, mediaUploaded, { teamId });

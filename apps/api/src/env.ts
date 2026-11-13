@@ -40,6 +40,8 @@ const envSchema = z.object({
   PARTICIPANT_DOMAIN_DEFAULT: z.string().optional(),
   /** "true" makes this a hosted Truman: labs apply, and an operator approves them. ADR 70. */
   HOSTED: z.enum(["true", "false"]).default("false"),
+  /** "true" has the server set up the example studies as demos anyone can open. ADR 78. */
+  DEMO_STUDIES: z.enum(["true", "false"]).default("false"),
 });
 
 /** Reads the server's settings. Throws rather than start with a setting that can't work. */
@@ -59,6 +61,7 @@ export function parseServerEnv(env: NodeJS.ProcessEnv) {
         ? new URL("/admin/", parsed.PARTICIPANT_APP_URL).toString()
         : LOCAL_ADMIN_APP),
     HOSTED: parsed.HOSTED === "true",
+    DEMO_STUDIES: parsed.DEMO_STUDIES === "true",
     PARTICIPANT_DOMAINS: parsed.PARTICIPANT_DOMAINS.split(",")
       .map((domain) => domain.trim().toLowerCase())
       .filter(Boolean),

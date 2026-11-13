@@ -12,6 +12,10 @@ Participants wait while their group gathers, and then a town forum opens for all
 
 That last part is what sets this study apart. In most Truman studies, each participant is alone with the cast. In this one, six real people are in the same forum at the same time, and what each of them writes becomes part of what the others read.
 
+::: info No demo for this one
+The other examples have a button to try them. This one doesn't, because it puts six real people in a forum together, and nobody would be reading what strangers wrote to each other. To see it, import it on your own Truman.
+:::
+
 ## Where it comes from
 
 It's inspired by the design of:

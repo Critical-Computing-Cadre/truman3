@@ -307,7 +307,7 @@ onUnmounted(() => {
     <div class="head">
       <p class="scene">Studies</p>
       <h2>Take one of ours and change it.</h2>
-      <p>These are finished studies, with every post, person, and rule written out. Read how one works, then start yours from it.</p>
+      <p>These are finished studies, with every post, person, and rule written out. Four of them are running, so you can open one and be the participant. Read how one works, then start yours from it.</p>
     </div>
     <div class="questions">
       <div class="question"><h3>Will anyone stick up for a stranger?</h3><p>The pizza. This is where Truman started, in 2018.</p><a href="/studies/eatsnap">EatSnap →</a></div>

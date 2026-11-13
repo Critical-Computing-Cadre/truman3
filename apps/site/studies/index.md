@@ -8,6 +8,8 @@ description: Five finished studies that come with Truman, each built to answer o
 
 Truman comes with five finished studies. Each one answers a question, and each uses a different part of the platform. The quickest way to start your own is to read the one closest to what you want to run, then change it.
 
+Four of them are running as demos. Each one's page has a **Try it** button that opens it the way a participant would see it.
+
 ::: info About the rebuilds
 Three of them are rebuilds of published designs. We made them to check that Truman 3 can run that kind of study. They are not the original authors' materials, and each page says so.
 :::

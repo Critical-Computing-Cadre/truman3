@@ -10,6 +10,8 @@ If more people in a community visibly show they're vaccinated, do newcomers thin
 
 A participant scrolls a feed of ordinary posts for about a minute: a new ramen place, a first 10k, a sunset from the pier. Some of the people posting have a "vaccinated" frame around their profile picture. How many depends on the condition. Then the participant moves on to a survey.
 
+<TryIt study="vaccine-frames" name="Vaccine frames" />
+
 ## Where it comes from
 
 This is a rebuild, for testing, of:

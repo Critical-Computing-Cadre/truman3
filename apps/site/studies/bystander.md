@@ -10,6 +10,8 @@ What does a bystander do when a pile-on starts? Does it change if someone else s
 
 Maya posts her first real painting. "Be nice lol," she writes. Three minutes after the participant arrives, Jake isn't. He mocks the painting, then mocks it again, and from there the cast reacts to whatever the participant does next: stepping in, staying quiet, or messaging Maya or Jake privately.
 
+<TryIt study="bystander" name="Bystander" />
+
 ::: info Made up for testing
 This one is made up for testing. It isn't from a published study. We wrote it to show beats: things the cast does at a set time, or because of what the participant just did.
 :::

@@ -10,6 +10,8 @@ Does it matter who flagged a comment? And does that change whether a bystander f
 
 A participant is scrolling a food-photo site when they reach a comment with a notice on it, saying it was flagged as harassment. The notice names who flagged it, or it doesn't. Further down, someone else is being harassed, and nobody has flagged that yet. What the participant does about the second comment is what the study is after.
 
+<TryIt study="flag-source" name="Who flagged this?" />
+
 ## Where it comes from
 
 This is a rebuild, for testing, of:

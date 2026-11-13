@@ -461,6 +461,8 @@ export class TrumanStack extends Stack {
           : {}),
         PARTICIPANT_APP_URL: address,
         HOSTED: stage.hosted ? "true" : "false",
+        // A hosted Truman has the example studies open for anyone to try (ADR 78).
+        DEMO_STUDIES: stage.hosted ? "true" : "false",
         ADMIN_APP_URL: `${address}/admin/`,
         ...(stage.mail ? { MAIL_FROM: stage.mail.from, MAIL_REGION: stage.region } : {}),
         // CloudFront, then the load balancer.
