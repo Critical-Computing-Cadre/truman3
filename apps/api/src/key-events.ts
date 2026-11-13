@@ -13,13 +13,22 @@ import type { ParticipantRouteDependencies } from "./participants/routes.ts";
  * Each is recorded, and the lab's owners are emailed.
  */
 
-/** Reading something with the key. Anything else that arrives is a change to the key. */
+/** Reading something with the key. */
 const USES = [
   "Decrypt",
   "Encrypt",
   "GenerateDataKey",
   "GenerateDataKeyWithoutPlaintext",
   "ReEncrypt",
+];
+
+/** Changing a key, or who may use it. The same list the rule on a hosted Truman sends. */
+const CHANGES = [
+  "PutKeyPolicy",
+  "CreateGrant",
+  "DisableKey",
+  "ScheduleKeyDeletion",
+  "DeleteImportedKeyMaterial",
 ];
 
 /** One email covers what happens in the next while, so a restore isn't a hundred emails. */
@@ -31,6 +40,8 @@ interface KeyServiceEvent {
     eventID?: string;
     eventTime?: string;
     eventName?: string;
+    /** Set when AWS refused the call, so nothing was read or changed. */
+    errorCode?: string;
     userIdentity?: { arn?: string; sessionContext?: { sessionIssuer?: { arn?: string } } };
     resources?: { ARN?: string }[];
     requestParameters?: { keyId?: string } | null;
@@ -56,6 +67,16 @@ export async function recordKeyEvent(
   if (!detail?.eventID || !detail.eventName) {
     return "ignored";
   }
+  // A call AWS refused read nothing and changed nothing. And the emergency role's other calls,
+  // such as asking what a key is, are neither a use nor a change.
+  const kind = USES.includes(detail.eventName)
+    ? "used"
+    : CHANGES.includes(detail.eventName)
+      ? "changed"
+      : null;
+  if (detail.errorCode || !kind) {
+    return "ignored";
+  }
   const by = detail.userIdentity?.sessionContext?.sessionIssuer?.arn ?? detail.userIdentity?.arn;
   // This server's own use is the ordinary running of the site.
   if (!by || (ownRole && by === ownRole)) {
@@ -77,7 +98,6 @@ export async function recordKeyEvent(
     return "ignored";
   }
 
-  const kind = USES.includes(detail.eventName) ? "used" : "changed";
   const at = detail.eventTime ? new Date(detail.eventTime) : now;
   const [told] = await db
     .select({ id: schema.keyEvents.id })

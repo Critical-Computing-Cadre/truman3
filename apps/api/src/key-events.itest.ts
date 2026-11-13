@@ -141,6 +141,19 @@ describe("telling a lab when its key is used (ADR 83)", () => {
     expect(sent).toHaveLength(0);
   });
 
+  it("ignores a call AWS refused, and ones that neither read nor change anything", async () => {
+    const { teamId, keyId } = await lab();
+    const refused = event(keyId);
+    expect(
+      await result(
+        await report({ ...refused, detail: { ...refused.detail, errorCode: "AccessDenied" } }),
+      ),
+    ).toBe("ignored");
+    expect(await result(await report(event(keyId, "DescribeKey")))).toBe("ignored");
+    expect(await recorded(teamId)).toHaveLength(0);
+    expect(sent).toHaveLength(0);
+  });
+
   it("takes nothing without the key it shares with AWS", async () => {
     const { teamId, keyId } = await lab();
     expect((await report(event(keyId), "a guess")).status).toBe(404);
