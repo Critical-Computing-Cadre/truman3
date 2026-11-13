@@ -8,6 +8,12 @@ let timer: ReturnType<typeof setInterval> | undefined;
 let onScroll: (() => void) | undefined;
 
 onMounted(() => {
+  // A demo wants a recruitment ID, as a recruitment site would give. Each visitor gets one made up
+  // here, so nobody types anything. See TryIt.vue, which does the same on a study's own page.
+  const visitor = `demo-${Math.random().toString(36).slice(2, 10)}`;
+  for (const link of document.querySelectorAll<HTMLAnchorElement>("a[data-try]")) {
+    link.href = `https://clikbrite.com/join/try-${link.dataset.try}?PROLIFIC_PID=${visitor}`;
+  }
   // A scene from EatSnap.Love, the first Truman study, played in the page. Nothing leaves the browser.
   const cast = {
     kitty: { name: "KittyCatBakes", img: "/home/kitty.jpg" },
@@ -210,6 +216,7 @@ onUnmounted(() => {
         <p class="hand">Right now that's you. Kitty just trashed Jake's pizza. Do something?</p>
         <div class="actions">
           <a class="button" href="https://app.truman-research.org/admin/">Run a study on it</a>
+          <a class="button quiet" href="#study">Try a study</a>
           <a class="button quiet" href="#trick">How it works</a>
         </div>
       </div>
@@ -285,6 +292,34 @@ onUnmounted(() => {
   </div>
 </section>
 
+<section id="ai">
+  <div class="wrap">
+    <div class="head">
+      <p class="scene">AI, where you want it</p>
+      <h2>The cast can improvise. You still write the script.</h2>
+      <p>A study runs fine with no AI at all. When you want it, a model can take on a few jobs, each inside limits you set. <a href="/guide/ai">How AI fits in →</a></p>
+    </div>
+    <div class="parts">
+      <div class="part"><h3>A cast that answers back</h3><p>A scripted reply can't know what the participant just said. A model can write the line in the character's voice, and a second check reads it before it's posted. You decide who speaks and when.</p></div>
+      <div class="part"><h3>Or you approve every line</h3><p>For a Wizard of Oz study, each line waits for a researcher to approve it, change it, or skip it.</p></div>
+      <div class="part"><h3>Pretend participants</h3><p>Describe a few people in a sentence each and have a model play them through your study. Then read what each one saw, did, and why.</p></div>
+      <div class="part"><h3>A first draft from a brief</h3><p>Describe the study you have in mind, and an agent drafts the cast, the posts, the plot, and the tests for you to review.</p></div>
+      <div class="part"><h3>Bring your own agent</h3><p>Already use Claude Code or another agent? Connect it to Truman and it can build and test studies with you. It can't launch one or touch participants' data. <a href="/developers/api-and-agents">How to connect one →</a></p></div>
+      <div class="part"><h3>It's all on the tape</h3><p>Your data says which lines a model wrote, what it was asked, what the check said, and what it cost.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="wallband" id="phone">
+  <div class="wrap">
+    <div class="head">
+      <p class="scene">On a phone</p>
+      <h2>People live on their phones. A study can too.</h2>
+      <p>Every kind of site works in a phone's browser today. A phone app for participants is on the way: the same study, on their home screen, with notifications that bring them back on day two the way a real platform would. It isn't in the app stores yet. <a href="/guide/mobile-app">About the phone app →</a></p>
+    </div>
+  </div>
+</section>
+
 <section class="room" id="debrief">
   <div class="wrap watch">
     <div class="head">
@@ -307,14 +342,14 @@ onUnmounted(() => {
     <div class="head">
       <p class="scene">Studies</p>
       <h2>Take one of ours and change it.</h2>
-      <p>These are finished studies, with every post, person, and rule written out. Four of them are running, so you can open one and be the participant. Read how one works, then start yours from it.</p>
+      <p>These are finished studies, with every post, person, and rule written out. Four of them are running: press <b>Try it</b> and you're the participant. Read how one works, then start yours from it.</p>
     </div>
     <div class="questions">
-      <div class="question"><h3>Will anyone stick up for a stranger?</h3><p>The pizza. This is where Truman started, in 2018.</p><a href="/studies/eatsnap">EatSnap →</a></div>
-      <div class="question"><h3>Does it matter who flagged a post?</h3><p>Other users, an automated system, or nobody named. From Bhandari et al. (2021).</p><a href="/studies/flag-source">Who flagged this? →</a></div>
-      <div class="question"><h3>If everyone seems vaccinated, do you believe more?</h3><p>Profile pictures with a frame on them. From Aghajari et al. (2024).</p><a href="/studies/vaccine-frames">Vaccine frames →</a></div>
+      <div class="question"><h3>Will anyone stick up for a stranger?</h3><p>The pizza. This is where Truman started, in 2018.</p><span class="go"><a href="/studies/eatsnap">EatSnap →</a> <a class="try" data-try="eatsnap" href="https://clikbrite.com/join/try-eatsnap" target="_blank" rel="noopener">Try it</a></span></div>
+      <div class="question"><h3>Does it matter who flagged a post?</h3><p>Other users, an automated system, or nobody named. From Bhandari et al. (2021).</p><span class="go"><a href="/studies/flag-source">Who flagged this? →</a> <a class="try" data-try="flag-source" href="https://clikbrite.com/join/try-flag-source" target="_blank" rel="noopener">Try it</a></span></div>
+      <div class="question"><h3>If everyone seems vaccinated, do you believe more?</h3><p>Profile pictures with a frame on them. From Aghajari et al. (2024).</p><span class="go"><a href="/studies/vaccine-frames">Vaccine frames →</a> <a class="try" data-try="vaccine-frames" href="https://clikbrite.com/join/try-vaccine-frames" target="_blank" rel="noopener">Try it</a></span></div>
       <div class="question"><h3>Is rudeness contagious?</h3><p>Six real people share one town forum. The fake ones start out polite, or don't.</p><a href="/studies/town-talk">Town talk →</a></div>
-      <div class="question"><h3>What happens when a pile-on starts?</h3><p>Someone posts her first painting. It goes badly.</p><a href="/studies/bystander">Bystander →</a></div>
+      <div class="question"><h3>What happens when a pile-on starts?</h3><p>Someone posts her first painting. It goes badly.</p><span class="go"><a href="/studies/bystander">Bystander →</a> <a class="try" data-try="bystander" href="https://clikbrite.com/join/try-bystander" target="_blank" rel="noopener">Try it</a></span></div>
     </div>
   </div>
 </section>
@@ -607,6 +642,8 @@ onUnmounted(() => {
   .question h3 { font-size: 1.35rem; }
   .question p { color: var(--ink-soft); }
   .question a { font: 700 0.9rem/1.2 var(--script); white-space: nowrap; }
+  .question .go { display: flex; gap: 0.9rem; align-items: baseline; white-space: nowrap; }
+  .question a.try { padding: 0.3rem 0.75rem; border-radius: 999px; background: var(--ink); color: var(--paper); text-decoration: none; }
   @media (max-width: 760px) { .question { grid-template-columns: minmax(0, 1fr); } }
 
   .exit { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 2.5rem; align-items: center; }
