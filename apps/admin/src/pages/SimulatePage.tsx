@@ -195,9 +195,9 @@ export function SimulatePage() {
     mode === "random" ? count >= 1 && count <= most : playing.length > 0 && budget > 0 && canPlay;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-3">
+    <div className="page space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-lg font-semibold">
+        <h1 className="text-2xl font-semibold">
           Simulated participants in {title}, version {version}
         </h1>
       </div>

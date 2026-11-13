@@ -120,7 +120,7 @@ export function AgentPage() {
       <Link to="/drafts/$draftId" params={{ draftId }} className="text-sm underline">
         Back to the draft
       </Link>
-      <h1 className="text-xl font-semibold">Agent</h1>
+      <h1 className="text-2xl font-semibold">Agent</h1>
       <p className="text-sm text-stone-700">
         Ask an agent to work on this draft: draft a whole study from a brief, or one job on it, like
         writing personas or scenario tests. It checks its work, and what it writes is marked as

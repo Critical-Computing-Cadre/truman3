@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { get, post } from "../api.ts";
+import { Logo } from "../components/Logo.tsx";
 
 const inputClass = "rounded border border-stone-300 bg-white px-3 py-2 font-normal";
 
@@ -29,40 +30,45 @@ export function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 p-6">
-      <h1 className="text-center text-3xl font-semibold">Truman 3</h1>
-      {mode === "apply" ? (
-        <ApplyForm />
-      ) : mode === "forgot" ? (
-        <ForgotForm onBack={() => setMode("sign-in")} />
-      ) : (
-        <>
-          <SignInForm />
-          <p className="-mt-3 text-center text-sm">
-            <button type="button" className="underline" onClick={() => setMode("forgot")}>
-              Forgot your password?
-            </button>
+      <div className="flex flex-col items-center gap-3">
+        <Logo className="h-14 w-14" />
+        <h1 className="text-center text-3xl font-semibold">Truman 3</h1>
+      </div>
+      <div className="card flex flex-col gap-6 p-6">
+        {mode === "apply" ? (
+          <ApplyForm />
+        ) : mode === "forgot" ? (
+          <ForgotForm onBack={() => setMode("sign-in")} />
+        ) : (
+          <>
+            <SignInForm />
+            <p className="-mt-3 text-center text-sm">
+              <button type="button" className="underline" onClick={() => setMode("forgot")}>
+                Forgot your password?
+              </button>
+            </p>
+          </>
+        )}
+        {hosted && (
+          <p className="text-center text-sm">
+            {applying ? (
+              <>
+                Already have an account?{" "}
+                <button type="button" className="underline" onClick={() => setApplying(false)}>
+                  Sign in
+                </button>
+              </>
+            ) : (
+              <>
+                New to Truman?{" "}
+                <button type="button" className="underline" onClick={() => setApplying(true)}>
+                  Apply for your lab
+                </button>
+              </>
+            )}
           </p>
-        </>
-      )}
-      {hosted && (
-        <p className="text-center text-sm">
-          {applying ? (
-            <>
-              Already have an account?{" "}
-              <button type="button" className="underline" onClick={() => setApplying(false)}>
-                Sign in
-              </button>
-            </>
-          ) : (
-            <>
-              New to Truman?{" "}
-              <button type="button" className="underline" onClick={() => setApplying(true)}>
-                Apply for your lab
-              </button>
-            </>
-          )}
-        </p>
-      )}
+        )}
+      </div>
     </main>
   );
 }

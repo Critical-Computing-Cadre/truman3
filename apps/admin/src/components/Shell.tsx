@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useMatches } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { type DraftInfo, get, type Researcher } from "../api.ts";
+import { Logo } from "./Logo.tsx";
 
 /**
  * The frame every signed-in page sits in: a bar across the top that says where you are and who you
@@ -217,12 +218,7 @@ export function Frame({
     <div className="min-h-dvh">
       <header className="flex h-12 items-center gap-3 border-b border-stone-200 bg-white px-4 text-sm">
         <Link to="/" className="flex items-center gap-2 font-semibold">
-          <span
-            aria-hidden="true"
-            className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-white"
-          >
-            T
-          </span>
+          <Logo />
           Truman 3
         </Link>
         {labs && (

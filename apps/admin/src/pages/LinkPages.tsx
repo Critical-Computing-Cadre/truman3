@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { get, post, type Researcher } from "../api.ts";
+import { Logo } from "../components/Logo.tsx";
 import { Field, inputClass, SignInForm } from "./LoginPage.tsx";
 
 /**
@@ -14,8 +15,11 @@ const goHome = () => window.location.assign(import.meta.env.BASE_URL);
 function Page({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 p-6">
-      <h1 className="text-center text-3xl font-semibold">{title}</h1>
-      {children}
+      <div className="flex flex-col items-center gap-3">
+        <Logo className="h-14 w-14" />
+        <h1 className="text-center text-3xl font-semibold">{title}</h1>
+      </div>
+      <div className="card flex flex-col gap-6 p-6">{children}</div>
     </main>
   );
 }
