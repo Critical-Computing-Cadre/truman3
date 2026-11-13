@@ -122,6 +122,13 @@ const listed = async (researcher: string, studyId: string) =>
       uploads: { id: string; scan: string; labels: string[]; held: boolean; url: string }[];
     }
   ).uploads;
+const participantOf = async (externalId: string) => {
+  const [row] = await database.db
+    .select({ id: schema.participants.id })
+    .from(schema.participants)
+    .where(eq(schema.participants.externalId, externalId));
+  return row?.id as string;
+};
 const kind = async (cookie: string, url: string) =>
   (await as(cookie, url)).headers.get("content-type");
 
@@ -288,5 +295,62 @@ describe("scanning what participants upload (ADR 79)", () => {
       await database.db.select().from(schema.uploads).where(eq(schema.uploads.key, key)),
     ).toEqual([]);
     expect(await storage.exists(key)).toBe(false);
+  });
+});
+
+describe("a lab's room for participants' photos (ADR 80)", () => {
+  const upload = (cookie: string) => {
+    const form = new FormData();
+    form.set("clientEventId", randomUUID());
+    form.set("occurredAt", new Date().toISOString());
+    form.set("username", `u${randomUUID().slice(0, 8)}`);
+    form.set("name", "Someone");
+    form.set("picture", new File([JPEG], "me.jpg", { type: "image/jpeg" }));
+    return app.request("/me/profile", { method: "POST", headers: { cookie }, body: form });
+  };
+  const GB = 1024 ** 3;
+  const setLimit = (teamSlug: string, bytes: number) =>
+    database.db
+      .update(schema.teams)
+      .set({ limits: { uploadsGb: bytes / GB } })
+      .where(eq(schema.teams.slug, teamSlug));
+
+  it("takes photos up to the limit and no further, and takes them again once there's room", async () => {
+    verdict = { scan: "clear" };
+    const { slug, teamSlug } = await lab({ shared: false });
+    const first = await join(slug);
+    const second = await join(slug);
+    // Room for one photo of this size, and not two.
+    await setLimit(teamSlug, JPEG.length + 1);
+
+    expect((await upload(first.cookie)).status).toBe(200);
+    const refused = await upload(second.cookie);
+    expect(refused.status).toBe(400);
+    expect(
+      await database.db
+        .select()
+        .from(schema.uploads)
+        .where(eq(schema.uploads.participantId, await participantOf(second.externalId))),
+    ).toEqual([]);
+
+    // Deleting a participant's data gives the room back.
+    await withdrawParticipant(database.db, storage, {
+      slug,
+      externalId: first.externalId,
+      reason: "asked",
+      requestedBy: "test",
+    });
+    expect((await upload(second.cookie)).status).toBe(200);
+  });
+
+  it("counts one lab's photos against that lab only", async () => {
+    verdict = { scan: "clear" };
+    const full = await lab({ shared: false });
+    const other = await lab({ shared: false });
+    await setLimit(full.teamSlug, 0);
+    await setLimit(other.teamSlug, JPEG.length);
+
+    expect((await upload((await join(full.slug)).cookie)).status).toBe(400);
+    expect((await upload((await join(other.slug)).cookie)).status).toBe(200);
   });
 });

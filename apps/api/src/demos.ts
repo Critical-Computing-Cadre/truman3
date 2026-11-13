@@ -21,7 +21,8 @@ export const DEMO_TEAM = {
   slug: "demos",
   // Nothing of the host's to spend on a model, so the cast uses its written lines. An operator can
   // raise it on the Labs page. Anyone on the internet can open a demo, and that would be their bill.
-  limits: { starterBudgetUsd: 0 },
+  // And a small room for photos, since anyone can upload one and they're kept a week (ADR 80).
+  limits: { starterBudgetUsd: 0, uploadsGb: 1 },
 };
 
 /** A demo's address, which can't collide with a lab's own study of the same example. */
@@ -74,12 +75,22 @@ export async function setUpDemos({
 }): Promise<void> {
   await db.insert(schema.teams).values(DEMO_TEAM).onConflictDoNothing();
   const [team] = await db
-    .select({ id: schema.teams.id })
+    .select({ id: schema.teams.id, limits: schema.teams.limits })
     .from(schema.teams)
     .where(eq(schema.teams.slug, DEMO_TEAM.slug));
   if (!team) {
     log("Demos: the team couldn't be made.");
     return;
+  }
+  // A Demos team from before a limit existed gets it now. One an operator has set is left alone.
+  const missing = Object.fromEntries(
+    Object.entries(DEMO_TEAM.limits).filter(([key]) => !(key in (team.limits as object))),
+  );
+  if (Object.keys(missing).length > 0) {
+    await db
+      .update(schema.teams)
+      .set({ limits: { ...(team.limits as object), ...missing } })
+      .where(eq(schema.teams.id, team.id));
   }
 
   for (const example of DEMO_STUDIES) {

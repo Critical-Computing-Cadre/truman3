@@ -74,7 +74,8 @@ describe("the demos a server sets up for itself (ADR 78)", () => {
       .where(eq(schema.teams.slug, DEMO_TEAM.slug));
     expect(team?.status).toBe("approved");
     // Anyone can open a demo, so it has none of the host's money to spend on a model.
-    expect(team?.limits).toEqual({ starterBudgetUsd: 0 });
+    // And only a little room for photos (ADR 80).
+    expect(team?.limits).toEqual({ starterBudgetUsd: 0, uploadsGb: 1 });
 
     const demo = await study("try-bystander");
     expect(demo?.teamId).toBe(team?.id);
@@ -103,6 +104,27 @@ describe("the demos a server sets up for itself (ADR 78)", () => {
   it("goes on when an example can't be read, and says so", () => {
     expect(said).toContain("Demos: eatsnap has errors, so it wasn't set up.");
     expect(said).toContain("Demos: try-vaccine-frames is open, at version 1.");
+  });
+
+  it("gives an older Demos team a limit it didn't have, and keeps one an operator set", async () => {
+    const limitsNow = async () =>
+      (
+        await database.db
+          .select({ limits: schema.teams.limits })
+          .from(schema.teams)
+          .where(eq(schema.teams.slug, DEMO_TEAM.slug))
+      )[0]?.limits;
+    await database.db
+      .update(schema.teams)
+      .set({ limits: { starterBudgetUsd: 3 } })
+      .where(eq(schema.teams.slug, DEMO_TEAM.slug));
+    await setUp();
+    expect(await limitsNow()).toEqual({ starterBudgetUsd: 3, uploadsGb: 1 });
+
+    await database.db
+      .update(schema.teams)
+      .set({ limits: { starterBudgetUsd: 0, uploadsGb: 1 } })
+      .where(eq(schema.teams.slug, DEMO_TEAM.slug));
   });
 
   it("changes nothing the second time", async () => {

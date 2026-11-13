@@ -18,6 +18,11 @@ export const teamLimitsSchema = z.object({
    * out, the host's key has no limit for it, as for a team made on the server. ADR 71.
    */
   starterBudgetUsd: z.number().nonnegative().max(100_000).optional(),
+  /**
+   * How much its participants' uploaded photos may take up in all, in gigabytes. Once it's reached,
+   * participants can't add photos until some are deleted or the limit is raised. ADR 80.
+   */
+  uploadsGb: z.number().nonnegative().max(100_000).optional(),
 });
 export type TeamLimits = z.infer<typeof teamLimitsSchema>;
 
@@ -25,6 +30,7 @@ export const HOSTED_STARTING_LIMITS: Required<TeamLimits> = {
   participantsPerMonth: 1_000,
   runningStudies: 10,
   starterBudgetUsd: 5,
+  uploadsGb: 5,
 };
 
 /** What a lab tells a hosted Truman when it applies. */
