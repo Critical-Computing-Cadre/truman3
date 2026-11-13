@@ -422,7 +422,13 @@ describe("secrets", () => {
       .filter(([id]) => id.startsWith("ApiTaskTaskRole"))
       .flatMap(([, policy]) => policy.Properties.PolicyDocument.Statement);
     expect(apiPolicies.length).toBeGreaterThan(0);
-    const named = JSON.stringify(apiPolicies.map(({ Resource }) => Resource));
+    // The one thing it may do without naming what to: ask Rekognition about a photo, which has
+    // nothing to name (ADR 79). Everything else is limited to what it's for.
+    const anywhere = apiPolicies.filter(({ Resource }) => Resource === "*");
+    expect(anywhere.map(({ Action }) => Action)).toEqual(["rekognition:DetectModerationLabels"]);
+    const named = JSON.stringify(
+      apiPolicies.filter(({ Resource }) => Resource !== "*").map(({ Resource }) => Resource),
+    );
     expect(named).toContain("Media");
     expect(named).not.toContain("Apps");
     expect(named).not.toContain('"*"');

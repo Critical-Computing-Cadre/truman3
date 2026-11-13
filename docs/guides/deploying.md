@@ -86,6 +86,7 @@ Keep the real values out of the repo. `.env.example` describes these too.
 | `PARTICIPANT_DOMAIN_DEFAULT`               | No               | The participant domain a study gets until its researcher chooses. Without it, `PARTICIPANT_APP_URL`. The stack sets the domain marked `default`                                                     |
 | `HOSTED`                                   | No               | `true` for a hosted Truman, where labs apply (ADR 70). See `docs/guides/hosting.md`                                                                                                                 |
 | `DEMO_STUDIES`                             | No               | `true` has the server set up the example studies as demos anyone can open (ADR 78). See `docs/guides/hosting.md`                                                                                    |
+| `PHOTO_SCANNING`                           | No               | `rekognition` scans each photo a participant uploads with Amazon Rekognition (ADR 79). `off` unless set                                                                                             |
 | `TRUSTED_PROXIES`                          | Behind proxies   | How many of your own proxies add to `X-Forwarded-For`. Staging has 2: CloudFront and the load balancer. Too many, and everyone looks like a proxy. Too few, and visitors can fake their address     |
 
 The image sets `NODE_ENV=production`, which turns on secure cookies and the shorter error logs.

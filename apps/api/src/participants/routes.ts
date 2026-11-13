@@ -13,6 +13,7 @@ import { catchUp } from "../director/director.ts";
 import { mediaUrl, participantKarma } from "../feed/build.ts";
 import type { Live } from "../live.ts";
 import type { Mailer } from "../mail.ts";
+import type { PhotoScanner } from "../scanning.ts";
 import { summarizeDevice } from "./device.ts";
 import { enterStudy, entrySettings } from "./enter.ts";
 import { hashSessionToken, participantFromRequest, realClock, SESSION_COOKIE } from "./session.ts";
@@ -161,6 +162,8 @@ export interface ParticipantRouteDependencies {
   getClientIp: (c: Context) => string | undefined;
   /** Where participants' uploaded images go. */
   storage: Storage;
+  /** Looks at each image a participant uploads (ADR 79). Leave out and nothing is scanned. */
+  scanner?: PhotoScanner | undefined;
   /** Whether cookies require HTTPS. True everywhere except local development. */
   secureCookies: boolean;
   /** Decides whether an address may try entering right now. Leave out for no limit. */

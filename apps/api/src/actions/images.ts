@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
+import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
+import type { PhotoScanner } from "../scanning.ts";
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
@@ -31,11 +33,18 @@ export function uploadPrefix(worldId: string, participantId: string): string {
   return `uploads/${worldId}/${participantId}/`;
 }
 
-/** Stores a participant's image and returns its key. Returns null if it isn't a usable image. */
+/**
+ * Stores a participant's image, records it, and returns its key. Returns null if it isn't a usable
+ * image.
+ *
+ * With a scanner, the image is scanned once it's stored (ADR 79). In a shared world, one that's
+ * flagged, or that couldn't be scanned, is held: only its uploader and the researchers see it until
+ * a researcher decides. In a world of someone's own it's only listed for the researchers, since
+ * nobody else can see it anyway.
+ */
 export async function storeUploadedImage(
-  storage: Storage,
-  worldId: string,
-  participantId: string,
+  { db, storage, scanner }: { db: Database; storage: Storage; scanner?: PhotoScanner | undefined },
+  by: { worldId: string; participantId: string; worldMode: "solo" | "shared" },
   file: File,
 ): Promise<string | null> {
   if (file.size === 0 || file.size > MAX_IMAGE_BYTES) {
@@ -46,8 +55,20 @@ export async function storeUploadedImage(
   if (!detected) {
     return null;
   }
-  const key = `${uploadPrefix(worldId, participantId)}${randomUUID()}.${detected.extension}`;
+  const key = `${uploadPrefix(by.worldId, by.participantId)}${randomUUID()}.${detected.extension}`;
   await storage.put(key, bytes, detected.type);
+  const result = scanner ? await scanner.scan(key, detected.extension) : null;
+  const doubtful = result !== null && result.scan !== "clear";
+  await db.insert(schema.uploads).values({
+    key,
+    worldId: by.worldId,
+    participantId: by.participantId,
+    bytes: bytes.length,
+    scan: result?.scan ?? "unscanned",
+    labels: result && "labels" in result ? result.labels : [],
+    held: doubtful && by.worldMode === "shared",
+    needsReview: doubtful,
+  });
   return key;
 }
 

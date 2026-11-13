@@ -14,6 +14,7 @@ import { createLive } from "./live.ts";
 import { consoleMailer, fileMailer, sesMailer, unsentMailer } from "./mail.ts";
 import { expoPush, startPushing } from "./push.ts";
 import { createRateLimiter } from "./rate-limit.ts";
+import { rekognitionScanner } from "./scanning.ts";
 
 const env = parseServerEnv(process.env);
 const logFullErrors = env.NODE_ENV === "development";
@@ -26,7 +27,13 @@ if (env.NODE_ENV === "production" && (await connectedAsOwner(database.db))) {
   );
   process.exit(1);
 }
-const storage = createStorage(storageConfigFromEnv());
+const storageConfig = storageConfigFromEnv();
+const storage = createStorage(storageConfig);
+// Looks at each photo a participant uploads (ADR 79).
+const scanner =
+  env.PHOTO_SCANNING === "rekognition"
+    ? rekognitionScanner({ region: storageConfig.region, bucket: storageConfig.bucket })
+    : undefined;
 await storage.ensureBucket();
 /** Generous, since many participants can share one address on a campus network. */
 const ENTRY_ATTEMPTS_PER_MINUTE = 120;
@@ -58,6 +65,7 @@ const app = createApp({
   logFullErrors,
   db: database.db,
   storage,
+  scanner,
   mediaPublicUrl: env.MEDIA_PUBLIC_URL,
   secureCookies: env.NODE_ENV !== "development",
   participantAppUrl: env.PARTICIPANT_APP_URL,
