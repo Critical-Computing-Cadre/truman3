@@ -663,6 +663,18 @@ describe("production (ADR 73)", () => {
     production.hasResourceProperties("AWS::SNS::Topic", {
       TopicName: "truman3-production-security-reports",
     });
+    // SES may hand a message to that topic, for this account's mail and nobody else's.
+    production.hasResourceProperties("AWS::SNS::TopicPolicy", {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: "sns:Publish",
+            Principal: { Service: "ses.amazonaws.com" },
+            Condition: { StringEquals: { "AWS:SourceAccount": Match.anyValue() } },
+          }),
+        ]),
+      },
+    });
     // Whoever reads them is added by hand, so nobody's own address is in the repo.
     production.resourceCountIs("AWS::SNS::Subscription", 0);
     // Staging has no such address.
