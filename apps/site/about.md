@@ -1,31 +1,24 @@
 ---
 
 title: About
-description: Who made Truman, where it came from, the papers that used it, and how to cite it.
+description: What Truman is, where it came from, the papers that used it, and how to cite it.
 ---
 
 # About
 
-Truman was created by Dominic DiFranzo. It's named after _The Truman Show_.
+Truman is an open-source platform for running experiments on a simulated social media site. A researcher writes the posts and the people who post them. Participants use the site the way they'd use any other. The researcher gets a record of what each participant saw and did.
+
+The name comes from _The Truman Show_.
 
 ## History
 
-**It started at Cornell.** Dominic built Truman as a postdoc in Natalie Bazarova's Social Media Lab. The question was one real platforms wouldn't let researchers test: would people step in to stop cyberbullying if a site's design made them feel responsible?
+Truman began at the Cornell Social Media Lab, which Natalie Bazarova directs, while Dominic DiFranzo was a postdoc there. The lab wanted to know whether a site's design could get bystanders to step in when they saw cyberbullying. That isn't an experiment anyone can run on a real platform, so they built a site to run it on.
 
-The first study ran on EatSnap.Love, a made-up "Instagram for food." For three days, participants posted, liked, and commented alongside a cast of scripted users. They didn't know every other account was part of the experiment. It was published at CHI in 2018.
+That site was EatSnap.Love, a food-photo app. Participants used it for three days, posting and commenting alongside other users who were all scripted. The study was published at CHI in 2018.
 
-**It became a platform other researchers could use.** After that first study, Truman was released as open source under the MIT license and made general, so any study could define its own posts, actors, and conditions. Since then it has been used to study:
+The code was released under the MIT license, and other labs picked it up for their own studies: on moderation, self-disclosure, misinformation, and online safety for teens, among others. Each study was a fork of the code with its own posts and conditions. Some forks became projects of their own, including Social Media TestDrive, VidShare, Truman_SocialSim, and Truman Agents. In 2023 the Cornell lab released a cleaned-up Truman 2.
 
-- bystander intervention and moderation
-- AI moderators
-- how norms of self-disclosure spread
-- misinformation in communities
-- safety nudges for teens
-- how audiences respond to people who object to harassment
-
-Labs at Cornell, Lehigh, VU Amsterdam, and UCL have run it, and so has the STIR Lab. Social Media TestDrive, a digital citizenship program for young people, was built from its code.
-
-**Truman 3 is a full rebuild.** Every earlier study was its own copy of the code, so an improvement made for one study never reached the others. Truman 3, built at Lehigh in 2026, makes a study a set of settings. Researchers build studies in the browser, choose what kind of site participants see, and can fill it with AI-driven characters that stay on the study's script. Labs can use it hosted, or run it on their own servers.
+Forking had a cost. A fix made for one study never reached the others, and starting a study meant editing code. Truman 3, started at Lehigh University in 2026, is a rewrite that makes a study a set of content and settings. Researchers build one in the browser, pick the kind of site participants see, and can have a model play some of the cast. A lab can use the hosted version or run its own.
 
 ## Versions
 
@@ -36,7 +29,7 @@ Labs at Cornell, Lehigh, VU Amsterdam, and UCL have run it, and so has the STIR 
 | Extensions | Truman Agents, Truman_SocialSim, VidShare, and others, built on Truman 1 and 2 |
 | Truman 3   | The rebuild this site is about, at `Critical-Computing-Cadre/truman3`          |
 
-Truman 3's AI actors build on ideas from Truman Agents, by Qian Yang and the Cornell DesignAI Group.
+Truman 3's AI cast builds on ideas from Truman Agents, by Qian Yang and the Cornell DesignAI Group.
 
 ## How to cite Truman
 
@@ -92,34 +85,24 @@ Truman 3 was built at Lehigh without a dedicated grant.
 
 ## People
 
-**Creators**
+Truman was started by Dominic DiFranzo and Natalie Bazarova at Cornell. Dominic, now at Lehigh University, leads Truman 3.
 
-- **Dominic DiFranzo** (Lehigh University) created Truman, has led development of every version, and leads Truman 3. [difranzo.com](https://difranzo.com)
-- **Natalie Bazarova** (Cornell University) co-created Truman and directs the Cornell Social Media Lab, where it began.
-
-**Contributors**
+Many others have built it, maintained it, or run studies that shaped it:
 
 - **Winice Hui** maintained Truman 2 and VidShare.
-- **Zhila Aghajari** ran the misinformation and community norms studies.
 - **Qian Yang** led Truman Agents.
+- **Jessie Jia**, **Beichen Ma**, and **Asad Nabi** worked on Truman Agents and on Truman itself.
+- **Zhila Aghajari** ran the misinformation and community norms studies.
 - **Philipp Masur** ran the self-disclosure studies, and runs Truman at VU Amsterdam.
-- **Marie Ozanne** ran the moderation studies.
+- **Marie Ozanne** and **Aparajita Bhandari** ran the moderation studies. **Anna Spring** helped build the simulation for the AI moderator study.
 - **Pengfei Zhao** and **Inhwan Bae** ran the VidShare objection and norms studies.
-- **Jessie Jia**, **Beichen Ma**, and **Asad Nabi** worked on Truman Agents and Truman development.
-- **Anna Spring** helped develop the simulation for the AI moderator study.
-
-**Co-authors of the first Truman papers**
-
-- Samuel Hardman Taylor, Franccesca Kazerooni, and Olivia Wherry: _Upstanding by Design_, CHI 2018.
-- Yoon Hyung Choi and Shruti Sannon: _Accountability and Empathy by Design_, CSCW 2019.
-- Aparajita Bhandari: the moderation studies, 2021 and 2022.
-- Jessie Taft helped with participants and content for the first study.
+- **Samuel Hardman Taylor**, **Franccesca Kazerooni**, **Olivia Wherry**, **Yoon Hyung Choi**, and **Shruti Sannon** were co-authors of the first bystander studies. **Jessie Taft** helped with participants and content for the first one.
 
 ## In the news
 
 - Cornell Chronicle, February 2018: [Upstanding by design: built-in encouragement to call out cyberbullies](https://news.cornell.edu/stories/2018/02/upstanding-design-built-encouragement-call-out-cyberbullies)
 - Cornell Chronicle, October 2022: [Trust in online content moderation depends on moderator](https://news.cornell.edu/stories/2022/10/trust-online-content-moderation-depends-moderator)
 
-## Using it
+## Getting it
 
-Researchers sign in or apply at [app.truman-research.org/admin](https://app.truman-research.org/admin/). The code is at [github.com/Critical-Computing-Cadre/truman3](https://github.com/Critical-Computing-Cadre/truman3), under the MIT license. If code is carried over from an older Truman, its copyright notices stay with it.
+The code is at [github.com/Critical-Computing-Cadre/truman3](https://github.com/Critical-Computing-Cadre/truman3), under the MIT license. Labs can apply to use the hosted version at [app.truman-research.org/admin](https://app.truman-research.org/admin/).

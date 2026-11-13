@@ -89,7 +89,7 @@ The full list is in [docs/guides/adding-a-feature.md](https://github.com/Critica
 
 ## Credit
 
-Truman was created by Dominic DiFranzo and developed with the Cornell Social Media Lab, with support from NSF IIS-1405634. Truman 3 is a new codebase that builds on that work, and on ideas from [Truman Agents](https://github.com/Cornell-Design-AI-Group/TrumanAgents) by Qian Yang and the Cornell DesignAI Group.
+Truman was started by Dominic DiFranzo and Natalie Bazarova at the Cornell Social Media Lab, with support from NSF IIS-1405634. Truman 3 is a new codebase that builds on that work, and on ideas from [Truman Agents](https://github.com/Cornell-Design-AI-Group/TrumanAgents) by Qian Yang and the Cornell DesignAI Group.
 
 Two rules follow from that:
 
