@@ -115,7 +115,7 @@ export default defineConfig({
     search: { provider: "local" },
     outline: { level: [2, 3] },
     footer: {
-      message: "Truman was created by Dominic DiFranzo. Open source under the MIT license.",
+      message: "Open source under the MIT license.",
     },
   },
   // Plain-text copies for AI agents (ADR 75): llms.txt lists every page, and llms-full.txt has
