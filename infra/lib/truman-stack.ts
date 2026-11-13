@@ -777,6 +777,16 @@ export class TrumanStack extends Stack {
           topicName: `${prefix}-security-reports`,
           displayName: `Truman 3 ${stage.name}: security reports`,
         });
+        // SES has to be allowed to hand a message to the topic, and only for this account's mail.
+        // Without this the rule can't be made at all.
+        const maySend = reports.addToResourcePolicy(
+          new iam.PolicyStatement({
+            actions: ["sns:Publish"],
+            principals: [new iam.ServicePrincipal("ses.amazonaws.com")],
+            resources: [reports.topicArn],
+            conditions: { StringEquals: { "AWS:SourceAccount": this.account } },
+          }),
+        );
         const rules = new ses.ReceiptRuleSet(this, "MailInRules", {
           receiptRuleSetName: `${prefix}-mail-in`,
           rules: [
@@ -790,6 +800,10 @@ export class TrumanStack extends Stack {
             },
           ],
         });
+        // The rule is checked against the topic as it's made, so the permission has to be there.
+        if (maySend.policyDependable) {
+          rules.node.addDependency(maySend.policyDependable);
+        }
         // SES uses one set of rules at a time, and making a set doesn't make it that one.
         const using = { service: "SES", action: "setActiveReceiptRuleSet" };
         new cr.AwsCustomResource(this, "UseMailInRules", {
