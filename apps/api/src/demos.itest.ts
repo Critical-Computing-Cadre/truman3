@@ -4,11 +4,17 @@ import path from "node:path";
 import { schema } from "@truman3/db";
 import { createTestDatabase } from "@truman3/db/testing";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
-import { stopNewParticipants } from "@truman3/study-import";
+import { importStudyFolder, launchVersion, stopNewParticipants } from "@truman3/study-import";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
-import { DEMO_STUDIES, DEMO_TEAM, EXAMPLES_FOLDER, setUpDemos } from "./demos.ts";
+import {
+  clearOldDemoVisits,
+  DEMO_STUDIES,
+  DEMO_TEAM,
+  EXAMPLES_FOLDER,
+  setUpDemos,
+} from "./demos.ts";
 
 let database: Awaited<ReturnType<typeof createTestDatabase>>;
 let app: ReturnType<typeof createApp>;
@@ -81,6 +87,7 @@ describe("the demos a server sets up for itself (ADR 78)", () => {
     expect(settings.title).toMatch(/\(demo\)$/);
     const pages = version?.pages as Record<string, string>;
     expect(pages["pages/consent.md"]).toMatch(/^> \*\*This is a demo of Truman, not a study\.\*\*/);
+    expect(pages["pages/consent.md"]).toContain("deleted after 7 days");
 
     const entry = await app.request("/studies/try-bystander/entry");
     expect(entry.status).toBe(200);
@@ -138,5 +145,60 @@ describe("the demos a server sets up for itself (ADR 78)", () => {
     );
     const theirs = await study("try-vaccine-frames");
     expect(await versions(theirs?.id as string)).toHaveLength(1);
+  });
+
+  describe("clearing out old visits", () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const enter = async (slug: string, externalId: string, daysAgo: number) => {
+      const entered = await app.request(`/studies/${slug}/enter`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ externalId }),
+      });
+      expect(entered.status).toBe(200);
+      await database.db
+        .update(schema.participants)
+        .set({ enrolledAt: new Date(Date.now() - daysAgo * DAY) })
+        .where(eq(schema.participants.externalId, externalId));
+    };
+    const still = async (externalId: string) =>
+      (
+        await database.db
+          .select()
+          .from(schema.participants)
+          .where(eq(schema.participants.externalId, externalId))
+      ).length === 1;
+
+    it("deletes demo visitors from more than a week ago, and nobody else", async () => {
+      const demo = await study("try-bystander");
+      const [version] = await versions(demo?.id as string);
+      await launchVersion(database.db, demo?.id as string, version?.id as string, "test");
+      // A lab's own study from the same example, whose participants are never touched.
+      await importStudyFolder(database.db, storage, path.join(folder, "bystander"), {
+        launch: true,
+      });
+
+      await enter("try-bystander", "demo-old", 8);
+      await enter("try-bystander", "demo-new", 6);
+      await enter("bystander", "real-old", 30);
+
+      const cleared = await clearOldDemoVisits({ db: database.db, storage, now: new Date() });
+
+      expect(cleared).toBe(1);
+      expect(await still("demo-old")).toBe(false);
+      expect(await still("demo-new")).toBe(true);
+      expect(await still("real-old")).toBe(true);
+    });
+
+    it("takes only so many at a time, oldest first", async () => {
+      await enter("try-bystander", "demo-older", 20);
+      await enter("try-bystander", "demo-oldest", 40);
+
+      expect(
+        await clearOldDemoVisits({ db: database.db, storage, now: new Date(), atMost: 1 }),
+      ).toBe(1);
+      expect(await still("demo-oldest")).toBe(false);
+      expect(await still("demo-older")).toBe(true);
+    });
   });
 });

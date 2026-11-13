@@ -7,7 +7,7 @@ import { anthropicWriter } from "@truman3/writer";
 import { createAi } from "./ai.ts";
 import { createApp } from "./app.ts";
 import { forwardedAddress } from "./client-address.ts";
-import { setUpDemos } from "./demos.ts";
+import { setUpDemos, startClearingDemoVisits } from "./demos.ts";
 import { parseServerEnv } from "./env.ts";
 import { describeError } from "./errors.ts";
 import { createLive } from "./live.ts";
@@ -97,10 +97,15 @@ if (env.DEMO_STUDIES) {
     console.error("Demos couldn't be set up:", describeError(error));
   });
 }
+// What demo visitors post is deleted after a week, as each demo's first page says.
+const stopClearingDemos = env.DEMO_STUDIES
+  ? startClearingDemoVisits({ db: database.db, storage })
+  : () => {};
 
 function shutdown() {
   stopPushing();
   stopLive();
+  stopClearingDemos();
   server.close(async () => {
     storage.close();
     await database.close();
