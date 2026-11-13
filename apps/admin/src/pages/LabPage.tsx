@@ -17,7 +17,7 @@ export function LabPage() {
     return null;
   }
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 p-4">
+    <main className="page page-narrow flex flex-col gap-6">
       <h1 className="text-2xl font-semibold">Your lab</h1>
       {me.data.teams.map((team) => (
         <div key={team.id} className="flex flex-col gap-3">
@@ -68,10 +68,7 @@ function UsageCard({ team }: { team: Researcher["teams"][number] }) {
     limits.uploadsGb !== undefined && used.uploadBytes >= limits.uploadsGb * 1024 ** 3 * 0.8;
   return (
     <>
-      <section
-        aria-label={`${team.name} limits`}
-        className="flex flex-col gap-3 rounded border border-stone-200 bg-white p-4"
-      >
+      <section aria-label={`${team.name} limits`} className="card flex flex-col gap-3 p-4">
         <h2 className="text-lg font-semibold">Limits</h2>
         {status === "pending" && (
           <p className="text-sm text-stone-600">
@@ -120,10 +117,7 @@ function UsageCard({ team }: { team: Researcher["teams"][number] }) {
  */
 function KeyCard({ name, record }: { name: string; record: TeamUsage["key"] }) {
   return (
-    <section
-      aria-label={`${name} encryption key`}
-      className="flex flex-col gap-3 rounded border border-stone-200 bg-white p-4"
-    >
+    <section aria-label={`${name} encryption key`} className="card flex flex-col gap-3 p-4">
       <h2 className="text-lg font-semibold">Your lab's encryption key</h2>
       {record.made ? (
         <p className="text-sm text-stone-600">
@@ -186,10 +180,7 @@ function TeamAiCard({ team }: { team: Researcher["teams"][number] }) {
   };
 
   return (
-    <section
-      aria-label={`${team.name} Claude`}
-      className="flex flex-col gap-3 rounded border border-stone-200 bg-white p-4"
-    >
+    <section aria-label={`${team.name} Claude`} className="card flex flex-col gap-3 p-4">
       <h3 className="font-semibold">Claude</h3>
       <p className="text-stone-700">
         Live writing, rehearsing lines, personas, and agents use Claude. Each call costs a little,
@@ -298,65 +289,87 @@ function MembersCard({ team, me }: { team: Researcher["teams"][number]; me: stri
   }
 
   return (
-    <section
-      aria-label={`${team.name} members`}
-      className="flex flex-col gap-3 rounded border border-stone-200 bg-white p-4"
-    >
+    <section aria-label={`${team.name} members`} className="card flex flex-col gap-3 p-4">
       <h2 className="text-lg font-semibold">{team.name}</h2>
-      <ul className="flex flex-col gap-2">
-        {members.data.members.map((member) => (
-          <li key={member.id} className="flex flex-wrap items-center gap-2">
-            <span className="mr-auto">
-              {member.name} <span className="text-stone-500">{member.email}</span>
-            </span>
-            {owner ? (
-              <select
-                aria-label={`Role for ${member.name}`}
-                value={member.role}
-                onChange={(event) =>
-                  change.mutate({
-                    method: "PATCH",
-                    path: `/members/${member.id}`,
-                    body: { role: event.target.value },
-                  })
-                }
-                className="rounded border border-stone-300 px-2 py-1 text-sm"
-              >
-                <option value="owner">Owner</option>
-                <option value="editor">Editor</option>
-                <option value="viewer">Viewer</option>
-              </select>
-            ) : (
-              <span className="text-sm capitalize">{member.role}</span>
-            )}
-            {(owner || member.email === me) && (
-              <button
-                type="button"
-                onClick={() => change.mutate({ method: "DELETE", path: `/members/${member.id}` })}
-                className="text-sm underline"
-              >
-                {member.email === me ? "Leave" : "Remove"}
-              </button>
-            )}
-          </li>
-        ))}
-        {members.data.invites.map((pending) => (
-          <li key={pending.id} className="flex flex-wrap items-center gap-2 text-stone-600">
-            <span className="mr-auto">
-              {pending.email} <span className="text-sm">invited as {pending.role}</span>
-            </span>
-            {owner && (
-              <button
-                type="button"
-                onClick={() => change.mutate({ method: "DELETE", path: `/invites/${pending.id}` })}
-                className="text-sm underline"
-              >
-                Cancel invitation
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
+      <div className="-mx-4 overflow-x-auto border-y border-stone-200">
+        <table className="table">
+          <thead>
+            <tr>
+              <th scope="col" className="pl-4">
+                Name
+              </th>
+              <th scope="col">Email</th>
+              <th scope="col">Role</th>
+              <th scope="col" aria-label="Change" className="pr-4" />
+            </tr>
+          </thead>
+          <tbody>
+            {members.data.members.map((member) => (
+              <tr key={member.id}>
+                <td className="pl-4 font-medium">{member.name}</td>
+                <td className="text-stone-600">{member.email}</td>
+                <td>
+                  {owner ? (
+                    <select
+                      aria-label={`Role for ${member.name}`}
+                      value={member.role}
+                      onChange={(event) =>
+                        change.mutate({
+                          method: "PATCH",
+                          path: `/members/${member.id}`,
+                          body: { role: event.target.value },
+                        })
+                      }
+                      className="rounded border border-stone-300 px-2 py-1 text-sm"
+                    >
+                      <option value="owner">Owner</option>
+                      <option value="editor">Editor</option>
+                      <option value="viewer">Viewer</option>
+                    </select>
+                  ) : (
+                    <span className="capitalize">{member.role}</span>
+                  )}
+                </td>
+                <td className="pr-4 text-right">
+                  {(owner || member.email === me) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        change.mutate({ method: "DELETE", path: `/members/${member.id}` })
+                      }
+                      className="btn btn-sm"
+                    >
+                      {member.email === me ? "Leave" : "Remove"}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {members.data.invites.map((pending) => (
+              <tr key={pending.id} className="text-stone-600">
+                <td className="pl-4">
+                  <span className="badge badge-wait">Invited</span>
+                </td>
+                <td>{pending.email}</td>
+                <td>invited as {pending.role}</td>
+                <td className="pr-4 text-right">
+                  {owner && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        change.mutate({ method: "DELETE", path: `/invites/${pending.id}` })
+                      }
+                      className="btn btn-sm"
+                    >
+                      Cancel invitation
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {owner && (
         <form
           className="flex flex-wrap items-end gap-2"

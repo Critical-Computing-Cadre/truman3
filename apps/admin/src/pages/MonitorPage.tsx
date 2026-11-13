@@ -39,7 +39,7 @@ interface Monitor {
 }
 
 const input = "rounded border border-stone-300 px-2 py-1.5 text-sm";
-const card = "space-y-3 rounded-lg bg-white p-4 shadow-sm";
+const card = "card space-y-3 p-4";
 const percent = (share: number) => `${Math.round(share * 100)}%`;
 
 function Stat({ label, value }: { label: string; value: number }) {
@@ -448,26 +448,26 @@ export function MonitorPage() {
   const td = "px-2 py-1 tabular-nums";
 
   return (
-    <main className="mx-auto max-w-4xl space-y-4 p-4">
-      <div>
-        <h1 className="mt-2 text-2xl font-semibold">{monitor.title}</h1>
-        <p className="text-sm text-stone-600">
-          {monitor.liveVersion === null ? (
-            "Not open to new participants"
-          ) : (
-            <span className="font-medium text-emerald-800">
-              Open to participants, on version {monitor.liveVersion}
-            </span>
-          )}
-          {monitor.lastActivityAt && ` · Last activity ${lastActivity(monitor.lastActivityAt)}`}
-          {" · Test participants aren't counted"}
-        </p>
+    <main className="page space-y-4">
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="mr-auto">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold">{monitor.title}</h1>
+            {monitor.liveVersion === null ? (
+              <span className="badge">Not open to new participants</span>
+            ) : (
+              <span className="badge badge-good">
+                Open to participants, on version {monitor.liveVersion}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-sm text-stone-600">
+            {monitor.lastActivityAt && `Last activity ${lastActivity(monitor.lastActivityAt)} · `}
+            Test participants aren't counted
+          </p>
+        </div>
         {monitor.role !== "viewer" && (
-          <Link
-            to="/studies/$studyId/prolific"
-            params={{ studyId }}
-            className="btn mt-2 inline-block"
-          >
+          <Link to="/studies/$studyId/prolific" params={{ studyId }} className="btn">
             Recruit on Prolific
           </Link>
         )}
@@ -488,7 +488,7 @@ export function MonitorPage() {
 
       <section aria-label="By condition" className={`${card} overflow-x-auto`}>
         <h2 className="font-semibold">By condition</h2>
-        <table className="w-full text-left text-sm">
+        <table className="table">
           <thead className="border-b border-stone-200 text-stone-600">
             <tr>
               <th className={th}>Condition</th>

@@ -42,7 +42,7 @@ interface Waiting {
   onAuthor: string | null;
 }
 
-const card = "space-y-3 rounded-lg bg-white p-4 shadow-sm";
+const card = "card space-y-3 p-4";
 
 /** One beat waiting for a researcher: what it's about, its line to edit, and approve or skip. */
 function WaitingBeat({ studyId, item }: { studyId: string; item: Waiting }) {

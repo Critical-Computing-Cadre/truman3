@@ -69,8 +69,21 @@ body {
     @apply border-rose-300 text-rose-800 hover:bg-rose-50;
   }
 
+  /*
+   * A page of the lab, as wide as the Studies page so every page's heading starts in the same
+   * place. A page that's mostly a form keeps its lines short with page-narrow.
+   */
+  .page {
+    @apply mx-auto w-full max-w-5xl p-4 md:p-6;
+  }
+
+  .page-narrow > * {
+    @apply max-w-3xl;
+  }
+
+  /* min-w-0 so a wide table inside one scrolls within it, and doesn't widen the page. */
   .card {
-    @apply rounded-lg border border-stone-200 bg-white;
+    @apply min-w-0 rounded-lg border border-stone-200 bg-white;
   }
 
   /* A word that says what state something is in. */
@@ -84,6 +97,40 @@ body {
 
   .badge-new {
     @apply border-sky-300 bg-sky-50 text-sky-800;
+  }
+
+  .badge-bad {
+    @apply border-rose-300 bg-rose-50 text-rose-800;
+  }
+
+  /* A list of things with the same facts about each: one row apiece, headed columns. */
+  .table {
+    @apply w-full text-left text-sm;
+  }
+
+  .table th {
+    @apply px-3 py-2 font-medium;
+  }
+
+  .table thead th {
+    @apply border-b border-stone-200 bg-stone-50 text-xs font-semibold tracking-wide whitespace-nowrap text-stone-600 uppercase;
+  }
+
+  .table td {
+    @apply px-3 py-2 align-middle;
+  }
+
+  .table tbody tr + tr {
+    @apply border-t border-stone-200;
+  }
+
+  /* Facts about one thing: a small label over each value, a few to a row. */
+  .facts {
+    @apply grid grid-cols-2 gap-x-6 gap-y-3 text-sm md:grid-cols-4;
+  }
+
+  .facts dt {
+    @apply text-xs font-semibold text-stone-500;
   }
 
   .badge-wait {

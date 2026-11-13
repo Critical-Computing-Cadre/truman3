@@ -536,7 +536,7 @@ export function StudiesPage() {
   );
 
   return (
-    <main className="mx-auto max-w-5xl p-4 md:p-6">
+    <main className="page">
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-2xl font-semibold">
           {showArchived ? "Archived studies" : "Studies"}

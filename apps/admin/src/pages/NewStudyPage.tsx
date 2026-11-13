@@ -171,14 +171,14 @@ export function NewStudyPage() {
   }
   if (teams.length === 0) {
     return (
-      <main className="mx-auto max-w-2xl p-4">
+      <main className="page page-narrow">
         <p>You can only view studies on your team, so you can't start one.</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-4">
+    <main className="page page-narrow">
       <h1 className="mt-2 mb-4 text-2xl font-semibold">New study</h1>
 
       <form onSubmit={submit} className="space-y-5">

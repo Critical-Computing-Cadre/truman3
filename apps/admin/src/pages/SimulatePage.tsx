@@ -47,7 +47,7 @@ function Report({ report }: { report: SimulationReport }) {
         .
       </p>
       <div className="card overflow-x-auto">
-        <table className="w-full text-left text-sm" data-testid="simulated-beats">
+        <table className="table" data-testid="simulated-beats">
           <thead>
             <tr>
               <th className="px-2 py-1">Beat</th>

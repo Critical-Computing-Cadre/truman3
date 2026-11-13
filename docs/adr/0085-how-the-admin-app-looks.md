@@ -14,6 +14,9 @@ Researchers already know tools like Qualtrics and the AWS console. Those share a
 - **A few shared classes** in `apps/admin/src/index.css`: `btn` with `btn-primary`, `btn-go`, `btn-danger`, `btn-danger-quiet`, and `btn-sm`; `card`; and `badge` with `badge-good`, `badge-new`, and `badge-wait`. A utility class beside one still wins, as in `btn w-16`.
 - **One blue, `primary`,** for the main button on a page, where you are in the menu, a chosen card, and keyboard focus. Green stays for opening a study to participants and red for deleting.
 - **Cards have a border and no shadow.**
+- **Lists are tables.** A lab's members, an operator's labs, and tokens each get a row with headed columns (`table`). Facts about one thing are a grid of small labels over values (`facts`).
+- **Pages share a width** (`page`), so every page's heading starts in the same place. A page that's mostly a form keeps its lines short (`page-narrow`).
+- **Settings lists its cards down the side** on a wide screen and marks the one being read. Every card stays on the page, so an unsaved change in one isn't lost by looking at another.
 
 ## Alternatives considered
 
@@ -27,5 +30,6 @@ Researchers already know tools like Qualtrics and the AWS console. Those share a
 - **A new page uses the shared classes** and doesn't write its own button.
 - **A new page of a study is added to the menu** in `Shell.tsx`, not to the builder.
 - **The menu asks for the study's details on every one of its pages,** to know its title and which pages it has. The builder asks for the same thing, so they share one request there.
-- **Pages still set their own width**, and most are a centered column. Making tables and settings use the wider space is later work.
+- **A study's own pages (Cast, Beats, and the rest) still set their own width.**
+- **A test checks that the lab's pages are never wider than a phone's screen,** after a hidden table label made one scroll sideways.
 - **The guide's pictures were retaken**, and its steps now say "in the menu".

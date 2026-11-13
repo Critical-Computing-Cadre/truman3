@@ -73,7 +73,7 @@ export function TimelineControls({
   const select = "rounded border border-stone-300 bg-white px-2 py-1";
 
   return (
-    <div className="sticky top-0 z-20 border-b border-stone-200 bg-white p-3 shadow-sm">
+    <div className="sticky top-0 z-20 border-b border-stone-200 bg-white p-3">
       <div className="mx-auto max-w-5xl space-y-2">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <h1 className="mr-auto font-semibold">{title}</h1>

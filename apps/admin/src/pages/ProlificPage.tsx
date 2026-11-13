@@ -67,7 +67,7 @@ interface BonusSetup {
 }
 
 const input = "rounded border border-stone-300 px-2 py-1.5 text-sm";
-const card = "space-y-3 rounded-lg bg-white p-4 shadow-sm";
+const card = "card space-y-3 p-4";
 const primary = "rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40";
 const secondary = "rounded border border-stone-300 px-3 py-1.5 text-sm disabled:opacity-40";
 const label = "flex flex-col gap-1 text-sm font-medium";
@@ -618,7 +618,7 @@ function SubmissionsCard({ studyId, state }: { studyId: string; state: StudyStat
             </p>
           )}
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="table">
               <thead className="border-b border-stone-200 text-stone-600">
                 <tr>
                   <th className="px-2 py-1 font-medium">
@@ -761,7 +761,7 @@ export function ProlificPage() {
   });
 
   return (
-    <main className="mx-auto max-w-4xl space-y-4 p-4">
+    <main className="page space-y-4">
       <div>
         <Link to="/studies/$studyId/monitor" params={{ studyId }} className="text-sm underline">
           Back to the monitor

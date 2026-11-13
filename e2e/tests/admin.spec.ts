@@ -138,7 +138,7 @@ test("a researcher makes a token for an agent, sees it once, and revokes it", as
 
   await page.getByRole("button", { name: "Done" }).click();
   await expect(page.getByTestId("new-token")).toHaveCount(0);
-  const row = page.getByRole("listitem").filter({ hasText: name });
+  const row = page.getByRole("row").filter({ hasText: name });
   await row.getByRole("button", { name: "Revoke" }).click();
   await expect(row).toHaveCount(0);
   expect((await request.get(`${api}/admin/me`, { headers })).status()).toBe(401);

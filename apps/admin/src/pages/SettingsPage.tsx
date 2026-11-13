@@ -18,7 +18,7 @@ import {
   TEMPLATES,
   type TemplateDefinition,
 } from "@truman3/core";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { type DraftSections, type DraftSettings, get, send } from "../api.ts";
 import { RecentChanges, useDraftPresence } from "./DraftPage.tsx";
@@ -262,7 +262,12 @@ function Section<K extends keyof DraftSections>({
   const editors = others.filter(({ section }) => section === name);
 
   return (
-    <section aria-label={title} onFocusCapture={() => onFocus(name)} className="card space-y-4 p-4">
+    <section
+      id={`settings-${name}`}
+      aria-label={title}
+      onFocusCapture={() => onFocus(name)}
+      className="card scroll-mt-4 space-y-4 p-4"
+    >
       <header>
         <h2 className="font-semibold">{title}</h2>
         <p className="text-sm text-stone-500">{intro}</p>
@@ -534,29 +539,32 @@ function StudyForm({
       )}
       <fieldset className="space-y-1">
         <legend className="text-sm font-medium">What's on this platform?</legend>
-        {FEATURE_KEYS.map((key) => (
-          <label key={key} className="flex items-baseline gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={
-                value.platform.features?.[key] ??
-                TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features[key]
-              }
-              onChange={(event) =>
-                set({
-                  ...value,
-                  platform: {
-                    ...value.platform,
-                    features: { ...value.platform.features, [key]: event.target.checked },
-                  },
-                })
-              }
-            />
-            <span>
-              {FEATURES[key].name} <Hint>{FEATURES[key].description}</Hint>
-            </span>
-          </label>
-        ))}
+        {/* A long list, so it's two columns where there's room. */}
+        <div className="lg:columns-2 lg:gap-x-8">
+          {FEATURE_KEYS.map((key) => (
+            <label key={key} className="mb-1 flex break-inside-avoid items-baseline gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={
+                  value.platform.features?.[key] ??
+                  TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features[key]
+                }
+                onChange={(event) =>
+                  set({
+                    ...value,
+                    platform: {
+                      ...value.platform,
+                      features: { ...value.platform.features, [key]: event.target.checked },
+                    },
+                  })
+                }
+              />
+              <span>
+                {FEATURES[key].name} <Hint>{FEATURES[key].description}</Hint>
+              </span>
+            </label>
+          ))}
+        </div>
       </fieldset>
       {(value.platform.features?.decor ??
         TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].features.decor) && (
@@ -1869,6 +1877,63 @@ function FlowForm({
 
 const WARNINGS_SHOWN = 5;
 
+const SECTIONS = [
+  ["study", "Study and platform"],
+  ["conditions", "Conditions"],
+  ["feed", "Feed"],
+  ["flow", "Study flow"],
+] as const;
+
+/**
+ * The page's cards, listed down the side on a wide screen, with the one being read marked. Every
+ * card stays on the page, so a change in one isn't lost by looking at another.
+ */
+function SectionMenu() {
+  const [reading, setReading] = useState<string>(SECTIONS[0][0]);
+  useEffect(() => {
+    // The card that crosses a line a third of the way down the screen is the one being read.
+    const watcher = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setReading(entry.target.id.replace("settings-", ""));
+          }
+        }
+      },
+      { rootMargin: "-33% 0px -66% 0px" },
+    );
+    for (const [name] of SECTIONS) {
+      const card = document.getElementById(`settings-${name}`);
+      if (card) {
+        watcher.observe(card);
+      }
+    }
+    return () => watcher.disconnect();
+  }, []);
+  return (
+    <nav aria-label="Sections of Settings" className="hidden lg:block">
+      <ul className="sticky top-4 space-y-0.5 border-l border-stone-300 text-sm">
+        {SECTIONS.map(([name, title]) => (
+          <li key={name}>
+            <button
+              type="button"
+              aria-current={reading === name ? "true" : undefined}
+              onClick={() =>
+                document
+                  .getElementById(`settings-${name}`)
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+              className="-ml-px block w-full border-l-2 border-transparent px-3 py-1.5 text-left text-stone-600 hover:text-stone-900 aria-[current]:border-primary aria-[current]:font-semibold aria-[current]:text-primary"
+            >
+              {title}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 export function SettingsPage() {
   const { draftId } = useParams({ from: "/drafts/$draftId/settings" });
   const settings = useQuery({
@@ -1887,121 +1952,124 @@ export function SettingsPage() {
   const shared = { draftId, settings: data, others, onFocus: setSection };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-lg font-semibold">
-          Settings for {data.title} <span className="font-normal text-amber-700">draft</span>
-        </h1>
-      </div>
-      <p className="text-sm text-stone-500">
-        Saving here changes the draft. Participants get these once you save the draft as a version
-        and launch it.
-      </p>
-      {others.length > 0 && (
-        <p className="text-xs" data-testid="also-here">
-          <span className="rounded bg-sky-100 px-2 py-0.5 text-sky-900">
-            Also here: {others.map(({ name }) => name).join(", ")}
-          </span>
+    <div className="mx-auto max-w-5xl p-4 md:p-6 lg:grid lg:grid-cols-[11rem_minmax(0,1fr)] lg:gap-6">
+      <SectionMenu />
+      <div className="min-w-0 space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold">
+            Settings for {data.title} <span className="font-normal text-amber-700">draft</span>
+          </h1>
+        </div>
+        <p className="text-sm text-stone-500">
+          Saving here changes the draft. Participants get these once you save the draft as a version
+          and launch it.
         </p>
-      )}
-      {errors.length > 0 && (
-        <ul aria-label="Problems to fix before saving a version" className="space-y-1 text-sm">
-          {errors.map(({ message }) => (
-            <li key={message} className="rounded bg-rose-50 p-2 text-rose-800">
-              {message}
-            </li>
-          ))}
-        </ul>
-      )}
-      {warnings.length > 0 && (
-        <ul aria-label="Things to check" className="space-y-1 text-sm">
-          {warnings.slice(0, WARNINGS_SHOWN).map(({ message }) => (
-            <li key={message} className="rounded bg-amber-50 p-2 text-amber-900">
-              {message}
-            </li>
-          ))}
-          {warnings.length > WARNINGS_SHOWN && (
-            <li className="p-2 text-stone-500">And {warnings.length - WARNINGS_SHOWN} more.</li>
+        {others.length > 0 && (
+          <p className="text-xs" data-testid="also-here">
+            <span className="rounded bg-sky-100 px-2 py-0.5 text-sky-900">
+              Also here: {others.map(({ name }) => name).join(", ")}
+            </span>
+          </p>
+        )}
+        {errors.length > 0 && (
+          <ul aria-label="Problems to fix before saving a version" className="space-y-1 text-sm">
+            {errors.map(({ message }) => (
+              <li key={message} className="rounded bg-rose-50 p-2 text-rose-800">
+                {message}
+              </li>
+            ))}
+          </ul>
+        )}
+        {warnings.length > 0 && (
+          <ul aria-label="Things to check" className="space-y-1 text-sm">
+            {warnings.slice(0, WARNINGS_SHOWN).map(({ message }) => (
+              <li key={message} className="rounded bg-amber-50 p-2 text-amber-900">
+                {message}
+              </li>
+            ))}
+            {warnings.length > WARNINGS_SHOWN && (
+              <li className="p-2 text-stone-500">And {warnings.length - WARNINGS_SHOWN} more.</li>
+            )}
+          </ul>
+        )}
+
+        <Section
+          {...shared}
+          name="study"
+          title="Study and platform"
+          intro="What this platform is like."
+        >
+          {(value, set) => <StudyForm value={value} set={set} />}
+        </Section>
+        <Section
+          {...shared}
+          name="conditions"
+          title="Conditions"
+          intro="Who gets what. Renaming a condition keeps the posts and comments limited to it."
+          check={checkConditions}
+          toSave={conditionsToSave}
+        >
+          {(value, set) => <ConditionsForm value={value} set={set} />}
+        </Section>
+        <Section {...shared} name="feed" title="Feed" intro="How the feed behaves for everyone.">
+          {(value, set) => (
+            <FeedForm
+              value={value}
+              set={set}
+              defaultCommentOrder={
+                (
+                  TEMPLATES[
+                    data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE
+                  ] as TemplateDefinition
+                ).feed?.commentOrder ?? "scripted"
+              }
+              adsOn={[
+                data.sections.study.value.platform.features?.ads ??
+                  TEMPLATES[data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE]
+                    .features.ads,
+                ...data.sections.conditions.value.conditions.arms.map(
+                  (arm) => arm.platform?.features?.ads,
+                ),
+              ].includes(true)}
+              followingFeedOn={[
+                data.sections.study.value.platform.features?.followingFeed ??
+                  TEMPLATES[data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE]
+                    .features.followingFeed,
+                ...data.sections.conditions.value.conditions.arms.map(
+                  (arm) => arm.platform?.features?.followingFeed,
+                ),
+              ].includes(true)}
+              spacesOn={[
+                data.sections.study.value.platform.features?.spaces ??
+                  TEMPLATES[data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE]
+                    .features.spaces,
+                ...data.sections.conditions.value.conditions.arms.map(
+                  (arm) => arm.platform?.features?.spaces,
+                ),
+              ].includes(true)}
+            />
           )}
-        </ul>
-      )}
+        </Section>
+        <Section
+          {...shared}
+          name="flow"
+          title="Study flow"
+          intro="The steps from arriving to finishing."
+        >
+          {(value, set) => (
+            <FlowForm
+              draftId={draftId}
+              value={value}
+              set={set}
+              settings={data}
+              others={others}
+              onFocus={setSection}
+            />
+          )}
+        </Section>
 
-      <Section
-        {...shared}
-        name="study"
-        title="Study and platform"
-        intro="What this platform is like."
-      >
-        {(value, set) => <StudyForm value={value} set={set} />}
-      </Section>
-      <Section
-        {...shared}
-        name="conditions"
-        title="Conditions"
-        intro="Who gets what. Renaming a condition keeps the posts and comments limited to it."
-        check={checkConditions}
-        toSave={conditionsToSave}
-      >
-        {(value, set) => <ConditionsForm value={value} set={set} />}
-      </Section>
-      <Section {...shared} name="feed" title="Feed" intro="How the feed behaves for everyone.">
-        {(value, set) => (
-          <FeedForm
-            value={value}
-            set={set}
-            defaultCommentOrder={
-              (
-                TEMPLATES[
-                  data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE
-                ] as TemplateDefinition
-              ).feed?.commentOrder ?? "scripted"
-            }
-            adsOn={[
-              data.sections.study.value.platform.features?.ads ??
-                TEMPLATES[data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE].features
-                  .ads,
-              ...data.sections.conditions.value.conditions.arms.map(
-                (arm) => arm.platform?.features?.ads,
-              ),
-            ].includes(true)}
-            followingFeedOn={[
-              data.sections.study.value.platform.features?.followingFeed ??
-                TEMPLATES[data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE].features
-                  .followingFeed,
-              ...data.sections.conditions.value.conditions.arms.map(
-                (arm) => arm.platform?.features?.followingFeed,
-              ),
-            ].includes(true)}
-            spacesOn={[
-              data.sections.study.value.platform.features?.spaces ??
-                TEMPLATES[data.sections.study.value.platform.template ?? DEFAULT_TEMPLATE].features
-                  .spaces,
-              ...data.sections.conditions.value.conditions.arms.map(
-                (arm) => arm.platform?.features?.spaces,
-              ),
-            ].includes(true)}
-          />
-        )}
-      </Section>
-      <Section
-        {...shared}
-        name="flow"
-        title="Study flow"
-        intro="The steps from arriving to finishing."
-      >
-        {(value, set) => (
-          <FlowForm
-            draftId={draftId}
-            value={value}
-            set={set}
-            settings={data}
-            others={others}
-            onFocus={setSection}
-          />
-        )}
-      </Section>
-
-      <RecentChanges draftId={draftId} canEdit={data.canEdit} />
+        <RecentChanges draftId={draftId} canEdit={data.canEdit} />
+      </div>
     </div>
   );
 }

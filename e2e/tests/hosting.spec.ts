@@ -42,7 +42,7 @@ test("a lab applies, builds while it waits, and an operator approves it (ADR 70)
   const card = operator.getByRole("region", { name: lab });
   await expect(card).toContainText("Waiting for approval");
   await expect(card).toContainText("How labels change sharing.");
-  await expect(card).toContainText("0 studies, 0 open");
+  await expect(card).toContainText("0, 0 open");
   await operator.screenshot({ path: testInfo.outputPath("labs.png"), fullPage: true });
   await card.getByRole("button", { name: "Approve" }).click();
   await expect(card).toContainText("Approved");
