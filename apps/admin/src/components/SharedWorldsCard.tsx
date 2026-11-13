@@ -52,7 +52,7 @@ export function SharedWorldsCard({ studyId, canEdit }: { studyId: string; canEdi
   const worldNumber = new Map(worlds.map(({ id }, index) => [id, worlds.length - index]));
 
   return (
-    <section aria-label="Shared worlds" className="space-y-3 rounded-lg bg-white p-4 shadow-sm">
+    <section aria-label="Shared worlds" className="card space-y-3 p-4">
       <h2 className="font-semibold">Shared worlds</h2>
       <p className="text-sm text-stone-600">
         {worlds.length} {worlds.length === 1 ? "world" : "worlds"}, with{" "}
@@ -103,7 +103,7 @@ export function SharedWorldsCard({ studyId, canEdit }: { studyId: string; canEdi
                     <button
                       type="submit"
                       disabled={remove.isPending}
-                      className="rounded bg-rose-700 px-2 py-1 text-xs font-medium text-white"
+                      className="btn btn-danger btn-sm"
                     >
                       Remove for everyone
                     </button>

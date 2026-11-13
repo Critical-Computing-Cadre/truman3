@@ -3,13 +3,13 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
-  Link,
   Outlet,
   RouterProvider,
 } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ApiError, get, post, type Researcher } from "./api.ts";
+import { Frame } from "./components/Shell.tsx";
 import "./index.css";
 import { AgentPage } from "./pages/AgentPage.tsx";
 import { BeatsPage } from "./pages/BeatsPage.tsx";
@@ -93,30 +93,13 @@ function Shell() {
   }
 
   return (
-    <div className="min-h-dvh">
-      <header className="flex items-center gap-4 bg-stone-900 px-4 py-2 text-sm text-white">
-        <Link to="/" className="mr-auto font-semibold">
-          Truman 3
-        </Link>
-        <Link to="/lab" className="underline">
-          Your lab
-        </Link>
-        {me.data.operator && (
-          <Link to="/operator" className="underline">
-            Labs
-          </Link>
-        )}
-        <Link to="/tokens" className="underline">
-          Access for agents
-        </Link>
-        <span className="hidden sm:inline">{me.data.name}</span>
-        <button type="button" className="underline" onClick={() => logout.mutate()}>
-          Sign out
-        </button>
-      </header>
-      <TeamNotice teams={me.data.teams} />
+    <Frame
+      me={me.data}
+      onSignOut={() => logout.mutate()}
+      notice={<TeamNotice teams={me.data.teams} />}
+    >
       <Outlet />
-    </div>
+    </Frame>
   );
 }
 

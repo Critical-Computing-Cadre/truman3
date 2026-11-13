@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { type DraftSettings, get, send } from "../api.ts";
 import { SaveStatus, useDraftPresence } from "../pages/DraftPage.tsx";
@@ -68,9 +67,6 @@ export function YamlPage({
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/drafts/$draftId" params={{ draftId }} className="text-sm underline">
-          Back to the feed
-        </Link>
         <h1 className="mr-auto text-lg font-semibold">
           {heading} {title}
         </h1>
@@ -100,16 +96,12 @@ export function YamlPage({
                 type="button"
                 disabled={!dirty || save.isPending}
                 onClick={() => save.mutate(shown)}
-                className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+                className="btn btn-primary"
               >
                 {save.isPending ? "Saving…" : saveLabel}
               </button>
               {dirty && (
-                <button
-                  type="button"
-                  onClick={() => setText(null)}
-                  className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-                >
+                <button type="button" onClick={() => setText(null)} className="btn">
                   Discard changes
                 </button>
               )}

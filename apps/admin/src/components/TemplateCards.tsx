@@ -154,11 +154,7 @@ function HelpMeDecide({ onChoose }: { onChoose: (template: TemplateKey) => void 
           <span>
             <strong>{TEMPLATES[suggested].name}</strong> sounds closest.
           </span>
-          <button
-            type="button"
-            onClick={() => onChoose(suggested)}
-            className="rounded border border-stone-300 px-2 py-1"
-          >
+          <button type="button" onClick={() => onChoose(suggested)} className="btn btn-sm">
             Use {TEMPLATES[suggested].name}
           </button>
         </p>
@@ -181,7 +177,7 @@ export function TemplateCards({
         {TEMPLATE_KEYS.map((key) => (
           <div
             key={key}
-            className={`rounded-lg border bg-white p-3 ${chosen === key ? "border-stone-900 ring-1 ring-stone-900" : "border-stone-200"}`}
+            className={`rounded-lg border bg-white p-3 ${chosen === key ? "border-primary ring-1 ring-primary" : "border-stone-200"}`}
           >
             <label className="block cursor-pointer space-y-2">
               <span className="flex items-baseline gap-2">

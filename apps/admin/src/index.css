@@ -2,12 +2,93 @@
 @import "../../../packages/ui/src/skins.css";
 @source "../../../packages/ui/src";
 
+/* The admin app's own colors. One blue for the thing to do next and for where you are. */
+@theme {
+  --color-primary: #0b63c5;
+  --color-primary-strong: #084c99;
+  --color-primary-soft: #e7f0fb;
+}
+
 :root {
   color-scheme: light;
 }
 
 body {
   @apply bg-stone-100 text-stone-900 antialiased;
+}
+
+@layer base {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]),
+  select,
+  textarea {
+    @apply bg-white;
+  }
+
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  button:focus-visible,
+  a:focus-visible,
+  summary:focus-visible {
+    @apply outline-2 outline-offset-1 outline-primary;
+  }
+
+  dialog {
+    @apply rounded-lg border border-stone-200 shadow-xl;
+  }
+}
+
+/*
+ * The few shapes every page shares, so a button is the same button everywhere. A utility class
+ * beside one of these still wins, as in "btn w-16".
+ */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-40;
+  }
+
+  .btn-sm {
+    @apply px-2 py-1 text-xs;
+  }
+
+  /* The one thing this page is for. */
+  .btn-primary {
+    @apply border-primary bg-primary text-white hover:border-primary-strong hover:bg-primary-strong;
+  }
+
+  /* Opening a study to participants. */
+  .btn-go {
+    @apply border-emerald-700 bg-emerald-700 text-white hover:border-emerald-800 hover:bg-emerald-800;
+  }
+
+  .btn-danger {
+    @apply border-rose-700 bg-rose-700 text-white hover:border-rose-800 hover:bg-rose-800;
+  }
+
+  .btn-danger-quiet {
+    @apply border-rose-300 text-rose-800 hover:bg-rose-50;
+  }
+
+  .card {
+    @apply rounded-lg border border-stone-200 bg-white;
+  }
+
+  /* A word that says what state something is in. */
+  .badge {
+    @apply inline-flex items-center rounded border border-stone-300 bg-stone-50 px-1.5 py-0.5 text-xs font-medium whitespace-nowrap text-stone-700;
+  }
+
+  .badge-good {
+    @apply border-emerald-300 bg-emerald-50 text-emerald-800;
+  }
+
+  .badge-new {
+    @apply border-sky-300 bg-sky-50 text-sky-800;
+  }
+
+  .badge-wait {
+    @apply border-amber-300 bg-amber-50 text-amber-900;
+  }
 }
 
 /* Pages drawn the way the participant app draws them. */

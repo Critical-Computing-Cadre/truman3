@@ -52,11 +52,7 @@ export function ResetPage() {
             {reset.error.message}
           </p>
         )}
-        <button
-          type="submit"
-          disabled={reset.isPending}
-          className="rounded bg-stone-900 py-2.5 font-medium text-white disabled:opacity-40"
-        >
+        <button type="submit" disabled={reset.isPending} className="btn btn-primary py-2.5">
           Save and sign in
         </button>
       </form>
@@ -121,7 +117,7 @@ export function InvitePage() {
             type="button"
             disabled={accept.isPending}
             onClick={() => accept.mutate({})}
-            className="rounded bg-stone-900 py-2.5 font-medium text-white disabled:opacity-40"
+            className="btn btn-primary py-2.5"
           >
             Join {team}
           </button>
@@ -165,11 +161,7 @@ export function InvitePage() {
               className={inputClass}
             />
           </Field>
-          <button
-            type="submit"
-            disabled={accept.isPending}
-            className="rounded bg-stone-900 py-2.5 font-medium text-white disabled:opacity-40"
-          >
+          <button type="submit" disabled={accept.isPending} className="btn btn-primary py-2.5">
             Join {team}
           </button>
         </form>

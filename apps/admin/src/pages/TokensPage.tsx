@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { get, post, send } from "../api.ts";
 
@@ -47,9 +46,6 @@ export function TokensPage() {
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-4">
-      <Link to="/" className="text-sm underline">
-        Back to studies
-      </Link>
       <h1 className="text-xl font-semibold">Access for agents</h1>
       <p className="text-sm text-stone-700">
         A token lets an agent, such as Claude through Truman's MCP server, work in Truman for you:
@@ -68,10 +64,7 @@ export function TokensPage() {
         .
       </p>
 
-      <form
-        onSubmit={submit}
-        className="flex flex-wrap items-end gap-2 rounded-lg bg-white p-3 shadow-sm"
-      >
+      <form onSubmit={submit} className="card flex flex-wrap items-end gap-2 p-3">
         <label className="flex min-w-48 flex-1 flex-col text-sm">
           What it's for
           <input
@@ -85,7 +78,7 @@ export function TokensPage() {
         <button
           type="submit"
           disabled={!name.trim() || create.isPending}
-          className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          className="btn btn-primary disabled:opacity-50"
         >
           Create a token
         </button>
@@ -110,7 +103,7 @@ export function TokensPage() {
         </div>
       )}
 
-      <section aria-label="Your tokens" className="rounded-lg bg-white p-3 shadow-sm">
+      <section aria-label="Your tokens" className="card p-3">
         {tokens.data?.tokens.length === 0 && (
           <p className="text-sm text-stone-600">You haven't made any tokens.</p>
         )}
@@ -122,11 +115,7 @@ export function TokensPage() {
                 Made {date(token.createdAt)}, lasts until {date(token.expiresAt)},{" "}
                 {token.lastUsedAt ? `last used ${date(token.lastUsedAt)}` : "not used yet"}
               </span>
-              <button
-                type="button"
-                className="rounded border border-stone-300 px-2 py-0.5"
-                onClick={() => revoke.mutate(token.id)}
-              >
+              <button type="button" className="btn btn-sm" onClick={() => revoke.mutate(token.id)}>
                 Revoke
               </button>
             </li>

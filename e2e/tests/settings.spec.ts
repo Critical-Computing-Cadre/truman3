@@ -112,7 +112,7 @@ test("a researcher changes settings, and a new participant gets them", async ({
   );
 
   // Save it as a version and launch it.
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
   await page.getByRole("button", { name: "Save as new version" }).click();
   await page.getByRole("button", { name: "Save version" }).click();
   await expect(page.getByRole("heading", { name: "Studies" })).toBeVisible();

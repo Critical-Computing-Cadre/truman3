@@ -81,7 +81,7 @@ test("a participant changes the order, karma moves, a notification goes to its c
   await casey.getByLabel("Karma").fill("1500");
   await casey.getByLabel("Bio").click();
   await expect(page.getByTestId("save-status")).toHaveText("All changes saved");
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
 
   await page.getByRole("link", { name: "Spaces", exact: true }).click();
   await page.getByRole("button", { name: "Add a space" }).click();
@@ -96,7 +96,7 @@ test("a participant changes the order, karma moves, a notification goes to its c
   await space.getByLabel("Members of Cooking").fill("1200");
   await space.getByLabel("Members of Cooking").blur();
   await expect(page.getByTestId("save-status")).toHaveText("All changes saved");
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
 
   // Two posts, where top and controversial disagree about which comes first.
   await addPost(page, "Agreed", "100", "0");

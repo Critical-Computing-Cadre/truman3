@@ -229,7 +229,7 @@ function TeamAiCard({ team }: { team: Researcher["teams"][number] }) {
             <button
               type="submit"
               disabled={save.isPending || key.trim() === ""}
-              className="rounded bg-stone-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+              className="btn btn-primary"
             >
               Save key
             </button>
@@ -238,7 +238,7 @@ function TeamAiCard({ team }: { team: Researcher["teams"][number] }) {
                 type="button"
                 disabled={remove.isPending}
                 onClick={() => remove.mutate()}
-                className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+                className="btn"
               >
                 Remove key
               </button>
@@ -387,11 +387,7 @@ function MembersCard({ team, me }: { team: Researcher["teams"][number]; me: stri
               <option value="owner">Owner</option>
             </select>
           </label>
-          <button
-            type="submit"
-            disabled={invite.isPending}
-            className="rounded bg-stone-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
-          >
+          <button type="submit" disabled={invite.isPending} className="btn btn-primary py-2">
             Send invitation
           </button>
           <p className="w-full text-xs text-stone-500">

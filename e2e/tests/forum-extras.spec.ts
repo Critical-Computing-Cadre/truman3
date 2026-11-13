@@ -83,7 +83,7 @@ test("a researcher writes links, pins, locks, and tags, and a participant uses a
   await casey.getByLabel("Bio").click();
   await expect(casey.getByLabel("Username")).toHaveValue("casey");
   await saved(page);
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
 
   // A title by itself is a post.
   await addPost(page, "Only a title");

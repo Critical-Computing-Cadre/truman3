@@ -126,7 +126,7 @@ function TeamCard({ team }: { team: OperatorTeam }) {
             type="button"
             disabled={update.isPending}
             onClick={() => update.mutate({ status: "approved" })}
-            className="rounded bg-stone-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+            className="btn btn-primary"
           >
             {team.status === "pending" ? "Approve" : "Reinstate"}
           </button>
@@ -136,7 +136,7 @@ function TeamCard({ team }: { team: OperatorTeam }) {
             type="button"
             disabled={update.isPending}
             onClick={() => update.mutate({ status: "suspended" })}
-            className="rounded border border-rose-300 px-3 py-1.5 text-sm text-rose-800 disabled:opacity-40"
+            className="btn btn-danger-quiet"
           >
             Suspend
           </button>
@@ -247,11 +247,7 @@ function LimitsForm({
           className="w-36 rounded border border-stone-300 px-2 py-1"
         />
       </label>
-      <button
-        type="submit"
-        disabled={!changed}
-        className="rounded border border-stone-300 px-3 py-1.5 disabled:opacity-40"
-      >
+      <button type="submit" disabled={!changed} className="btn">
         Save limits
       </button>
     </form>

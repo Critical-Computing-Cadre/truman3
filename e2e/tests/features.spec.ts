@@ -397,7 +397,7 @@ test("a researcher makes a space, and a participant joins it and chooses an orde
     buffer: Buffer.from(PNG_BASE64, "base64"),
   });
   await expect(space.getByRole("button", { name: "Remove picture" })).toBeVisible();
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
 
   await post.getByText("Details").first().click();
   await post.getByLabel("Space").first().selectOption({ label: "Cooking" });

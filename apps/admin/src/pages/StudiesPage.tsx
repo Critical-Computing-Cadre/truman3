@@ -23,7 +23,7 @@ function EditButton({ study }: { study: StudySummary }) {
       <Link
         to="/drafts/$draftId"
         params={{ draftId: study.openDraftId }}
-        className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white"
+        className="btn btn-primary"
       >
         Keep editing
       </Link>
@@ -35,7 +35,7 @@ function EditButton({ study }: { study: StudySummary }) {
       type="button"
       onClick={() => open.mutate()}
       disabled={open.isPending}
-      className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+      className="btn btn-primary"
     >
       {study.openDraftId ? "Keep editing" : `Edit a copy of version ${latest.version}`}
     </button>
@@ -56,7 +56,7 @@ function TryIt({ version, participantUrl }: { version: StudyVersion; participant
         target="_blank"
         rel="noreferrer"
         onClick={() => start.reset()}
-        className="rounded bg-sky-700 px-3 py-1.5 text-sm text-white"
+        className="btn btn-primary"
       >
         Open as a test participant
       </a>
@@ -79,7 +79,7 @@ function TryIt({ version, participantUrl }: { version: StudyVersion; participant
         type="button"
         onClick={() => start.mutate()}
         disabled={start.isPending}
-        className="rounded border border-stone-300 px-3 py-1.5 text-sm disabled:opacity-40"
+        className="btn"
       >
         Try as a participant
       </button>
@@ -139,7 +139,7 @@ function Tests({ version, canRun }: { version: StudyVersion; canRun: boolean }) 
             type="button"
             disabled={run.isPending}
             onClick={() => run.mutate()}
-            className="rounded border border-stone-300 px-2 py-0.5 text-xs"
+            className="btn btn-sm"
           >
             {latest ? "Run tests again" : "Run tests"}
           </button>
@@ -192,7 +192,7 @@ function ArchiveButton({ study }: { study: StudySummary }) {
         type="button"
         disabled={archive.isPending}
         onClick={() => archive.mutate()}
-        className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+        className="btn"
       >
         {study.archived ? "Restore" : "Archive"}
       </button>
@@ -223,7 +223,7 @@ function DeleteButton({ study }: { study: StudySummary }) {
       <button
         type="button"
         onClick={() => dialog.current?.showModal()}
-        className="rounded border border-rose-300 px-3 py-1.5 text-sm text-rose-800"
+        className="btn btn-danger-quiet"
       >
         Delete for good
       </button>
@@ -253,18 +253,14 @@ function DeleteButton({ study }: { study: StudySummary }) {
           </p>
         )}
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => dialog.current?.close()}
-            className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-          >
+          <button type="button" onClick={() => dialog.current?.close()} className="btn">
             Keep it
           </button>
           <button
             type="button"
             disabled={typed.trim() !== study.slug || remove.isPending}
             onClick={() => remove.mutate()}
-            className="rounded bg-rose-700 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+            className="btn btn-danger"
           >
             Delete it
           </button>
@@ -333,7 +329,7 @@ function LaunchButton({ study, version }: { study: StudySummary; version: StudyV
           setOpened(true);
           dialog.current?.showModal();
         }}
-        className="rounded bg-emerald-700 px-3 py-1.5 text-sm text-white"
+        className="btn btn-go"
       >
         Launch
       </button>
@@ -405,11 +401,7 @@ function LaunchButton({ study, version }: { study: StudySummary; version: StudyV
           </p>
         )}
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => dialog.current?.close()}
-            className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-          >
+          <button type="button" onClick={() => dialog.current?.close()} className="btn">
             Not yet
           </button>
           <button
@@ -418,7 +410,7 @@ function LaunchButton({ study, version }: { study: StudySummary; version: StudyV
             disabled={
               launch.isPending || !info.data || (placeholderConsent && !placeholderAccepted)
             }
-            className="rounded bg-emerald-700 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+            className="btn btn-go"
           >
             Launch it
           </button>
@@ -441,11 +433,7 @@ function StopButton({ study }: { study: StudySummary }) {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => dialog.current?.showModal()}
-        className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-      >
+      <button type="button" onClick={() => dialog.current?.showModal()} className="btn">
         Stop new participants
       </button>
       <dialog
@@ -459,18 +447,14 @@ function StopButton({ study }: { study: StudySummary }) {
           launch again whenever you like.
         </p>
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => dialog.current?.close()}
-            className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-          >
+          <button type="button" onClick={() => dialog.current?.close()} className="btn">
             Keep it open
           </button>
           <button
             type="button"
             onClick={() => stop.mutate()}
             disabled={stop.isPending}
-            className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+            className="btn btn-primary"
           >
             Stop new participants
           </button>
@@ -525,6 +509,7 @@ function AddressPicker({ study }: { study: StudySummary }) {
 
 export function StudiesPage() {
   const [showArchived, setShowArchived] = useState(false);
+  const [search, setSearch] = useState("");
   const list = useQuery({
     queryKey: ["studies", showArchived],
     queryFn: () =>
@@ -540,64 +525,87 @@ export function StudiesPage() {
         : false,
   });
 
+  const wanted = search.trim().toLowerCase();
+  const titleOf = (study: StudySummary) =>
+    study.versions[0]?.title ?? study.draftTitle ?? study.slug;
+  const studies = (list.data?.studies ?? []).filter(
+    (study) =>
+      !wanted ||
+      titleOf(study).toLowerCase().includes(wanted) ||
+      study.slug.toLowerCase().includes(wanted),
+  );
+
   return (
-    <main className="mx-auto max-w-3xl p-4">
-      <div className="mb-4 flex items-center justify-between gap-2">
+    <main className="mx-auto max-w-5xl p-4 md:p-6">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-2xl font-semibold">
           {showArchived ? "Archived studies" : "Studies"}
+          {list.data && (
+            <span className="ml-2 text-lg font-normal text-stone-500">
+              ({list.data.studies.length})
+            </span>
+          )}
         </h1>
         {(showArchived || (list.data?.archivedCount ?? 0) > 0) && (
-          <button
-            type="button"
-            onClick={() => setShowArchived(!showArchived)}
-            className="text-sm underline"
-          >
+          <button type="button" onClick={() => setShowArchived(!showArchived)} className="btn">
             {showArchived ? "Back to studies" : `Archived (${list.data?.archivedCount})`}
           </button>
         )}
-        <Link to="/studies/new" className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white">
+        <Link to="/studies/new" className="btn btn-primary">
           New study
         </Link>
       </div>
-      {list.data?.studies.length === 0 && (
-        <p className="text-stone-600">
-          {showArchived ? "No archived studies." : "No studies yet."}
-        </p>
+      {(list.data?.studies.length ?? 0) > 3 && (
+        <input
+          type="search"
+          aria-label="Search studies"
+          placeholder="Search by title or link"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="mb-4 w-full max-w-sm rounded-md border border-stone-300 px-3 py-1.5 text-sm"
+        />
       )}
-      <ul className="space-y-3">
-        {list.data?.studies.map((study) => {
+      {list.data?.studies.length === 0 && (
+        <div className="card border-dashed p-8 text-center">
+          <p className="text-stone-600">
+            {showArchived ? "No archived studies." : "No studies yet."}
+          </p>
+          {!showArchived && (
+            <p className="mt-1 text-sm text-stone-500">
+              A new study can start from a sample, an example study, or nothing at all.
+            </p>
+          )}
+        </div>
+      )}
+      {list.data && list.data.studies.length > 0 && studies.length === 0 && (
+        <p className="text-stone-600">No study matches that.</p>
+      )}
+      <ul className="space-y-4">
+        {studies.map((study) => {
           const canChange = study.role !== "viewer";
           return (
-            <li key={study.id} className="rounded-lg bg-white p-4 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h2 className="text-lg font-semibold">
-                    {study.versions[0]?.title ?? study.draftTitle ?? study.slug}
-                  </h2>
-                  <p className="text-sm text-stone-600">
-                    {study.team} · {study.participants} participants ·{" "}
-                    {study.liveVersionId ? (
-                      <span className="font-medium text-emerald-800">Open to participants</span>
+            <li key={study.id} className="card overflow-hidden">
+              <div className="flex flex-wrap items-start justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-lg font-semibold">{titleOf(study)}</h2>
+                    {study.archived ? (
+                      <span className="badge">Archived</span>
+                    ) : study.liveVersionId ? (
+                      <span className="badge badge-good">Open to participants</span>
                     ) : (
-                      <span className="font-medium text-stone-700">
-                        Not open to new participants
-                      </span>
+                      <span className="badge">Not open to new participants</span>
                     )}
+                  </div>
+                  <p className="mt-0.5 text-sm text-stone-600">
+                    {study.team} · {study.participants} participants
                   </p>
-                  <p className="text-sm text-stone-600">
-                    Study link:{" "}
-                    <code className="break-all">
-                      {study.participantUrl}/join/{study.slug}
-                    </code>
-                    {!study.liveVersionId && " (works once the study is open)"}
-                  </p>
-                  <AddressPicker study={study} />
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link
                     to="/studies/$studyId/monitor"
                     params={{ studyId: study.id }}
-                    className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+                    className="btn"
                   >
                     Monitor and download
                   </Link>
@@ -608,14 +616,23 @@ export function StudiesPage() {
                   )}
                 </div>
               </div>
-              {study.archived && study.notDeletable && (
-                <p className="mt-1 text-xs text-stone-500">{study.notDeletable}</p>
-              )}
-
-              {!study.warnUntested && canChange && <WarningsOff study={study} />}
+              <div className="space-y-1 border-t border-stone-200 bg-stone-50 px-4 py-2.5">
+                <p className="text-sm text-stone-600">
+                  Study link:{" "}
+                  <code className="break-all text-stone-900">
+                    {study.participantUrl}/join/{study.slug}
+                  </code>
+                  {!study.liveVersionId && " (works once the study is open)"}
+                </p>
+                <AddressPicker study={study} />
+                {study.archived && study.notDeletable && (
+                  <p className="text-xs text-stone-500">{study.notDeletable}</p>
+                )}
+                {!study.warnUntested && canChange && <WarningsOff study={study} />}
+              </div>
               <ul
                 hidden={study.archived}
-                className="mt-3 divide-y divide-stone-200 border-t border-stone-200"
+                className="divide-y divide-stone-200 border-t border-stone-200"
               >
                 {study.versions.map((version) => {
                   const isLive = version.id === study.liveVersionId;
@@ -623,28 +640,26 @@ export function StudiesPage() {
                     <li
                       key={version.id}
                       aria-label={`Version ${version.version}`}
-                      className="flex flex-wrap items-center gap-2 py-2"
+                      className="flex flex-wrap items-center gap-2 px-4 py-2.5"
                     >
-                      <span className="mr-auto text-sm">
-                        <strong>Version {version.version}</strong> · {version.participants}{" "}
-                        participants
-                        {isLive && (
-                          <span className="ml-2 rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-900">
-                            Live
-                          </span>
-                        )}
+                      <span className="mr-auto flex items-center gap-2 text-sm">
+                        <span>
+                          <strong>Version {version.version}</strong> · {version.participants}{" "}
+                          participants
+                        </span>
+                        {isLive && <span className="badge badge-good">Live</span>}
                       </span>
                       <Link
                         to="/preview/$versionId"
                         params={{ versionId: version.id }}
-                        className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+                        className="btn"
                       >
                         See the feed
                       </Link>
                       <Link
                         to="/versions/$versionId/simulate"
                         params={{ versionId: version.id }}
-                        className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+                        className="btn"
                       >
                         Simulate
                       </Link>

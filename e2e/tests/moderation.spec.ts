@@ -250,7 +250,7 @@ test("a researcher writes a moderator's decisions in the builder, and a particip
   await added.getByLabel("Name", { exact: true }).fill("Sam the Mod");
   await added.getByLabel("Name", { exact: true }).blur();
   await expect(page.getByRole("listitem", { name: "Sam the Mod" })).toBeVisible();
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
 
   await page.getByRole("button", { name: "New post here" }).click();
   const empty = page.getByRole("article", { name: /^Post by/ });
@@ -277,7 +277,7 @@ test("a researcher writes a moderator's decisions in the builder, and a particip
   await expect(page.getByTestId("save-status")).toHaveText("All changes saved");
   await shot(page, project, "7-builder");
 
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
   await expect(page.getByText(/A moderator removes this at/)).toBeVisible();
   await page.getByRole("button", { name: "Save as new version" }).click();
   await page.getByRole("button", { name: "Save version" }).click();

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { Avatar } from "@truman3/ui";
 import { useRef, useState } from "react";
 import { type DraftInfo, get } from "../api.ts";
@@ -176,10 +176,7 @@ function Person({
   };
 
   return (
-    <li
-      aria-label={actor.name}
-      className="flex flex-wrap gap-3 rounded-lg bg-white p-3 shadow-sm sm:flex-nowrap"
-    >
+    <li aria-label={actor.name} className="card flex flex-wrap gap-3 p-3 sm:flex-nowrap">
       <div className="flex flex-col items-center gap-1">
         <Avatar seed={actor.username} url={actor.pictureUrl} size="h-16 w-16" />
         {canEdit && (
@@ -423,7 +420,7 @@ function Person({
             disabled={actor.usedBy > 0}
             title={actor.usedBy > 0 ? "They still have posts or comments." : undefined}
             onClick={() => edits.remove.mutate(actor.id)}
-            className="rounded border border-stone-300 px-2 py-1 text-stone-900 disabled:opacity-40"
+            className="btn btn-sm text-stone-900"
           >
             Remove
           </button>
@@ -462,9 +459,6 @@ export function CastPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/drafts/$draftId" params={{ draftId }} className="text-sm underline">
-          Back to the feed
-        </Link>
         <h1 className="mr-auto text-lg font-semibold">
           Cast of {title} <span className="font-normal text-stone-500">({actors.length})</span>
         </h1>
@@ -474,7 +468,7 @@ export function CastPage() {
             type="button"
             onClick={addPerson}
             disabled={edits.create.isPending}
-            className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+            className="btn btn-primary"
           >
             Add a person
           </button>

@@ -86,18 +86,18 @@ test("takes the guide's pictures", async ({ page, browser }, testInfo) => {
       await page.getByRole("link", { name: "Cast", exact: true }).click();
       await expect(page.getByRole("heading", { name: /Cast of/ })).toBeVisible();
       await page.screenshot({ path: shot("cast") });
-      await page.getByRole("link", { name: "Back to the feed" }).click();
+      await page.getByRole("link", { name: "Feed", exact: true }).click();
       await page.getByRole("link", { name: "Settings" }).click();
       await expect(page.getByRole("heading", { name: /Settings for/ })).toBeVisible();
       await page
         .getByRole("region", { name: "Conditions" })
         .screenshot({ path: shot("conditions") });
       await page.getByRole("region", { name: "Study flow" }).screenshot({ path: shot("flow") });
-      await page.getByRole("link", { name: "Back to the feed" }).click();
+      await page.getByRole("link", { name: "Feed", exact: true }).click();
       await page.getByRole("link", { name: "Beats", exact: true }).click();
       await page.waitForLoadState("networkidle");
       await page.screenshot({ path: shot("beats") });
-      await page.getByRole("link", { name: "Back to the feed" }).click();
+      await page.getByRole("link", { name: "Feed", exact: true }).click();
     }
 
     await page.getByRole("button", { name: "Save as new version" }).click();
@@ -242,6 +242,9 @@ test("takes the guide's pictures", async ({ page, browser }, testInfo) => {
 
   await page.getByRole("link", { name: "Your lab" }).click();
   await expect(page.getByRole("heading", { name: "Your lab" })).toBeVisible();
+  // The page's cards arrive after its heading does.
+  await expect(page.getByRole("heading", { level: 2 }).first()).toBeVisible();
+  await page.mouse.move(640, 600);
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: shot("your-lab") });
 });

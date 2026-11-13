@@ -44,7 +44,7 @@ const percent = (share: number) => `${Math.round(share * 100)}%`;
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg bg-white p-3 shadow-sm">
+    <div className="card p-3">
       <p className="text-2xl font-semibold">{value}</p>
       <p className="text-sm text-stone-600">{label}</p>
     </div>
@@ -186,7 +186,7 @@ function ExportCard({ studyId, monitor }: { studyId: string; monitor: Monitor })
         type="button"
         disabled={run.isPending}
         onClick={() => run.mutate()}
-        className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+        className="btn btn-primary"
       >
         {run.isPending ? "Preparing..." : "Download"}
       </button>
@@ -199,7 +199,7 @@ function ExportCard({ studyId, monitor }: { studyId: string; monitor: Monitor })
           type="button"
           disabled={photos.isPending}
           onClick={() => photos.mutate()}
-          className="rounded border border-stone-300 px-3 py-1.5 disabled:opacity-40"
+          className="btn"
         >
           {photos.isPending ? "Preparing..." : "Download photos"}
         </button>
@@ -301,7 +301,7 @@ function PhotosToLookAt({ studyId, canEdit }: { studyId: string; canEdit: boolea
                     type="button"
                     disabled={decide.isPending}
                     onClick={() => decide.mutate({ id: upload.id, decision: "release" })}
-                    className="rounded border border-stone-300 px-3 py-1.5 disabled:opacity-40"
+                    className="btn"
                   >
                     {upload.held ? "Release" : "It's fine"}
                   </button>
@@ -309,7 +309,7 @@ function PhotosToLookAt({ studyId, canEdit }: { studyId: string; canEdit: boolea
                     type="button"
                     disabled={decide.isPending}
                     onClick={() => decide.mutate({ id: upload.id, decision: "remove" })}
-                    className="rounded border border-rose-300 px-3 py-1.5 text-rose-800 disabled:opacity-40"
+                    className="btn btn-danger-quiet"
                   >
                     Remove
                   </button>
@@ -409,11 +409,7 @@ function WithdrawCard({ studyId, monitor }: { studyId: string; monitor: Monitor 
           can't be undone.
         </p>
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => dialog.current?.close()}
-            className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-          >
+          <button type="button" onClick={() => dialog.current?.close()} className="btn">
             Cancel
           </button>
           <button
@@ -454,9 +450,6 @@ export function MonitorPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-4 p-4">
       <div>
-        <Link to="/" className="text-sm underline">
-          Back to studies
-        </Link>
         <h1 className="mt-2 text-2xl font-semibold">{monitor.title}</h1>
         <p className="text-sm text-stone-600">
           {monitor.liveVersion === null ? (
@@ -473,7 +466,7 @@ export function MonitorPage() {
           <Link
             to="/studies/$studyId/prolific"
             params={{ studyId }}
-            className="mt-2 inline-block rounded border border-stone-300 bg-white px-3 py-1.5 text-sm"
+            className="btn mt-2 inline-block"
           >
             Recruit on Prolific
           </Link>

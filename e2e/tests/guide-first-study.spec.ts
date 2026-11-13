@@ -47,7 +47,7 @@ test("the guide's first study can be followed as written", async ({ page }, test
   await post.getByText("Details").first().click();
   await page.getByRole("link", { name: "Cast", exact: true }).click();
   await page.getByRole("button", { name: "Add a person" }).click();
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
   await expect(page.getByRole("button", { name: "New post here" }).first()).toBeVisible();
   await page.getByText(/^Recent changes/).click();
   await expect(page.getByRole("button", { name: "Undo" }).first()).toBeVisible();
@@ -61,7 +61,7 @@ test("the guide's first study can be followed as written", async ({ page }, test
   await expect(flow.getByRole("button", { name: "Save changes" }).first()).toBeDisabled();
 
   // 4. Save a version
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
   await page.getByRole("button", { name: "Save as new version" }).click();
   await page.getByRole("button", { name: "Save version" }).click();
   await expect(page.getByRole("heading", { name: "Studies" })).toBeVisible();

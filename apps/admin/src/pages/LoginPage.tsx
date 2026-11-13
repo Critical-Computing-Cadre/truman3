@@ -109,11 +109,7 @@ export function SignInForm() {
           {login.error.message}
         </p>
       )}
-      <button
-        type="submit"
-        disabled={login.isPending}
-        className="rounded bg-stone-900 py-2.5 font-medium text-white disabled:opacity-40"
-      >
+      <button type="submit" disabled={login.isPending} className="btn btn-primary py-2.5">
         Sign in
       </button>
     </form>
@@ -212,11 +208,7 @@ function ApplyForm() {
           {apply.error.message}
         </p>
       )}
-      <button
-        type="submit"
-        disabled={apply.isPending}
-        className="rounded bg-stone-900 py-2.5 font-medium text-white disabled:opacity-40"
-      >
+      <button type="submit" disabled={apply.isPending} className="btn btn-primary py-2.5">
         Apply
       </button>
     </form>
@@ -266,11 +258,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
           {reset.error.message}
         </p>
       )}
-      <button
-        type="submit"
-        disabled={reset.isPending}
-        className="rounded bg-stone-900 py-2.5 font-medium text-white disabled:opacity-40"
-      >
+      <button type="submit" disabled={reset.isPending} className="btn btn-primary py-2.5">
         Send the link
       </button>
       <button type="button" className="text-sm underline" onClick={onBack}>

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { TEMPLATES, type TemplateKey } from "@truman3/core";
 import { type FormEvent, useState } from "react";
 import { type ContentPack, get, post } from "../api.ts";
@@ -27,7 +27,7 @@ function PackChoice({
 }) {
   return (
     <label
-      className={`block cursor-pointer rounded-lg border p-3 ${chosen ? "border-stone-900 bg-white" : "border-stone-200 bg-white"}`}
+      className={`block cursor-pointer rounded-lg border p-3 ${chosen ? "border-primary bg-white ring-1 ring-primary" : "border-stone-200 bg-white"}`}
     >
       <span className="flex items-baseline gap-2">
         <input type="radio" name="start" checked={chosen} onChange={onChoose} />
@@ -75,7 +75,7 @@ function SampleChoice({
 }) {
   return (
     <label
-      className={`block cursor-pointer rounded-lg border bg-white p-3 ${chosen ? "border-stone-900" : "border-stone-200"}`}
+      className={`block cursor-pointer rounded-lg border bg-white p-3 ${chosen ? "border-primary ring-1 ring-primary" : "border-stone-200"}`}
     >
       <span className="flex items-baseline gap-2">
         <input type="radio" name="start" checked={chosen} onChange={onChoose} />
@@ -179,9 +179,6 @@ export function NewStudyPage() {
 
   return (
     <main className="mx-auto max-w-2xl p-4">
-      <Link to="/" className="text-sm underline">
-        Back to studies
-      </Link>
       <h1 className="mt-2 mb-4 text-2xl font-semibold">New study</h1>
 
       <form onSubmit={submit} className="space-y-5">
@@ -252,7 +249,7 @@ export function NewStudyPage() {
             />
           )}
           <label
-            className={`block cursor-pointer rounded-lg border bg-white p-3 ${packId === null && !withSample ? "border-stone-900" : "border-stone-200"}`}
+            className={`block cursor-pointer rounded-lg border bg-white p-3 ${packId === null && !withSample ? "border-primary ring-1 ring-primary" : "border-stone-200"}`}
           >
             <span className="flex items-baseline gap-2">
               <input
@@ -371,7 +368,7 @@ export function NewStudyPage() {
         <button
           type="submit"
           disabled={start.isPending || !title.trim() || !slug || !assignment}
-          className="rounded bg-stone-900 px-4 py-2 text-sm text-white disabled:opacity-40"
+          className="btn btn-primary px-4 py-2"
         >
           {start.isPending ? "Starting..." : "Start the study"}
         </button>

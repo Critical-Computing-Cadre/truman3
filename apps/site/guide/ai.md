@@ -54,7 +54,7 @@ The agent runs on the Truman server within its budget, which is $2 unless you ch
 
 If you already use an AI agent such as Claude Code, you can connect it to Truman yourself. Truman has an MCP server, which is a small program your agent's client runs on your own computer. MCP is an open standard, so the client doesn't have to be Claude.
 
-1. In the admin app, open **Access for agents** in the bar at the top.
+1. In the admin app, open **Access for agents** in the menu on the left.
 2. Fill in **What it's for** and press **Create a token**. Copy the token straight away, because it's shown once.
 3. Add Truman's MCP server to your client, with the server's address and the token. The command is in [The API and agents](/developers/api-and-agents).
 

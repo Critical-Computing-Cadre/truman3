@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { formatStudyTime, parseStudyTime } from "@truman3/core";
 import { useRef, useState } from "react";
 import { type DraftInfo, get } from "../api.ts";
@@ -31,7 +31,7 @@ function StoryCard({
   };
   const conditions = info.conditions.map(({ key }) => key);
   return (
-    <li aria-label="Story" className="flex gap-3 rounded-lg bg-white p-3 shadow-sm">
+    <li aria-label="Story" className="card flex gap-3 p-3">
       <div className="w-24 shrink-0">
         {story.pictureUrl ? (
           <img src={story.pictureUrl} alt="" className="aspect-[9/16] w-24 rounded object-cover" />
@@ -176,7 +176,7 @@ function StoryCard({
             <button
               type="button"
               onClick={() => edits.remove.mutate(story.id)}
-              className="rounded border border-stone-300 px-2 py-1 text-xs"
+              className="btn btn-sm"
             >
               Delete this story
             </button>
@@ -205,9 +205,6 @@ export function StoriesPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/drafts/$draftId" params={{ draftId }} className="text-sm underline">
-          Back to the feed
-        </Link>
         <h1 className="mr-auto text-lg font-semibold">Stories in {data.title}</h1>
         {data.canEdit && <SaveStatus draftId={draftId} />}
         {data.canEdit && (
@@ -225,7 +222,7 @@ export function StoriesPage() {
                 { onError: (error) => setProblem(error.message) },
               );
             }}
-            className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+            className="btn btn-primary"
           >
             Add a story
           </button>
