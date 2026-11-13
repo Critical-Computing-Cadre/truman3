@@ -245,6 +245,43 @@ describe("a lab's own key (ADR 82)", () => {
   });
 });
 
+describe("when a lab's key can't be made", () => {
+  it("doesn't open the study, and says why", async () => {
+    const failing = createApp({
+      pingDatabase: database.ping,
+      db: database.db,
+      storage,
+      labKeys: createLabKeys({
+        encryptsStorage: false,
+        create: async () => {
+          throw new Error("no");
+        },
+        unwrap: async () => Buffer.alloc(32),
+      }),
+      mediaPublicUrl: "http://media.test",
+      getClientIp: () => undefined,
+      secureCookies: false,
+    });
+    const { studyId, researcher, versionId } = await lab();
+
+    const refused = await failing.request(`/admin/versions/${versionId}/launch`, {
+      method: "POST",
+      headers: { cookie: researcher, "content-type": "application/json" },
+      body: "{}",
+    });
+
+    expect(refused.status).toBe(503);
+    expect(((await refused.json()) as { error: string }).error).toMatch(
+      /encryption key couldn't be made/,
+    );
+    const [study] = await database.db
+      .select()
+      .from(schema.studies)
+      .where(eq(schema.studies.id, studyId));
+    expect(study?.liveVersionId).toBeNull();
+  });
+});
+
 describe("a Truman with no keys for labs", () => {
   it("stores IDs as it always has", async () => {
     const plain = createApp({

@@ -89,6 +89,8 @@ describe("a lab's key in AWS KMS", () => {
       { TagKey: "truman-stage", TagValue: "truman3-test" },
       { TagKey: "truman-team", TagValue: "team-1" },
     ]);
+    // The server can't change the key's policy afterwards, which KMS has to be told is meant.
+    expect(asked[0]?.input.BypassPolicyLockoutSafetyCheck).toBe(true);
     expect(asked[1]?.input.AliasName).toBe("alias/truman3-test-lab-team-1");
 
     expect(await service.unwrap(made.keyId, made.wrappedDataKey)).toEqual(Buffer.alloc(32, 7));
