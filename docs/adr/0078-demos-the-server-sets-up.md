@@ -17,6 +17,7 @@ The obvious way is to import the examples on production from the command line. T
 - **The Demos team has no starter budget for Claude.** Anyone on the internet can open a demo, so a cast that improvises uses its written lines. An operator can raise the budget on the Labs page.
 - **The site's Try it button makes up the recruitment ID,** so a visitor doesn't type one. Each click is a new participant with a world of their own, in a condition chosen as the study chooses.
 - **A demo an operator stops stays stopped,** until its example next changes.
+- **A demo visit is deleted after a week.** The longest example runs for two days, so a week leaves time to come back to it.
 - **Hosted stages turn it on.** A lab's own Truman has it off unless it sets the variable.
 
 ## Alternatives considered
@@ -28,7 +29,7 @@ The obvious way is to import the examples on production from the command line. T
 
 ## Consequences
 
-- Demo visitors are participants like any others: their events and posts are stored. Nothing clears them out yet. The consent note says what they post is deleted from time to time, so a job that does that is owed before the demos get much use.
+- Demo visitors are participants like any others: their events and posts are stored. The server deletes each one a week after they started, with what they posted and uploaded, the way a withdrawal does. It checks soon after it starts and every six hours, and takes up to 200 at a time. Each demo's first page says so.
 - A visitor can upload a photo in a demo, as a participant can in any study. Only they can see it, since each has their own world, but it's stored. Photo scanning is already on the road to launch, and matters more with these open.
 - The API's container is about 100 MB larger, nearly all of it EatSnap's pictures.
 - Each start reads the examples' pictures to hash them. That's after the server is listening, so it doesn't slow a deploy's health check.

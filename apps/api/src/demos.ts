@@ -2,8 +2,8 @@ import path from "node:path";
 import type { StudyDefinition } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
-import { importStudyFolder, launchVersion } from "@truman3/study-import";
-import { eq } from "drizzle-orm";
+import { deleteParticipant, importStudyFolder, launchVersion } from "@truman3/study-import";
+import { and, asc, eq, lt } from "drizzle-orm";
 import { describeError } from "./errors.ts";
 
 /** Where the example studies live, in the repo and in the API's container. */
@@ -27,7 +27,10 @@ export const DEMO_TEAM = {
 /** A demo's address, which can't collide with a lab's own study of the same example. */
 export const demoSlug = (example: string) => `try-${example}`;
 
-const DEMO_NOTE = `> **This is a demo of Truman, not a study.** Everyone you'll meet here is made up, and nothing you do is used for research. Please don't post anything private. What you post is deleted from time to time.
+/** How long a demo visitor's world is kept. The longest example runs for two days. */
+export const DEMO_VISITS_KEPT_DAYS = 7;
+
+const DEMO_NOTE = `> **This is a demo of Truman, not a study.** Everyone you'll meet here is made up, and nothing you do is used for research. Please don't post anything private. What you post is deleted after ${DEMO_VISITS_KEPT_DAYS} days.
 
 `;
 
@@ -119,4 +122,69 @@ export async function setUpDemos({
       log(`Demos: ${example} couldn't be set up: ${JSON.stringify(describeError(error))}`);
     }
   }
+}
+
+/**
+ * Deletes demo visitors who started more than a week ago, with what they posted and uploaded, the
+ * way a withdrawal does. Only participants of the Demos team's studies. Returns how many.
+ *
+ * It takes some at a time, oldest first, so one run can't hold the database for long. The next run
+ * takes more.
+ */
+export async function clearOldDemoVisits({
+  db,
+  storage,
+  now,
+  atMost = 200,
+}: {
+  db: Database;
+  storage: Storage;
+  now: Date;
+  atMost?: number;
+}): Promise<number> {
+  const before = new Date(now.getTime() - DEMO_VISITS_KEPT_DAYS * 24 * 60 * 60 * 1000);
+  const old = await db
+    .select({ id: schema.participants.id })
+    .from(schema.participants)
+    .innerJoin(schema.studies, eq(schema.studies.id, schema.participants.studyId))
+    .innerJoin(schema.teams, eq(schema.teams.id, schema.studies.teamId))
+    .where(and(eq(schema.teams.slug, DEMO_TEAM.slug), lt(schema.participants.enrolledAt, before)))
+    .orderBy(asc(schema.participants.enrolledAt))
+    .limit(atMost);
+  let cleared = 0;
+  for (const { id } of old) {
+    // Another server may be clearing the same ones, so one that's already gone isn't a problem.
+    try {
+      await deleteParticipant(db, storage, id, "demo visit", "demos");
+      cleared += 1;
+    } catch {
+      // Left for the next run.
+    }
+  }
+  return cleared;
+}
+
+/** Clears old demo visits soon after the server starts, and every few hours after. */
+export function startClearingDemoVisits(
+  options: Omit<Parameters<typeof clearOldDemoVisits>[0], "now">,
+  everyMs = 6 * 60 * 60 * 1000,
+) {
+  const run = async () => {
+    try {
+      const cleared = await clearOldDemoVisits({ ...options, now: new Date() });
+      if (cleared > 0) {
+        console.log(`Demos: deleted ${cleared} visits older than ${DEMO_VISITS_KEPT_DAYS} days.`);
+      }
+    } catch (error) {
+      console.error("Demo visits couldn't be cleared:", describeError(error));
+    }
+  };
+  const first = setTimeout(run, 60_000);
+  const timer = setInterval(run, everyMs);
+  first.unref();
+  timer.unref();
+  return () => {
+    clearTimeout(first);
+    clearInterval(timer);
+  };
 }
