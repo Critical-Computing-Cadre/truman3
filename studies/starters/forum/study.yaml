@@ -9,7 +9,11 @@ entry: { idParam: PROLIFIC_PID, idLabel: Prolific ID, source: prolific }
 conditions:
   assignment: { method: uniform }
   arms: [{ key: control }]
-platform: { style: mixed, template: forum }
+platform:
+  style: mixed
+  template: forum
+  # So the note a new member gets has somewhere to arrive.
+  features: { messages: true }
 likes: { comments: [0, 1, 3] }
 flow:
   - { step: consent, page: pages/consent.md }

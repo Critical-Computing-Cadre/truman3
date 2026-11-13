@@ -9,7 +9,11 @@ entry: { idParam: PROLIFIC_PID, idLabel: Prolific ID, source: prolific }
 conditions:
   assignment: { method: uniform }
   arms: [{ key: control }]
-platform: { style: photo, template: photo }
+platform:
+  style: photo
+  template: photo
+  # So the hello a new account gets has somewhere to arrive.
+  features: { messages: true }
 flow:
   - { step: consent, page: pages/consent.md }
   - { step: account }

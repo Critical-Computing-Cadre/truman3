@@ -1,0 +1,35 @@
+# What a new account on a photo app gets in its first minutes: a couple of follows and a hello.
+# It's here so Messages and Notifications aren't empty in the sample.
+beats:
+  - id: ellie-follows
+    note: Ellie follows them as they arrive.
+    when: { time: "0:00" }
+    do: { action: follow, actor: eats.with.ellie }
+
+  - id: ellie-says-hi
+    note: Ellie says hello.
+    when: { time: "0:00" }
+    do:
+      action: message
+      actor: eats.with.ellie
+      text: "hi hi 👋 new here? post what you're eating, I need ideas for the weekend"
+
+  - id: sunny-follows
+    note: Sunny follows them a little later.
+    when: { time: "0:02" }
+    do: { action: follow, actor: sunny.trails }
+
+  - id: jas-follows
+    note: And Jasmine.
+    when: { time: "0:04" }
+    do: { action: follow, actor: jas.carter }
+
+  - id: ellie-answers
+    note: If they write back to Ellie, she answers once.
+    when: { participant: message, on: eats.with.ellie }
+    delay: { min: "0:01", max: "0:02" }
+    max: 1
+    do:
+      action: message
+      actor: eats.with.ellie
+      text: "omg yes. ok following for more of that"

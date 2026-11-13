@@ -39,8 +39,8 @@ export function ReplyButton({
 }: {
   actions?: PostActions | undefined;
   post: Pick<FeedPost, "locked" | "removed">;
-  /** The word, or a speech bubble beside it, as a layout chooses. */
-  look?: "words" | "both";
+  /** The word, a speech bubble beside it, or the bubble alone, as a layout chooses. */
+  look?: "words" | "both" | "icon";
 }) {
   if (!useFeature("comments") || post.locked || post.removed) {
     return null;
@@ -49,11 +49,11 @@ export function ReplyButton({
     <button
       type="button"
       disabled={!actions}
-      className={look === "both" ? "flex items-center justify-center gap-1.5 py-2" : "py-3"}
+      className={look === "words" ? "py-3" : "flex items-center justify-center gap-1.5 py-2"}
       onClick={() => actions?.onReply()}
     >
-      {look === "both" && <CommentIcon className="h-5 w-5" />}
-      Reply
+      {look !== "words" && <CommentIcon {...(look === "icon" ? {} : { className: "h-5 w-5" })} />}
+      {look === "icon" ? <span className="sr-only">Reply</span> : "Reply"}
     </button>
   );
 }

@@ -1267,3 +1267,23 @@ describe("a labeled post", () => {
     expect(screen.getByText("A post")).toBeTruthy();
   });
 });
+
+describe("replying on a photo post's own page", () => {
+  afterEach(cleanup);
+
+  it("is a speech bubble like the buttons beside it, and still called Reply", () => {
+    const onReply = vi.fn();
+    const actions = { onLike: vi.fn(), onVote: vi.fn(), onFlag: vi.fn(), onReply };
+    render(
+      <PlatformProvider platform={{ layout: "photo", features: TEMPLATES.photo.features }}>
+        <FeedPostView post={POST} detail actions={actions} />
+      </PlatformProvider>,
+    );
+
+    const reply = screen.getByRole("button", { name: "Reply" });
+    expect(reply.querySelector("svg")).toBeTruthy();
+    expect(reply.querySelector(".sr-only")?.textContent).toBe("Reply");
+    fireEvent.click(reply);
+    expect(onReply).toHaveBeenCalled();
+  });
+});

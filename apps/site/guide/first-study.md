@@ -16,7 +16,7 @@ You need to be signed in to the admin app. On hosted Truman that's [app.truman-r
 2. Fill in **Title**. Only researchers see it.
 3. Fill in **Link name**, using lowercase letters, numbers, dashes, or underscores. Participants join at `/join/` followed by this name. It can't change later, so choose something a participant could see without learning what the study is about.
 4. Under **What kind of platform is it?**, pick a card. Each shows a small sample of its posts. If you're unsure, open **Help me decide**. The kind can't change once the study starts.
-5. Under **Where do you want to start?**, choose **Sample content** for the kind you picked. It copies in made-up people, posts, and pictures that you can change or delete.
+5. Under **Where do you want to start?**, choose **Sample content** for the kind you picked. It copies in made-up people, posts, and pictures, and a hello that arrives as a message, all of which you can change or delete.
 6. Under **How are people assigned to conditions?**, choose **Uniform** or **Blocked**. Blocked keeps the group sizes close together. Either is fine for now.
 7. Leave **Draft from a brief** empty, and press **Start the study**.
 

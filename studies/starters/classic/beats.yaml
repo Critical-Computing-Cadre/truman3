@@ -1,0 +1,38 @@
+# What a new account on a community site gets in its first minutes: a neighbor says hello, and a
+# couple of people follow. It's here so Messages and Notifications aren't empty in the sample.
+beats:
+  - id: grace-welcomes
+    note: Grace, who runs the neighborhood group, says hello as they arrive.
+    when: { time: "0:00" }
+    do:
+      action: message
+      actor: grace_o
+      text: "Hi, and welcome to Commons! I help run the Alder Creek group. Say hello on the feed when you get a minute, people here are friendly."
+
+  - id: maya-follows
+    note: Maya follows them a minute in.
+    when: { time: "0:01" }
+    do: { action: follow, actor: maya_r }
+
+  - id: ben-follows
+    note: Ben follows them a little later.
+    when: { time: "0:03" }
+    do: { action: follow, actor: ben_c }
+
+  - id: ben-invites
+    note: Ben mentions the running club.
+    when: { time: "0:04" }
+    do:
+      action: message
+      actor: ben_c
+      text: "hey! saw you just joined. running club meets saturday 8am at the creek bridge if you're ever up for it. all paces, I promise"
+
+  - id: grace-answers
+    note: If they write back to Grace, she answers once.
+    when: { participant: message, on: grace_o }
+    delay: { min: "0:01", max: "0:02" }
+    max: 1
+    do:
+      action: message
+      actor: grace_o
+      text: "So glad you're here. If you need anything, just ask!"
