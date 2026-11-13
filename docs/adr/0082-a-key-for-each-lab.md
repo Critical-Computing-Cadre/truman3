@@ -18,7 +18,7 @@ How much to put under the key was Dominic's call, between uploaded photos only, 
   - **Uploaded photos,** each encrypted by S3 with the lab's KMS key in place of the bucket's.
 - **Sealing is AES-256-GCM** with a new nonce for each value. A sealed value starts `sealed:v1:` and a stand-in `id:v1:`, so later versions can be told apart.
 - **The key's policy refuses its use to everyone but the roles the server is told,** which is its own, and later the emergency role's. An administrator's everyday login is refused whatever its own permissions say. The account still manages the key, which AWS needs for it to be manageable at all.
-- **The API may make keys, and use only keys tagged for its own stage.**
+- **The API may make keys, and use only keys tagged for its own stage.** It can't change a key's policy once the key is made. KMS normally refuses to let anyone make a key they couldn't later re-policy, so the API tells it this is meant (`BypassPolicyLockoutSafetyCheck`).
 - **Where the real ID is needed, it's opened there:** the link a participant leaves by, a download with recruitment IDs, and matching people to Prolific's list. A download opens IP addresses too.
 - **People from before a lab's key stay as they were.** They're test participants, or a study opened from the command line. Entering looks for both forms, and a stand-in only ever matches a row the key made, so nobody gets in as someone else by typing what that person is stored as.
 - **It's off unless `LAB_KEYS=kms`.** Hosted stages set it. Tests use a key service that lives in memory.

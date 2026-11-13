@@ -64,6 +64,10 @@ export function kmsKeyService({
         new CreateKeyCommand({
           Description: `Truman: the key for the lab "${team.slug}"`,
           Policy: labKeyPolicy(accountId, mayUse),
+          // KMS refuses a policy that wouldn't let whoever makes the key change that policy later.
+          // That's on purpose here: this server makes the key and should never be able to change
+          // who may use it. The account still can, through the first statement.
+          BypassPolicyLockoutSafetyCheck: true,
           Tags: [
             { TagKey: "truman-stage", TagValue: stage },
             { TagKey: "truman-team", TagValue: team.id },

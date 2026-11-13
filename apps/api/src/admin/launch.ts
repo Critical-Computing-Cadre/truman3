@@ -33,6 +33,7 @@ const launchRoute = createRoute({
       content: { "application/json": { schema: z.object({ version: z.number() }) } },
     },
     ...commonErrors,
+    503: errorResponse("The lab's encryption key couldn't be made"),
     403: errorResponse(
       "This researcher can only view, or their lab can't open studies now: it's waiting for approval, suspended, or at its limit",
     ),
@@ -138,7 +139,19 @@ export function createLaunchRoutes({
       .from(schema.studies)
       .where(eq(schema.studies.id, studyId));
     if (labKeys && owner?.teamId) {
-      await labKeys.ensure(db, owner.teamId);
+      try {
+        await labKeys.ensure(db, owner.teamId);
+      } catch (error) {
+        // Not opened without it: real participants' IDs would be stored unsealed.
+        console.error("A lab's key couldn't be made:", error instanceof Error ? error.name : error);
+        return c.json(
+          {
+            error:
+              "Your lab's encryption key couldn't be made, so the study wasn't opened. Try again in a minute. If it keeps happening, tell whoever runs this Truman.",
+          },
+          503,
+        );
+      }
     }
     const result = await launchVersion(db, studyId, versionId, researcher.email);
     return result.status === "launched"
