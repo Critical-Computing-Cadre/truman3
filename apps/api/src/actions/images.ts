@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
+import { teamHasRoomFor } from "../admin/hosting.ts";
 import type { PhotoScanner } from "../scanning.ts";
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -35,7 +36,7 @@ export function uploadPrefix(worldId: string, participantId: string): string {
 
 /**
  * Stores a participant's image, records it, and returns its key. Returns null if it isn't a usable
- * image.
+ * image, or if their lab has no room left for photos.
  *
  * With a scanner, the image is scanned once it's stored (ADR 79). In a shared world, one that's
  * flagged, or that couldn't be scanned, is held: only its uploader and the researchers see it until
@@ -53,6 +54,10 @@ export async function storeUploadedImage(
   const bytes = new Uint8Array(await file.arrayBuffer());
   const detected = detectImageType(bytes);
   if (!detected) {
+    return null;
+  }
+  // A lab that's used up its room for photos takes no more until it's given some (ADR 80).
+  if (!(await teamHasRoomFor(db, by.participantId, bytes.length))) {
     return null;
   }
   const key = `${uploadPrefix(by.worldId, by.participantId)}${randomUUID()}.${detected.extension}`;

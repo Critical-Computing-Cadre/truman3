@@ -48,11 +48,14 @@ An approved lab starts with:
 | ------------------------------- | --------- |
 | New participants in any 30 days | 1,000     |
 | Studies open at once            | 10        |
+| Photos from participants        | 5 GB      |
 | Starter budget for Claude       | $5        |
 
 **New participants** counts people entering any of your lab's studies in the last 30 days. When you reach it, your studies take nobody new until the oldest of those entries is more than 30 days old. People already in a study can always come back. Test participants don't count.
 
 **Studies open at once** counts launched studies. Launching another is refused until you stop one.
+
+**Photos from participants** adds up what participants have uploaded across all your studies. At a few megabytes a photo, 5 GB is a few thousand photos. Once it's reached, a participant who tries to add a photo is told it can't be used, so ask for more before a photo-heavy study gets there. Withdrawing a participant or deleting a study frees what they used. Photos you put in a study yourself don't count.
 
 ::: tip Planning something bigger
 Whoever runs hosted Truman can raise any of these for your lab. If you're planning a study that needs more, ask before you recruit.
@@ -116,6 +119,5 @@ Hosted Truman is in beta. These have to be done before anyone runs a real study 
 - **Terms of service and a privacy policy,** reviewed by the university that hosts it.
 - **Each lab's data encrypted with its own key,** with any access by the host logged and told to the lab.
 - **Opting out of Amazon keeping scanned photos.** Photos participants upload are scanned by Amazon Rekognition. By default Amazon may keep what it scans to improve its services, and hosted Truman's account hasn't opted out yet.
-- **A limit on how much each lab stores.**
 
 Until then, use it to build and pilot. Everything you make now stays when it opens.

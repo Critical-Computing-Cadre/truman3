@@ -90,6 +90,7 @@ export interface TeamLimits {
   participantsPerMonth?: number;
   runningStudies?: number;
   starterBudgetUsd?: number;
+  uploadsGb?: number;
 }
 
 /** A lab's own Claude key, by its last characters, and what it's spent (ADR 71). */
@@ -123,6 +124,7 @@ export interface OperatorTeam {
     hostAiUsd: number;
     labAiUsd: number;
     hasOwnKey: boolean;
+    uploadBytes: number;
   };
 }
 

@@ -41,9 +41,11 @@ It never shows what's in a study or anything a participant did. That's on purpos
 
 ## Limits
 
-Each lab has two limits, and you can change either on the Labs page:
+Each lab has these limits, and you can change any of them on the Labs page:
 - **New participants a month:** people entering any of its studies in the last 30 days. Once it's reached, a study takes nobody new until the oldest of those are more than 30 days ago. People already in a study can always come back. Test participants don't count.
 - **Studies open at once:** launching another is refused until one is stopped.
+- **Participants' photos, in GB:** what participants in all its studies have uploaded and that's still stored (ADR 80). Once it's reached, participants can't add photos. Deleting a participant's data, or a study, gives the room back. The Labs page shows how much each lab is using.
+- **Starter budget on your key:** see Paying for Claude, below.
 
 Leave a box blank for no limit. Teams made with `pnpm admin setup` have no limits.
 

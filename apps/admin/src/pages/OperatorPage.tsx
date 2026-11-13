@@ -110,6 +110,10 @@ function TeamCard({ team }: { team: OperatorTeam }) {
           ? ` · its own key, $${usage.labAiUsd.toFixed(2)} so far`
           : " · no key of its own yet"}
       </p>
+      <p className="text-sm">
+        Photos from participants: {(usage.uploadBytes / 1024 ** 3).toFixed(2)} GB
+        {team.limits.uploadsGb !== undefined && ` of ${team.limits.uploadsGb} GB`}
+      </p>
       {/* Starts again from what's saved whenever that changes, such as on approval. */}
       <LimitsForm
         key={JSON.stringify(team.limits)}
@@ -164,10 +168,12 @@ function LimitsForm({
   const [participants, setParticipants] = useState(shown(team.limits.participantsPerMonth));
   const [running, setRunning] = useState(shown(team.limits.runningStudies));
   const [starter, setStarter] = useState(shown(team.limits.starterBudgetUsd));
+  const [uploads, setUploads] = useState(shown(team.limits.uploadsGb));
   const changed =
     participants !== shown(team.limits.participantsPerMonth) ||
     running !== shown(team.limits.runningStudies) ||
-    starter !== shown(team.limits.starterBudgetUsd);
+    starter !== shown(team.limits.starterBudgetUsd) ||
+    uploads !== shown(team.limits.uploadsGb);
   const asLimit = (value: string) => (value.trim() === "" ? undefined : Number(value));
 
   return (
@@ -187,6 +193,10 @@ function LimitsForm({
         const budget = asLimit(starter);
         if (budget !== undefined) {
           limits.starterBudgetUsd = budget;
+        }
+        const room = asLimit(uploads);
+        if (room !== undefined) {
+          limits.uploadsGb = room;
         }
         onSave(limits);
       }}
@@ -222,6 +232,18 @@ function LimitsForm({
           placeholder="No limit"
           value={starter}
           onChange={(event) => setStarter(event.target.value)}
+          className="w-36 rounded border border-stone-300 px-2 py-1"
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        Participants' photos (GB)
+        <input
+          type="number"
+          min={0}
+          step="any"
+          placeholder="No limit"
+          value={uploads}
+          onChange={(event) => setUploads(event.target.value)}
           className="w-36 rounded border border-stone-300 px-2 py-1"
         />
       </label>

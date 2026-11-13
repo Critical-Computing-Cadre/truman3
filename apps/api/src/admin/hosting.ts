@@ -114,13 +114,62 @@ export async function teamTakesNewParticipants(
   return (recent?.n ?? 0) < participantsPerMonth;
 }
 
+const GB = 1024 ** 3;
+
+/** How much every team's participants have uploaded, in bytes, by team. */
+export async function uploadBytesByTeam(db: Database | Transaction): Promise<Map<string, number>> {
+  const rows = await db
+    .select({ teamId: schema.studies.teamId, bytes: sum(schema.uploads.bytes) })
+    .from(schema.uploads)
+    .innerJoin(schema.participants, eq(schema.participants.id, schema.uploads.participantId))
+    .innerJoin(schema.studies, eq(schema.studies.id, schema.participants.studyId))
+    .groupBy(schema.studies.teamId);
+  return new Map(
+    rows.flatMap(({ teamId, bytes }) => (teamId ? [[teamId, Number(bytes ?? 0)]] : [])),
+  );
+}
+
+/**
+ * Whether a participant's lab has room for one more photo of this size (ADR 80). A team with no
+ * limit always does. What's counted is what participants uploaded and hasn't been deleted.
+ */
+export async function teamHasRoomFor(
+  db: Database | Transaction,
+  participantId: string,
+  bytes: number,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ teamId: schema.teams.id, limits: schema.teams.limits })
+    .from(schema.participants)
+    .innerJoin(schema.studies, eq(schema.studies.id, schema.participants.studyId))
+    .innerJoin(schema.teams, eq(schema.teams.id, schema.studies.teamId))
+    .where(eq(schema.participants.id, participantId));
+  const uploadsGb = row ? teamLimitsSchema.parse(row.limits).uploadsGb : undefined;
+  if (!row || uploadsGb === undefined) {
+    return true;
+  }
+  const [used] = await db
+    .select({ bytes: sum(schema.uploads.bytes) })
+    .from(schema.uploads)
+    .innerJoin(schema.participants, eq(schema.participants.id, schema.uploads.participantId))
+    .innerJoin(schema.studies, eq(schema.studies.id, schema.participants.studyId))
+    .where(eq(schema.studies.teamId, row.teamId));
+  return Number(used?.bytes ?? 0) + bytes <= uploadsGb * GB;
+}
+
 /** A lab's limits, in a sentence or two, for the email saying it's approved. */
-function limitsText({ runningStudies, participantsPerMonth, starterBudgetUsd }: TeamLimits) {
+function limitsText({
+  runningStudies,
+  participantsPerMonth,
+  starterBudgetUsd,
+  uploadsGb,
+}: TeamLimits) {
   const parts = [
     runningStudies === undefined ? null : `${runningStudies} studies open at once`,
     participantsPerMonth === undefined
       ? null
       : `${participantsPerMonth.toLocaleString("en-US")} new participants in any 30 days`,
+    uploadsGb === undefined ? null : `${uploadsGb} GB of photos from participants`,
   ].filter((part) => part !== null);
   return [
     parts.length > 0 ? `Your lab can have ${parts.join(", and ")}.` : "",
@@ -222,6 +271,8 @@ const operatorTeamSchema = z.object({
     labAiUsd: z.number(),
     /** Whether the lab has stored its own Claude key. Never the key itself. */
     hasOwnKey: z.boolean(),
+    /** How much its participants' uploaded photos take up, in bytes (ADR 80). */
+    uploadBytes: z.number(),
   }),
 });
 
@@ -322,6 +373,7 @@ async function operatorTeams(db: Database, now: Date, onlyTeamId?: string) {
     .groupBy(schema.aiSpending.teamId, schema.aiSpending.paidBy);
   const spent = (teamId: string, paidBy: string) =>
     Number(spending.find((row) => row.teamId === teamId && row.paidBy === paidBy)?.total ?? 0);
+  const uploaded = await uploadBytesByTeam(db);
   const participants = await participantCounts();
   const recent = await participantCounts(new Date(now.getTime() - 30 * DAY_MS));
   const owners = await db
@@ -361,6 +413,7 @@ async function operatorTeams(db: Database, now: Date, onlyTeamId?: string) {
         hostAiUsd: spent(team.id, "host"),
         labAiUsd: spent(team.id, "lab"),
         hasOwnKey: team.anthropicKeyEncrypted !== null,
+        uploadBytes: uploaded.get(team.id) ?? 0,
       },
     }));
 }
