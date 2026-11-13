@@ -68,6 +68,7 @@ With `DEMO_STUDIES=true`, the server sets up four of the example studies for any
 
 - They belong to a team called Demos, which has no researchers. You see it on the Labs page.
 - The Demos team has no budget for Claude, so the cast uses its written lines. Raise its starter budget if you want a demo's cast to improvise, knowing anyone can open it.
+- The same setting offers all five examples to every lab on the **New study** page, as packs named **Example: ...** (ADR 81). When an example changes, its pack is replaced.
 - To close one, stop it like any study. It stays stopped until its example next changes.
 - A demo visitor's data is deleted a week after they started, with anything they uploaded. Each demo's first page tells them so.
 

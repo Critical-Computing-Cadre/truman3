@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
-import { get, type Researcher, send, type TeamAi } from "../api.ts";
+import { get, type Researcher, send, type TeamAi, type TeamLimits } from "../api.ts";
 
 const dollars = (value: number) => `$${value.toFixed(2)}`;
 
@@ -22,10 +22,86 @@ export function LabPage() {
       {me.data.teams.map((team) => (
         <div key={team.id} className="flex flex-col gap-3">
           <MembersCard team={team} me={me.data.email} />
+          {me.data.hosted && <UsageCard team={team} />}
           {me.data.hosted && <TeamAiCard team={team} />}
         </div>
       ))}
     </main>
+  );
+}
+
+interface TeamUsage {
+  status: "pending" | "approved" | "suspended";
+  limits: TeamLimits;
+  usage: { participantsLast30Days: number; runningStudies: number; uploadBytes: number };
+}
+
+/** How much of one thing a lab has used, and of how much. */
+function Used({ name, used, limit }: { name: string; used: string; limit?: string }) {
+  return (
+    <li className="flex flex-wrap items-baseline justify-between gap-2">
+      <span>{name}</span>
+      <span className="text-stone-600">
+        {used}
+        {limit === undefined ? ", no limit" : ` of ${limit}`}
+      </span>
+    </li>
+  );
+}
+
+/** A lab's limits on a hosted Truman, and how much of each it has used. */
+function UsageCard({ team }: { team: Researcher["teams"][number] }) {
+  const usage = useQuery({
+    queryKey: ["team-usage", team.id],
+    queryFn: () => get<TeamUsage>(`/admin/teams/${team.id}/usage`),
+  });
+  if (!usage.data) {
+    return null;
+  }
+  const { limits, usage: used, status } = usage.data;
+  const gb = (bytes: number) => `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+  const nearlyFull =
+    limits.uploadsGb !== undefined && used.uploadBytes >= limits.uploadsGb * 1024 ** 3 * 0.8;
+  return (
+    <section
+      aria-label={`${team.name} limits`}
+      className="flex flex-col gap-3 rounded border border-stone-200 bg-white p-4"
+    >
+      <h2 className="text-lg font-semibold">Limits</h2>
+      {status === "pending" && (
+        <p className="text-sm text-stone-600">
+          Your lab is waiting to be approved. Its limits are set when it is.
+        </p>
+      )}
+      <ul className="flex flex-col gap-1 text-sm">
+        <Used
+          name="New participants in the last 30 days"
+          used={used.participantsLast30Days.toLocaleString("en-US")}
+          {...(limits.participantsPerMonth === undefined
+            ? {}
+            : { limit: limits.participantsPerMonth.toLocaleString("en-US") })}
+        />
+        <Used
+          name="Studies open now"
+          used={String(used.runningStudies)}
+          {...(limits.runningStudies === undefined ? {} : { limit: String(limits.runningStudies) })}
+        />
+        <Used
+          name="Photos from participants"
+          used={gb(used.uploadBytes)}
+          {...(limits.uploadsGb === undefined ? {} : { limit: `${limits.uploadsGb} GB` })}
+        />
+      </ul>
+      {nearlyFull && (
+        <p role="status" className="text-sm text-amber-800">
+          Your lab is close to its room for photos. When it's full, participants can't add any.
+        </p>
+      )}
+      <p className="text-sm text-stone-600">
+        If a study you're planning needs more of any of these, ask whoever runs this Truman before
+        you recruit.
+      </p>
+    </section>
   );
 }
 

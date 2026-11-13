@@ -7,7 +7,7 @@ import { anthropicWriter } from "@truman3/writer";
 import { createAi } from "./ai.ts";
 import { createApp } from "./app.ts";
 import { forwardedAddress } from "./client-address.ts";
-import { setUpDemos, startClearingDemoVisits } from "./demos.ts";
+import { offerExamples, setUpDemos, startClearingDemoVisits } from "./demos.ts";
 import { parseServerEnv } from "./env.ts";
 import { describeError } from "./errors.ts";
 import { createLabKeys } from "./lab-keys.ts";
@@ -118,9 +118,11 @@ const server = serve({ fetch: app.fetch, port: env.PORT }, ({ port }) => {
 // The example studies, for anyone to try (ADR 78). After the server is up, so a slow upload of
 // their pictures can't hold up a deploy's health check.
 if (env.DEMO_STUDIES) {
-  setUpDemos({ db: database.db, storage }).catch((error) => {
-    console.error("Demos couldn't be set up:", describeError(error));
-  });
+  setUpDemos({ db: database.db, storage })
+    .then(() => offerExamples({ db: database.db, storage }))
+    .catch((error) => {
+      console.error("Demos couldn't be set up:", describeError(error));
+    });
 }
 // What demo visitors post is deleted after a week, as each demo's first page says.
 const stopClearingDemos = env.DEMO_STUDIES

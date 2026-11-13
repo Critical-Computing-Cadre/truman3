@@ -1,9 +1,10 @@
 import path from "node:path";
 import type { StudyDefinition } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
+import { savePackFromFolder } from "@truman3/drafts";
 import type { Storage } from "@truman3/storage";
 import { deleteParticipant, importStudyFolder, launchVersion } from "@truman3/study-import";
-import { and, asc, eq, lt } from "drizzle-orm";
+import { and, asc, eq, isNull, lt, ne } from "drizzle-orm";
 import { describeError } from "./errors.ts";
 
 /** Where the example studies live, in the repo and in the API's container. */
@@ -14,6 +15,39 @@ export const EXAMPLES_FOLDER = path.resolve(import.meta.dirname, "../../../studi
  * strangers in a world together, and nobody would be reading what they write to each other.
  */
 export const DEMO_STUDIES = ["bystander", "eatsnap", "flag-source", "vaccine-frames"] as const;
+
+/**
+ * Every example, as something a new study can start from (ADR 81): what New study lists it as, and
+ * a line on what it is. Town talk is here though it has no demo, since copying it puts nobody
+ * together.
+ */
+export const EXAMPLE_PACKS: Record<string, { name: string; description: string }> = {
+  eatsnap: {
+    name: "Example: EatSnap",
+    description:
+      "A food-photo site with 76 people and 284 posts over two days, where some comments are cruel. The first Truman study's site.",
+  },
+  "flag-source": {
+    name: "Example: Who flagged this?",
+    description:
+      "A flag notice on one comment a day, saying who flagged it, in six conditions. A rebuild of Bhandari et al. (2021).",
+  },
+  "vaccine-frames": {
+    name: "Example: Vaccine frames",
+    description:
+      "A one-minute feed of 30 posts, where two, five, or nine people have a frame on their picture. A rebuild of Aghajari et al. (2024).",
+  },
+  "town-talk": {
+    name: "Example: Town talk",
+    description:
+      "A town forum that six real participants share, with a cast that's polite or rude. Shared worlds and live moderation.",
+  },
+  bystander: {
+    name: "Example: Bystander",
+    description:
+      "Someone's first painting gets mocked, and the cast reacts to what the participant does. Beats, messages, and scenario tests.",
+  },
+};
 
 /** The team the demos belong to. It has no researchers, so only an operator sees it. */
 export const DEMO_TEAM = {
@@ -198,4 +232,50 @@ export function startClearingDemoVisits(
     clearTimeout(first);
     clearInterval(timer);
   };
+}
+
+/**
+ * Offers each example to every lab on this server as something to start a study from (ADR 81). Run
+ * as the server starts. The same content twice changes nothing. When an example changes, its new
+ * pack replaces the old one. A study started from a pack is a copy, so it isn't affected.
+ */
+export async function offerExamples({
+  db,
+  storage,
+  folder = EXAMPLES_FOLDER,
+  log = console.log,
+}: {
+  db: Database;
+  storage: Storage;
+  folder?: string;
+  log?: (line: string) => void;
+}): Promise<void> {
+  for (const [example, { name, description }] of Object.entries(EXAMPLE_PACKS)) {
+    try {
+      const saved = await savePackFromFolder(db, storage, path.join(folder, example), {
+        name,
+        description,
+      });
+      if (saved.status === "failed") {
+        log(`Examples: ${example} has errors, so it isn't offered.`);
+        continue;
+      }
+      // Only packs for everyone, which nobody on a team made, with this name.
+      await db
+        .delete(schema.contentPacks)
+        .where(
+          and(
+            isNull(schema.contentPacks.teamId),
+            isNull(schema.contentPacks.createdBy),
+            eq(schema.contentPacks.name, name),
+            ne(schema.contentPacks.id, saved.id),
+          ),
+        );
+      if (saved.status === "saved") {
+        log(`Examples: ${name} can be started from.`);
+      }
+    } catch (error) {
+      log(`Examples: ${example} couldn't be offered: ${JSON.stringify(describeError(error))}`);
+    }
+  }
 }

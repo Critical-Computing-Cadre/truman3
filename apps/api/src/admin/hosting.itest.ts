@@ -236,6 +236,29 @@ describe("a hosted Truman (ADR 70)", () => {
     expect((await enter(first.slug, ann)).status).toBe(200);
   });
 
+  it("shows a lab its own limits and what it has used, and nobody else's", async () => {
+    const op = await operator();
+    const { cookie, email } = await apply();
+    const team = await teamOf(email);
+    await send(op, "PATCH", `/admin/operator/teams/${team.id}`, {
+      status: "approved",
+      limits: { runningStudies: 3, participantsPerMonth: 50, uploadsGb: 2 },
+    });
+    const { versionId, slug } = await studyFor(team.id);
+    await send(cookie, "POST", `/admin/versions/${versionId}/launch`);
+    await enter(slug);
+    await enter(slug);
+
+    expect(await json(await send(cookie, "GET", `/admin/teams/${team.id}/usage`))).toEqual({
+      status: "approved",
+      limits: { runningStudies: 3, participantsPerMonth: 50, uploadsGb: 2 },
+      usage: { participantsLast30Days: 2, runningStudies: 1, uploadBytes: 0 },
+    });
+
+    const stranger = await apply();
+    expect((await send(stranger.cookie, "GET", `/admin/teams/${team.id}/usage`)).status).toBe(404);
+  });
+
   it("stops a suspended team's studies at once, for new and current participants", async () => {
     const op = await operator();
     const { cookie, email } = await apply();
