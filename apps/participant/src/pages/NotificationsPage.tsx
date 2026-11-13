@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Avatar, shortTime } from "@truman3/ui";
 import { useEffect, useRef } from "react";
 import { flowQuery, get, type NotificationItem, post } from "../api.ts";
+import { useListLook } from "../components/list-look.ts";
 import { rememberOpenedFrom } from "../tracking.ts";
 
 function describe(item: NotificationItem): string {
@@ -78,16 +79,17 @@ export function NotificationsPage() {
   }, [mutate]);
 
   const items = list.data?.notifications ?? [];
+  const look = useListLook();
 
   return (
-    <div className="mx-auto max-w-xl bg-white shadow-sm sm:rounded-lg">
-      <h1 className="p-4 text-xl font-semibold">Notifications</h1>
+    <div className={`mx-auto max-w-xl ${look.frame}`}>
+      <h1 className={look.heading}>Notifications</h1>
       {list.data && items.length === 0 && (
         <p className="p-6 text-center text-stone-500">Nothing yet.</p>
       )}
       <ul className="divide-y divide-stone-200">
         {items.map((item) => (
-          <li key={item.key} className={`flex gap-3 p-3 ${item.unread ? "bg-amber-50" : ""}`}>
+          <li key={item.key} className={`flex gap-3 p-3 ${item.unread ? look.unread : ""}`}>
             <Avatar
               seed={item.actors[0]?.username ?? ""}
               url={item.actors[0]?.pictureUrl ?? null}
@@ -119,6 +121,14 @@ export function NotificationsPage() {
               )}
               <p className="text-xs text-stone-500">{shortTime(item.at)}</p>
             </div>
+            {/* A dot for what's new, on every kind, since a photo app has no band of color for it. */}
+            {item.unread && (
+              <span
+                data-testid="unread-dot"
+                aria-hidden="true"
+                className="mt-2 h-2 w-2 shrink-0 rounded-full bg-accent-fill"
+              />
+            )}
             {item.targetImageUrl && (
               <img src={item.targetImageUrl} alt="" className="h-12 w-12 rounded object-cover" />
             )}
