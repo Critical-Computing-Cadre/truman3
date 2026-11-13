@@ -31,7 +31,7 @@ The builder is where you'll spend most of your time, so it's worth trying a few 
 1. Click the text of any post and type. It saves when you click away. The top of the page says **All changes saved** when it has.
 2. Under a post, open **Details** to change who wrote it, when it appears, and how many likes it has.
 3. Move the slider at the top to see the feed at a later time in the study.
-4. Press **Cast** to see the people. Press **Add a person** to add one, then **Back to the feed**.
+4. Press **Cast** to see the people. Press **Add a person** to add one, then **Feed** in the menu on the left.
 5. Use **New post here** to write a post for someone in the cast.
 
 If you make a mistake, open **Recent changes** and press **Undo**.
@@ -49,7 +49,7 @@ If you make a mistake, open **Recent changes** and press **Undo**.
 
 So far you've been working in a draft. A draft is where you work, and a version is a frozen copy that participants can be given.
 
-1. Go **Back to the feed** and press **Save as new version**.
+1. Go back to **Feed** in the menu and press **Save as new version**.
 2. Read what it tells you. If anything needs fixing first, it's listed there.
 3. Press **Save version**.
 

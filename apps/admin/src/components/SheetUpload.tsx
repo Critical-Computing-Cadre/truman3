@@ -117,7 +117,7 @@ export function SheetUpload({ draftId }: { draftId: string }) {
           setFile(null);
           dialog.current?.showModal();
         }}
-        className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+        className="btn"
       >
         Add from sheets
       </button>
@@ -138,11 +138,7 @@ export function SheetUpload({ draftId }: { draftId: string }) {
                 <IssueList issues={add.data.warnings} />
               </div>
             )}
-            <button
-              type="button"
-              onClick={close}
-              className="rounded bg-stone-900 px-3 py-1.5 text-white"
-            >
+            <button type="button" onClick={close} className="btn btn-primary">
               Done
             </button>
           </div>
@@ -198,18 +194,10 @@ export function SheetUpload({ draftId }: { draftId: string }) {
               </div>
             )}
             <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={add.isPending || !file}
-                className="rounded bg-stone-900 px-3 py-1.5 text-white disabled:opacity-40"
-              >
+              <button type="submit" disabled={add.isPending || !file} className="btn btn-primary">
                 {add.isPending ? "Adding…" : "Add to the draft"}
               </button>
-              <button
-                type="button"
-                onClick={close}
-                className="rounded border border-stone-300 px-3 py-1.5"
-              >
+              <button type="button" onClick={close} className="btn">
                 Cancel
               </button>
             </div>

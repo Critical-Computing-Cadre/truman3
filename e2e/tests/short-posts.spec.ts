@@ -190,7 +190,7 @@ test("a researcher builds a short posts study, with a repost and a badge", async
   });
   await expect(casey.getByTestId("cast-banner")).toBeVisible();
   await saved();
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
 
   const feed = page.getByRole("main").or(page.locator("body")).first();
   await page.getByRole("button", { name: "New post here" }).click();
@@ -218,7 +218,7 @@ test("a researcher builds a short posts study, with a repost and a badge", async
   const platform = page.getByRole("region", { name: "Study and platform" });
   await platform.getByRole("button", { name: "Save changes" }).click();
   await expect(platform.getByRole("button", { name: "Save changes" })).toBeDisabled();
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
 
   await page.getByRole("button", { name: "Save as new version" }).click();
   await page.getByRole("button", { name: "Save version" }).click();

@@ -94,7 +94,7 @@ test("a researcher writes polls, flair, and crossposts, and a participant uses t
   await cooking.getByLabel("New flair for On people", { exact: true }).fill("Chef");
   await cooking.getByRole("button", { name: "Add", exact: true }).last().click();
   await saved(page);
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
 
   // Someone in the cast, who has flair.
   await page.getByRole("link", { name: "Add someone to the cast first" }).click();
@@ -105,7 +105,7 @@ test("a researcher writes polls, flair, and crossposts, and a participant uses t
   const casey = page.getByRole("listitem", { name: "Casey Jones" });
   await casey.getByLabel("Flair in Cooking").selectOption("Chef");
   await saved(page);
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
 
   // A poll with starting counts, whose results wait for a vote.
   const polled = await addPost(page, "Which pan");

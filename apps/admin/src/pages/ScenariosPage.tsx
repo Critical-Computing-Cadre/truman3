@@ -22,7 +22,7 @@ scenarios:
 function Reference() {
   const row = "border-t border-stone-200 py-1 align-top";
   return (
-    <details className="rounded-lg bg-white p-3 text-sm shadow-sm" open>
+    <details className="card p-3 text-sm" open>
       <summary className="cursor-pointer font-medium">How scenarios work</summary>
       <table className="mt-2 w-full text-left text-xs">
         <tbody>

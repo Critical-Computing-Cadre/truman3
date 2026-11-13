@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   download,
@@ -46,7 +46,7 @@ function Report({ report }: { report: SimulationReport }) {
           .join(", ") || "nothing"}
         .
       </p>
-      <div className="overflow-x-auto rounded-lg bg-white shadow-sm">
+      <div className="card overflow-x-auto">
         <table className="w-full text-left text-sm" data-testid="simulated-beats">
           <thead>
             <tr>
@@ -92,7 +92,7 @@ function Report({ report }: { report: SimulationReport }) {
         </table>
       </div>
       {report.decisions.length > 0 && (
-        <div className="rounded-lg bg-white p-3 text-sm shadow-sm">
+        <div className="card p-3 text-sm">
           <h2 className="font-medium">Decision points</h2>
           <ul className="list-disc pl-5">
             {report.decisions.map((decision) => (
@@ -124,7 +124,7 @@ function TranscriptView({ transcript }: { transcript: Transcript }) {
   // Looks where nothing new appeared and they did nothing are left out, so it reads as a story.
   const entries = transcript.entries.filter((entry) => entry.did || entry.saw.length > 0);
   return (
-    <details className="rounded-lg bg-white p-3 text-sm shadow-sm" data-testid="transcript">
+    <details className="card p-3 text-sm" data-testid="transcript">
       <summary className="cursor-pointer">
         <span className="font-medium">{transcript.persona}</span>, in "{transcript.condition}":{" "}
         {transcript.entries.filter((entry) => entry.did).length} things done in{" "}
@@ -197,9 +197,6 @@ export function SimulatePage() {
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/" className="text-sm underline">
-          Back to studies
-        </Link>
         <h1 className="text-lg font-semibold">
           Simulated participants in {title}, version {version}
         </h1>
@@ -216,7 +213,7 @@ export function SimulatePage() {
 
       {canRun && (
         <form
-          className="space-y-3 rounded-lg bg-white p-3 shadow-sm"
+          className="card space-y-3 p-3"
           onSubmit={(event) => {
             event.preventDefault();
             run.mutate(
@@ -321,7 +318,7 @@ export function SimulatePage() {
             <button
               type="submit"
               disabled={running || run.isPending || !ready}
-              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              className="btn btn-primary"
             >
               Simulate
             </button>
@@ -330,7 +327,7 @@ export function SimulatePage() {
                 type="button"
                 disabled={run.isPending}
                 onClick={() => run.mutate(latest.settings)}
-                className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+                className="btn"
               >
                 Repeat the last run
               </button>
@@ -355,7 +352,7 @@ export function SimulatePage() {
               type="button"
               disabled={synthetic.isPending}
               onClick={() => synthetic.mutate(studyId)}
-              className="rounded border border-stone-300 px-3 py-1.5"
+              className="btn"
             >
               Download synthetic data
             </button>

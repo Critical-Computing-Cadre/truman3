@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import {
   contrast,
   DECOR_ITEMS,
@@ -204,7 +204,7 @@ function SaveBar({
             event.preventDefault();
             onSave();
           }}
-          className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+          className="btn btn-primary"
         >
           Save changes
         </button>
@@ -262,11 +262,7 @@ function Section<K extends keyof DraftSections>({
   const editors = others.filter(({ section }) => section === name);
 
   return (
-    <section
-      aria-label={title}
-      onFocusCapture={() => onFocus(name)}
-      className="space-y-4 rounded-lg bg-white p-4 shadow-sm"
-    >
+    <section aria-label={title} onFocusCapture={() => onFocus(name)} className="card space-y-4 p-4">
       <header>
         <h2 className="font-semibold">{title}</h2>
         <p className="text-sm text-stone-500">{intro}</p>
@@ -1264,7 +1260,7 @@ function KarmaChanges({
       <button
         type="button"
         onClick={() => onChange([...changes, { afterMinutes: 60, change: 100 }])}
-        className="rounded border border-stone-300 px-2 py-1"
+        className="btn btn-sm"
       >
         Add a karma change
       </button>
@@ -1893,9 +1889,6 @@ export function SettingsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/drafts/$draftId" params={{ draftId }} className="text-sm underline">
-          Back to the feed
-        </Link>
         <h1 className="text-lg font-semibold">
           Settings for {data.title} <span className="font-normal text-amber-700">draft</span>
         </h1>

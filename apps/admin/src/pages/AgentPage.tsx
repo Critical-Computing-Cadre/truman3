@@ -43,10 +43,7 @@ const STOPPED: Record<string, string> = {
 /** One run: what was asked, each step, and what the agent said at the end. */
 function RunView({ run }: { run: AgentRun }) {
   return (
-    <article
-      className="space-y-2 rounded-lg bg-white p-3 text-sm shadow-sm"
-      data-testid="agent-run"
-    >
+    <article className="card space-y-2 p-3 text-sm" data-testid="agent-run">
       <p className="text-xs text-stone-500">
         Asked by {run.startedBy}, {new Date(run.startedAt).toLocaleString()}. {run.model}, $
         {run.costUsd.toFixed(2)} of ${run.budgetUsd.toFixed(2)}.
@@ -136,7 +133,7 @@ export function AgentPage() {
           {state.data.noModel ?? "An agent needs a Claude key."} An agent can't run until then.
         </p>
       ) : (
-        <form onSubmit={submit} className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+        <form onSubmit={submit} className="card space-y-2 p-3">
           <label className="flex flex-col gap-1 text-sm">
             What should it do?
             <textarea
@@ -175,7 +172,7 @@ export function AgentPage() {
             <button
               type="submit"
               disabled={running || start.isPending || brief.trim().length < 10}
-              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              className="btn btn-primary"
             >
               Ask the agent
             </button>

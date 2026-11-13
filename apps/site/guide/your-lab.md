@@ -63,7 +63,7 @@ Whoever runs hosted Truman can raise any of these for your lab. If you're planni
 
 ## Teammates and roles
 
-Open **Your lab** in the bar at the top. It lists everyone on the lab and anyone you've invited.
+Open **Your lab** in the menu on the left. It lists everyone on the lab and anyone you've invited.
 
 To add someone:
 

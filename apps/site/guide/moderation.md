@@ -12,7 +12,7 @@ Nobody real moderates anything on Truman. You write what a moderator does and wh
 
 ## Before you start
 
-**Turn the features on.** Each kind of moderation is a feature. Photo, Short posts, and Forum sites start with most of them on. On a Classic site, press **Settings** and tick the ones you want under **What's on this platform?**, such as **Moderators removing things**. Once any is on, a **Moderation** button appears in the builder.
+**Turn the features on.** Each kind of moderation is a feature. Photo, Short posts, and Forum sites start with most of them on. On a Classic site, press **Settings** and tick the ones you want under **What's on this platform?**, such as **Moderators removing things**. Once any is on, **Moderation** appears in the study's menu.
 
 **Decide who the moderator is.** A moderator is anyone in the cast, including an account named as automatic. On the **Cast** page, tick **Show a moderator tag on their name**.
 

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { formatStudyTime, parseStudyTime, ruleMatches } from "@truman3/core";
 import { useState } from "react";
 import { type DraftInfo, get } from "../api.ts";
@@ -194,7 +194,7 @@ function LabelCard({
     );
   };
   return (
-    <li aria-label="Label" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+    <li aria-label="Label" className="card space-y-2 p-3">
       <div className="grid gap-2 sm:grid-cols-2">
         <TargetPicker label="What it labels" item={labeling} info={info} onSave={save} />
         <CastField
@@ -264,7 +264,7 @@ function LabelCard({
           <button
             type="button"
             onClick={() => edits.remove.mutate(labeling.id)}
-            className="rounded border border-stone-300 px-2 py-1 text-xs"
+            className="btn btn-sm"
           >
             Delete this label
           </button>
@@ -292,7 +292,7 @@ function RemovalCard({
     );
   };
   return (
-    <li aria-label="Removal" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+    <li aria-label="Removal" className="card space-y-2 p-3">
       <div className="grid gap-2 sm:grid-cols-2">
         <TargetPicker label="What it removes" item={removal} info={info} onSave={save} />
         <ModeratorPicker
@@ -333,7 +333,7 @@ function RemovalCard({
           <button
             type="button"
             onClick={() => edits.remove.mutate(removal.id)}
-            className="rounded border border-stone-300 px-2 py-1 text-xs"
+            className="btn btn-sm"
           >
             Delete this removal
           </button>
@@ -361,7 +361,7 @@ function ReactionCard({
     );
   };
   return (
-    <li aria-label="Response" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+    <li aria-label="Response" className="card space-y-2 p-3">
       <div className="grid gap-2 sm:grid-cols-2">
         <label className={LABEL}>
           What happens
@@ -450,7 +450,7 @@ function ReactionCard({
           <button
             type="button"
             onClick={() => edits.remove.mutate(reaction.id)}
-            className="rounded border border-stone-300 px-2 py-1 text-xs"
+            className="btn btn-sm"
           >
             Delete this response
           </button>
@@ -478,7 +478,7 @@ function FlagAnswerCard({
     );
   };
   return (
-    <li aria-label="Answer to a flag" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+    <li aria-label="Answer to a flag" className="card space-y-2 p-3">
       <div className="grid gap-2 sm:grid-cols-2">
         <label className={`${LABEL} sm:col-span-2`}>
           When someone flags
@@ -559,7 +559,7 @@ function FlagAnswerCard({
           <button
             type="button"
             onClick={() => edits.remove.mutate(answer.id)}
-            className="rounded border border-stone-300 px-2 py-1 text-xs"
+            className="btn btn-sm"
           >
             Delete this answer
           </button>
@@ -587,7 +587,7 @@ function BanCard({
     );
   };
   return (
-    <li aria-label="Ban" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+    <li aria-label="Ban" className="card space-y-2 p-3">
       <div className="grid gap-2 sm:grid-cols-2">
         <label className={LABEL}>
           Who's banned
@@ -657,11 +657,7 @@ function BanCard({
       )}
       {info.canEdit && (
         <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => edits.remove.mutate(ban.id)}
-            className="rounded border border-stone-300 px-2 py-1 text-xs"
-          >
+          <button type="button" onClick={() => edits.remove.mutate(ban.id)} className="btn btn-sm">
             Delete this ban
           </button>
         </div>
@@ -688,7 +684,7 @@ function ReportAnswerCard({
     );
   };
   return (
-    <li aria-label="Answer to a report" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+    <li aria-label="Answer to a report" className="card space-y-2 p-3">
       <div className="grid gap-2 sm:grid-cols-2">
         <label className={LABEL}>
           When someone reports
@@ -757,7 +753,7 @@ function ReportAnswerCard({
           <button
             type="button"
             onClick={() => edits.remove.mutate(answer.id)}
-            className="rounded border border-stone-300 px-2 py-1 text-xs"
+            className="btn btn-sm"
           >
             Delete this answer
           </button>
@@ -787,7 +783,7 @@ function AutoRuleCard({
   };
   const speaks = rule.action === "confirm" || rule.action === "warn";
   return (
-    <li aria-label="Automatic rule" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+    <li aria-label="Automatic rule" className="card space-y-2 p-3">
       <CastField
         label="Words to look for, separated by | (end one with * for the start of a word)"
         value={rule.match}
@@ -898,11 +894,7 @@ function AutoRuleCard({
       )}
       {info.canEdit && (
         <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => edits.remove.mutate(rule.id)}
-            className="rounded border border-stone-300 px-2 py-1 text-xs"
-          >
+          <button type="button" onClick={() => edits.remove.mutate(rule.id)} className="btn btn-sm">
             Delete this rule
           </button>
         </div>
@@ -929,7 +921,7 @@ function AppealAnswerCard({
     );
   };
   return (
-    <li aria-label="Answer to an appeal" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+    <li aria-label="Answer to an appeal" className="card space-y-2 p-3">
       <div className="grid gap-2 sm:grid-cols-2">
         <label className={LABEL}>
           What happens
@@ -982,7 +974,7 @@ function AppealAnswerCard({
           <button
             type="button"
             onClick={() => edits.remove.mutate(answer.id)}
-            className="rounded border border-stone-300 px-2 py-1 text-xs"
+            className="btn btn-sm"
           >
             Delete this answer
           </button>
@@ -1018,7 +1010,7 @@ function ContextNoteCard({
     }
   };
   return (
-    <li aria-label="Context note" className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+    <li aria-label="Context note" className="card space-y-2 p-3">
       <div className="grid gap-2 sm:grid-cols-2">
         <label className={`${LABEL} sm:col-span-2`}>
           On this post
@@ -1077,11 +1069,7 @@ function ContextNoteCard({
       )}
       {info.canEdit && (
         <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => edits.remove.mutate(note.id)}
-            className="rounded border border-stone-300 px-2 py-1 text-xs"
-          >
+          <button type="button" onClick={() => edits.remove.mutate(note.id)} className="btn btn-sm">
             Delete this note
           </button>
         </div>
@@ -1132,9 +1120,6 @@ export function ModerationPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/drafts/$draftId" params={{ draftId }} className="text-sm underline">
-          Back to the feed
-        </Link>
         <h1 className="mr-auto text-lg font-semibold">Moderation in {data.title}</h1>
         {data.canEdit && <SaveStatus draftId={draftId} />}
       </div>
@@ -1172,7 +1157,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              className="btn btn-primary"
             >
               Add a removal
             </button>
@@ -1216,7 +1201,7 @@ export function ModerationPage() {
                     conditions: [],
                   })
                 }
-                className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+                className="btn btn-primary"
               >
                 Add a label
               </button>
@@ -1257,7 +1242,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              className="btn btn-primary"
             >
               Add an answer
             </button>
@@ -1291,7 +1276,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              className="btn btn-primary"
             >
               Add a note
             </button>
@@ -1329,7 +1314,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              className="btn btn-primary"
             >
               Add a rule
             </button>
@@ -1364,7 +1349,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              className="btn btn-primary"
             >
               Add an answer
             </button>
@@ -1399,7 +1384,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              className="btn btn-primary"
             >
               Add a ban
             </button>
@@ -1434,7 +1419,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              className="btn btn-primary"
             >
               Add an answer
             </button>
@@ -1470,7 +1455,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              className="btn btn-primary"
             >
               Add a response
             </button>

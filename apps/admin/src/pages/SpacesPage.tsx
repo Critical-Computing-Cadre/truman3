@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { type Flair, textOnAccent } from "@truman3/core";
 import { useRef, useState } from "react";
 import { type DraftInfo, get } from "../api.ts";
@@ -120,7 +120,7 @@ function Space({
     });
 
   return (
-    <li aria-label={space.name} className="space-y-2 rounded-lg bg-white p-3 shadow-sm">
+    <li aria-label={space.name} className="card space-y-2 p-3">
       <div className="flex items-center gap-3">
         {space.pictureUrl ? (
           <img src={space.pictureUrl} alt="" className="h-12 w-12 rounded-lg object-cover" />
@@ -352,7 +352,7 @@ function Space({
             disabled={space.usedBy > 0}
             title={space.usedBy > 0 ? "It still has posts in it." : undefined}
             onClick={() => edits.remove.mutate(space.id)}
-            className="rounded border border-stone-300 px-2 py-1 text-stone-900 disabled:opacity-40"
+            className="btn btn-sm text-stone-900"
           >
             Remove
           </button>
@@ -389,9 +389,6 @@ export function SpacesPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/drafts/$draftId" params={{ draftId }} className="text-sm underline">
-          Back to the feed
-        </Link>
         <h1 className="mr-auto text-lg font-semibold">
           Spaces in {title} <span className="font-normal text-stone-500">({spaces.length})</span>
         </h1>
@@ -401,7 +398,7 @@ export function SpacesPage() {
             type="button"
             onClick={addSpace}
             disabled={edits.create.isPending}
-            className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+            className="btn btn-primary"
           >
             Add a space
           </button>

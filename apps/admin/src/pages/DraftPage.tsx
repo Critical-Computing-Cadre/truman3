@@ -1144,11 +1144,7 @@ function AddComment({
         placeholder={replyToId ? "Add a reply..." : "Add a comment..."}
         className="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1"
       />
-      <button
-        type="submit"
-        disabled={!body.trim()}
-        className="rounded bg-stone-900 px-3 py-1 text-white disabled:opacity-40"
-      >
+      <button type="submit" disabled={!body.trim()} className="btn btn-primary">
         Add
       </button>
     </form>
@@ -1412,7 +1408,7 @@ function SavePack({ draftId, defaultName }: { draftId: string; defaultName: stri
           save.reset();
           dialog.current?.showModal();
         }}
-        className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+        className="btn"
       >
         Save as a pack
       </button>
@@ -1432,7 +1428,7 @@ function SavePack({ draftId, defaultName }: { draftId: string; defaultName: stri
             <button
               type="button"
               onClick={() => dialog.current?.close()}
-              className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white"
+              className="btn btn-primary"
             >
               Done
             </button>
@@ -1477,15 +1473,11 @@ function SavePack({ draftId, defaultName }: { draftId: string; defaultName: stri
               <button
                 type="submit"
                 disabled={save.isPending || !name.trim()}
-                className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+                className="btn btn-primary"
               >
                 Save the pack
               </button>
-              <button
-                type="button"
-                onClick={() => dialog.current?.close()}
-                className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-              >
+              <button type="button" onClick={() => dialog.current?.close()} className="btn">
                 Cancel
               </button>
             </div>
@@ -1531,7 +1523,7 @@ function SaveVersion({ draftId, info }: { draftId: string; info: DraftInfo }) {
           freeze.reset();
           dialog.current?.showModal();
         }}
-        className="rounded bg-emerald-700 px-3 py-1 text-sm text-white"
+        className="btn btn-go"
       >
         Save as new version
       </button>
@@ -1567,11 +1559,7 @@ function SaveVersion({ draftId, info }: { draftId: string; info: DraftInfo }) {
           </p>
         )}
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => dialog.current?.close()}
-            className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-          >
+          <button type="button" onClick={() => dialog.current?.close()} className="btn">
             Keep editing
           </button>
           {errors.length === 0 && (
@@ -1579,7 +1567,7 @@ function SaveVersion({ draftId, info }: { draftId: string; info: DraftInfo }) {
               type="button"
               onClick={() => freeze.mutate()}
               disabled={freeze.isPending || stillSaving}
-              className="rounded bg-emerald-700 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+              className="btn btn-go"
             >
               {stillSaving ? "Waiting for your last change..." : "Save version"}
             </button>
@@ -1634,86 +1622,6 @@ export function DraftPage() {
         extra={
           <>
             {info.data.canEdit && <SaveStatus draftId={draftId} editing={editingItemId !== null} />}
-            <Link
-              to="/drafts/$draftId/settings"
-              params={{ draftId }}
-              className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-            >
-              Settings
-            </Link>
-            <Link
-              to="/drafts/$draftId/cast"
-              params={{ draftId }}
-              className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-            >
-              Cast
-            </Link>
-            {info.data.conditions.some(({ features }) => features.stories) && (
-              <Link
-                to="/drafts/$draftId/stories"
-                params={{ draftId }}
-                className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-              >
-                Stories
-              </Link>
-            )}
-            {info.data.conditions.some(({ features }) => features.spaces) && (
-              <Link
-                to="/drafts/$draftId/spaces"
-                params={{ draftId }}
-                className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-              >
-                Spaces
-              </Link>
-            )}
-            {info.data.conditions.some(
-              ({ features }) =>
-                features.removal ||
-                features.warnings ||
-                features.flagAnswers ||
-                features.reportAnswers ||
-                features.bans ||
-                features.autoRules ||
-                features.appeals ||
-                features.labels ||
-                features.contextNotes,
-            ) && (
-              <Link
-                to="/drafts/$draftId/moderation"
-                params={{ draftId }}
-                className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-              >
-                Moderation
-              </Link>
-            )}
-            <Link
-              to="/drafts/$draftId/beats"
-              params={{ draftId }}
-              className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-            >
-              Beats
-            </Link>
-            <Link
-              to="/drafts/$draftId/scenarios"
-              params={{ draftId }}
-              className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-            >
-              Tests
-            </Link>
-            <Link
-              to="/drafts/$draftId/personas"
-              params={{ draftId }}
-              className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-            >
-              Personas
-            </Link>
-            <Link
-              to="/drafts/$draftId/agent"
-              params={{ draftId }}
-              className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-            >
-              Agent
-            </Link>
             {info.data.canEdit && !info.data.closed && <SheetUpload draftId={draftId} />}
             {info.data.canEdit && <SavePack draftId={draftId} defaultName={info.data.title} />}
             {info.data.canEdit && <SaveVersion draftId={draftId} info={info.data} />}
@@ -1762,10 +1670,7 @@ export function DraftPage() {
         <RecentChanges draftId={draftId} canEdit={info.data.canEdit} />
         {info.data.closed && (
           <p className="rounded bg-stone-200 p-3">
-            This draft has been saved as a version, so it can't be changed.{" "}
-            <Link to="/" className="underline">
-              Back to studies
-            </Link>
+            This draft has been saved as a version, so it can't be changed.
           </p>
         )}
         {!info.data.canEdit && !info.data.closed && (

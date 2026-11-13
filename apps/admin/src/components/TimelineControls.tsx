@@ -118,7 +118,7 @@ export function TimelineControls({
               }
               setPlaying(!playing);
             }}
-            className="w-16 rounded bg-stone-900 py-1 text-sm text-white"
+            className="btn btn-primary w-16"
           >
             {playing ? "Pause" : "Play"}
           </button>

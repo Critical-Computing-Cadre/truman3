@@ -102,7 +102,7 @@ function WaitingBeat({ studyId, item }: { studyId: string; item: Waiting }) {
           type="button"
           disabled={decide.isPending || (item.draft !== null && !text.trim())}
           onClick={() => decide.mutate("approve")}
-          className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+          className="btn btn-primary"
         >
           {item.draft !== null && text.trim() !== item.draft ? "Post my version" : "Approve"}
         </button>
@@ -110,7 +110,7 @@ function WaitingBeat({ studyId, item }: { studyId: string; item: Waiting }) {
           type="button"
           disabled={decide.isPending}
           onClick={() => decide.mutate("skip")}
-          className="rounded border border-stone-300 px-3 py-1.5 text-sm"
+          className="btn"
         >
           Skip it
         </button>

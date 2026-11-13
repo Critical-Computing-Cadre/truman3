@@ -71,7 +71,7 @@ async function buildStudy(browser: Browser, title: string) {
   await casey.getByLabel("Karma").fill("1500");
   await casey.getByLabel("Bio").click();
   await expect(page.getByTestId("save-status")).toHaveText("All changes saved");
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
 
   await page.getByRole("link", { name: "Spaces", exact: true }).click();
   await page.getByRole("button", { name: "Add a space" }).click();
@@ -89,7 +89,7 @@ async function buildStudy(browser: Browser, title: string) {
   await space.getByLabel("Color of Cooking").fill("#b45309");
   await space.getByLabel("Color of Cooking").blur();
   await expect(space.getByRole("button", { name: "Remove color" })).toBeVisible();
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
 
   // With no title yet, the builder says so, and doesn't stop anyone.
   await page.getByRole("button", { name: "New post here" }).click();

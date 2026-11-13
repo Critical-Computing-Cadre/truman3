@@ -84,7 +84,7 @@ test("someone builds a study from nothing, with no terminal, and a participant j
   await expect(page.getByRole("listitem", { name: "New person" })).toHaveCount(0);
 
   // Write a post.
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
   await page.getByRole("button", { name: "New post here" }).click();
   const post = page.locator("article").first();
   const body = `Hello from nothing ${stamp}`;
@@ -98,7 +98,7 @@ test("someone builds a study from nothing, with no terminal, and a participant j
   await expect(
     page.getByRole("listitem", { name: "Casey Jones" }).getByRole("button", { name: "Remove" }),
   ).toBeDisabled();
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
 
   // It shows in the list before it has any versions.
   await saveAndLaunch(page);
@@ -180,7 +180,7 @@ test("a study starts from a pack, and can be saved as a new pack", async ({ page
   await page.getByRole("link", { name: "Settings" }).click();
   const consent = page.getByRole("listitem").filter({ hasText: "1. Consent" });
   await expect(consent.getByLabel("Page text")).toHaveValue(/consent text your IRB approved/);
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
 
   // It's copied, so changing it here doesn't change the pack, and it can be saved as a new one.
   const name = `Our lab pack ${stamp}`;
@@ -385,7 +385,7 @@ beats:
 `);
   await page.getByRole("button", { name: "Save beats" }).click();
   await expect(page.getByRole("status").filter({ hasText: "No problems found." })).toBeVisible();
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
   await page.getByRole("button", { name: "Save as new version" }).click();
   await page.getByRole("button", { name: "Save version" }).click();
   const listed = page.getByRole("listitem").filter({ hasText: title }).first();
@@ -451,7 +451,7 @@ test("a researcher writes scenario tests, sees them run when a version is saved,
   await page.getByRole("button", { name: "Save beats" }).click();
   await expect(page.getByRole("status").filter({ hasText: "No problems found." })).toBeVisible();
 
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
   await page.getByRole("link", { name: "Tests" }).click();
   await expect(page.getByText("This study has no scenario tests yet.")).toBeVisible();
   const scenarios = page.getByLabel("Scenarios", { exact: true });
@@ -482,7 +482,7 @@ test("a researcher writes scenario tests, sees them run when a version is saved,
   await page.screenshot({ path: testInfo.outputPath("scenarios-page.png"), fullPage: true });
 
   // Personas start from an example, and are saved like scenarios.
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
   await page.getByRole("link", { name: "Personas" }).click();
   await expect(page.getByText("This study has no personas yet.")).toBeVisible();
   const personas = page.getByLabel("Personas", { exact: true });
@@ -499,7 +499,7 @@ test("a researcher writes scenario tests, sees them run when a version is saved,
   await page.getByRole("button", { name: "Save personas" }).click();
   await expect(page.getByRole("status").filter({ hasText: "No problems found." })).toBeVisible();
 
-  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
   await page.getByRole("button", { name: "Save as new version" }).click();
   await page.getByRole("button", { name: "Save version" }).click();
   const study = page.getByRole("listitem").filter({ hasText: title }).first();

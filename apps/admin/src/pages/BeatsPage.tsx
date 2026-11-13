@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { BEATS_FILE } from "@truman3/core";
 import { useState } from "react";
 import { type DraftSettings, get, post, send } from "../api.ts";
@@ -24,7 +24,7 @@ beats:
 function Reference() {
   const row = "border-t border-stone-200 py-1 align-top";
   return (
-    <details className="rounded-lg bg-white p-3 text-sm shadow-sm" open>
+    <details className="card p-3 text-sm" open>
       <summary className="cursor-pointer font-medium">How beats work</summary>
       <table className="mt-2 w-full text-left text-xs">
         <tbody>
@@ -140,7 +140,7 @@ function Rehearse({ draftId, disabled }: { draftId: string; disabled: boolean })
     return null;
   }
   return (
-    <section aria-label="Rehearse" className="space-y-2 rounded-lg bg-white p-3 text-sm shadow-sm">
+    <section aria-label="Rehearse" className="card space-y-2 p-3 text-sm">
       <h2 className="font-medium">Rehearse lines</h2>
       <p className="text-xs text-stone-500">
         The actor's model drafts five lines for a beat that improvises. They're added to its{" "}
@@ -165,7 +165,7 @@ function Rehearse({ draftId, disabled }: { draftId: string; disabled: boolean })
               type="button"
               disabled={disabled || !list.data.hasModel || rehearse.isPending}
               onClick={() => rehearse.mutate(beat.id)}
-              className="rounded border border-stone-300 px-2 py-1 text-xs disabled:opacity-40"
+              className="btn btn-sm"
             >
               {rehearse.isPending && rehearse.variables === beat.id ? "Rehearsing…" : "Rehearse"}
             </button>
@@ -227,9 +227,6 @@ export function BeatsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/drafts/$draftId" params={{ draftId }} className="text-sm underline">
-          Back to the feed
-        </Link>
         <h1 className="mr-auto text-lg font-semibold">Beats in {title}</h1>
         {canEdit && <SaveStatus draftId={draftId} />}
       </div>
@@ -265,16 +262,12 @@ export function BeatsPage() {
                 type="button"
                 disabled={!dirty || save.isPending}
                 onClick={() => save.mutate(shown)}
-                className="rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+                className="btn btn-primary"
               >
                 {save.isPending ? "Saving…" : "Save beats"}
               </button>
               {dirty && (
-                <button
-                  type="button"
-                  onClick={() => setText(null)}
-                  className="rounded border border-stone-300 px-3 py-1.5 text-sm"
-                >
+                <button type="button" onClick={() => setText(null)} className="btn">
                   Discard changes
                 </button>
               )}
