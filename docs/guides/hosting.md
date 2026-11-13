@@ -83,6 +83,27 @@ From then on that lab's recruitment IDs, IP addresses, and uploaded photos are s
 - A backup holds the wrapped data key and the sealed values. Restoring it needs the lab's KMS key to still exist.
 - Keys are named `alias/<stage>-lab-<team id>` and tagged `truman-stage` and `truman-team`.
 
+## Emergency access to a lab's data
+
+You can't use a lab's key with your everyday login. For the rare time a lab asks you to recover something, there's a role made for it, `<stage>-emergency` (ADR 83). A deploy prints its ARN as `EmergencyRoleArn`.
+
+**Before you use it, know what happens.** AWS records every call you make with it. Within a few minutes the lab's owners get an email saying their key was used, when, and through which role, and it's listed on their Your lab page for good. So tell the lab first.
+
+To take the role for up to an hour:
+
+```
+aws sts assume-role --role-arn <EmergencyRoleArn> --role-session-name <your-name>-<why> --profile <profile>
+```
+
+Use the credentials it prints for the one thing you came to do. The role can decrypt with labs' keys and read files under `uploads/` in the media bucket. It can't reach the database, change anything, or use any other part of AWS.
+
+A few more things:
+
+- **A change to a lab's key is reported too,** whoever makes it: a new policy, a grant, disabling it, or scheduling its deletion.
+- **A key made before the emergency role existed doesn't let the role use it.** To add it, put the role's ARN beside the API's in that key's policy, under `aws:PrincipalArn`. The lab is told you changed its key.
+- **The record itself** is the CloudTrail trail `<stage>-calls`, kept a year in its own bucket.
+- Reports reach the API at `/api/hooks/key-events`, with a key held in the secret `<stage>/key-events-hook-key`. Nothing else should call it.
+
 ## Photo scanning
 
 With `PHOTO_SCANNING=rekognition`, each photo a participant uploads is scanned by Amazon Rekognition (ADR 79). Flagged photos go to the study's researchers, on their Monitor page. An operator doesn't see them.

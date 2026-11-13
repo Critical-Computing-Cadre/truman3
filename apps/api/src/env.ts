@@ -54,6 +54,11 @@ const envSchema = z.object({
   LAB_KEY_ROLES: z.string().default(""),
   /** With LAB_KEYS=kms: what keys are tagged and named with, such as "truman3-production". */
   LAB_KEY_STAGE: z.string().default("truman3"),
+  /**
+   * What AWS sends with each report that a lab's key was used or changed, so nobody else can send
+   * one. Without it this server takes no such reports. ADR 83.
+   */
+  KEY_EVENTS_HOOK_KEY: z.string().min(20).optional(),
   /** "true" has the server set up the example studies as demos anyone can open. ADR 78. */
   DEMO_STUDIES: z.enum(["true", "false"]).default("false"),
 });

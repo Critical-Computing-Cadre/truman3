@@ -124,7 +124,10 @@ export function createStorage(config: StorageConfig) {
           Key: key,
           Body: body,
           ContentType: contentType,
-          ...(kmsKeyId ? { ServerSideEncryption: "aws:kms", SSEKMSKeyId: kmsKeyId } : {}),
+          // A bucket key means S3 asks the key service once in a while, not for every file.
+          ...(kmsKeyId
+            ? { ServerSideEncryption: "aws:kms", SSEKMSKeyId: kmsKeyId, BucketKeyEnabled: true }
+            : {}),
         }),
       );
     },

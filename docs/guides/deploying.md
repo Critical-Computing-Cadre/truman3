@@ -90,6 +90,7 @@ Keep the real values out of the repo. `.env.example` describes these too.
 | `LAB_KEYS`                                 | No                  | `kms` gives each lab its own key in AWS KMS when it first opens a study, for recruitment IDs, IP addresses, and uploaded photos (ADR 82). `off` unless set                                          |
 | `LAB_KEY_ROLES`                            | With `LAB_KEYS=kms` | The roles that may use a lab's key, as ARNs separated by commas, the API's own first                                                                                                                |
 | `LAB_KEY_STAGE`                            | No                  | What labs' keys are tagged and named with. The API's permissions should be limited to keys with this tag                                                                                            |
+| `KEY_EVENTS_HOOK_KEY`                      | No                  | What AWS sends with each report that a lab's key was used or changed (ADR 83). Without it the API takes no such reports                                                                             |
 | `TRUSTED_PROXIES`                          | Behind proxies      | How many of your own proxies add to `X-Forwarded-For`. Staging has 2: CloudFront and the load balancer. Too many, and everyone looks like a proxy. Too few, and visitors can fake their address     |
 
 The image sets `NODE_ENV=production`, which turns on secure cookies and the shorter error logs.

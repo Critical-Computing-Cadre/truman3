@@ -34,6 +34,10 @@ interface TeamUsage {
   status: "pending" | "approved" | "suspended";
   limits: TeamLimits;
   usage: { participantsLast30Days: number; runningStudies: number; uploadBytes: number };
+  key: {
+    made: boolean;
+    events: { at: string; kind: "used" | "changed"; action: string; by: string }[];
+  };
 }
 
 /** How much of one thing a lab has used, and of how much. */
@@ -63,44 +67,90 @@ function UsageCard({ team }: { team: Researcher["teams"][number] }) {
   const nearlyFull =
     limits.uploadsGb !== undefined && used.uploadBytes >= limits.uploadsGb * 1024 ** 3 * 0.8;
   return (
+    <>
+      <section
+        aria-label={`${team.name} limits`}
+        className="flex flex-col gap-3 rounded border border-stone-200 bg-white p-4"
+      >
+        <h2 className="text-lg font-semibold">Limits</h2>
+        {status === "pending" && (
+          <p className="text-sm text-stone-600">
+            Your lab is waiting to be approved. Its limits are set when it is.
+          </p>
+        )}
+        <ul className="flex flex-col gap-1 text-sm">
+          <Used
+            name="New participants in the last 30 days"
+            used={used.participantsLast30Days.toLocaleString("en-US")}
+            {...(limits.participantsPerMonth === undefined
+              ? {}
+              : { limit: limits.participantsPerMonth.toLocaleString("en-US") })}
+          />
+          <Used
+            name="Studies open now"
+            used={String(used.runningStudies)}
+            {...(limits.runningStudies === undefined
+              ? {}
+              : { limit: String(limits.runningStudies) })}
+          />
+          <Used
+            name="Photos from participants"
+            used={gb(used.uploadBytes)}
+            {...(limits.uploadsGb === undefined ? {} : { limit: `${limits.uploadsGb} GB` })}
+          />
+        </ul>
+        {nearlyFull && (
+          <p role="status" className="text-sm text-amber-800">
+            Your lab is close to its room for photos. When it's full, participants can't add any.
+          </p>
+        )}
+        <p className="text-sm text-stone-600">
+          If a study you're planning needs more of any of these, ask whoever runs this Truman before
+          you recruit.
+        </p>
+      </section>
+      <KeyCard name={team.name} record={usage.data.key} />
+    </>
+  );
+}
+
+/**
+ * A lab's own encryption key (ADR 82), and every time anyone but the Truman server used or changed
+ * it (ADR 83). An empty list is the point: it's what a lab should expect to see.
+ */
+function KeyCard({ name, record }: { name: string; record: TeamUsage["key"] }) {
+  return (
     <section
-      aria-label={`${team.name} limits`}
+      aria-label={`${name} encryption key`}
       className="flex flex-col gap-3 rounded border border-stone-200 bg-white p-4"
     >
-      <h2 className="text-lg font-semibold">Limits</h2>
-      {status === "pending" && (
+      <h2 className="text-lg font-semibold">Your lab's encryption key</h2>
+      {record.made ? (
         <p className="text-sm text-stone-600">
-          Your lab is waiting to be approved. Its limits are set when it is.
+          Your lab has a key of its own. Participants' recruitment IDs, their IP addresses if a
+          study keeps them, and the photos they upload are stored under it. Only the Truman server
+          can use it. Whoever runs this Truman has an emergency way in, and every use of it is
+          listed here and emailed to your lab's owners.
+        </p>
+      ) : (
+        <p className="text-sm text-stone-600">
+          Your lab gets a key of its own the first time it opens a study to participants. From then
+          on, recruitment IDs, IP addresses, and uploaded photos are stored under it.
         </p>
       )}
-      <ul className="flex flex-col gap-1 text-sm">
-        <Used
-          name="New participants in the last 30 days"
-          used={used.participantsLast30Days.toLocaleString("en-US")}
-          {...(limits.participantsPerMonth === undefined
-            ? {}
-            : { limit: limits.participantsPerMonth.toLocaleString("en-US") })}
-        />
-        <Used
-          name="Studies open now"
-          used={String(used.runningStudies)}
-          {...(limits.runningStudies === undefined ? {} : { limit: String(limits.runningStudies) })}
-        />
-        <Used
-          name="Photos from participants"
-          used={gb(used.uploadBytes)}
-          {...(limits.uploadsGb === undefined ? {} : { limit: `${limits.uploadsGb} GB` })}
-        />
-      </ul>
-      {nearlyFull && (
-        <p role="status" className="text-sm text-amber-800">
-          Your lab is close to its room for photos. When it's full, participants can't add any.
-        </p>
+      {record.made && record.events.length === 0 && (
+        <p className="text-sm">Nobody but the Truman server has used or changed it.</p>
       )}
-      <p className="text-sm text-stone-600">
-        If a study you're planning needs more of any of these, ask whoever runs this Truman before
-        you recruit.
-      </p>
+      {record.events.length > 0 && (
+        <ul className="flex flex-col gap-1 text-sm">
+          {record.events.map((event) => (
+            <li key={`${event.at}${event.action}${event.by}`}>
+              {new Date(event.at).toLocaleString()}: {event.kind === "used" ? "used" : "changed"} (
+              {event.action}) by <code className="break-all">{event.by}</code>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

@@ -11,6 +11,7 @@ import {
 import { type Database, schema, type Transaction } from "@truman3/db";
 import { and, count, countDistinct, eq, gt, isNotNull, isNull, sql, sum } from "drizzle-orm";
 import { setCookie } from "hono/cookie";
+import { keyRecord } from "../key-events.ts";
 import { sendQuietly } from "../mail.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { emailOperators, emailOwners } from "./accounts.ts";
@@ -295,6 +296,18 @@ const teamUsageRoute = createRoute({
               runningStudies: z.number(),
               /** What its participants' uploaded photos take up, in bytes. */
               uploadBytes: z.number(),
+            }),
+            /** Its own key (ADR 82), and each time anyone but this server used or changed it. */
+            key: z.object({
+              made: z.boolean(),
+              events: z.array(
+                z.object({
+                  at: z.iso.datetime(),
+                  kind: z.enum(["used", "changed"]),
+                  action: z.string(),
+                  by: z.string(),
+                }),
+              ),
             }),
           }),
         },
@@ -593,6 +606,7 @@ export function createHostingRoutes({
           runningStudies: running?.n ?? 0,
           uploadBytes: (await uploadBytesByTeam(db)).get(teamId) ?? 0,
         },
+        key: await keyRecord(db, teamId),
       },
       200,
     );

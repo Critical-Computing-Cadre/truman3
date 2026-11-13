@@ -112,12 +112,23 @@ They can suspend a lab for abuse or a security problem. A suspended lab's studie
 
 Studies on hosted Truman run at clikbrite.com by default, so the address bar doesn't say "research". See [Running a study](/guide/running).
 
+## Your lab's encryption key
+
+The first time your lab opens a study to participants, it gets an encryption key of its own. From then on, three things are stored under it: participants' recruitment IDs, their IP addresses if a study keeps them, and the photos they upload. What participants write isn't under the key.
+
+Only the Truman server can use the key. Whoever runs hosted Truman can't use it with their ordinary login. They have one emergency way in, for something like recovering data you've asked them to recover, and it can't be used quietly:
+
+- Every use is recorded by Amazon, not by Truman.
+- Your lab's owners get an email, saying when and who.
+- It's listed on the **Your lab** page, under **Your lab's encryption key**, along with any change to the key itself.
+
+If that list is empty, nobody but the server has used your key. If you get one of those emails and didn't ask for help, ask why.
+
 ## What's left before real participants
 
 Hosted Truman is in beta. These have to be done before anyone runs a real study on it:
 
 - **Terms of service and a privacy policy,** reviewed by the university that hosts it.
-- **A logged emergency login for the host.** Your lab already gets a key of its own when it first opens a study, and recruitment IDs, IP addresses, and uploaded photos are stored under it. What's left is the emergency way in for whoever runs hosted Truman, which records each use and tells your lab.
 - **Opting out of Amazon keeping scanned photos.** Photos participants upload are scanned by Amazon Rekognition. By default Amazon may keep what it scans to improve its services, and hosted Truman's account hasn't opted out yet.
 
 Until then, use it to build and pilot. Everything you make now stays when it opens.

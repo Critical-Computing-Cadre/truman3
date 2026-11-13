@@ -27,6 +27,36 @@ const time = (name: string) => timestamp(name, { withTimezone: true, mode: "date
 const inList = (column: AnyPgColumn, values: readonly string[]): SQL =>
   sql`${column} in (${sql.raw(values.map((value) => `'${value}'`).join(", "))})`;
 
+/**
+ * Each time a lab's own key was used by someone other than this server, or changed (ADR 83). AWS
+ * reports them, and the lab is told. Kept after the team's other data would be, as a record.
+ */
+export const keyEvents = pgTable(
+  "key_events",
+  {
+    id: id(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references((): AnyPgColumn => teams.id),
+    /** AWS's own ID for the event, so one reported twice is recorded once. */
+    eventId: text("event_id").notNull().unique(),
+    /** `used`: something was read with the key. `changed`: the key or who may use it was changed. */
+    kind: text().notNull(),
+    /** What AWS calls it, such as Decrypt or PutKeyPolicy. */
+    action: text().notNull(),
+    /** Who did it, as AWS names them. */
+    by: text().notNull(),
+    at: time("at").notNull(),
+    /** When the lab's owners were emailed about it. Empty if it was covered by an earlier email. */
+    notifiedAt: time("notified_at"),
+    createdAt: time("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    check("key_events_kind", inList(table.kind, ["used", "changed"])),
+    index("key_events_team").on(table.teamId, table.at),
+  ],
+);
+
 /** A research team. One lab for now, and a hosted version could hold many (see ADR 11). */
 export const teams = pgTable(
   "teams",
