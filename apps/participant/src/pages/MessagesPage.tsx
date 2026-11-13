@@ -4,6 +4,7 @@ import type { ConversationsResponse, ThreadResponse } from "@truman3/core";
 import { Avatar, shortTime } from "@truman3/ui";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { get, post } from "../api.ts";
+import { useListLook } from "../components/list-look.ts";
 
 /** How often an open conversation checks for a reply. */
 const CHECK_EVERY_MS = 10_000;
@@ -16,10 +17,11 @@ export function MessagesPage() {
     refetchInterval: CHECK_EVERY_MS,
   });
   const conversations = list.data?.conversations ?? [];
+  const look = useListLook();
 
   return (
-    <div className="mx-auto max-w-xl bg-white shadow-sm sm:rounded-lg">
-      <h1 className="p-4 text-xl font-semibold">Messages</h1>
+    <div className={`mx-auto max-w-xl ${look.frame}`}>
+      <h1 className={look.heading}>Messages</h1>
       {list.data && conversations.length === 0 && (
         <p className="p-6 text-center text-stone-500">
           No messages yet. You can message someone from their profile.
@@ -31,7 +33,7 @@ export function MessagesPage() {
             <Link
               to="/messages/$username"
               params={{ username: conversation.with.username }}
-              className={`flex gap-3 p-3 hover:bg-stone-50 ${conversation.unread > 0 ? "bg-amber-50" : ""}`}
+              className={`flex gap-3 p-3 hover:bg-stone-50 ${conversation.unread > 0 ? look.unread : ""}`}
             >
               <Avatar seed={conversation.with.username} url={conversation.with.pictureUrl} />
               <div className="min-w-0 flex-1">
@@ -49,7 +51,7 @@ export function MessagesPage() {
                 </p>
               </div>
               {conversation.unread > 0 && (
-                <span className="self-center rounded-full bg-rose-600 px-1.5 text-xs leading-5 text-white">
+                <span className="self-center rounded-full bg-accent-fill px-1.5 text-xs leading-5 text-on-accent">
                   {conversation.unread}
                   <span className="sr-only"> new</span>
                 </span>
@@ -67,6 +69,7 @@ export function ConversationPage() {
   const { username } = useParams({ from: "/gate/messages/$username" });
   const client = useQueryClient();
   const [draft, setDraft] = useState("");
+  const look = useListLook();
   const bottom = useRef<HTMLDivElement>(null);
   const thread = useQuery({
     queryKey: ["messages", username],
@@ -109,9 +112,13 @@ export function ConversationPage() {
   const them = thread.data?.with;
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col bg-white shadow-sm sm:rounded-lg">
+    <div className={`mx-auto flex max-w-xl flex-col ${look.frame}`}>
       <header className="flex items-center gap-3 border-b border-stone-200 p-3">
-        <Link to="/messages" className="text-sm text-stone-600" aria-label="Back to messages">
+        <Link
+          to="/messages"
+          className="-m-1 rounded-full p-2 text-lg leading-none hover:bg-stone-100"
+          aria-label="Back to messages"
+        >
           ←
         </Link>
         {them && (

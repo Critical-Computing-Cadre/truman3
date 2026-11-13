@@ -200,6 +200,34 @@ test("takes the guide's pictures", async ({ page, browser }, testInfo) => {
     await wide.goto(`${origin}/notifications`);
     await wide.waitForLoadState("networkidle");
     await wide.screenshot({ path: testInfo.outputPath(`${kind.file}-notifications.png`) });
+    // The two kinds that start light, in the dark, to look over. A study turns this on in Settings.
+    // Here the page is told directly, which draws it the same way.
+    if (kind.file === "classic" || kind.file === "forum") {
+      const inTheDark: [string, string | null][] = [
+        ["feed", "/"],
+        ["someone", someone],
+        ["post", onePost],
+        ["messages", "/messages"],
+        ["notifications", "/notifications"],
+        ["explore", "/explore"],
+        ["spaces", "/spaces"],
+      ];
+      for (const [name, address] of inTheDark) {
+        if (address) {
+          await wide.goto(origin + address);
+          await wide.waitForLoadState("networkidle");
+          await wide.evaluate(() => {
+            document.documentElement.dataset.theme = "dark";
+          });
+          await wide.waitForTimeout(300);
+          await wide.screenshot({ path: testInfo.outputPath(`${kind.file}-dark-${name}.png`) });
+        }
+      }
+      await wide.evaluate(() => {
+        document.documentElement.dataset.theme = "light";
+      });
+    }
+
     await wide.goto(`${origin}/spaces`);
     await wide.waitForLoadState("networkidle");
     const space = wide.locator('main a[href^="/spaces/"]');

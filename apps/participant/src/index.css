@@ -26,6 +26,18 @@
   --color-stone-800: #dde1e5;
   --color-stone-900: #eef0f2;
   --color-stone-950: #f7f8f9;
+  /*
+   * The pale washes behind a notice or something unread, and the words on them. Left as they are
+   * they'd be a bright band with pale words on it. These are the same colors, turned around.
+   */
+  --color-amber-50: #2b2110;
+  --color-amber-100: #3a2c12;
+  --color-amber-300: #7a5b1a;
+  --color-amber-900: #fcd34d;
+  --color-rose-100: #3b1620;
+  --color-rose-700: #fb7185;
+  --color-rose-800: #fda4af;
+  --color-green-700: #4ade80;
 }
 
 body {
