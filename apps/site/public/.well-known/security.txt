@@ -1,0 +1,6 @@
+# How to report a security problem in Truman. See https://truman-research.org/security
+Contact: mailto:security@truman-research.org
+Expires: 2027-11-01T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://truman-research.org/.well-known/security.txt
+Policy: https://truman-research.org/security

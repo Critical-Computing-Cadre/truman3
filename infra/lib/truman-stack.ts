@@ -31,8 +31,10 @@ import * as s3 from "aws-cdk-lib/aws-s3";
 import * as deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as secrets from "aws-cdk-lib/aws-secretsmanager";
 import * as ses from "aws-cdk-lib/aws-ses";
+import * as sesActions from "aws-cdk-lib/aws-ses-actions";
 import * as sns from "aws-cdk-lib/aws-sns";
 import { IgnoreMode } from "aws-cdk-lib/core";
+import * as cr from "aws-cdk-lib/custom-resources";
 import type { Construct } from "constructs";
 import type { Stage } from "./stages.ts";
 
@@ -759,6 +761,56 @@ export class TrumanStack extends Stack {
             : ses.Identity.domain(stage.mail.domain),
       });
       mailDomain.grantSendEmail(apiTask.taskRole);
+
+      // Where people report security problems (ADR 84). SES takes mail for that one address and
+      // hands it to a topic. Who gets it is a subscription added by hand, so nobody's own address
+      // is in this repo.
+      if (stage.mail.securityContact) {
+        if (!inZone || !zone) {
+          throw new Error("A security contact needs the mail domain's DNS in this stack's zone.");
+        }
+        new route53.MxRecord(this, "MailIn", {
+          zone,
+          values: [{ priority: 10, hostName: `inbound-smtp.${stage.region}.amazonaws.com` }],
+        });
+        const reports = new sns.Topic(this, "SecurityReports", {
+          topicName: `${prefix}-security-reports`,
+          displayName: `Truman 3 ${stage.name}: security reports`,
+        });
+        const rules = new ses.ReceiptRuleSet(this, "MailInRules", {
+          receiptRuleSetName: `${prefix}-mail-in`,
+          rules: [
+            {
+              recipients: [stage.mail.securityContact],
+              // Checked for spam and viruses, and refused if it's either.
+              scanEnabled: true,
+              actions: [
+                new sesActions.Sns({ topic: reports, encoding: sesActions.EmailEncoding.UTF8 }),
+              ],
+            },
+          ],
+        });
+        // SES uses one set of rules at a time, and making a set doesn't make it that one.
+        const using = { service: "SES", action: "setActiveReceiptRuleSet" };
+        new cr.AwsCustomResource(this, "UseMailInRules", {
+          onUpdate: {
+            ...using,
+            parameters: { RuleSetName: rules.receiptRuleSetName },
+            physicalResourceId: cr.PhysicalResourceId.of(`${prefix}-mail-in-active`),
+          },
+          onDelete: { ...using, parameters: {} },
+          policy: cr.AwsCustomResourcePolicy.fromStatements([
+            new iam.PolicyStatement({
+              actions: ["ses:SetActiveReceiptRuleSet"],
+              resources: ["*"],
+            }),
+          ]),
+        });
+        new CfnOutput(this, "SecurityReportsTopic", {
+          value: reports.topicArn,
+          description: `Mail to ${stage.mail.securityContact} goes here. Subscribe an address to it by hand.`,
+        });
+      }
       (inZone ? [] : mailDomain.dkimRecords).forEach((record, index) => {
         new CfnOutput(this, `MailDkimRecord${index + 1}`, {
           value: `${record.name} CNAME ${record.value}`,

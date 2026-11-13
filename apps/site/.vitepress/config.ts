@@ -76,6 +76,7 @@ const PAGES = [
   ...guide.flatMap(({ items }) => items),
   ...developers.flatMap(({ items }) => items),
   { text: "About", link: "/about" },
+  { text: "Reporting a security problem", link: "/security" },
 ];
 
 // The public site at truman-research.org (ADR 75): a home page for researchers deciding whether to
@@ -115,7 +116,8 @@ export default defineConfig({
     search: { provider: "local" },
     outline: { level: [2, 3] },
     footer: {
-      message: "Open source under the MIT license.",
+      message:
+        'Open source under the MIT license. <a href="/security">Report a security problem</a>.',
     },
   },
   // Plain-text copies for AI agents (ADR 75): llms.txt lists every page, and llms-full.txt has

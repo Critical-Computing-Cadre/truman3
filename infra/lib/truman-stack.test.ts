@@ -648,8 +648,30 @@ describe("production (ADR 73)", () => {
     expect(Object.keys(production.findOutputs("MailDkimRecord*"))).toEqual([]);
   });
 
+  it("takes mail for the security address, and hands it to a topic with no subscribers", () => {
+    production.hasResourceProperties("AWS::Route53::RecordSet", {
+      Type: "MX",
+      ResourceRecords: ["10 inbound-smtp.us-east-1.amazonaws.com"],
+    });
+    production.hasResourceProperties("AWS::SES::ReceiptRule", {
+      Rule: Match.objectLike({
+        Recipients: ["security@truman-research.org"],
+        ScanEnabled: true,
+        Enabled: true,
+      }),
+    });
+    production.hasResourceProperties("AWS::SNS::Topic", {
+      TopicName: "truman3-production-security-reports",
+    });
+    // Whoever reads them is added by hand, so nobody's own address is in the repo.
+    production.resourceCountIs("AWS::SNS::Subscription", 0);
+    // Staging has no such address.
+    template.resourceCountIs("AWS::SES::ReceiptRule", 0);
+  });
+
   it("raises alarms and a budget to one topic, and staging has none", () => {
-    production.resourceCountIs("AWS::SNS::Topic", 1);
+    // That topic, and the one for security reports.
+    production.resourceCountIs("AWS::SNS::Topic", 2);
     for (const name of [
       "api-errors",
       "api-slow",

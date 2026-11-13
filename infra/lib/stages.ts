@@ -35,7 +35,16 @@ export interface Stage {
    * sets up in SES, and the From address. Its DKIM records are printed after a deploy, to add
    * wherever the domain's DNS is. Leave it out and no email is sent.
    */
-  mail?: { domain: string; from: string };
+  mail?: {
+    domain: string;
+    from: string;
+    /**
+     * An address on that domain where people report security problems, such as
+     * "security@example.org" (ADR 84). Mail to it goes to a topic whose subscribers are added by
+     * hand. The domain's DNS has to be in a zone this stack has.
+     */
+    securityContact?: string;
+  };
   /**
    * Addresses other than the one CloudFront gives out. Either a certificate made by hand, which
    * has to be in us-east-1, or a Route 53 zone in this account, where the stack makes the
@@ -107,7 +116,11 @@ export const STAGES: Record<string, Stage> = {
     // Made by hand in this account and region, before the first deploy.
     anthropicKeySecret: "truman3-production/anthropic-api-key",
     hosted: true,
-    mail: { domain: "truman-research.org", from: "Truman <no-reply@truman-research.org>" },
+    mail: {
+      domain: "truman-research.org",
+      from: "Truman <no-reply@truman-research.org>",
+      securityContact: "security@truman-research.org",
+    },
     // The zone was made by hand, and the domain's name servers point to it. truman-research.org
     // itself is kept for the public site.
     domains: {
