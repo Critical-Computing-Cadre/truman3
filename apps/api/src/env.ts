@@ -40,6 +40,11 @@ const envSchema = z.object({
   PARTICIPANT_DOMAIN_DEFAULT: z.string().optional(),
   /** "true" makes this a hosted Truman: labs apply, and an operator approves them. ADR 70. */
   HOSTED: z.enum(["true", "false"]).default("false"),
+  /**
+   * "rekognition" scans each photo a participant uploads with Amazon Rekognition, which needs the
+   * photos in S3 and permission to call it. ADR 79.
+   */
+  PHOTO_SCANNING: z.enum(["off", "rekognition"]).default("off"),
   /** "true" has the server set up the example studies as demos anyone can open. ADR 78. */
   DEMO_STUDIES: z.enum(["true", "false"]).default("false"),
 });

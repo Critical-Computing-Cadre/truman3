@@ -1142,6 +1142,7 @@ interface ProfileFields {
 export function createActionRoutes({
   db,
   storage,
+  scanner,
   mediaPublicUrl,
   writer,
   clock = realClock,
@@ -2011,7 +2012,7 @@ export function createActionRoutes({
 
     const attachments: Attachment[] = [];
     for (const image of images) {
-      const key = await storeUploadedImage(storage, context.worldId, context.participantId, image);
+      const key = await storeUploadedImage({ db, storage, scanner }, context, image);
       if (!key) {
         return c.json(
           {
@@ -2470,12 +2471,7 @@ export function createActionRoutes({
     if (repeat?.contentId) {
       return c.json({ id: repeat.contentId }, 200);
     }
-    const key = await storeUploadedImage(
-      storage,
-      context.worldId,
-      context.participantId,
-      form.image,
-    );
+    const key = await storeUploadedImage({ db, storage, scanner }, context, form.image);
     if (!key) {
       return c.json(
         {
@@ -3028,9 +3024,7 @@ export function createActionRoutes({
     const form = c.req.valid("form");
 
     const stored = async (file: File | undefined) =>
-      file
-        ? await storeUploadedImage(storage, context.worldId, context.participantId, file)
-        : undefined;
+      file ? await storeUploadedImage({ db, storage, scanner }, context, file) : undefined;
     const picture = await stored(form.picture);
     const banner = await stored(form.banner);
     if (picture === null || banner === null) {

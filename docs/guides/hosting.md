@@ -69,6 +69,14 @@ With `DEMO_STUDIES=true`, the server sets up four of the example studies for any
 - To close one, stop it like any study. It stays stopped until its example next changes.
 - A demo visitor's data is deleted a week after they started, with anything they uploaded. Each demo's first page tells them so.
 
+## Photo scanning
+
+With `PHOTO_SCANNING=rekognition`, each photo a participant uploads is scanned by Amazon Rekognition (ADR 79). Flagged photos go to the study's researchers, on their Monitor page. An operator doesn't see them.
+
+It needs the photos in S3 and the permission `rekognition:DetectModerationLabels` for the API. The cloud setup in `infra` gives a hosted stage both.
+
+By default Amazon may keep what its AI services are sent, to improve them. To stop that, set an AI services opt-out policy for the account in AWS Organizations.
+
 ## Suspending a lab
 
 **Suspend** stops a lab's studies at once:

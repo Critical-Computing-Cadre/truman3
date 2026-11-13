@@ -227,6 +227,107 @@ function ExportCard({ studyId, monitor }: { studyId: string; monitor: Monitor })
   );
 }
 
+interface FlaggedUpload {
+  id: string;
+  url: string;
+  participantId: string;
+  at: string;
+  scan: "flagged" | "unscanned";
+  labels: string[];
+  held: boolean;
+}
+
+/**
+ * Photos participants uploaded that a scan flagged, or that are held because they couldn't be
+ * scanned, for a researcher to release or remove (ADR 79). It isn't shown when there are none.
+ */
+function PhotosToLookAt({ studyId, canEdit }: { studyId: string; canEdit: boolean }) {
+  const client = useQueryClient();
+  const [shown, setShown] = useState<string[]>([]);
+  const list = useQuery({
+    queryKey: ["uploads", studyId],
+    queryFn: () => get<{ uploads: FlaggedUpload[] }>(`/admin/studies/${studyId}/uploads`),
+    refetchInterval: 30_000,
+  });
+  const decide = useMutation({
+    mutationFn: ({ id, decision }: { id: string; decision: "release" | "remove" }) =>
+      post(`/admin/studies/${studyId}/uploads/${id}/decision`, { decision }),
+    onSettled: () => client.invalidateQueries({ queryKey: ["uploads", studyId] }),
+  });
+  const uploads = list.data?.uploads ?? [];
+  if (uploads.length === 0) {
+    return null;
+  }
+  return (
+    <section aria-label="Photos to look at" className={card}>
+      <h2 className="font-semibold">Photos to look at</h2>
+      <p className="text-sm text-stone-600">
+        Participants uploaded these, and an automatic scan flagged them or couldn't read them. One
+        that's held is hidden from everyone else in its world until you decide. Removing a photo
+        deletes it for good.
+      </p>
+      <ul className="space-y-3">
+        {uploads.map((upload) => (
+          <li key={upload.id} className="flex flex-wrap items-start gap-3 text-sm">
+            {shown.includes(upload.id) ? (
+              <img src={upload.url} alt="" className="h-32 w-32 rounded object-cover" />
+            ) : (
+              // Covered until asked for, so nobody opening this page is shown it by surprise.
+              <button
+                type="button"
+                onClick={() => setShown([...shown, upload.id])}
+                className="h-32 w-32 rounded border border-stone-300 bg-stone-100 text-stone-600"
+              >
+                Show photo
+              </button>
+            )}
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="font-medium">
+                {upload.scan === "flagged" ? "Flagged for: " : "Not scanned: "}
+                {upload.labels.join(", ")}
+              </p>
+              <p className="text-stone-600">
+                {new Date(upload.at).toLocaleString()}, participant{" "}
+                <code>{upload.participantId}</code>
+              </p>
+              <p className="text-stone-600">
+                {upload.held
+                  ? "Held. Only they can see it."
+                  : "Not held. Nobody else is in their world."}
+              </p>
+              {canEdit && (
+                <p className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={decide.isPending}
+                    onClick={() => decide.mutate({ id: upload.id, decision: "release" })}
+                    className="rounded border border-stone-300 px-3 py-1.5 disabled:opacity-40"
+                  >
+                    {upload.held ? "Release" : "It's fine"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={decide.isPending}
+                    onClick={() => decide.mutate({ id: upload.id, decision: "remove" })}
+                    className="rounded border border-rose-300 px-3 py-1.5 text-rose-800 disabled:opacity-40"
+                  >
+                    Remove
+                  </button>
+                </p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {decide.error && (
+        <p role="alert" className="text-sm text-rose-700">
+          {decide.error.message}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function WithdrawCard({ studyId, monitor }: { studyId: string; monitor: Monitor }) {
   const client = useQueryClient();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -460,6 +561,7 @@ export function MonitorPage() {
       ))}
 
       {monitor.enrolledByDay.length > 1 && <EnrolledByDay days={monitor.enrolledByDay} />}
+      <PhotosToLookAt studyId={studyId} canEdit={monitor.role !== "viewer"} />
       <SharedWorldsCard studyId={studyId} canEdit={monitor.role !== "viewer"} />
       <ChristofCard studyId={studyId} canEdit={monitor.role !== "viewer"} />
       <ExportCard studyId={studyId} monitor={monitor} />

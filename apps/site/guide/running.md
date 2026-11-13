@@ -64,6 +64,19 @@ When people finish, Truman sends them back to Prolific with the right code. Some
 
 Test participants aren't counted.
 
+### Photos to look at
+
+On hosted Truman, every photo a participant uploads is scanned automatically for nudity, violence, gore, and hate symbols. When one is flagged, a **Photos to look at** card appears on this page. It doesn't appear when there's nothing to look at.
+
+Each photo is covered until you press **Show photo**. The card says what it was flagged for, and then you choose:
+
+- **Release** or **It's fine** keeps the photo.
+- **Remove** deletes it for good. Anyone who would have seen it sees "This photo was removed."
+
+What happens before you decide depends on the study. In a study where each participant has a world of their own, nobody else can see their photo, so it's only listed for you. In a [shared world](/guide/shared-worlds), a flagged photo is **held**: the person who uploaded it still sees it, and everyone else in their world sees "This photo is being reviewed" until you decide.
+
+The scan reads JPEG and PNG photos. A GIF or WebP can't be scanned, so in a shared world it's held and listed for you the same way. The scan makes mistakes in both directions, so it's a prompt to look, not a verdict.
+
 The page also has the **Christof, the director** card, covered in [A cast that writes for itself](/guide/live-writing), and the **Shared worlds** section, covered in [Several real people together](/guide/shared-worlds).
 
 ## Stop

@@ -115,7 +115,7 @@ Hosted Truman is in beta. These have to be done before anyone runs a real study 
 
 - **Terms of service and a privacy policy,** reviewed by the university that hosts it.
 - **Each lab's data encrypted with its own key,** with any access by the host logged and told to the lab.
-- **Scanning the photos participants upload.**
+- **Opting out of Amazon keeping scanned photos.** Photos participants upload are scanned by Amazon Rekognition. By default Amazon may keep what it scans to improve its services, and hosted Truman's account hasn't opted out yet.
 - **A limit on how much each lab stores.**
 
 Until then, use it to build and pilot. Everything you make now stays when it opens.

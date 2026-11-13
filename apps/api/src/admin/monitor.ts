@@ -147,6 +147,60 @@ const photosRoute = createRoute({
   },
 });
 
+const uploadsRoute = createRoute({
+  method: "get",
+  path: "/admin/studies/{studyId}/uploads",
+  summary: "Photos participants uploaded that a researcher should look at (ADR 79)",
+  request: { params: studyParams },
+  responses: {
+    200: {
+      description:
+        "Flagged photos, and ones held without being scanned, that nobody has decided on",
+      content: {
+        "application/json": {
+          schema: z.object({
+            uploads: z.array(
+              z.object({
+                id: z.uuid(),
+                url: z.string(),
+                participantId: z.uuid(),
+                at: z.iso.datetime(),
+                scan: z.enum(["flagged", "unscanned"]),
+                /** What it was flagged for, or why it couldn't be scanned. */
+                labels: z.array(z.string()),
+                /** Whether others in its world are kept from seeing it until someone decides. */
+                held: z.boolean(),
+              }),
+            ),
+          }),
+        },
+      },
+    },
+    ...commonErrors,
+  },
+});
+
+const decideUploadRoute = createRoute({
+  method: "post",
+  path: "/admin/studies/{studyId}/uploads/{uploadId}/decision",
+  summary: "Release a photo a participant uploaded, or remove it for good",
+  request: {
+    params: studyParams.extend({ uploadId: z.uuid() }),
+    body: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: z.object({ decision: z.enum(["release", "remove"]) }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: { description: "Decided", content: { "application/json": { schema: z.object({}) } } },
+    ...commonErrors,
+  },
+});
+
 const withdrawRoute = createRoute({
   method: "post",
   path: "/admin/studies/{studyId}/withdraw",
@@ -577,6 +631,86 @@ export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencie
       "content-type": "application/zip",
       "content-disposition": `attachment; filename="${study.slug}-photos-${inferredDay(new Date())}.zip"`,
     });
+  });
+
+  /** The uploads of one study, through the world each was made in. */
+  const uploadsWithStudy = () =>
+    db
+      .select({ upload: schema.uploads })
+      .from(schema.uploads)
+      .innerJoin(schema.worlds, eq(schema.worlds.id, schema.uploads.worldId))
+      .innerJoin(schema.studyVersions, eq(schema.studyVersions.id, schema.worlds.studyVersionId))
+      .$dynamic();
+
+  app.openapi(uploadsRoute, async (c) => {
+    const researcher = await researcherFromRequest(c, db);
+    if (!researcher) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const { studyId } = c.req.valid("param");
+    if (!(await roleOnStudy(db, researcher.id, studyId))) {
+      return c.json(notAvailable, 404);
+    }
+    const rows = await uploadsWithStudy()
+      .where(
+        and(
+          eq(schema.studyVersions.studyId, studyId),
+          eq(schema.uploads.needsReview, true),
+          isNull(schema.uploads.decision),
+        ),
+      )
+      .orderBy(desc(schema.uploads.createdAt))
+      .limit(200);
+    return c.json(
+      {
+        uploads: rows.map(({ upload }) => ({
+          id: upload.id,
+          url: `/api/media/${upload.key}`,
+          participantId: upload.participantId,
+          at: upload.createdAt.toISOString(),
+          scan: upload.scan as "flagged" | "unscanned",
+          labels: upload.labels,
+          held: upload.held,
+        })),
+      },
+      200,
+    );
+  });
+
+  app.openapi(decideUploadRoute, async (c) => {
+    const researcher = await researcherFromRequest(c, db);
+    if (!researcher) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const { studyId, uploadId } = c.req.valid("param");
+    const role = await roleOnStudy(db, researcher.id, studyId);
+    if (!role) {
+      return c.json(notAvailable, 404);
+    }
+    if (role === "viewer") {
+      return c.json({ error: "You can view this study, but not change it." }, 403);
+    }
+    const [found] = await uploadsWithStudy().where(
+      and(eq(schema.studyVersions.studyId, studyId), eq(schema.uploads.id, uploadId)),
+    );
+    if (!found) {
+      return c.json(notAvailable, 404);
+    }
+    const { decision } = c.req.valid("json");
+    // The record first, so a photo is never gone from storage while still shown as waiting.
+    await db
+      .update(schema.uploads)
+      .set({
+        decision: decision === "release" ? "released" : "removed",
+        held: decision !== "release",
+        decidedBy: researcher.email,
+        decidedAt: new Date(),
+      })
+      .where(eq(schema.uploads.id, uploadId));
+    if (decision === "remove") {
+      await storage.delete(found.upload.key);
+    }
+    return c.json({}, 200);
   });
 
   app.openapi(withdrawRoute, async (c) => {

@@ -353,6 +353,47 @@ export const worldMemberships = pgTable(
   (table) => [primaryKey({ columns: [table.worldId, table.participantId] })],
 );
 
+/**
+ * Every image a participant uploaded, with what a scan said about it (ADR 79). It goes when its
+ * participant or its world does, so a withdrawal needs nothing more.
+ */
+export const uploads = pgTable(
+  "uploads",
+  {
+    id: id(),
+    /** Where it's stored: uploads/<world>/<participant>/<name>. */
+    key: text().notNull().unique(),
+    worldId: uuid("world_id")
+      .notNull()
+      .references(() => worlds.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    bytes: integer().notNull(),
+    createdAt: time("created_at").notNull().defaultNow(),
+    /** What the scan said. `unscanned` is also what a server that doesn't scan records. */
+    scan: text().notNull().default("unscanned"),
+    /** What it was flagged for, or why it couldn't be scanned. */
+    labels: jsonb().$type<string[]>().notNull().default([]),
+    /** Kept from everyone else in a shared world until a researcher decides. */
+    held: boolean().notNull().default(false),
+    /** Whether a researcher should look at it: flagged, or held without being scanned. */
+    needsReview: boolean("needs_review").notNull().default(false),
+    decision: text(),
+    decidedBy: text("decided_by"),
+    decidedAt: time("decided_at"),
+  },
+  (table) => [
+    check("uploads_scan", inList(table.scan, ["clear", "flagged", "unscanned"])),
+    check(
+      "uploads_decision",
+      sql`${table.decision} is null or ${inList(table.decision, ["released", "removed"])}`,
+    ),
+    index("uploads_world").on(table.worldId),
+    index("uploads_participant").on(table.participantId),
+  ],
+);
+
 /** Append-only. Every (re-)randomization, with what's needed to analyze it. */
 export const assignments = pgTable(
   "assignments",

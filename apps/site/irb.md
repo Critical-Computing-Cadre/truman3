@@ -65,6 +65,8 @@ On hosted Truman, database backups are kept for 30 days, so a deleted record can
 - **Hosted Truman:** Amazon Web Services, in the us-east-1 region in the United States. The database and file storage are encrypted, and connections use HTTPS.
 - **Self-hosted:** on servers the lab or its university runs, set up as they choose.
 
+On hosted Truman, each photo a participant uploads is checked by an automated image-moderation service, Amazon Rekognition, for nudity, violence, gore, and hate symbols. Rekognition is part of Amazon Web Services, where the photo is already stored. A flagged photo is shown to the study's researchers to keep or remove. In a study where participants see each other, it's hidden from the other participants until a researcher decides. A self-hosted Truman scans only if whoever runs it turns that on.
+
 ## AI-written content
 
 By default the researcher writes every word ahead of time. A study can turn on live writing, where an AI model (Anthropic's Claude) writes a cast member's reply.
@@ -93,6 +95,6 @@ Usually each participant is alone with the cast. In a shared world, several real
 
 ## Still being finished
 
-Hosted Truman's terms of service and privacy policy are under review and aren't final. Two safeguards are planned and not yet in place: encrypting each lab's data with its own key, and scanning uploaded photos.
+Hosted Truman's terms of service and privacy policy are under review and aren't final. Two things are planned and not yet in place. One is encrypting each lab's data with its own key. The other is opting hosted Truman's account out of Amazon's default terms for its AI services, under which Amazon may keep photos sent for scanning and use them to improve those services.
 
 The code is public at [github.com/Critical-Computing-Cadre/truman3](https://github.com/Critical-Computing-Cadre/truman3). Researchers can read more in [Ethics](/guide/ethics) and [Your data](/guide/data).

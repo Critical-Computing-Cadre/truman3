@@ -442,6 +442,16 @@ export class TrumanStack extends Stack {
     const apiTask = taskDefinition("ApiTask", `${prefix}-api`);
     mediaBucket.grantReadWrite(apiTask.taskRole);
     mediaBucket.grantDelete(apiTask.taskRole);
+    // Scanning the photos participants upload (ADR 79). Rekognition reads each one from the bucket
+    // with the task's own permission to. The call has no resource to narrow it to.
+    if (stage.hosted) {
+      apiTask.taskRole.addToPrincipalPolicy(
+        new iam.PolicyStatement({
+          actions: ["rekognition:DetectModerationLabels"],
+          resources: ["*"],
+        }),
+      );
+    }
     const apiContainer = apiTask.addContainer("api", {
       image,
       entryPoint: withDatabaseAddress(APP_LOGIN, "DATABASE_APP_PASSWORD"),
@@ -463,6 +473,7 @@ export class TrumanStack extends Stack {
         HOSTED: stage.hosted ? "true" : "false",
         // A hosted Truman has the example studies open for anyone to try (ADR 78).
         DEMO_STUDIES: stage.hosted ? "true" : "false",
+        PHOTO_SCANNING: stage.hosted ? "rekognition" : "off",
         ADMIN_APP_URL: `${address}/admin/`,
         ...(stage.mail ? { MAIL_FROM: stage.mail.from, MAIL_REGION: stage.region } : {}),
         // CloudFront, then the load balancer.
