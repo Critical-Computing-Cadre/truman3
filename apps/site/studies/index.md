@@ -58,7 +58,9 @@ If you're choosing between them, this table lines up the basics.
 
 ## Getting one
 
-Every example is in the repository, under `studies/examples/`. On your own Truman, one command brings it in as a frozen version you can launch:
+On hosted Truman, each example is on the **New study** page, under **Where do you want to start?**, as **Example: EatSnap** and so on. Choosing one copies its people, posts, conditions, beats, and tests into a study that's yours to change. Its consent page and the other steps a participant goes through aren't copied, since those have to be your own.
+
+Every example is also in the repository, under `studies/examples/`. On your own Truman, one command brings it in as a frozen version you can launch:
 
 ```
 pnpm study import studies/examples/bystander

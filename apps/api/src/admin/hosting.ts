@@ -276,6 +276,35 @@ const operatorTeamSchema = z.object({
   }),
 });
 
+const teamUsageRoute = createRoute({
+  method: "get",
+  path: "/admin/teams/{teamId}/usage",
+  summary: "A lab's limits and how much of each it has used, for the lab itself",
+  request: { params: z.object({ teamId: z.uuid() }) },
+  responses: {
+    200: {
+      description: "Its limits, and what counts against each",
+      content: {
+        "application/json": {
+          schema: z.object({
+            status: z.enum(TEAM_STATUSES),
+            limits: teamLimitsSchema,
+            usage: z.object({
+              /** People who entered any of its studies in the last 30 days, test participants aside. */
+              participantsLast30Days: z.number(),
+              runningStudies: z.number(),
+              /** What its participants' uploaded photos take up, in bytes. */
+              uploadBytes: z.number(),
+            }),
+          }),
+        },
+      },
+    },
+    401: errorResponse("Not signed in"),
+    404: errorResponse("Not one of this researcher's teams"),
+  },
+});
+
 const operatorTeamsRoute = createRoute({
   method: "get",
   path: "/admin/operator/teams",
@@ -522,6 +551,51 @@ export function createHostingRoutes({
       ].join("\n\n"),
     );
     return c.json({ ok: true as const }, 200);
+  });
+
+  app.openapi(teamUsageRoute, async (c) => {
+    const researcher = await researcherFromRequest(c, db);
+    if (!researcher) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const { teamId } = c.req.valid("param");
+    const [team] = await db
+      .select({ status: schema.teams.status, limits: schema.teams.limits })
+      .from(schema.teams)
+      .innerJoin(schema.teamMemberships, eq(schema.teamMemberships.teamId, schema.teams.id))
+      .where(
+        and(eq(schema.teams.id, teamId), eq(schema.teamMemberships.researcherId, researcher.id)),
+      );
+    if (!team) {
+      return c.json({ error: "This isn't one of your teams." }, 404);
+    }
+    const [recent] = await db
+      .select({ n: countDistinct(schema.participants.id) })
+      .from(schema.participants)
+      .innerJoin(schema.studies, eq(schema.studies.id, schema.participants.studyId))
+      .where(
+        and(
+          eq(schema.studies.teamId, teamId),
+          eq(schema.participants.isPilot, false),
+          gt(schema.participants.enrolledAt, new Date(Date.now() - 30 * DAY_MS)),
+        ),
+      );
+    const [running] = await db
+      .select({ n: count() })
+      .from(schema.studies)
+      .where(and(eq(schema.studies.teamId, teamId), isNotNull(schema.studies.liveVersionId)));
+    return c.json(
+      {
+        status: team.status as TeamStatus,
+        limits: teamLimitsSchema.parse(team.limits),
+        usage: {
+          participantsLast30Days: recent?.n ?? 0,
+          runningStudies: running?.n ?? 0,
+          uploadBytes: (await uploadBytesByTeam(db)).get(teamId) ?? 0,
+        },
+      },
+      200,
+    );
   });
 
   app.openapi(operatorTeamsRoute, async (c) => {

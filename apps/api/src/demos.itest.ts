@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { schema } from "@truman3/db";
@@ -12,7 +12,9 @@ import {
   clearOldDemoVisits,
   DEMO_STUDIES,
   DEMO_TEAM,
+  EXAMPLE_PACKS,
   EXAMPLES_FOLDER,
+  offerExamples,
   setUpDemos,
 } from "./demos.ts";
 
@@ -222,5 +224,56 @@ describe("the demos a server sets up for itself (ADR 78)", () => {
       expect(await still("demo-oldest")).toBe(false);
       expect(await still("demo-older")).toBe(true);
     });
+  });
+});
+
+describe("examples a new study can start from (ADR 81)", () => {
+  const offer = () =>
+    offerExamples({ db: database.db, storage, folder, log: (line) => said.push(line) });
+  const packs = async (name: string) =>
+    database.db.select().from(schema.contentPacks).where(eq(schema.contentPacks.name, name));
+
+  it("names only examples that exist", () => {
+    for (const example of Object.keys(EXAMPLE_PACKS)) {
+      expect(existsSync(path.join(EXAMPLES_FOLDER, example, "study.yaml"))).toBe(true);
+    }
+  });
+
+  it("offers each example to every lab, once, however often it runs", async () => {
+    said.length = 0;
+    await offer();
+    await offer();
+
+    const [pack] = await packs("Example: Bystander");
+    expect(await packs("Example: Bystander")).toHaveLength(1);
+    expect(pack?.teamId).toBeNull();
+    expect(pack?.description).toMatch(/first painting/);
+    expect(
+      said.filter((line) => line === "Examples: Example: Bystander can be started from."),
+    ).toHaveLength(1);
+    expect(said).toContain("Examples: eatsnap has errors, so it isn't offered.");
+  });
+
+  it("replaces an example's pack when the example changes, and leaves a lab's own pack of that name", async () => {
+    const [before] = await packs("Example: Bystander");
+    const [lab] = await database.db
+      .insert(schema.teams)
+      .values({ name: "Another lab", slug: "another-lab" })
+      .returning();
+    await database.db.insert(schema.contentPacks).values({
+      teamId: lab?.id as string,
+      name: "Example: Bystander",
+      contents: before?.contents,
+      summary: before?.summary,
+      contentHash: "theirs",
+    });
+    appendFileSync(path.join(folder, "bystander", "posts.csv"), "\n");
+    appendFileSync(path.join(folder, "bystander", "actors.csv"), "newcomer,New Comer\n");
+    await offer();
+
+    const now = await packs("Example: Bystander");
+    expect(now).toHaveLength(2);
+    expect(now.find((pack) => pack.teamId === null)?.id).not.toBe(before?.id);
+    expect(now.some((pack) => pack.teamId === lab?.id)).toBe(true);
   });
 });
