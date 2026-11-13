@@ -45,6 +45,15 @@ const envSchema = z.object({
    * photos in S3 and permission to call it. ADR 79.
    */
   PHOTO_SCANNING: z.enum(["off", "rekognition"]).default("off"),
+  /**
+   * "kms" gives each lab its own key in AWS KMS when it first opens a study to participants, and
+   * stores recruitment IDs, IP addresses, and uploaded photos under it. ADR 82.
+   */
+  LAB_KEYS: z.enum(["off", "kms"]).default("off"),
+  /** With LAB_KEYS=kms: the roles that may use a lab's key, as ARNs, this server's own first. */
+  LAB_KEY_ROLES: z.string().default(""),
+  /** With LAB_KEYS=kms: what keys are tagged and named with, such as "truman3-production". */
+  LAB_KEY_STAGE: z.string().default("truman3"),
   /** "true" has the server set up the example studies as demos anyone can open. ADR 78. */
   DEMO_STUDIES: z.enum(["true", "false"]).default("false"),
 });

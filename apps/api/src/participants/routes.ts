@@ -11,6 +11,7 @@ import { countUnreadNotifications } from "../actions/notifications.ts";
 import type { ProlificConfig } from "../admin/prolific.ts";
 import { catchUp } from "../director/director.ts";
 import { mediaUrl, participantKarma } from "../feed/build.ts";
+import type { LabKeys } from "../lab-keys.ts";
 import type { Live } from "../live.ts";
 import type { Mailer } from "../mail.ts";
 import type { PhotoScanner } from "../scanning.ts";
@@ -164,6 +165,8 @@ export interface ParticipantRouteDependencies {
   storage: Storage;
   /** Looks at each image a participant uploads (ADR 79). Leave out and nothing is scanned. */
   scanner?: PhotoScanner | undefined;
+  /** Each lab's own key, for what ties its data to real people (ADR 82). Leave out for none. */
+  labKeys?: LabKeys | undefined;
   /** Whether cookies require HTTPS. True everywhere except local development. */
   secureCookies: boolean;
   /** Decides whether an address may try entering right now. Leave out for no limit. */
@@ -206,6 +209,7 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
     allowEntryAttempt,
     writer,
     clock = realClock,
+    labKeys,
   } = dependencies;
   const app = new OpenAPIHono();
 
@@ -241,6 +245,7 @@ export function createParticipantRoutes(dependencies: ParticipantRouteDependenci
       device: summarizeDevice(c.req.header("user-agent")),
       getIpAddress: () => getClientIp(c),
       now: clock(),
+      labKeys,
     });
     if (!result) {
       return c.json(notFound, 404);

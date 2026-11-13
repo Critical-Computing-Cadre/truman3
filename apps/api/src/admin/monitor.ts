@@ -314,7 +314,7 @@ const stepLabel = (step: StudySettings["flow"][number]) => {
 
 const inferredDay = (date: Date) => date.toISOString().slice(0, 10);
 
-export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencies) {
+export function createMonitorRoutes({ db, storage, labKeys }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const pleaseSignIn = { error: "Please sign in." };
   const notAvailable = { error: "This isn't available." };
@@ -573,7 +573,9 @@ export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencie
 
     const folder = mkdtempSync(path.join(tmpdir(), "truman-export-"));
     try {
+      const sealer = await labKeys?.forStudy(db, studyId);
       const result = await exportStudy(db, study.slug, folder, {
+        ...(sealer ? { openSealed: sealer.open } : {}),
         ...(options.minDwellMs === undefined ? {} : { minDwellMs: options.minDwellMs }),
         ...(options.maxDwellMs === undefined ? {} : { maxDwellMs: options.maxDwellMs }),
         ...(options.includeRecruitmentIds ? { includeRecruitmentIds: true } : {}),
@@ -732,9 +734,11 @@ export function createMonitorRoutes({ db, storage }: ParticipantRouteDependencie
     }
 
     const { externalId, reason } = c.req.valid("json");
+    const sealer = await labKeys?.forStudy(db, studyId);
     const result = await withdrawParticipant(db, storage, {
       slug: study.slug,
       externalId,
+      storedAs: sealer?.lookup(externalId),
       reason,
       requestedBy: researcher.email,
     });

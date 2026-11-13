@@ -117,7 +117,7 @@ Studies on hosted Truman run at clikbrite.com by default, so the address bar doe
 Hosted Truman is in beta. These have to be done before anyone runs a real study on it:
 
 - **Terms of service and a privacy policy,** reviewed by the university that hosts it.
-- **Each lab's data encrypted with its own key,** with any access by the host logged and told to the lab.
+- **A logged emergency login for the host.** Your lab already gets a key of its own when it first opens a study, and recruitment IDs, IP addresses, and uploaded photos are stored under it. What's left is the emergency way in for whoever runs hosted Truman, which records each use and tells your lab.
 - **Opting out of Amazon keeping scanned photos.** Photos participants upload are scanned by Amazon Rekognition. By default Amazon may keep what it scans to improve its services, and hosted Truman's account hasn't opted out yet.
 
 Until then, use it to build and pilot. Everything you make now stays when it opens.

@@ -10,6 +10,8 @@ import { forwardedAddress } from "./client-address.ts";
 import { setUpDemos, startClearingDemoVisits } from "./demos.ts";
 import { parseServerEnv } from "./env.ts";
 import { describeError } from "./errors.ts";
+import { createLabKeys } from "./lab-keys.ts";
+import { kmsKeyService } from "./lab-keys-kms.ts";
 import { createLive } from "./live.ts";
 import { consoleMailer, fileMailer, sesMailer, unsentMailer } from "./mail.ts";
 import { expoPush, startPushing } from "./push.ts";
@@ -37,6 +39,20 @@ const scanner =
 await storage.ensureBucket();
 /** Generous, since many participants can share one address on a campus network. */
 const ENTRY_ATTEMPTS_PER_MINUTE = 120;
+
+// Each lab's own key, for what ties its data to real people (ADR 82).
+const labKeys =
+  env.LAB_KEYS === "kms"
+    ? createLabKeys(
+        kmsKeyService({
+          region: storageConfig.region,
+          stage: env.LAB_KEY_STAGE,
+          mayUse: env.LAB_KEY_ROLES.split(",")
+            .map((role) => role.trim())
+            .filter(Boolean),
+        }),
+      )
+    : undefined;
 
 // The host's key, and on a hosted Truman each lab's own, chosen for each study (ADR 71).
 const writer = createAi({
@@ -66,6 +82,7 @@ const app = createApp({
   db: database.db,
   storage,
   scanner,
+  labKeys,
   mediaPublicUrl: env.MEDIA_PUBLIC_URL,
   secureCookies: env.NODE_ENV !== "development",
   participantAppUrl: env.PARTICIPANT_APP_URL,

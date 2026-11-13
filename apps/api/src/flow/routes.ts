@@ -16,6 +16,7 @@ import { deleteCookie } from "hono/cookie";
 import { actionMetaSchema } from "../actions/request.ts";
 import { findVisibleContent } from "../actions/routes.ts";
 import { mediaUrl } from "../feed/build.ts";
+import { isSealed } from "../lab-keys.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import {
   type ParticipantContext,
@@ -314,9 +315,22 @@ export function createFlowRoutes({
   storage,
   mediaPublicUrl,
   clock = realClock,
+  labKeys,
 }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
   const pleaseSignIn = { error: "Please sign in." };
+
+  /** Their context with the recruitment ID opened, for a link that carries it (ADR 82). */
+  const withOpenId = async (context: ParticipantContext): Promise<ParticipantContext> => {
+    if (!isSealed(context.externalId)) {
+      return context;
+    }
+    const sealer = await labKeys?.forStudyVersion(db, context.studyVersionId);
+    if (!sealer) {
+      throw new Error("This participant's ID is sealed, and this server has no keys to open it.");
+    }
+    return { ...context, externalId: sealer.open(context.externalId) };
+  };
 
   app.openapi(flowRoute, async (c) => {
     const context = await participantFromRequest(c, db, clock());
@@ -384,7 +398,7 @@ export function createFlowRoutes({
       return c.json(pleaseSignIn, 401);
     }
 
-    const result = await advance(db, context, c.req.valid("json"), clock());
+    const result = await advance(db, await withOpenId(context), c.req.valid("json"), clock());
     if (result.outcome === "conflict") {
       return c.json({ error: result.message }, 409);
     }
@@ -405,7 +419,7 @@ export function createFlowRoutes({
 
     // Worked out first, since deleting removes what they're based on.
     const redirectUrl = step.declineRedirect
-      ? fillLinkTemplate(step.declineRedirect, linkValues(context))
+      ? fillLinkTemplate(step.declineRedirect, linkValues(await withOpenId(context)))
       : await prolificDeclineUrl(db, context);
     await deleteParticipant(db, storage, context.participantId, "declined consent", "participant");
     deleteCookie(c, SESSION_COOKIE, { path: "/" });

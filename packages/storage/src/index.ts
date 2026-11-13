@@ -108,9 +108,24 @@ export function createStorage(config: StorageConfig) {
       }
     },
 
-    put: async (key: string, body: Uint8Array, contentType: string) => {
+    /**
+     * `kmsKeyId` encrypts this one file with that key in AWS KMS, in place of the bucket's own. A
+     * lab's key, for what its participants upload (ADR 82). Reading it back needs nothing extra.
+     */
+    put: async (
+      key: string,
+      body: Uint8Array,
+      contentType: string,
+      { kmsKeyId }: { kmsKeyId?: string | undefined } = {},
+    ) => {
       await client.send(
-        new PutObjectCommand({ Bucket, Key: key, Body: body, ContentType: contentType }),
+        new PutObjectCommand({
+          Bucket,
+          Key: key,
+          Body: body,
+          ContentType: contentType,
+          ...(kmsKeyId ? { ServerSideEncryption: "aws:kms", SSEKMSKeyId: kmsKeyId } : {}),
+        }),
       );
     },
 

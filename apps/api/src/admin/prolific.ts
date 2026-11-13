@@ -306,6 +306,7 @@ const codeLabel = (used: string | null | undefined, codes: CompletionCodes) => {
 
 export function createProlificRoutes({
   db,
+  labKeys,
   prolific: config,
   participantDomains = [],
   participantDomainDefault,
@@ -561,6 +562,9 @@ export function createProlificRoutes({
     rules: ApprovalRules,
   ) => {
     const ids = [...new Set(found.map((item) => item.participant_id))];
+    // Where the lab has its own key, people are stored by a stand-in for their ID (ADR 82).
+    const sealer = await labKeys?.forStudy(db, studyId);
+    const standIn = (id: string) => sealer?.lookup(id);
     const people =
       ids.length === 0
         ? []
@@ -574,7 +578,10 @@ export function createProlificRoutes({
             .where(
               and(
                 eq(schema.participants.studyId, studyId),
-                inArray(schema.participants.externalId, ids),
+                inArray(schema.participants.externalId, [
+                  ...ids,
+                  ...ids.flatMap((id) => standIn(id) ?? []),
+                ]),
               ),
             );
     const activity = await activityOf(
@@ -583,7 +590,10 @@ export function createProlificRoutes({
     );
 
     return found.map((item) => {
-      const person = people.find(({ externalId }) => externalId === item.participant_id);
+      const person = people.find(
+        ({ externalId }) =>
+          externalId === item.participant_id || externalId === standIn(item.participant_id),
+      );
       const did = person
         ? (activity.get(person.id) ?? { viewedMs: 0, postsSeen: 0, actions: 0 })
         : null;

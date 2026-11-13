@@ -234,6 +234,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@aws-sdk/client-kms':
+        specifier: 3.1158.0
+        version: 3.1158.0
       '@aws-sdk/client-rekognition':
         specifier: 3.1158.0
         version: 3.1158.0
@@ -871,6 +874,10 @@ packages:
 
   '@aws-sdk/checksums@3.1002.1':
     resolution: {integrity: sha512-CXNESwkQC9jdrUG6cKXBfudVt1frGcYQykcCYbNclVrsewuGMbo3PlFjRteMe4OftNAqhyc3xC2jTz7SUqLasQ==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-kms@3.1158.0':
+    resolution: {integrity: sha512-uOO8r4mFEuFBMy5KJ+suxj5XWiNXkXkOoO5APVUHitRW4ESyCVrkTscyogb/6jFxyTPwPJ1EikGZhmJFC6V6uQ==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-rekognition@3.1158.0':
@@ -4106,6 +4113,17 @@ snapshots:
       '@aws-sdk/core': 3.979.1
       '@aws-sdk/types': 3.975.0
       '@smithy/core': 3.38.1
+      '@smithy/types': 4.19.0
+      tslib: 2.9.1
+
+  '@aws-sdk/client-kms@3.1158.0':
+    dependencies:
+      '@aws-sdk/core': 3.979.1
+      '@aws-sdk/credential-provider-node': 3.972.92
+      '@aws-sdk/types': 3.975.0
+      '@smithy/core': 3.38.1
+      '@smithy/fetch-http-handler': 5.8.0
+      '@smithy/node-http-handler': 4.14.1
       '@smithy/types': 4.19.0
       tslib: 2.9.1
 

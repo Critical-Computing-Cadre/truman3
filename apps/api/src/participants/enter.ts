@@ -8,8 +8,9 @@ import {
   studySettingsSchema,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
-import { and, asc, count, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { teamTakesNewParticipants } from "../admin/hosting.ts";
+import type { LabKeys } from "../lab-keys.ts";
 import type { DeviceSummary } from "./device.ts";
 import { hashSessionToken, newSessionToken } from "./session.ts";
 
@@ -442,6 +443,8 @@ export interface EnterRequest {
   /** Only called if the study has turned on storing IP addresses. */
   getIpAddress: () => string | undefined;
   now?: Date;
+  /** Labs' own keys (ADR 82). Leave out and IDs are stored as they are. */
+  labKeys?: LabKeys | undefined;
 }
 
 export type EnterResult =
@@ -471,13 +474,36 @@ export async function enterStudy(db: Database, request: EnterRequest): Promise<E
     }
     const { studyId, live } = entry;
 
+    // A lab with its own key stores a stand-in for the ID that only its key can make, and the ID
+    // itself sealed beside it (ADR 82). People who entered before the lab had a key are still
+    // stored by the ID itself, so both are looked for.
+    const sealer = (await request.labKeys?.forStudy(tx, studyId)) ?? null;
+    const storedId = sealer ? sealer.lookup(request.externalId) : request.externalId;
+    const [fromBeforeTheKey] = sealer
+      ? await tx
+          .select({ id: schema.participants.id })
+          .from(schema.participants)
+          .where(
+            and(
+              eq(schema.participants.studyId, studyId),
+              eq(schema.participants.externalId, request.externalId),
+              isNull(schema.participants.externalIdSealed),
+            ),
+          )
+      : [];
+    const knownAs = fromBeforeTheKey ? request.externalId : storedId;
+
+    // Whichever form they were stored by when they left.
     const [excluded] = await tx
       .select()
       .from(schema.excludedEntries)
       .where(
         and(
           eq(schema.excludedEntries.studyId, studyId),
-          eq(schema.excludedEntries.idHash, exclusionHash(studyId, request.externalId)),
+          inArray(schema.excludedEntries.idHash, [
+            exclusionHash(studyId, request.externalId),
+            exclusionHash(studyId, storedId),
+          ]),
         ),
       );
     if (excluded) {
@@ -486,17 +512,19 @@ export async function enterStudy(db: Database, request: EnterRequest): Promise<E
 
     // A team that's suspended, or at its limit for the month, takes nobody new (ADR 70).
     const open = live && (await teamTakesNewParticipants(tx, studyId, now)) ? live : null;
-    const [created] = open
-      ? await tx
-          .insert(schema.participants)
-          .values({
-            studyId,
-            externalId: request.externalId,
-            source: open.settings.entry.source,
-          })
-          .onConflictDoNothing()
-          .returning()
-      : [];
+    const [created] =
+      open && !fromBeforeTheKey
+        ? await tx
+            .insert(schema.participants)
+            .values({
+              studyId,
+              externalId: storedId,
+              ...(sealer ? { externalIdSealed: sealer.seal(request.externalId) } : {}),
+              source: open.settings.entry.source,
+            })
+            .onConflictDoNothing()
+            .returning()
+        : [];
 
     let participantId: string;
     let version: VersionRow;
@@ -527,7 +555,11 @@ export async function enterStudy(db: Database, request: EnterRequest): Promise<E
         .where(
           and(
             eq(schema.participants.studyId, studyId),
-            eq(schema.participants.externalId, request.externalId),
+            eq(schema.participants.externalId, knownAs),
+            // A stand-in only ever matches a row the key made, never an ID someone typed.
+            sealer && !fromBeforeTheKey
+              ? isNotNull(schema.participants.externalIdSealed)
+              : isNull(schema.participants.externalIdSealed),
           ),
         );
       if (!existing && !open) {
@@ -565,7 +597,10 @@ export async function enterStudy(db: Database, request: EnterRequest): Promise<E
     const ipAddress = settings.privacy.storeIpAddress ? request.getIpAddress() : undefined;
     await recordEvent(tx, {
       type: "session.started",
-      payload: { ...request.device, ...(ipAddress ? { ipAddress } : {}) },
+      payload: {
+        ...request.device,
+        ...(ipAddress ? { ipAddress: sealer ? sealer.seal(ipAddress) : ipAddress } : {}),
+      },
       worldId: place.worldId,
       studyVersionId: version.id,
       participantId,
