@@ -104,6 +104,22 @@ A few more things:
 - **The record itself** is the CloudTrail trail `<stage>-calls`, kept a year in its own bucket.
 - Reports reach the API at `/api/hooks/key-events`, with a key held in the secret `<stage>/key-events-hook-key`. Nothing else should call it.
 
+## Reports of security problems
+
+A stage with `mail.securityContact` set takes mail for that address, `security@truman-research.org` on production, and sends each message to the topic `<stage>-security-reports` (ADR 84). A deploy prints the topic as `SecurityReportsTopic`.
+
+Nothing reaches anyone until an address is subscribed to it:
+
+```
+aws sns subscribe --topic-arn <SecurityReportsTopic> --protocol email --notification-endpoint <your address> --profile <profile>
+```
+
+AWS then emails that address a link to confirm. Subscribe a second person too, so a report isn't waiting on one inbox.
+
+A report arrives as a notification from AWS with the sender's message inside it. To answer, write to the sender from your own address.
+
+`apps/site/public/.well-known/security.txt` has a date it expires on, and a test starts failing a month before it. Move the date on by a year when it does.
+
 ## Photo scanning
 
 With `PHOTO_SCANNING=rekognition`, each photo a participant uploads is scanned by Amazon Rekognition (ADR 79). Flagged photos go to the study's researchers, on their Monitor page. An operator doesn't see them.

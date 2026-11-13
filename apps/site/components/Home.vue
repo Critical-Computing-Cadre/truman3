@@ -415,7 +415,7 @@ onUnmounted(() => {
 
 <footer>
   <div class="wrap">
-    <p><a href="/studies/">Studies</a> · <a href="/guide/">Guide</a> · <a href="/developers/">Developers</a> · <a href="/irb">For IRBs</a> · <a href="/about">About</a> · <a href="https://github.com/Critical-Computing-Cadre/truman3">GitHub</a></p>
+    <p><a href="/studies/">Studies</a> · <a href="/guide/">Guide</a> · <a href="/developers/">Developers</a> · <a href="/irb">For IRBs</a> · <a href="/about">About</a> · <a href="/security">Security</a> · <a href="https://github.com/Critical-Computing-Cadre/truman3">GitHub</a></p>
     <p>Open source under the MIT license. Truman 3's AI cast builds on Truman Agents, by Qian Yang and the Cornell DesignAI Group.</p>
     <p>The post above, its picture, and the faces are from the EatSnap.Love study. Kitty's comment is from it too, where she left it on someone else's post. The replies to you were written for this page. Nothing you do here is sent anywhere.</p>
   </div>
