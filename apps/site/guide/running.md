@@ -19,7 +19,7 @@ One idea runs through all of it: saving a version never changes what participant
    - some posts can never appear because of when they're timed
 3. Press **Launch it**, or **Not yet**.
 
-The study now says **Open to participants**, the version is marked **Live**, and the **Study link** appears under the study's name.
+The study now says **Open to participants**, and the version is marked **Live**. The **Study link** under the study's name was there before, saying it works once the study is open. Now it works.
 
 ::: info On hosted Truman
 A lab has to be approved before it can launch, and there's a limit on studies open at once. See [Your lab on hosted Truman](/guide/your-lab).
@@ -88,7 +88,7 @@ Press **Stop new participants** beside the live version, then confirm. New peopl
 A saved version can't be changed. To change a running study, you make a new version and launch it.
 
 1. On the **Studies** page, press **Edit a copy of version** and its number.
-2. Make your changes and press **Save as new version**.
+2. Make your changes and press **Save as new version**. With nothing changed, the window says it's still the same version.
 3. Test it. It isn't live yet.
 4. Press **Launch** beside the new version.
 
