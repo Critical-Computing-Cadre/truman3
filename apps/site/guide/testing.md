@@ -16,7 +16,7 @@ The builder is already a preview. At the top:
 - **Compare with** puts a second condition beside it.
 - The slider moves through the study. Bars above it show when new posts appear.
 
-If the page says some posts can never appear, they're timed after the study ends or fall outside how far back the feed reaches. Press **Show posts on the timeline**, find the red ones, and drag them back in.
+If the page says some posts can never appear, they're timed after the study ends or fall outside how far back the feed reaches. Under the controls is a timeline with a dot for each post. Find the red ones and drag them back in. If the timeline isn't there, press **Show posts on the timeline**.
 
 For a saved version, press **See the feed** beside it on the **Studies** page. It's the same view, drawn as participants see it, and nothing can be changed.
 
