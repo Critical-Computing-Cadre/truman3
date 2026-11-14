@@ -1608,9 +1608,9 @@ export function DraftPage() {
       <TimelineControls
         title={
           <>
-            {info.data.title}{" "}
-            <span className="font-normal text-amber-700">
-              {info.data.closed ? "saved" : "draft"}
+            {info.data.title}
+            <span className={`badge ${info.data.closed ? "" : "badge-wait"}`}>
+              {info.data.closed ? "Saved" : "Draft"}
             </span>
           </>
         }
@@ -1630,8 +1630,8 @@ export function DraftPage() {
       />
 
       {/* Not pinned with the controls above, or it would cover half the screen while reading the feed. */}
-      <div className="border-b border-stone-200 bg-white px-3 pb-2">
-        <div className="mx-auto max-w-5xl pt-2">
+      <div className="border-b border-stone-200 bg-white pb-2">
+        <div className="mx-auto max-w-5xl px-4 pt-2 md:px-6">
           {others.length > 0 && (
             <p className="mb-1 text-xs" data-testid="also-here">
               <span className="rounded bg-sky-100 px-2 py-0.5 text-sky-900">
@@ -1666,7 +1666,7 @@ export function DraftPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-3 pt-3 text-sm">
+      <div className="mx-auto max-w-5xl px-4 pt-3 text-sm md:px-6">
         <RecentChanges draftId={draftId} canEdit={info.data.canEdit} />
         {info.data.closed && (
           <p className="rounded bg-stone-200 p-3">

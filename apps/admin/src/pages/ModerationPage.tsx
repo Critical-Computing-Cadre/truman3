@@ -1135,8 +1135,11 @@ export function ModerationPage() {
         </p>
       )}
 
-      <section aria-label="What the study wrote" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <section
+        aria-label="What the study wrote"
+        className="space-y-3 border-t border-stone-200 pt-4"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap">
           <div>
             <h2 className="font-semibold">Removing what the study wrote</h2>
             <p className="text-sm text-stone-500">
@@ -1157,7 +1160,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="btn btn-primary"
+              className="btn shrink-0"
             >
               Add a removal
             </button>
@@ -1176,8 +1179,8 @@ export function ModerationPage() {
       </section>
 
       {(labelsOn || data.labels.length > 0) && (
-        <section aria-label="Labels" className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <section aria-label="Labels" className="space-y-3 border-t border-stone-200 pt-4">
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap">
             <div>
               <h2 className="font-semibold">Labeling what the study wrote</h2>
               <p className="text-sm text-stone-500">
@@ -1201,7 +1204,7 @@ export function ModerationPage() {
                     conditions: [],
                   })
                 }
-                className="btn btn-primary"
+                className="btn shrink-0"
               >
                 Add a label
               </button>
@@ -1220,8 +1223,8 @@ export function ModerationPage() {
         </section>
       )}
 
-      <section aria-label="What someone flags" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <section aria-label="What someone flags" className="space-y-3 border-t border-stone-200 pt-4">
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap">
           <div>
             <h2 className="font-semibold">Answering what someone flags</h2>
             <p className="text-sm text-stone-500">
@@ -1242,7 +1245,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="btn btn-primary"
+              className="btn shrink-0"
             >
               Add an answer
             </button>
@@ -1255,8 +1258,8 @@ export function ModerationPage() {
         </ul>
       </section>
 
-      <section aria-label="Context notes" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <section aria-label="Context notes" className="space-y-3 border-t border-stone-200 pt-4">
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap">
           <div>
             <h2 className="font-semibold">Context notes</h2>
             <p className="text-sm text-stone-500">
@@ -1276,7 +1279,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="btn btn-primary"
+              className="btn shrink-0"
             >
               Add a note
             </button>
@@ -1289,8 +1292,8 @@ export function ModerationPage() {
         </ul>
       </section>
 
-      <section aria-label="Automatic rules" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <section aria-label="Automatic rules" className="space-y-3 border-t border-stone-200 pt-4">
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap">
           <div>
             <h2 className="font-semibold">Automatic rules</h2>
             <p className="text-sm text-stone-500">
@@ -1314,7 +1317,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="btn btn-primary"
+              className="btn shrink-0"
             >
               Add a rule
             </button>
@@ -1327,8 +1330,8 @@ export function ModerationPage() {
         </ul>
       </section>
 
-      <section aria-label="Answers to appeals" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <section aria-label="Answers to appeals" className="space-y-3 border-t border-stone-200 pt-4">
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap">
           <div>
             <h2 className="font-semibold">Answering appeals</h2>
             <p className="text-sm text-stone-500">
@@ -1349,7 +1352,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="btn btn-primary"
+              className="btn shrink-0"
             >
               Add an answer
             </button>
@@ -1362,8 +1365,8 @@ export function ModerationPage() {
         </ul>
       </section>
 
-      <section aria-label="Who's banned" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <section aria-label="Who's banned" className="space-y-3 border-t border-stone-200 pt-4">
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap">
           <div>
             <h2 className="font-semibold">Banning someone in the cast</h2>
             <p className="text-sm text-stone-500">
@@ -1384,7 +1387,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="btn btn-primary"
+              className="btn shrink-0"
             >
               Add a ban
             </button>
@@ -1397,8 +1400,11 @@ export function ModerationPage() {
         </ul>
       </section>
 
-      <section aria-label="Who someone reports" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <section
+        aria-label="Who someone reports"
+        className="space-y-3 border-t border-stone-200 pt-4"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap">
           <div>
             <h2 className="font-semibold">Answering when someone reports a person</h2>
             <p className="text-sm text-stone-500">
@@ -1419,7 +1425,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="btn btn-primary"
+              className="btn shrink-0"
             >
               Add an answer
             </button>
@@ -1432,8 +1438,11 @@ export function ModerationPage() {
         </ul>
       </section>
 
-      <section aria-label="What a participant writes" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <section
+        aria-label="What a participant writes"
+        className="space-y-3 border-t border-stone-200 pt-4"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap">
           <div>
             <h2 className="font-semibold">Responding to what a participant writes</h2>
             <p className="text-sm text-stone-500">
@@ -1455,7 +1464,7 @@ export function ModerationPage() {
                   conditions: [],
                 })
               }
-              className="btn btn-primary"
+              className="btn shrink-0"
             >
               Add a response
             </button>

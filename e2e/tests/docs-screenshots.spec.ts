@@ -108,6 +108,20 @@ test("takes the guide's pictures", async ({ page, browser }, testInfo) => {
       await page.getByRole("link", { name: "Feed", exact: true }).click();
     }
 
+    // A forum has the pages the other kinds don't, to look over.
+    if (kind.file === "forum") {
+      for (const name of ["Moderation", "Spaces", "Tests", "Personas", "Agent"]) {
+        await page.getByRole("link", { name, exact: true }).click();
+        await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+        await page.waitForLoadState("networkidle");
+        await page.screenshot({
+          path: testInfo.outputPath(`admin-${name.toLowerCase()}.png`),
+          fullPage: true,
+        });
+      }
+      await page.getByRole("link", { name: "Feed", exact: true }).click();
+    }
+
     await page.getByRole("button", { name: "Save as new version" }).click();
     if (index === 0) {
       await page.screenshot({ path: shot("save-version") });
