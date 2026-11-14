@@ -159,7 +159,7 @@ After it:
 
 `pnpm run deploy --profile <profile>` is enough, with or without a migration. The deploy updates the database while the old API keeps running, then starts the new one, so the site stays up. [Cloud architecture](../cloud.md#when-a-change-includes-a-migration) says how, and what to do with the rare migration that needs the API stopped.
 
-**Most deploys don't need you.** A merge into main deploys staging from GitHub, and production once you approve it on the run's page. [Deploys from GitHub](../cloud.md#deploys-from-github) has how it works and what it refuses. To set it up for a repository of your own, put its name in `deployFrom` in `stages.ts`, deploy once by hand to make the roles, and make the two environments in GitHub's settings.
+**Most deploys don't need you.** A merge into main deploys staging from GitHub, and production once you approve it on the run's page. [Deploys from GitHub](../cloud.md#deploys-from-github) has how it works and what it refuses. To set it up for a repository of your own, put its names and numbers in `deployFrom` in `stages.ts` (`gh api repos/<owner>/<name>/actions/oidc/customization/sub` prints them), deploy once by hand to make the roles, and make the two environments in GitHub's settings.
 
 **A deploy that widens access stops and asks.** `infra/cdk.json` sets `requireApproval: broadening`, so a change that adds an IAM permission or lets more through a firewall waits for you to type `y`. Read what it lists first. Anything you didn't expect is worth asking about.
 

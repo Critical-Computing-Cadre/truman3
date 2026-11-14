@@ -31,11 +31,16 @@ export interface Stage {
   /** A hosted Truman, where labs apply and an operator approves them (ADR 70). */
   hosted: boolean;
   /**
-   * The GitHub repository whose Actions may deploy this stage, as "owner/name" (ADR 88). The stack
-   * makes a role that only a job in that repository, running in the GitHub environment named after
-   * this stage, can take on. Leave it out and deploys are only ever run by a person.
+   * The GitHub repository whose Actions may deploy this stage (ADR 88). The stack makes a role that
+   * only a job in that repository, running in the GitHub environment named after this stage, can
+   * take on. Leave it out and deploys are only ever run by a person.
+   *
+   * GitHub names a repository to AWS with its permanent numbers as well as its names, so a
+   * repository that's renamed, or another made later with the same name, isn't taken for this one.
+   * `gh api repos/<owner>/<name>/actions/oidc/customization/sub` prints the whole thing, as
+   * "repo:<owner>@<ownerId>/<name>@<repositoryId>".
    */
-  deployFrom?: string;
+  deployFrom?: { owner: string; ownerId: number; name: string; repositoryId: number };
   /**
    * Email to researchers through Amazon SES (ADR 72): the domain it's sent from, which this stack
    * sets up in SES, and the From address. Its DKIM records are printed after a deploy, to add
@@ -86,7 +91,12 @@ export interface Stage {
 }
 
 /** Where this code lives. Only its Actions may deploy. */
-const REPOSITORY = "Critical-Computing-Cadre/truman3";
+const REPOSITORY = {
+  owner: "Critical-Computing-Cadre",
+  ownerId: 83366217,
+  name: "truman3",
+  repositoryId: 1441943190,
+};
 
 export const STAGES: Record<string, Stage> = {
   // No real participants. Everything here can be deleted.

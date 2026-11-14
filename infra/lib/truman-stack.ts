@@ -1180,20 +1180,23 @@ export class TrumanStack extends Stack {
     // repository and which GitHub environment it's running in, and AWS lets it take this role only
     // if both match. The environment is where GitHub asks a person to approve, for production.
     if (stage.deployFrom) {
+      const { owner, ownerId, name, repositoryId } = stage.deployFrom;
+      // How GitHub names this repository to AWS: by name and by permanent number.
+      const repository = `repo:${owner}@${ownerId}/${name}@${repositoryId}`;
       const github = new iam.CfnOIDCProvider(this, "GitHub", {
         url: "https://token.actions.githubusercontent.com",
         clientIdList: ["sts.amazonaws.com"],
       });
       const deployer = new iam.Role(this, "Deployer", {
         roleName: `${prefix}-deploy`,
-        description: `Lets ${stage.deployFrom}'s Actions deploy ${stage.name}, from its "${stage.name}" environment.`,
+        description: `Lets ${owner}/${name}'s Actions deploy ${stage.name}, from its "${stage.name}" environment.`,
         maxSessionDuration: Duration.hours(1),
         assumedBy: new iam.FederatedPrincipal(
           github.attrArn,
           {
             StringEquals: {
               "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-              "token.actions.githubusercontent.com:sub": `repo:${stage.deployFrom}:environment:${stage.name}`,
+              "token.actions.githubusercontent.com:sub": `${repository}:environment:${stage.name}`,
             },
           },
           "sts:AssumeRoleWithWebIdentity",

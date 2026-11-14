@@ -874,7 +874,9 @@ describe("deploys from GitHub Actions (ADR 88)", () => {
       expect(statements[0]?.Condition).toEqual({
         StringEquals: {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          "token.actions.githubusercontent.com:sub": `repo:Critical-Computing-Cadre/truman3:environment:${name}`,
+          // GitHub's name for this repository includes its permanent numbers. The first deploy from
+          // GitHub was refused because this had the names alone.
+          "token.actions.githubusercontent.com:sub": `repo:Critical-Computing-Cadre@83366217/truman3@1441943190:environment:${name}`,
         },
       });
     }
