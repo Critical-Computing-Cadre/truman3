@@ -776,6 +776,68 @@ describe("updating the database during a deploy (ADR 86)", () => {
   });
 });
 
+describe("deploys from GitHub Actions (ADR 88)", () => {
+  const trust = (from: Template) => {
+    const [role] = Object.values(from.findResources("AWS::IAM::Role")).filter(({ Properties }) =>
+      String(Properties.RoleName).endsWith("-deploy"),
+    );
+    return role?.Properties.AssumeRolePolicyDocument.Statement as {
+      Action: string;
+      Condition: { StringEquals: Record<string, string> };
+      Principal: { Federated: unknown };
+    }[];
+  };
+
+  it("trusts GitHub's sign-in, for AWS's own audience only", () => {
+    template.hasResourceProperties("AWS::IAM::OIDCProvider", {
+      Url: "https://token.actions.githubusercontent.com",
+      ClientIdList: ["sts.amazonaws.com"],
+    });
+  });
+
+  it("lets only this repository's job in the stage's own environment take the role", () => {
+    for (const [from, name] of [
+      [template, "staging"],
+      [build(STAGES.production as Stage), "production"],
+    ] as const) {
+      const statements = trust(from);
+      expect(statements).toHaveLength(1);
+      expect(statements[0]?.Action).toBe("sts:AssumeRoleWithWebIdentity");
+      // Exact matches. A pattern here could let in a pull request, a fork, or another branch.
+      expect(statements[0]?.Condition).toEqual({
+        StringEquals: {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+          "token.actions.githubusercontent.com:sub": `repo:Critical-Computing-Cadre/truman3:environment:${name}`,
+        },
+      });
+    }
+  });
+
+  it("lets the role do one thing: take on the roles that deploying uses", () => {
+    const statements = Object.entries(template.findResources("AWS::IAM::Policy"))
+      .filter(([id]) => id.startsWith("Deployer"))
+      .flatMap(([, policy]) => policy.Properties.PolicyDocument.Statement) as {
+      Action: string;
+      Resource: unknown[];
+    }[];
+    expect(statements).toHaveLength(1);
+    expect(statements[0]?.Action).toBe("sts:AssumeRole");
+    const named = JSON.stringify(statements[0]?.Resource);
+    for (const job of ["deploy", "file-publishing", "image-publishing", "lookup"]) {
+      expect(named).toContain(`cdk-hnb659fds-${job}-role-966038456825-us-east-1`);
+    }
+    expect(statements[0]?.Resource).toHaveLength(4);
+    expect(named).not.toContain("*");
+  });
+
+  it("makes none of it for a stage that people deploy by hand", () => {
+    const { deployFrom: _, ...byHand } = staging;
+    const without = build(byHand);
+    without.resourceCountIs("AWS::IAM::OIDCProvider", 0);
+    expect(trust(without)).toBeUndefined();
+  });
+});
+
 describe("participant domains (ADR 74)", () => {
   const withDomains: Stage = {
     ...(STAGES.production as Stage),

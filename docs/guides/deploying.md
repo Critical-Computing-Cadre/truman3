@@ -157,7 +157,9 @@ After it:
 
 ### Later deployments
 
-`pnpm run deploy --profile <profile>` is enough, with or without a migration. The deploy updates the database while the old API keeps running, then starts the new one, so the site stays up. CI doesn't deploy yet. [Cloud architecture](../cloud.md#when-a-change-includes-a-migration) says how, and what to do with the rare migration that needs the API stopped.
+`pnpm run deploy --profile <profile>` is enough, with or without a migration. The deploy updates the database while the old API keeps running, then starts the new one, so the site stays up. [Cloud architecture](../cloud.md#when-a-change-includes-a-migration) says how, and what to do with the rare migration that needs the API stopped.
+
+**Most deploys don't need you.** A merge into main deploys staging from GitHub, and production once you approve it on the run's page. [Deploys from GitHub](../cloud.md#deploys-from-github) has how it works and what it refuses. To set it up for a repository of your own, put its name in `deployFrom` in `stages.ts`, deploy once by hand to make the roles, and make the two environments in GitHub's settings.
 
 **A deploy that widens access stops and asks.** `infra/cdk.json` sets `requireApproval: broadening`, so a change that adds an IAM permission or lets more through a firewall waits for you to type `y`. Read what it lists first. Anything you didn't expect is worth asking about.
 
@@ -234,9 +236,5 @@ Look up the Postgres code, and reproduce it locally, where errors log in full. W
 These are known gaps. Don't run real participants until they're closed.
 
 - **A restore checked on each stage.** [Restoring from a backup](restoring.md) says how. It's to be run on staging once `pnpm admin counts` is deployed there, and on production after its first deploy.
-- **CI that deploys.** Deploys are run by hand, with the diff read first.
-- **Before real participants on production:**
-  - the terms and privacy policy, reviewed by the university
-  - each lab's data encrypted with its own key, and the break-glass login
-  - scanning participants' photos
+- **Before real participants on production:** the terms and privacy policy, reviewed by the university.
 - **Storage tries to create a missing bucket when starting.** On AWS the bucket is always there, so this does nothing.

@@ -1,0 +1,76 @@
+name: Deploy
+
+# A merge into main deploys staging. Production then waits for a person to approve it, on the
+# run's page. See ADR 88 and docs/cloud.md, "Deploys from GitHub".
+#
+# GitHub holds no AWS keys. Each job proves to AWS which repository and which GitHub environment
+# it's running in, and AWS lets it take that stage's deploy role only if both match. A pull request
+# can't run this, and neither can a fork.
+on:
+  push:
+    branches: [main]
+    # The repo's own docs don't run anywhere. The site's pages, in apps/site, do.
+    paths-ignore: ["docs/**", "*.md"]
+
+# One deploy at a time, in the order the merges happened. None is cancelled partway.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  staging:
+    # The API's image is built for ARM, which this builds without emulation.
+    runs-on: ubuntu-24.04-arm
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The commits since the last deploy, to see which migrations are new.
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The pull request ran every test. These are the quick ones again, on the merged code.
+      - run: pnpm check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::966038456825:role/truman3-staging-deploy
+          aws-region: us-east-1
+      - run: bash scripts/deploy-from-ci.sh staging "${{ github.event.before }}" "${{ github.sha }}"
+
+  production:
+    needs: staging
+    runs-on: ubuntu-24.04-arm
+    # This environment has required reviewers, so the job waits here until one of them approves.
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::935902555319:role/truman3-production-deploy
+          aws-region: us-east-1
+      - run: bash scripts/deploy-from-ci.sh production "${{ github.event.before }}" "${{ github.sha }}"
