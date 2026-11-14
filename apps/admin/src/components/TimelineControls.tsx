@@ -73,10 +73,18 @@ export function TimelineControls({
   const select = "rounded border border-stone-300 bg-white px-2 py-1";
 
   return (
-    <div className="sticky top-0 z-20 border-b border-stone-200 bg-white p-3">
-      <div className="mx-auto max-w-5xl space-y-2">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <h1 className="mr-auto font-semibold">{title}</h1>
+    <div className="sticky top-0 z-20 border-b border-stone-200 bg-white">
+      <div className="mx-auto max-w-5xl space-y-3 px-4 py-3 md:px-6">
+        {/* What this is, and what can be done with it. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="mr-auto flex flex-wrap items-center gap-2 text-lg font-semibold">
+            {title}
+          </h1>
+          {extra}
+        </div>
+
+        {/* What's being looked at: whose feed, and when. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
           <div className="flex items-center gap-2 text-sm">
             <label htmlFor="preview-condition">Condition</label>
             <select
@@ -106,51 +114,50 @@ export function TimelineControls({
                 ))}
             </select>
           </div>
-          {extra}
-        </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              if (!playing && elapsedMs >= lengthMs) {
-                setElapsedMs(0);
-              }
-              setPlaying(!playing);
-            }}
-            className="btn btn-primary w-16"
-          >
-            {playing ? "Pause" : "Play"}
-          </button>
-          <div className="min-w-0 flex-1">
-            <div aria-hidden="true" className="flex h-8 items-end gap-px">
-              {counts.map((count, index) => (
-                <div
-                  // The bars are positions on a timeline, which don't change order.
-                  // biome-ignore lint/suspicious/noArrayIndexKey: see above
-                  key={index}
-                  className="min-h-px flex-1 bg-stone-400"
-                  style={{ height: `${(count / tallest) * 100}%` }}
-                />
-              ))}
-            </div>
-            <input
-              type="range"
-              aria-label="Time in the study"
-              min={0}
-              max={lengthMs}
-              step={SLIDER_STEP_MS}
-              value={elapsedMs}
-              onChange={(event) => {
-                setPlaying(false);
-                setElapsedMs(Number(event.target.value));
+          <div className="flex min-w-64 flex-1 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (!playing && elapsedMs >= lengthMs) {
+                  setElapsedMs(0);
+                }
+                setPlaying(!playing);
               }}
-              className="block w-full"
-            />
+              className="btn btn-primary w-16"
+            >
+              {playing ? "Pause" : "Play"}
+            </button>
+            <div className="min-w-0 flex-1">
+              <div aria-hidden="true" className="flex h-8 items-end gap-px">
+                {counts.map((count, index) => (
+                  <div
+                    // The bars are positions on a timeline, which don't change order.
+                    // biome-ignore lint/suspicious/noArrayIndexKey: see above
+                    key={index}
+                    className="min-h-px flex-1 bg-stone-400"
+                    style={{ height: `${(count / tallest) * 100}%` }}
+                  />
+                ))}
+              </div>
+              <input
+                type="range"
+                aria-label="Time in the study"
+                min={0}
+                max={lengthMs}
+                step={SLIDER_STEP_MS}
+                value={elapsedMs}
+                onChange={(event) => {
+                  setPlaying(false);
+                  setElapsedMs(Number(event.target.value));
+                }}
+                className="block w-full"
+              />
+            </div>
+            <output className="w-28 text-right text-sm tabular-nums">
+              {describeTime(elapsedMs)}
+            </output>
           </div>
-          <output className="w-32 text-right text-sm tabular-nums">
-            {describeTime(elapsedMs)}
-          </output>
         </div>
 
         <p className="text-xs text-stone-600">

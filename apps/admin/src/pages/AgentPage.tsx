@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { get, post } from "../api.ts";
 
@@ -117,9 +117,6 @@ export function AgentPage() {
 
   return (
     <main className="page page-narrow space-y-4">
-      <Link to="/drafts/$draftId" params={{ draftId }} className="text-sm underline">
-        Back to the draft
-      </Link>
       <h1 className="text-2xl font-semibold">Agent</h1>
       <p className="text-sm text-stone-700">
         Ask an agent to work on this draft: draft a whole study from a brief, or one job on it, like

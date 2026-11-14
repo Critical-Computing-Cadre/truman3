@@ -119,8 +119,8 @@ export function PreviewPage() {
       <TimelineControls
         title={
           <>
-            {info.data.title}{" "}
-            <span className="font-normal text-stone-500">v{info.data.version}</span>
+            {info.data.title}
+            <span className="badge">Version {info.data.version}</span>
           </>
         }
         conditions={info.data.conditions}

@@ -1956,9 +1956,7 @@ export function SettingsPage() {
       <SectionMenu />
       <div className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold">
-            Settings for {data.title} <span className="font-normal text-amber-700">draft</span>
-          </h1>
+          <h1 className="text-2xl font-semibold">Settings for {data.title}</h1>
         </div>
         <p className="text-sm text-stone-500">
           Saving here changes the draft. Participants get these once you save the draft as a version

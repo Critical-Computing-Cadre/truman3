@@ -605,6 +605,6 @@ test("a study can start from a brief for an agent, which says when there's no Cl
   await expect(page.getByRole("heading", { name: "Agent" })).toBeVisible();
   await expect(page.getByText("There's no Claude key, so add your lab's own.")).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("agent-without-key.png"), fullPage: true });
-  await page.getByRole("link", { name: "Back to the draft" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
   await expect(page.getByRole("link", { name: "Agent", exact: true })).toBeVisible();
 });
