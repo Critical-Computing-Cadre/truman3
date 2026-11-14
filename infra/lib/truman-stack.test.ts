@@ -713,6 +713,69 @@ describe("production (ADR 73)", () => {
   });
 });
 
+describe("updating the database during a deploy (ADR 86)", () => {
+  const one = (from: Template, type: string) => {
+    const found = Object.entries(from.findResources(type));
+    expect(found).toHaveLength(1);
+    return found[0] as [string, { Properties: Record<string, unknown>; DependsOn?: string[] }];
+  };
+
+  it("runs the update's task, in the API's network", () => {
+    const [, update] = one(template, "Custom::DatabaseUpdate");
+    expect(JSON.stringify(update.Properties.taskDefinition)).toContain("UpdateTask");
+    expect(update.Properties.cluster).toEqual({ Ref: expect.stringContaining("Cluster") });
+    expect(update.Properties.subnets).toHaveLength(2);
+    expect(update.Properties.logGroup).toEqual({ Ref: expect.stringContaining("TaskLogs") });
+  });
+
+  it("starts the new API only after the update has finished", () => {
+    const [id] = one(template, "Custom::DatabaseUpdate");
+    const [, service] = one(template, "AWS::ECS::Service");
+    expect(service.DependsOn).toContain(id);
+  });
+
+  it("waits for the database before updating it", () => {
+    const [, update] = one(template, "Custom::DatabaseUpdate");
+    const [database] = one(template, "AWS::RDS::DBInstance");
+    expect(update.DependsOn).toContain(database);
+  });
+
+  it("lets the function start that one task and see how it went, and nothing else", () => {
+    const statements = Object.entries(template.findResources("AWS::IAM::Policy"))
+      .filter(([id]) => id.startsWith("RunDatabaseUpdateServiceRole"))
+      .flatMap(([, policy]) => policy.Properties.PolicyDocument.Statement) as {
+      Action: string | string[];
+      Resource: unknown;
+      Condition?: unknown;
+    }[];
+    expect(statements.map(({ Action }) => Action)).toEqual([
+      "ecs:RunTask",
+      "ecs:DescribeTasks",
+      "iam:PassRole",
+    ]);
+    const [run, describe, pass] = statements;
+    expect(JSON.stringify(run?.Resource)).toContain(
+      "task-definition/truman3-staging-update-database:*",
+    );
+    expect(JSON.stringify(run?.Condition)).toContain("ecs:cluster");
+    expect(JSON.stringify(describe?.Resource)).toContain(":task/");
+    expect(pass?.Condition).toEqual({
+      StringEquals: { "iam:PassedToService": "ecs-tasks.amazonaws.com" },
+    });
+    expect(JSON.stringify(pass?.Resource)).toContain("UpdateTask");
+    expect(JSON.stringify(statements.map(({ Resource }) => Resource))).not.toContain('"*"');
+  });
+
+  it("gives up before Lambda would cut it off, so it can say why", () => {
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      FunctionName: "truman3-staging-run-database-update",
+      Timeout: 900,
+    });
+    const code = readFileSync(path.join(import.meta.dirname, "run-database-update.cjs"), "utf8");
+    expect(code).toContain("13 * 60 * 1000");
+  });
+});
+
 describe("participant domains (ADR 74)", () => {
   const withDomains: Stage = {
     ...(STAGES.production as Stage),
