@@ -44,7 +44,7 @@ People have to be able to follow and extend everything here, including students 
 - The API (`apps/api`) is the only path that changes study state. Participants, agents, and admin tools all go through it.
 - Shared types and schemas live in `packages/core`, defined once with Zod.
 - Events get written only through `recordEvent` in `packages/db`. New event types start in `packages/core/src/events.ts`.
-- Migrations are never edited once merged. Rules Drizzle can't express, like triggers, go in a custom migration (`drizzle-kit generate --custom`).
+- Migrations are never edited once merged, and only add things: the old API runs on the new tables while a deploy finishes (ADR 86). To drop or rename something, stop using it in one release and remove it in the next. Rules Drizzle can't express, like triggers, go in a custom migration (`drizzle-kit generate --custom`).
 - Relative imports include the `.ts` or `.tsx` extension. Node runs TypeScript directly (ADR 0001), so TypeScript features that need compiling, like `enum`, are not allowed.
 - Secrets go in `.env`, which is not committed. New settings get added to `.env.example`.
 

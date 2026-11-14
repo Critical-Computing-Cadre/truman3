@@ -11,12 +11,12 @@ What it takes to run Truman 3 somewhere other than your laptop. [ADR 19](../adr/
                                          └── /api     the API's container ── Postgres, S3
 ```
 
-| Piece           | Comes from                                                               | Notes                                                                              |
-| --------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| API             | `docker build -t truman3-api .`                                          | Listens on port 3000                                                               |
-| Database update | The same image, run with `node packages/db/src/migrate-cli.ts`           | Run it once before each new API version, and let it finish before starting the API |
-| Participant app | `pnpm --filter @truman3/participant build`, then `apps/participant/dist` | One build serves every domain                                                      |
-| Admin app       | `pnpm --filter @truman3/admin build`, then `apps/admin/dist`             | Always served under `/admin/`. See below                                           |
+| Piece           | Comes from                                                               | Notes                                                                                                    |
+| --------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| API             | `docker build -t truman3-api .`                                          | Listens on port 3000                                                                                     |
+| Database update | The same image, run with `node packages/db/src/migrate-cli.ts`           | Run it before each new API version, and let it finish before starting the API. On AWS a deploy does this |
+| Participant app | `pnpm --filter @truman3/participant build`, then `apps/participant/dist` | One build serves every domain                                                                            |
+| Admin app       | `pnpm --filter @truman3/admin build`, then `apps/admin/dist`             | Always served under `/admin/`. See below                                                                 |
 
 Updating the database is safe to repeat, since each migration runs once. Don't run two at the same time.
 
@@ -124,18 +124,14 @@ aws ec2 describe-managed-prefix-lists --region us-east-1 --profile <profile> --f
 
 ### The first deployment
 
-The API can't start until the database is updated, and the update's task has to exist first, so this goes in three steps. Run these from `infra/`, after `pnpm build` in the repo's root. Docker has to be running.
+Run these from `infra/`, after `pnpm build` in the repo's root. Docker has to be running.
 
 ```
 pnpm exec cdk bootstrap aws://<account>/us-east-1 --profile <profile>    # once per account
-pnpm run deploy -c apiTasks=0 --profile <profile>                        # everything but the API
-```
-
-Then run the `UpdateDatabaseCommand` that printed, with `--profile`, and wait for it to finish. Its log is in `/truman3-staging/tasks`. Then start the API:
-
-```
 pnpm run deploy --profile <profile>
 ```
+
+The deploy makes the database, sets it up, and only then starts the API (ADR 86). If setting it up fails, the deploy stops and says so. The log is in `/truman3-staging/tasks`.
 
 To create the first team, run the `AdminCommand` that printed, with `--profile` and this added:
 
@@ -161,7 +157,7 @@ After it:
 
 ### Later deployments
 
-If a change includes a migration, stop the API, update the database, and start it again, as above. If it doesn't, `pnpm run deploy --profile <profile>` is enough. CI doesn't deploy yet. [Cloud architecture](../cloud.md#when-a-change-includes-a-migration) says why it takes these steps.
+`pnpm run deploy --profile <profile>` is enough, with or without a migration. The deploy updates the database while the old API keeps running, then starts the new one, so the site stays up. CI doesn't deploy yet. [Cloud architecture](../cloud.md#when-a-change-includes-a-migration) says how, and what to do with the rare migration that needs the API stopped.
 
 **A deploy that widens access stops and asks.** `infra/cdk.json` sets `requireApproval: broadening`, so a change that adds an IAM permission or lets more through a firewall waits for you to type `y`. Read what it lists first. Anything you didn't expect is worth asking about.
 

@@ -6,15 +6,16 @@ Why it's built this way is in [ADR 19](adr/0019-how-truman-runs-in-production.md
 
 ## The files
 
-| File                             | What it is                                                                                  |
-| -------------------------------- | ------------------------------------------------------------------------------------------- |
-| `infra/bin/truman.ts`            | What `cdk` runs. Picks the stage, checks the apps are built, and reads `-c apiTasks`        |
-| `infra/lib/stages.ts`            | Each place Truman runs, and what differs between them: `staging` and `production`           |
-| `infra/lib/truman-stack.ts`      | Everything in one stack: network, database, buckets, CloudFront, the API, and one-off tasks |
-| `infra/lib/app-router.js`        | A CloudFront Function that sends each app's paths to the right `index.html`                 |
-| `infra/lib/truman-stack.test.ts` | Checks the stack: what's reachable, where secrets go, what's logged, and what's kept        |
-| `infra/cdk.json`                 | How `cdk` runs it, including `requireApproval: broadening`                                  |
-| `Dockerfile`, `.dockerignore`    | The API's image                                                                             |
+| File                                | What it is                                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------------------------- |
+| `infra/bin/truman.ts`               | What `cdk` runs. Picks the stage, checks the apps are built, and reads `-c apiTasks`        |
+| `infra/lib/stages.ts`               | Each place Truman runs, and what differs between them: `staging` and `production`           |
+| `infra/lib/truman-stack.ts`         | Everything in one stack: network, database, buckets, CloudFront, the API, and one-off tasks |
+| `infra/lib/app-router.js`           | A CloudFront Function that sends each app's paths to the right `index.html`                 |
+| `infra/lib/run-database-update.cjs` | A Lambda function a deploy uses to update the database and wait for it (ADR 86)             |
+| `infra/lib/truman-stack.test.ts`    | Checks the stack: what's reachable, where secrets go, what's logged, and what's kept        |
+| `infra/cdk.json`                    | How `cdk` runs it, including `requireApproval: broadening`                                  |
+| `Dockerfile`, `.dockerignore`       | The API's image                                                                             |
 
 Building the stack asks AWS nothing. The account, region, zones, and CloudFront's prefix list are written in the code, so `pnpm --filter @truman3/infra synth` works with no credentials, and CI runs it.
 
@@ -120,11 +121,11 @@ The image is built from the repo's `Dockerfile` by `cdk deploy`, on the computer
 
 One ECS cluster, `truman3-staging`, runs three task definitions from that image. Each is ARM64, with 1 vCPU and 2 GB on staging (`apiCpu`, `apiMemoryMb`). It was a quarter of that until a load test of 50 people in one shared world ran it flat out ([ADR 69](adr/0069-feeds-under-load.md)).
 
-| Task definition                   | Runs                                           | Database login | Secrets it gets                                  | Logs to                  |
-| --------------------------------- | ---------------------------------------------- | -------------- | ------------------------------------------------ | ------------------------ |
-| `truman3-staging-api`             | `node apps/api/src/server.ts`, as a service    | `truman_app`   | App password, `TRUMAN_SECRET_KEY`, Anthropic key | `/truman3-staging/api`   |
-| `truman3-staging-update-database` | `node packages/db/src/migrate-cli.ts`, by hand | `truman_owner` | Owner password, app password                     | `/truman3-staging/tasks` |
-| `truman3-staging-admin`           | `node apps/cli/src/admin.ts`, by hand          | `truman_app`   | App password                                     | `/truman3-staging/tasks` |
+| Task definition                   | Runs                                                  | Database login | Secrets it gets                                  | Logs to                  |
+| --------------------------------- | ----------------------------------------------------- | -------------- | ------------------------------------------------ | ------------------------ |
+| `truman3-staging-api`             | `node apps/api/src/server.ts`, as a service           | `truman_app`   | App password, `TRUMAN_SECRET_KEY`, Anthropic key | `/truman3-staging/api`   |
+| `truman3-staging-update-database` | `node packages/db/src/migrate-cli.ts`, by each deploy | `truman_owner` | Owner password, app password                     | `/truman3-staging/tasks` |
+| `truman3-staging-admin`           | `node apps/cli/src/admin.ts`, by hand                 | `truman_app`   | App password                                     | `/truman3-staging/tasks` |
 
 ### The API service
 
@@ -136,7 +137,7 @@ One ECS cluster, `truman3-staging`, runs three task definitions from that image.
 
 ### The one-off tasks
 
-- **They're run by hand** with `aws ecs run-task`. A deploy prints each command, as `UpdateDatabaseCommand` and `AdminCommand`.
+- **A deploy runs the database update itself,** before it starts the new API (see [When a change includes a migration](#when-a-change-includes-a-migration)). The admin task is run by hand, with `aws ecs run-task`. A deploy prints the command for each, as `UpdateDatabaseCommand` and `AdminCommand`.
 - **They use the API's subnets and firewall,** with a public address so they can pull the image and read secrets.
 - **The database update is the only thing that gets the owner's login.**
 - **The admin task creates teams and researchers.** The database has no route from outside, so this has to run inside. `pnpm admin setup` prints the first password, so the tasks' logs are kept for only one day.
@@ -227,20 +228,30 @@ Deploys are run by a person, from `infra/`, with an AWS profile signed in. CI do
 
 ### When a change includes a migration
 
-A migration changes the database's tables. The API's code expects its own version of them, so the old API can't run on the new tables, and the new API can't run on the old ones. Migrations run in their own task, never when the API starts (ADR 19), and that task runs the image from the last deploy. So it takes three steps:
+A migration changes the database's tables. A deploy runs it for you, in the right order ([ADR 86](adr/0086-a-deploy-updates-the-database-itself.md)):
 
-| Step                                                      | Why                                                                                                                                                                                     |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. `pnpm run deploy -c apiTasks=0`                        | Sends the new image, so the update task has the new migrations. Stops every API container, so nothing uses the database while it changes, and no new container starts on the old tables |
-| 2. Run `UpdateDatabaseCommand`, and wait for it to finish | Runs the migrations as the owner, then sets out `truman_app`'s rights again. Check `/truman3-staging/tasks` for "Database is up to date."                                               |
-| 3. `pnpm run deploy`                                      | `apiTasks` goes back to what `stages.ts` says, and the new API starts on the new tables                                                                                                 |
+1. **The update's task gets the new image,** which has the new migrations in it.
+2. **The deploy runs that task and waits.** A small function, `truman3-staging-run-database-update`, starts it and watches it. The old API keeps running the whole time.
+3. **Then the new API starts,** on tables that are ready for it. Once it's healthy, the old one stops.
 
-- **The site is partly down in between.** The apps still load from S3, but `/api` has nothing behind it.
-- **The first deploy works the same way.** The API can't start before the update has created `truman_app`, and the update's task doesn't exist until the first deploy has made it.
-- **Without a migration,** step 2 isn't needed, and one deploy is enough.
-- **Updating the database is safe to repeat.** Each migration runs once. Don't run two updates at the same time.
+So one `pnpm run deploy` is enough, with or without a migration, and the API is never stopped.
 
-ADR 23 lists running migrations automatically as the eventual aim, once CI deploys. By hand, each step is visible while we learn what a deployment does.
+- **If the update fails, the deploy fails,** and nothing else changes. The old API carries on with the old tables. CloudFormation's error says where the update's log is.
+- **The update runs whenever the API's image changes,** migration or not. With nothing to do it takes about a minute. It also sets out `truman_app`'s rights again.
+- **For a minute or two the old API runs on the new tables.** That's why a migration may only add things: a table, a column that can be empty or has a default, an index. `packages/db/src/migration-safety.test.ts` fails if a new migration drops, renames, or retypes something, or makes a column required.
+- **To take something away, use two releases.** The first stops the code using it. The second, once the first is live, drops it.
+- **Updating the database is safe to repeat.** Each migration runs once. `UpdateDatabaseCommand` still runs it by hand. Don't run two at the same time.
+
+#### A migration that can't run under the old API
+
+Sometimes two releases isn't worth it. Such a migration carries a line starting `-- stop-the-api:` with the reason, which the test accepts. To deploy it, stop the API first:
+
+| Step                                                                | Why                                                                    |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 1. From the commit that's live now, `pnpm run deploy -c apiTasks=0` | Stops the API. The image hasn't changed, so the database isn't touched |
+| 2. From the new commit, `pnpm run deploy`                           | Updates the database, then starts the new API on the new tables        |
+
+The site is partly down in between: the apps still load, but `/api` has nothing behind it.
 
 ### Why some deploys ask for approval
 

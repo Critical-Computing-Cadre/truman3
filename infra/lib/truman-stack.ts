@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   ArnFormat,
   CfnOutput,
+  CustomResource,
   Duration,
   RemovalPolicy,
   Stack,
@@ -23,6 +24,7 @@ import * as elb from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import * as events from "aws-cdk-lib/aws-events";
 import * as eventTargets from "aws-cdk-lib/aws-events-targets";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as route53 from "aws-cdk-lib/aws-route53";
@@ -615,6 +617,78 @@ export class TrumanStack extends Stack {
       },
       logging: ecs.LogDrivers.awsLogs({ logGroup: taskLogs, streamPrefix: "update-database" }),
     });
+
+    // Every deploy brings the database up to date before it touches the API (ADR 86). This starts
+    // the update's task and waits for it. The API's service waits for this, so the old API keeps
+    // running until the tables are ready and the new one is healthy. If the update fails, the
+    // deploy fails and the old API carries on.
+    const runUpdate = new lambda.Function(this, "RunDatabaseUpdate", {
+      functionName: `${prefix}-run-database-update`,
+      description: "Runs the database update during a deploy, and waits for it.",
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: "index.handler",
+      code: lambda.Code.fromInline(
+        readFileSync(path.join(import.meta.dirname, "run-database-update.cjs"), "utf8"),
+      ),
+      timeout: Duration.minutes(15),
+      logGroup: new logs.LogGroup(this, "RunDatabaseUpdateLogs", {
+        logGroupName: `/${prefix}/run-database-update`,
+        retention: logs.RetentionDays.TWO_WEEKS,
+        removalPolicy: RemovalPolicy.DESTROY,
+      }),
+    });
+    // It may start this one task and see how it went. Nothing else.
+    runUpdate.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ecs:RunTask"],
+        resources: [
+          this.formatArn({
+            service: "ecs",
+            resource: "task-definition",
+            resourceName: `${updateTask.family}:*`,
+          }),
+        ],
+        conditions: { ArnEquals: { "ecs:cluster": cluster.clusterArn } },
+      }),
+    );
+    runUpdate.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ecs:DescribeTasks"],
+        resources: [
+          this.formatArn({
+            service: "ecs",
+            resource: "task",
+            resourceName: `${cluster.clusterName}/*`,
+          }),
+        ],
+      }),
+    );
+    // Starting a task means handing it the roles it runs as.
+    runUpdate.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["iam:PassRole"],
+        resources: [updateTask.taskRole.roleArn, updateTask.obtainExecutionRole().roleArn],
+        conditions: { StringEquals: { "iam:PassedToService": "ecs-tasks.amazonaws.com" } },
+      }),
+    );
+    const databaseUpdate = new CustomResource(this, "DatabaseUpdate", {
+      resourceType: "Custom::DatabaseUpdate",
+      serviceToken: new cr.Provider(this, "DatabaseUpdateProvider", {
+        onEventHandler: runUpdate,
+      }).serviceToken,
+      properties: {
+        cluster: cluster.clusterName,
+        // A new image makes a new revision of the task, which is what makes this run again.
+        taskDefinition: updateTask.taskDefinitionArn,
+        subnets: vpc.publicSubnets.map(({ subnetId }) => subnetId),
+        securityGroups: [tasksFirewall.securityGroupId],
+        logGroup: taskLogs.logGroupName,
+      },
+    });
+    // The task needs its roles' permissions, the network's way out, and the database to be there.
+    databaseUpdate.node.addDependency(updateTask, vpc, database, runUpdate);
+    service.node.addDependency(databaseUpdate);
+
     const adminTask = taskDefinition("AdminTask", `${prefix}-admin`);
     adminTask.addContainer("task", {
       image,
