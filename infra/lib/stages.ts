@@ -31,6 +31,12 @@ export interface Stage {
   /** A hosted Truman, where labs apply and an operator approves them (ADR 70). */
   hosted: boolean;
   /**
+   * The GitHub repository whose Actions may deploy this stage, as "owner/name" (ADR 88). The stack
+   * makes a role that only a job in that repository, running in the GitHub environment named after
+   * this stage, can take on. Leave it out and deploys are only ever run by a person.
+   */
+  deployFrom?: string;
+  /**
    * Email to researchers through Amazon SES (ADR 72): the domain it's sent from, which this stack
    * sets up in SES, and the From address. Its DKIM records are printed after a deploy, to add
    * wherever the domain's DNS is. Leave it out and no email is sent.
@@ -74,6 +80,9 @@ export interface Stage {
   alerts?: { monthlyBudgetUsd: number };
 }
 
+/** Where this code lives. Only its Actions may deploy. */
+const REPOSITORY = "Critical-Computing-Cadre/truman3";
+
 export const STAGES: Record<string, Stage> = {
   // No real participants. Everything here can be deleted.
   staging: {
@@ -90,6 +99,7 @@ export const STAGES: Record<string, Stage> = {
     backupDays: 7,
     // So applying and approving can be tried here before production.
     hosted: true,
+    deployFrom: REPOSITORY,
     // Its own subdomain, so production can have truman-research.org itself.
     mail: {
       domain: "staging.truman-research.org",
@@ -116,6 +126,7 @@ export const STAGES: Record<string, Stage> = {
     // Made by hand in this account and region, before the first deploy.
     anthropicKeySecret: "truman3-production/anthropic-api-key",
     hosted: true,
+    deployFrom: REPOSITORY,
     mail: {
       domain: "truman-research.org",
       from: "Truman <no-reply@truman-research.org>",

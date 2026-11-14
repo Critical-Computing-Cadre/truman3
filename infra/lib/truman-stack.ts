@@ -1089,6 +1089,50 @@ export class TrumanStack extends Stack {
       });
     }
 
+    // Deploys from GitHub Actions (ADR 88). GitHub holds no AWS keys. Each run proves to AWS which
+    // repository and which GitHub environment it's running in, and AWS lets it take this role only
+    // if both match. The environment is where GitHub asks a person to approve, for production.
+    if (stage.deployFrom) {
+      const github = new iam.CfnOIDCProvider(this, "GitHub", {
+        url: "https://token.actions.githubusercontent.com",
+        clientIdList: ["sts.amazonaws.com"],
+      });
+      const deployer = new iam.Role(this, "Deployer", {
+        roleName: `${prefix}-deploy`,
+        description: `Lets ${stage.deployFrom}'s Actions deploy ${stage.name}, from its "${stage.name}" environment.`,
+        maxSessionDuration: Duration.hours(1),
+        assumedBy: new iam.FederatedPrincipal(
+          github.attrArn,
+          {
+            StringEquals: {
+              "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+              "token.actions.githubusercontent.com:sub": `repo:${stage.deployFrom}:environment:${stage.name}`,
+            },
+          },
+          "sts:AssumeRoleWithWebIdentity",
+        ),
+      });
+      // All it may do itself is take on the roles `cdk bootstrap` made for deploying, which is how
+      // a person's deploy works too.
+      deployer.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ["sts:AssumeRole"],
+          resources: ["deploy", "file-publishing", "image-publishing", "lookup"].map((job) =>
+            this.formatArn({
+              service: "iam",
+              region: "",
+              resource: "role",
+              resourceName: `cdk-hnb659fds-${job}-role-${this.account}-${this.region}`,
+            }),
+          ),
+        }),
+      );
+      new CfnOutput(this, "DeployRole", {
+        value: deployer.roleArn,
+        description: `What GitHub Actions takes on to deploy, from the "${stage.name}" environment.`,
+      });
+    }
+
     new CfnOutput(this, "Address", { value: address, description: "The participant app" });
     new CfnOutput(this, "AdminAddress", {
       value: `${address}/admin/`,

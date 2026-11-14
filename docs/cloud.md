@@ -15,6 +15,8 @@ Why it's built this way is in [ADR 19](adr/0019-how-truman-runs-in-production.md
 | `infra/lib/run-database-update.cjs` | A Lambda function a deploy uses to update the database and wait for it (ADR 86)             |
 | `infra/lib/truman-stack.test.ts`    | Checks the stack: what's reachable, where secrets go, what's logged, and what's kept        |
 | `infra/cdk.json`                    | How `cdk` runs it, including `requireApproval: broadening`                                  |
+| `.github/workflows/deploy.yml`      | Deploys staging on a merge into main, and production once a person approves (ADR 88)        |
+| `scripts/deploy-from-ci.sh`         | What that workflow runs for each stage, and what it refuses to deploy                       |
 | `Dockerfile`, `.dockerignore`       | The API's image                                                                             |
 
 Building the stack asks AWS nothing. The account, region, zones, and CloudFront's prefix list are written in the code, so `pnpm --filter @truman3/infra synth` works with no credentials, and CI runs it.
@@ -212,7 +214,7 @@ Each secret reaches a container by reference, when the container starts. None is
 
 ## How a deploy works
 
-Deploys are run by a person, from `infra/`, with an AWS profile signed in. CI doesn't deploy. [Deploying](guides/deploying.md#running-it-on-aws) has the exact commands.
+Most deploys run from GitHub: a merge into main deploys staging, and production waits for a person to approve it ([Deploys from GitHub](#deploys-from-github)). A person can also deploy from `infra/`, with an AWS profile signed in, and has to for a change that adds permissions. [Deploying](guides/deploying.md#running-it-on-aws) has the exact commands. Either way, the steps are the same.
 
 ### A deploy, step by step
 
@@ -257,8 +259,32 @@ The site is partly down in between: the apps still load, but `/api` has nothing 
 
 `infra/cdk.json` sets `"requireApproval": "broadening"`. When a deploy would widen access, such as adding an IAM permission or a firewall rule that lets more in, `cdk deploy` shows the change and waits for someone to type `y`. Other deploys go ahead without asking.
 
-- **This needs a person at a terminal.** A deploy that widens access can't run unattended.
+- **This needs a person at a terminal.** A deploy that widens access can't run unattended, and the deploy from GitHub refuses one.
 - **Read what it shows before saying yes.** An unexpected new permission is the thing to catch.
+
+### Deploys from GitHub
+
+`.github/workflows/deploy.yml` runs on every merge into main ([ADR 88](adr/0088-deploys-from-github.md)).
+
+1. **Staging.** It runs the quick checks on the merged code, builds, and runs `scripts/deploy-from-ci.sh staging`.
+2. **Production.** The job waits on the run's page, under **Review deployments**, until one of the `production` environment's reviewers approves. Then it builds and deploys the same commit.
+
+GitHub holds no AWS keys. Each job gets a token from GitHub naming the repository and the environment it runs in. Each stage's stack has a role, `<stage>-deploy`, that only a job in this repository's `<stage>` environment can take, and both environments only run from main. The role can do nothing but take on the roles `cdk bootstrap` made.
+
+The script refuses two kinds of change, and the run fails saying a person has to deploy it:
+
+- **One that adds permissions or opens a firewall.** Deploy it from a terminal, read what it lists, and type `y`.
+- **One with a migration marked `-- stop-the-api:`.** Follow [the two steps above](#a-migration-that-cant-run-under-the-old-api), and do it before merging anything else. The check only sees the commits in one push.
+
+After a refusal, main is ahead of what's live until someone deploys by hand. The next merge's run then deploys as usual.
+
+The logs are public, so the script keeps each stage's address and the stack's outputs out of them. To see the outputs, run `pnpm run diff` or look at the stack in the console.
+
+**The environments are settings in GitHub, not code.** Under the repository's Settings, then Environments, `staging` and `production` should each allow deployments only from `main`, and `production` should list its required reviewers. Without reviewers, production would deploy on every merge. To check from a terminal:
+
+```
+gh api repos/<owner>/<repo>/environments/production --jq '.protection_rules'
+```
 
 ## Staging and production
 
