@@ -43,6 +43,8 @@ Open **Details** under any post or comment in the builder. Under **Shown in**, t
 
 This is the most common way to build a manipulation: write the feed once, then limit one comment to one condition. In the feed, limited items are marked **Only in** with the condition's name.
 
+The builder shows one condition's feed at a time. So if you tick a condition other than the one under **Condition** at the top, the post leaves the feed in front of you. It isn't deleted. Choose that condition at the top and it's there.
+
 ### Settings
 
 On the **Conditions** card, each condition has **Settings that differ in this condition**. Open it to change, for that condition only:

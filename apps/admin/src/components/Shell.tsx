@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useMatches } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { type DraftInfo, get, type Researcher } from "../api.ts";
+import { guideFor } from "../guide-links.ts";
 import { Logo } from "./Logo.tsx";
 
 /**
@@ -17,6 +18,7 @@ const ICONS = {
     "M12 3v3M7 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM9.500 11v2M14.500 11v2M2 12h3M19 12h3",
   labs: "M3 21V8l6-4v17M9 21V10h8l4 3v8M2 21h20M13 14h2M13 17h2",
   back: "M15 5l-7 7 7 7",
+  help: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM9.500 9.500a2.500 2.500 0 1 1 3.500 2.300c-.700.400-1 .900-1 1.700M12 17h.010",
   feed: "M4 4h16v6H4zM4 14h16v6H4z",
   cast: "M9 11a3.500 3.500 0 1 0 0-7 3.500 3.500 0 0 0 0 7zM2.500 20a6.500 6.500 0 0 1 13 0M16 4.500a3.500 3.500 0 0 1 0 6.500M18 14.500a6.500 6.500 0 0 1 3.500 5.500",
   stories: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
@@ -211,6 +213,7 @@ export function Frame({
   const last = matches.at(-1);
   const here = (last?.routeId ?? "/") as string;
   const draftId = (last?.params as { draftId?: string } | undefined)?.draftId;
+  const guide = guideFor(here);
   const labs = me.teams.map(({ name }) => name).join(", ");
   const initial = me.name.trim().charAt(0).toUpperCase() || "?";
 
@@ -226,7 +229,17 @@ export function Frame({
             {labs}
           </span>
         )}
-        <span className="ml-auto hidden items-center gap-2 sm:flex">
+        <a
+          href={guide.href}
+          target="_blank"
+          rel="noreferrer noopener"
+          title={`Opens the guide at "${guide.about}"`}
+          className="ml-auto flex items-center gap-1.5 rounded-md px-2 py-1 text-stone-600 hover:bg-stone-100"
+        >
+          <Icon name="help" />
+          Guide
+        </a>
+        <span className="hidden items-center gap-2 border-l border-stone-200 pl-3 sm:flex">
           <span
             aria-hidden="true"
             className="flex h-6 w-6 items-center justify-center rounded-full bg-stone-200 text-xs font-semibold text-stone-700"
@@ -237,7 +250,7 @@ export function Frame({
         </span>
         <button
           type="button"
-          className="ml-auto rounded-md px-2 py-1 text-stone-600 hover:bg-stone-100 sm:ml-0"
+          className="rounded-md px-2 py-1 text-stone-600 hover:bg-stone-100"
           onClick={onSignOut}
         >
           Sign out
