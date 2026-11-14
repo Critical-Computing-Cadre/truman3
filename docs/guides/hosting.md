@@ -118,6 +118,10 @@ AWS then emails that address a link to confirm. Subscribe a second person too, s
 
 A report arrives as a notification from AWS with the sender's message inside it. To answer, write to the sender from your own address.
 
+### Requests for help
+
+`mail.supportContact`, `support@truman-research.org` on production, works the same way (ADR 87). Its topic is `<stage>-support-requests`, printed as `SupportRequestsTopic`, and it needs its own subscription. It's the address the site gives researchers for anything that isn't a security problem.
+
 `apps/site/public/.well-known/security.txt` has a date it expires on, and a test starts failing a month before it. Move the date on by a year when it does.
 
 ## Photo scanning

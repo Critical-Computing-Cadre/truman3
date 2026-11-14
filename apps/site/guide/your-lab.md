@@ -124,6 +124,14 @@ Only the Truman server can use the key. Whoever runs hosted Truman can't use it 
 
 If that list is empty, nobody but the server has used your key. If you get one of those emails and didn't ask for help, ask why.
 
+## Getting help
+
+If something isn't working, or you can't tell whether it's Truman or your study, write to **[support@truman-research.org](mailto:support@truman-research.org)**. Say which study, what you did, and what happened. A person reads it. Hosted Truman is run by a small research lab, so a reply can take a day or two.
+
+Every page of the admin app has a **Guide** link at the top, which opens the page of this guide about it.
+
+For a security problem, use the address on [Reporting a security problem](/security) instead.
+
 ## What's left before real participants
 
 Hosted Truman is in beta. One thing has to be done before anyone runs a real study on it:

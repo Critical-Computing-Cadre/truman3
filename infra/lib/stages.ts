@@ -44,6 +44,11 @@ export interface Stage {
      * hand. The domain's DNS has to be in a zone this stack has.
      */
     securityContact?: string;
+    /**
+     * An address on that domain where researchers ask for help, such as "support@example.org"
+     * (ADR 87). It works the same way, with a topic of its own.
+     */
+    supportContact?: string;
   };
   /**
    * Addresses other than the one CloudFront gives out. Either a certificate made by hand, which
@@ -120,6 +125,7 @@ export const STAGES: Record<string, Stage> = {
       domain: "truman-research.org",
       from: "Truman <no-reply@truman-research.org>",
       securityContact: "security@truman-research.org",
+      supportContact: "support@truman-research.org",
     },
     // The zone was made by hand, and the domain's name servers point to it. truman-research.org
     // itself is kept for the public site.

@@ -12,6 +12,8 @@ If you've found a security problem in Truman, or in hosted Truman at truman-rese
 
 Please don't open a public GitHub issue for it. An issue is public the moment it's filed.
 
+For help with a study or your lab on hosted Truman, write to [support@truman-research.org](mailto:support@truman-research.org) instead.
+
 ## What to include
 
 - What the problem is, and what someone could do with it.
