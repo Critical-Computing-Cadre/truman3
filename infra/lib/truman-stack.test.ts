@@ -648,6 +648,27 @@ describe("production (ADR 73)", () => {
     expect(Object.keys(production.findOutputs("MailDkimRecord*"))).toEqual([]);
   });
 
+  it("takes mail for the support address too, in a topic of its own (ADR 87)", () => {
+    production.hasResourceProperties("AWS::SES::ReceiptRule", {
+      Rule: Match.objectLike({
+        Recipients: ["support@truman-research.org"],
+        ScanEnabled: true,
+        Enabled: true,
+      }),
+    });
+    production.hasResourceProperties("AWS::SNS::Topic", {
+      TopicName: "truman3-production-support-requests",
+    });
+    production.resourceCountIs("AWS::SES::ReceiptRule", 2);
+    production.resourceCountIs("AWS::SES::ReceiptRuleSet", 1);
+    production.resourceCountIs("AWS::SNS::Subscription", 0);
+    expect(
+      Object.keys(production.findOutputs("*"))
+        .filter((name) => name.endsWith("Topic"))
+        .sort(),
+    ).toEqual(["AlertsTopic", "SecurityReportsTopic", "SupportRequestsTopic"]);
+  });
+
   it("takes mail for the security address, and hands it to a topic with no subscribers", () => {
     production.hasResourceProperties("AWS::Route53::RecordSet", {
       Type: "MX",
@@ -682,8 +703,8 @@ describe("production (ADR 73)", () => {
   });
 
   it("raises alarms and a budget to one topic, and staging has none", () => {
-    // That topic, and the one for security reports.
-    production.resourceCountIs("AWS::SNS::Topic", 2);
+    // That topic, and the ones for security reports and requests for help.
+    production.resourceCountIs("AWS::SNS::Topic", 3);
     for (const name of [
       "api-errors",
       "api-slow",
@@ -701,6 +722,52 @@ describe("production (ADR 73)", () => {
       Budget: Match.objectLike({ BudgetLimit: { Amount: 150, Unit: "USD" } }),
     });
     template.resourceCountIs("AWS::CloudWatch::Alarm", 0);
+  });
+
+  it("asks each address from outside AWS, and raises an alarm when one stops answering (ADR 87)", () => {
+    const checks = Object.values(production.findResources("AWS::Route53::HealthCheck")).map(
+      ({ Properties }) => Properties.HealthCheckConfig,
+    );
+    expect(
+      checks.map(({ FullyQualifiedDomainName, ResourcePath }) => [
+        FullyQualifiedDomainName,
+        ResourcePath,
+      ]),
+    ).toEqual([
+      ["app.truman-research.org", "/api/health"],
+      ["clikbrite.com", "/api/health"],
+      ["truman-research.org", "/"],
+    ]);
+    for (const check of checks) {
+      expect(check).toMatchObject({ Type: "HTTPS", Port: 443, EnableSNI: true });
+    }
+    for (const name of ["app", "participants", "site"]) {
+      production.hasResourceProperties("AWS::CloudWatch::Alarm", {
+        AlarmName: `truman3-production-unreachable-${name}`,
+        Namespace: "AWS/Route53",
+        MetricName: "HealthCheckStatus",
+        Statistic: "Minimum",
+        ComparisonOperator: "LessThanThreshold",
+        Threshold: 1,
+        AlarmActions: [Match.anyValue()],
+      });
+    }
+    template.resourceCountIs("AWS::Route53::HealthCheck", 0);
+  });
+
+  it("warns at half the share of bounced or unwanted email that Amazon acts on (ADR 87)", () => {
+    production.hasResourceProperties("AWS::CloudWatch::Alarm", {
+      AlarmName: "truman3-production-mail-bouncing",
+      Namespace: "AWS/SES",
+      MetricName: "Reputation.BounceRate",
+      Threshold: 0.025,
+    });
+    production.hasResourceProperties("AWS::CloudWatch::Alarm", {
+      AlarmName: "truman3-production-mail-complaints",
+      Namespace: "AWS/SES",
+      MetricName: "Reputation.ComplaintRate",
+      Threshold: 0.0005,
+    });
   });
 
   it("leaves out the alarm for no healthy API while the API is stopped for a database update", () => {

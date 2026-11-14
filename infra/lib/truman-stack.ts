@@ -836,47 +836,68 @@ export class TrumanStack extends Stack {
       });
       mailDomain.grantSendEmail(apiTask.taskRole);
 
-      // Where people report security problems (ADR 84). SES takes mail for that one address and
-      // hands it to a topic. Who gets it is a subscription added by hand, so nobody's own address
-      // is in this repo.
-      if (stage.mail.securityContact) {
+      // Addresses people write to (ADR 84, ADR 87): one for security problems, one for help. SES
+      // takes mail for each and hands it to a topic of its own. Who gets it is a subscription
+      // added by hand, so nobody's own address is in this repo.
+      const inboxes = [
+        {
+          id: "SecurityReports",
+          address: stage.mail.securityContact,
+          topic: "security-reports",
+          title: "security reports",
+        },
+        {
+          id: "SupportRequests",
+          address: stage.mail.supportContact,
+          topic: "support-requests",
+          title: "requests for help",
+        },
+      ].filter((inbox): inbox is typeof inbox & { address: string } => Boolean(inbox.address));
+      if (inboxes.length > 0) {
         if (!inZone || !zone) {
-          throw new Error("A security contact needs the mail domain's DNS in this stack's zone.");
+          throw new Error(
+            "An address that takes mail needs the mail domain's DNS in this stack's zone.",
+          );
         }
         new route53.MxRecord(this, "MailIn", {
           zone,
           values: [{ priority: 10, hostName: `inbound-smtp.${stage.region}.amazonaws.com` }],
         });
-        const reports = new sns.Topic(this, "SecurityReports", {
-          topicName: `${prefix}-security-reports`,
-          displayName: `Truman 3 ${stage.name}: security reports`,
+        const taking = inboxes.map((inbox) => {
+          const topic = new sns.Topic(this, inbox.id, {
+            topicName: `${prefix}-${inbox.topic}`,
+            displayName: `Truman 3 ${stage.name}: ${inbox.title}`,
+          });
+          // SES has to be allowed to hand a message to the topic, and only for this account's
+          // mail. Without this the rule can't be made at all.
+          const maySend = topic.addToResourcePolicy(
+            new iam.PolicyStatement({
+              actions: ["sns:Publish"],
+              principals: [new iam.ServicePrincipal("ses.amazonaws.com")],
+              resources: [topic.topicArn],
+              conditions: { StringEquals: { "AWS:SourceAccount": this.account } },
+            }),
+          );
+          new CfnOutput(this, `${inbox.id}Topic`, {
+            value: topic.topicArn,
+            description: `Mail to ${inbox.address} goes here. Subscribe an address to it by hand.`,
+          });
+          return { ...inbox, topic, maySend };
         });
-        // SES has to be allowed to hand a message to the topic, and only for this account's mail.
-        // Without this the rule can't be made at all.
-        const maySend = reports.addToResourcePolicy(
-          new iam.PolicyStatement({
-            actions: ["sns:Publish"],
-            principals: [new iam.ServicePrincipal("ses.amazonaws.com")],
-            resources: [reports.topicArn],
-            conditions: { StringEquals: { "AWS:SourceAccount": this.account } },
-          }),
-        );
         const rules = new ses.ReceiptRuleSet(this, "MailInRules", {
           receiptRuleSetName: `${prefix}-mail-in`,
-          rules: [
-            {
-              recipients: [stage.mail.securityContact],
-              // Checked for spam and viruses, and refused if it's either.
-              scanEnabled: true,
-              actions: [
-                new sesActions.Sns({ topic: reports, encoding: sesActions.EmailEncoding.UTF8 }),
-              ],
-            },
-          ],
+          rules: taking.map(({ address, topic }) => ({
+            recipients: [address],
+            // Checked for spam and viruses, and refused if it's either.
+            scanEnabled: true,
+            actions: [new sesActions.Sns({ topic, encoding: sesActions.EmailEncoding.UTF8 })],
+          })),
         });
-        // The rule is checked against the topic as it's made, so the permission has to be there.
-        if (maySend.policyDependable) {
-          rules.node.addDependency(maySend.policyDependable);
+        // A rule is checked against its topic as it's made, so the permission has to be there.
+        for (const { maySend } of taking) {
+          if (maySend.policyDependable) {
+            rules.node.addDependency(maySend.policyDependable);
+          }
         }
         // SES uses one set of rules at a time, and making a set doesn't make it that one.
         const using = { service: "SES", action: "setActiveReceiptRuleSet" };
@@ -893,10 +914,6 @@ export class TrumanStack extends Stack {
               resources: ["*"],
             }),
           ]),
-        });
-        new CfnOutput(this, "SecurityReportsTopic", {
-          value: reports.topicArn,
-          description: `Mail to ${stage.mail.securityContact} goes here. Subscribe an address to it by hand.`,
         });
       }
       (inZone ? [] : mailDomain.dkimRecords).forEach((record, index) => {
@@ -992,6 +1009,76 @@ export class TrumanStack extends Stack {
         below,
         1,
       );
+
+      // Everything above is seen from inside AWS. These look from outside, the way a participant's
+      // browser does, so a problem with DNS, a certificate, or CloudFront is noticed too (ADR 87).
+      // Route 53 asks each address from several places every 30 seconds.
+      const frontDoors = [
+        ...(stage.domains
+          ? [{ id: "app", host: stage.domains.names[0], path: "/api/health" }]
+          : []),
+        ...(stage.participantDomains ?? [])
+          .filter((domain) => domain.default)
+          .map((domain) => ({ id: "participants", host: domain.name, path: "/api/health" })),
+        ...(stage.site ? [{ id: "site", host: stage.site.names[0], path: "/" }] : []),
+      ];
+      for (const { id, host, path: checked } of frontDoors) {
+        const check = new route53.CfnHealthCheck(this, `Reach-${id}`, {
+          healthCheckConfig: {
+            type: "HTTPS",
+            fullyQualifiedDomainName: host,
+            resourcePath: checked,
+            port: 443,
+            enableSni: true,
+            requestInterval: 30,
+            failureThreshold: 3,
+          },
+          healthCheckTags: [{ key: "Name", value: `${prefix}-${id}` }],
+        });
+        alarm(
+          `unreachable-${id}`,
+          `https://${host}${checked} hasn't answered from outside AWS for 2 minutes.`,
+          new cloudwatch.Metric({
+            namespace: "AWS/Route53",
+            metricName: "HealthCheckStatus",
+            dimensionsMap: { HealthCheckId: check.attrHealthCheckId },
+            statistic: "Minimum",
+            period: Duration.minutes(1),
+          }),
+          1,
+          below,
+          2,
+        );
+      }
+
+      // Email that bounces or is marked as spam. Amazon reviews an account at 5% bounces or 0.1%
+      // complaints, and can stop it sending. These warn at half of each.
+      if (stage.mail) {
+        const reputation = (metricName: string) =>
+          new cloudwatch.Metric({
+            namespace: "AWS/SES",
+            metricName,
+            statistic: "Maximum",
+            period: Duration.hours(1),
+          });
+        alarm(
+          "mail-bouncing",
+          "More than 2.5% of the email Truman sends is bouncing. Amazon reviews an account at 5%.",
+          reputation("Reputation.BounceRate"),
+          0.025,
+          above,
+          1,
+        );
+        alarm(
+          "mail-complaints",
+          "More than 0.05% of the email Truman sends is being marked as spam. Amazon reviews an account at 0.1%.",
+          reputation("Reputation.ComplaintRate"),
+          0.0005,
+          above,
+          1,
+        );
+      }
+
       const notify = (notificationType: string, threshold: number) => ({
         notification: {
           notificationType,
