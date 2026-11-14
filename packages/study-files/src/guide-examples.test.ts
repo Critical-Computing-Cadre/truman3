@@ -73,6 +73,32 @@ describe("the guide's examples work as written", () => {
     expect(problemsWith("starters/classic", "beats.yaml", wrong).join("\n")).toContain("welcome");
   });
 
+  it("Making things happen: the decision point, in a study with the conditions it names", () => {
+    const decide = examples("beats.md").find((example) => example.startsWith("decide:"));
+    expect(decide).toContain("id: day-2");
+    // The Classic sample has one condition. The example re-randomizes people out of one into two
+    // others that nobody starts in, and runs for longer than the two days it waits.
+    const withItsConditions = (dir: string) => {
+      const file = path.join(dir, "study.yaml");
+      const settings = readFileSync(file, "utf8")
+        .replace(
+          "arms: [{ key: control }]",
+          "arms: [{ key: gentle-nudge }, { key: strong-nudge, weight: 0 }, { key: peer-nudge, weight: 0 }]",
+        )
+        .replace(/^length: .*$/m, "length: { days: 4 }");
+      expect(settings).toContain("gentle-nudge");
+      expect(settings).toContain("days: 4");
+      writeFileSync(file, settings);
+    };
+    expect(
+      problemsWith("starters/classic", "beats.yaml", decide as string, withItsConditions),
+    ).toEqual([]);
+    // And it's really being checked: without those conditions, it's refused.
+    expect(problemsWith("starters/classic", "beats.yaml", decide as string).join("\n")).toContain(
+      "gentle-nudge",
+    );
+  });
+
   it("Testing a study: the scenario, in the bystander example", () => {
     const [scenario] = examples("testing.md");
     expect(scenario).toContain("scenarios:");
