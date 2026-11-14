@@ -66,6 +66,8 @@ test("takes the guide's pictures", async ({ page, browser }, testInfo) => {
   const stamp = Date.now() % 1_000_000;
 
   await page.goto(ADMIN);
+  await expect(page.getByLabel("Email")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("admin-sign-in.png") });
   await page.getByLabel("Email").fill(otherLabEmail);
   await page.getByLabel("Password").fill(otherLabPassword);
   await page.getByRole("button", { name: "Sign in" }).click();

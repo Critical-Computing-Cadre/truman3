@@ -203,9 +203,9 @@ export function StoriesPage() {
   const data = info.data;
   const sorted = [...data.stories].sort((a, b) => a.timeMs - b.timeMs);
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-3">
+    <div className="page page-narrow space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-lg font-semibold">Stories in {data.title}</h1>
+        <h1 className="mr-auto text-2xl font-semibold">Stories in {data.title}</h1>
         {data.canEdit && <SaveStatus draftId={draftId} />}
         {data.canEdit && (
           <button

@@ -225,9 +225,9 @@ export function BeatsPage() {
   const problems = issues.filter(({ file }) => file === BEATS_FILE);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-3">
+    <div className="page space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-lg font-semibold">Beats in {title}</h1>
+        <h1 className="mr-auto text-2xl font-semibold">Beats in {title}</h1>
         {canEdit && <SaveStatus draftId={draftId} />}
       </div>
       <p className="text-sm text-stone-500">

@@ -387,9 +387,9 @@ export function SpacesPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-3">
+    <div className="page page-narrow space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-lg font-semibold">
+        <h1 className="mr-auto text-2xl font-semibold">
           Spaces in {title} <span className="font-normal text-stone-500">({spaces.length})</span>
         </h1>
         {canEdit && <SaveStatus draftId={draftId} />}

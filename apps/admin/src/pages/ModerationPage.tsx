@@ -1118,9 +1118,9 @@ export function ModerationPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-3">
+    <div className="page page-narrow space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-lg font-semibold">Moderation in {data.title}</h1>
+        <h1 className="mr-auto text-2xl font-semibold">Moderation in {data.title}</h1>
         {data.canEdit && <SaveStatus draftId={draftId} />}
       </div>
       <p className="text-sm text-stone-500">
