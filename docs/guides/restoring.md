@@ -36,13 +36,7 @@ aws rds wait db-instance-available --profile truman-prod --region us-east-1 \
 
 The wait takes 10 to 30 minutes. It can give up after 30 minutes while the copy is still taking its first backup. If it does, run the next step's `describe-db-instances`: once the copy has an address, and its status is `available` or `backing-up`, it's ready.
 
-**3. Count rows in each.** The admin task can reach both, since the copy has the same logins and the same firewall. First the live database, using the stack's `AdminCommand` output with this added:
-
-```
---overrides '{"containerOverrides":[{"name":"task","command":["node","apps/cli/src/admin.ts","counts"]}]}'
-```
-
-Then the copy. Find its address:
+**3. Compare the copy with the live database.** The admin task can reach both, since the copy has the same logins and the same firewall. Find the copy's address:
 
 ```
 aws rds describe-db-instances --profile truman-prod --region us-east-1 \
@@ -50,15 +44,23 @@ aws rds describe-db-instances --profile truman-prod --region us-east-1 \
   --query "DBInstances[0].Endpoint.Address" --output text
 ```
 
-Run the same `AdminCommand`, pointing it at the copy:
+Then run the stack's `AdminCommand` output with this added:
 
 ```
---overrides '{"containerOverrides":[{"name":"task","command":["node","apps/cli/src/admin.ts","counts"],"environment":[{"name":"DATABASE_HOST","value":"<the copy'"'"'s address>"}]}]}'
+--overrides '{"containerOverrides":[{"name":"task","command":["node","apps/cli/src/admin.ts","check-restore","<the copy'"'"'s address>"]}]}'
 ```
 
-Each prints how many teams, researchers, studies, participants, content items, and events there are, and nothing else. Read both in the log group `/truman3-production/tasks`.
-- **The copy's numbers should be the same as the live database's, or a little lower,** for what happened since the newest restorable moment, usually the last five minutes.
-- **Anything else** means the backup isn't what it should be.
+It counts the teams, researchers, studies, participants, content items, and events in each, and nothing else. Wait for the task to stop, and look at how it ended:
+
+```
+aws ecs describe-tasks --profile truman-prod --region us-east-1 --cluster truman3-production \
+  --tasks <the task's ARN> --query "tasks[0].containers[0].exitCode"
+```
+
+- **0 means the restore worked.** The copy has what the live database has, or is a little behind, for what happened since the newest restorable moment and while the copy was being made.
+- **1 means the copy is empty, or missing a large part of a table.** The backup isn't what it should be. The task's log, in `/truman3-production/tasks`, has both sets of numbers and says which table.
+
+The answer is in how the task ended so that nobody has to read that log to get it. The same log holds the first passwords of researchers made with the admin task.
 
 **4. Delete the copy.**
 
@@ -68,7 +70,7 @@ aws rds delete-db-instance --profile truman-prod --region us-east-1 \
   --skip-final-snapshot --delete-automated-backups
 ```
 
-**5. Write down that it worked,** with the date and the counts, in the work log.
+**5. Write down that it worked,** with the date, in the work log.
 
 ## Replacing the database for real
 
