@@ -235,6 +235,5 @@ Look up the Postgres code, and reproduce it locally, where errors log in full. W
 
 These are known gaps. Don't run real participants until they're closed.
 
-- **A restore checked on each stage.** [Restoring from a backup](restoring.md) says how. It's to be run on staging once `pnpm admin counts` is deployed there, and on production after its first deploy.
 - **Before real participants on production:** the terms and privacy policy, reviewed by the university.
 - **Storage tries to create a missing bucket when starting.** On AWS the bucket is always there, so this does nothing.
