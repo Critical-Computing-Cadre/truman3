@@ -6,6 +6,8 @@ Run these with a signed-in profile for the stage's account: `truman` for staging
 
 ## Checking a restore works
 
+Last checked on 2026-11-15, on staging and on production. Both passed.
+
 This makes a temporary copy of the database, beside the live one, and compares the two. The live database isn't touched. The copy costs a few cents an hour, so delete it when you're done.
 
 **1. Find the live database, and how it's reached.**
@@ -70,7 +72,7 @@ aws rds delete-db-instance --profile truman-prod --region us-east-1 \
   --skip-final-snapshot --delete-automated-backups
 ```
 
-**5. Write down that it worked,** with the date, in the work log.
+**5. Write down that it worked,** by changing the date at the top of this section.
 
 ## Replacing the database for real
 
