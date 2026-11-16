@@ -129,7 +129,7 @@ People already in the study stay on the version they started with. Only new part
 
 ## When it's over
 
-Stop the study and download the data. See [Your data](/guide/data).
+Stop the study and download the data. To deposit the study itself with your paper, so others can rerun it, download its replication bundle. Both are in [Your data](/guide/data).
 
 A study that isn't open can be hidden with **Archive** on the Studies page, and brought back with **Restore**. Nothing is deleted. An archived study that only test participants took part in can be deleted for good by an owner.
 

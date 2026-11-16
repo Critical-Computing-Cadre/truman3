@@ -104,6 +104,7 @@ Everything you do with a study folder goes through `pnpm study`. All of these ru
 | `pnpm study launch <slug> [version]`                               | Opens a version to new participants. The latest unless you say                                                                    |
 | `pnpm study stop <slug>`                                           | Closes the study to new participants. People already in it can come back                                                          |
 | `pnpm study export <slug> <folder>`                                | Writes the data as CSVs with a `codebook.md`                                                                                      |
+| `pnpm study bundle <slug> <folder> [version]`                      | Writes a saved version as a replication bundle: the study as it ran, with its pictures and checksums. Zip the folder to share it  |
 | `pnpm study withdraw <slug> <recruitment ID> <your name> [reason]` | Deletes one participant's data, and records that it was deleted                                                                   |
 | `pnpm study convert <old Truman repo> <new folder> <slug>`         | Turns an older Truman study into a folder                                                                                         |
 | `pnpm study add-pack <folder> [name] [description]`                | Offers the folder's content as a pack that new studies on this server can start from                                              |

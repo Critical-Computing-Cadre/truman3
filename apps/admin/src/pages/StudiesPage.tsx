@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { get, type PreviewInfo, post, type StudySummary, send } from "../api.ts";
+import { download, get, type PreviewInfo, post, type StudySummary, send } from "../api.ts";
 import { postsThatNeverAppear } from "../timeline.ts";
 
 type StudyVersion = StudySummary["versions"][number];
@@ -39,6 +39,34 @@ function EditButton({ study }: { study: StudySummary }) {
     >
       {study.openDraftId ? "Keep editing" : `Edit a copy of version ${latest.version}`}
     </button>
+  );
+}
+
+/**
+ * Downloads a version as a replication bundle (ADR 91): the study as it ran, in one zip file, to
+ * deposit with a paper. It has no participants and no data in it.
+ */
+function BundleButton({ version }: { version: StudyVersion }) {
+  const bundle = useMutation({
+    mutationFn: () => download(`/admin/versions/${version.id}/bundle`, {}),
+  });
+  return (
+    <>
+      <button
+        type="button"
+        disabled={bundle.isPending}
+        onClick={() => bundle.mutate()}
+        title="The study as it ran, in one zip file, to deposit with a paper. No participants or data."
+        className="btn"
+      >
+        {bundle.isPending ? "Preparing..." : "Replication bundle"}
+      </button>
+      {bundle.error && (
+        <p role="alert" className="w-full text-sm text-rose-800">
+          {bundle.error.message}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -663,6 +691,7 @@ export function StudiesPage() {
                       >
                         Simulate
                       </Link>
+                      <BundleButton version={version} />
                       <TryIt version={version} participantUrl={study.participantUrl} />
                       {canChange && !isLive && <LaunchButton study={study} version={version} />}
                       {canChange && isLive && <StopButton study={study} />}

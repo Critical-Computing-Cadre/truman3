@@ -1,3 +1,16 @@
+export {
+  BUNDLE_CHECKSUMS_FILE,
+  BUNDLE_README_FILE,
+  BUNDLE_STUDY_FILE,
+  type Bundle,
+  type BundleProblem,
+  bundleReadme,
+  bundleVersion,
+  latestVersionId,
+  loadBundle,
+  readBundle,
+  storedKeysIn,
+} from "./bundle.ts";
 export { draftToDefinition } from "./definition.ts";
 export {
   checkDraft,
@@ -16,6 +29,7 @@ export {
   saveSection,
   spaceKeyFromName,
   updateItem,
+  versionItems,
 } from "./drafts.ts";
 export {
   type ActorData,

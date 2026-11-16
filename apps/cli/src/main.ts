@@ -1,6 +1,8 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { hasErrors, type StudyIssue } from "@truman3/core";
 import { createDb, schema } from "@truman3/db";
-import { savePackFromFolder } from "@truman3/drafts";
+import { bundleVersion, savePackFromFolder } from "@truman3/drafts";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { exportStudy } from "@truman3/study-export";
 import { convertLegacyStudy, loadStudyFolder } from "@truman3/study-files";
@@ -23,6 +25,7 @@ const USAGE = `Usage:
   pnpm study stop <slug>
   pnpm study convert <old Truman repo> <new study folder> <slug>
   pnpm study export <slug> <folder> [--min-dwell-ms N] [--max-dwell-ms N] [--include-recruitment-ids]
+  pnpm study bundle <slug> <folder> [version]
   pnpm study withdraw <slug> <recruitment ID> <your name> [reason]`;
 
 /** Warnings are often repetitive, so past this many it shows a count instead of every one. */
@@ -156,6 +159,47 @@ async function changeLaunch(command: "launch" | "stop", slug: string, versionNum
   }
 }
 
+/**
+ * Writes a saved version as a replication bundle (ADR 91): the study as it ran, as files in a
+ * folder, to zip and deposit with a paper. The newest version unless one is named.
+ */
+async function bundle(slug: string, folder: string, versionNumber?: number) {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.error("DATABASE_URL isn't set. Copy .env.example to .env.");
+    return 1;
+  }
+  const database = createDb(databaseUrl);
+  const storage = createStorage(storageConfigFromEnv());
+  try {
+    const found = await findStudyVersion(database.db, slug, versionNumber);
+    const made = found ? await bundleVersion(database.db, storage, found.versionId) : null;
+    if (!made) {
+      console.error(`There's no saved version of "${slug}" to bundle.`);
+      return 1;
+    }
+    for (const [name, bytes] of made.files) {
+      const file = path.join(folder, name);
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, bytes);
+    }
+    const { version, media, missingMedia } = made.bundle;
+    console.log(
+      `Wrote version ${version} of "${slug}" to ${folder}, with ${media.length} pictures.`,
+    );
+    if (missingMedia.length > 0) {
+      console.warn(
+        `${missingMedia.length} pictures couldn't be read, and are listed in the README.`,
+      );
+    }
+    console.log("Zip the folder's contents to deposit it, or to load it in another Truman.");
+    return 0;
+  } finally {
+    storage.close();
+    await database.close();
+  }
+}
+
 async function exportData(slug: string, folder: string, flags: string[]) {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
@@ -238,6 +282,12 @@ if (command === "validate" && args[0]) {
   process.exitCode = await changeLaunch("stop", args[0]);
 } else if (command === "export" && args[0] && args[1]) {
   process.exitCode = await exportData(args[0], args[1], args.slice(2));
+} else if (command === "bundle" && args[0] && args[1]) {
+  process.exitCode = await bundle(
+    args[0],
+    args[1],
+    args[2] === undefined ? undefined : Number(args[2]),
+  );
 } else if (command === "withdraw" && args[0] && args[1] && args[2]) {
   process.exitCode = await withdraw(args[0], args[1], args[2], args[3] ?? "withdrawal");
 } else if (command === "convert" && args[0] && args[1] && args[2]) {
