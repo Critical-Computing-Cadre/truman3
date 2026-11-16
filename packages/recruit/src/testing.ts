@@ -19,6 +19,9 @@ export function createFakeProlific({ tokens = ["good-token"] }: { tokens?: strin
   const approved: string[] = [];
   const bonuses = new Map<string, { studyId: string; csv: string; paid: number }>();
   const requests: { method: string; path: string; authorization: string | null }[] = [];
+  const messages: { studyId: string; recipientId: string; body: string }[] = [];
+  /** Recipients Prolific refuses to message, to see what a failure part way through does. */
+  const unreachable = new Set<string>();
   let nextId = 1;
 
   const json = (body: unknown, status = 200) =>
@@ -147,8 +150,32 @@ export function createFakeProlific({ tokens = ["good-token"] }: { tokens?: strin
       bonus.paid += 1;
       return new Response("Scheduled.", { status: 202 });
     }
+    if (method === "POST" && route === "/messages/") {
+      const study = studies.get(String(body.study_id));
+      if (!study || study.owner !== token) {
+        return problem(404, "Not found.");
+      }
+      if (unreachable.has(String(body.recipient_id))) {
+        return problem(400, "This participant can't be messaged.");
+      }
+      messages.push({
+        studyId: study.id,
+        recipientId: String(body.recipient_id),
+        body: String(body.body),
+      });
+      return new Response(null, { status: 204 });
+    }
     return problem(404, `The fake has no ${method} ${route}.`);
   };
 
-  return { fetch: handle as typeof fetch, studies, approved, bonuses, requests, addSubmission };
+  return {
+    fetch: handle as typeof fetch,
+    studies,
+    approved,
+    bonuses,
+    requests,
+    messages,
+    unreachable,
+    addSubmission,
+  };
 }

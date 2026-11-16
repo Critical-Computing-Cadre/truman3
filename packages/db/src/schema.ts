@@ -1474,10 +1474,42 @@ export const prolificLinks = pgTable(
     rules: jsonb().notNull().default({}),
     createdBy: text("created_by").notNull(),
     createdAt: time("created_at").notNull().defaultNow(),
+    /**
+     * Reminders to come back (ADR 90): a message through Prolific to anyone who's part way through
+     * and hasn't visited for this many hours. Empty for none.
+     */
+    remindAfterHours: integer("remind_after_hours"),
+    /** What it says. "{link}" becomes their own way back in. */
+    remindMessage: text("remind_message"),
+    /**
+     * Whose Prolific connection sends them: whoever turned them on. If that researcher goes, the
+     * reminders stop, since nobody's token is left to send them with.
+     */
+    remindBy: uuid("remind_by").references(() => researchers.id, { onDelete: "set null" }),
   },
   (table) => [
     check("prolific_links_review_mode", inList(table.reviewMode, ["manual", "automatic"])),
   ],
+);
+
+/**
+ * A reminder sent to a participant, and on which day, so nobody gets two in a day whoever or
+ * whatever sends them (ADR 90). It goes with the participant.
+ */
+export const remindersSent = pgTable(
+  "reminders_sent",
+  {
+    id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    /** The day, in UTC, as 2026-11-16. */
+    sentOn: text("sent_on").notNull(),
+    sentAt: time("sent_at").notNull().defaultNow(),
+    /** A researcher's email, or "the schedule". */
+    by: text().notNull(),
+  },
+  (table) => [unique("reminders_sent_once_a_day").on(table.participantId, table.sentOn)],
 );
 
 /**
@@ -1519,7 +1551,15 @@ export const prolificActions = pgTable(
     index("prolific_actions_study").on(table.studyId, table.id),
     check(
       "prolific_actions_action",
-      inList(table.action, ["created draft", "approved", "paid bonus", "unlinked"]),
+      inList(table.action, [
+        "created draft",
+        "approved",
+        "paid bonus",
+        "unlinked",
+        "sent reminders",
+        "turned reminders on",
+        "turned reminders off",
+      ]),
     ),
   ],
 );

@@ -128,6 +128,12 @@ Then check the whole path with real links. Launch it, but don't publish it on Pr
 
 Before you share data: exports leave out Prolific IDs, but your survey data will now contain them. Remove that column before sharing.
 
+## Bringing people back on later days
+
+A study that lasts days can remind people to return, with a message to their Prolific inbox carrying their own link ([ADR 90](../adr/0090-reminders-to-come-back.md)). It's turned on under **Reminders to come back** on the admin app's **Recruit on Prolific** page, and needs the study's Prolific draft to have been made from there. The API checks every 15 minutes, and sends as whoever turned it on.
+
+The link is the study's address with their ID in it, as Prolific's own link has. Opening it brings them back as the same person, whatever device they're on.
+
 ## Further reading
 
 - [Prolific's Qualtrics integration guide](https://researcher-help.prolific.com/en/articles/445194-qualtrics-integration-guide)

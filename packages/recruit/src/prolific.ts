@@ -247,6 +247,17 @@ export function createProlificClient({
       };
     },
 
+    /**
+     * A message to one participant, in their Prolific inbox, about this study. Prolific sends it
+     * whether or not it can tie it to the study, so the participant has to be one of this study's.
+     */
+    message: (input: { recipientId: string; studyId: string; body: string }) =>
+      request("POST", "/api/v1/messages/", {
+        recipient_id: input.recipientId,
+        study_id: input.studyId,
+        body: input.body,
+      }),
+
     /** Prolific warns that repeating this call pays people again, so call it once per bonus. */
     payBonus: (bonusId: string) =>
       request("POST", `/api/v1/bulk-bonus-payments/${bonusId}/pay/`, {}),

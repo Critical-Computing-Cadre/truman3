@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { get, send } from "../api.ts";
+import { RemindersCard } from "../components/RemindersCard.tsx";
 
 const REFRESH_MS = 30_000;
 
@@ -68,8 +69,8 @@ interface BonusSetup {
 
 const input = "rounded border border-stone-300 px-2 py-1.5 text-sm";
 const card = "card space-y-3 p-4";
-const primary = "rounded bg-stone-900 px-3 py-1.5 text-sm text-white disabled:opacity-40";
-const secondary = "rounded border border-stone-300 px-3 py-1.5 text-sm disabled:opacity-40";
+const primary = "btn btn-primary";
+const secondary = "btn";
 const label = "flex flex-col gap-1 text-sm font-medium";
 const WAITING = "AWAITING REVIEW";
 
@@ -779,6 +780,7 @@ export function ProlificPage() {
           <NextSteps studyId={studyId} state={state.data} />
           <SubmissionsCard studyId={studyId} state={state.data} />
           <RulesCard studyId={studyId} rules={state.data.link.rules} />
+          <RemindersCard studyId={studyId} />
         </>
       )}
       {state.data && state.data.actions.length > 0 && (

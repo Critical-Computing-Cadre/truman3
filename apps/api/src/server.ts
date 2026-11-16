@@ -4,6 +4,7 @@ import { connectedAsOwner, createDb } from "@truman3/db";
 import { parseSecretKey } from "@truman3/recruit";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { anthropicWriter } from "@truman3/writer";
+import { startReminding } from "./admin/reminders.ts";
 import { createAi } from "./ai.ts";
 import { createApp } from "./app.ts";
 import { forwardedAddress } from "./client-address.ts";
@@ -110,6 +111,18 @@ const app = createApp({
 
 // Push notifications for participants in the app (ADR 66). Only studies that turn push on use it.
 const stopPushing = startPushing({ db: database.db, writer, send: expoPush });
+// Reminders to come back, through Prolific, for studies that turn them on (ADR 90).
+const stopReminding = startReminding({
+  db: database.db,
+  labKeys,
+  participantDomains: env.PARTICIPANT_DOMAINS,
+  participantDomainDefault: env.PARTICIPANT_DOMAIN_DEFAULT,
+  prolific: {
+    secretKey: env.TRUMAN_SECRET_KEY,
+    apiUrl: env.PROLIFIC_API_URL,
+    participantAppUrl: env.PARTICIPANT_APP_URL,
+  },
+});
 // Live updates for shared worlds (ADR 68).
 const stopLive = live.start();
 
@@ -133,6 +146,7 @@ const stopClearingDemos = env.DEMO_STUDIES
 
 function shutdown() {
   stopPushing();
+  stopReminding();
   stopLive();
   stopClearingDemos();
   server.close(async () => {

@@ -16,6 +16,7 @@ import { createMonitorRoutes } from "./admin/monitor.ts";
 import { createPackRoutes } from "./admin/packs.ts";
 import { createProlificRoutes } from "./admin/prolific.ts";
 import { createRehearseRoutes } from "./admin/rehearse.ts";
+import { createReminderRoutes } from "./admin/reminders.ts";
 import { createAdminRoutes } from "./admin/routes.ts";
 import { createScenarioRoutes } from "./admin/scenarios.ts";
 import { createSheetRoutes } from "./admin/sheets.ts";
@@ -144,6 +145,7 @@ export function createApp({
   app.route("/", createArchiveRoutes(participantDependencies));
   app.route("/", createLaunchRoutes(participantDependencies));
   app.route("/", createProlificRoutes(participantDependencies));
+  app.route("/", createReminderRoutes(participantDependencies));
 
   app.doc("/openapi.json", {
     openapi: "3.0.0",
