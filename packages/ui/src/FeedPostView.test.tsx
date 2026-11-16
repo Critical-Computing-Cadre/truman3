@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FeedPostView } from "./FeedPostView.tsx";
 import { TextLinksContext } from "./features/post-text.tsx";
+import { QuestionCard } from "./features/questions.tsx";
 import { WarningNotice } from "./features/warnings.tsx";
 import { ProfileHeader } from "./PageFrames.tsx";
 import { PlatformProvider } from "./platform.tsx";
@@ -759,6 +760,93 @@ describe("a moderator's warning", () => {
   it("shows nothing when the feature's off", () => {
     draw(false);
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("a question a beat asks", () => {
+  afterEach(cleanup);
+  const question = {
+    id: "q1",
+    title: "About that comment",
+    required: false,
+    questions: [
+      {
+        id: "felt",
+        text: "How did it feel?",
+        type: "scale" as const,
+        max: 7,
+        minLabel: "Bad",
+        maxLabel: "Good",
+      },
+      {
+        id: "why",
+        text: "Why?",
+        type: "choices" as const,
+        choices: ["Bored", "Angry", "Curious"],
+      },
+      { id: "more", text: "Anything else?", type: "text" as const },
+    ],
+  };
+  const draw = (on = true, asked: typeof question = question) => {
+    const onAnswer = vi.fn();
+    const onDismiss = vi.fn();
+    render(
+      <PlatformProvider
+        platform={{ layout: "forum", features: { ...TEMPLATES.forum.features, questions: on } }}
+      >
+        <QuestionCard question={asked} onAnswer={onAnswer} onDismiss={onDismiss} />
+      </PlatformProvider>,
+    );
+    return { onAnswer, onDismiss };
+  };
+
+  it("can't be sent until every question has an answer, and then sends them all", () => {
+    const { onAnswer } = draw();
+    const card = screen.getByRole("region", { name: "About that comment" });
+    const send = within(card).getByRole("button", { name: "Send" }) as HTMLButtonElement;
+    expect(within(card).getAllByRole("radio")).toHaveLength(7);
+    expect(card.textContent).toContain("Bad");
+    expect(card.textContent).toContain("Good");
+    fireEvent.click(within(card).getByRole("radio", { name: "6" }));
+    fireEvent.click(within(card).getByRole("checkbox", { name: "Angry" }));
+    fireEvent.click(within(card).getByRole("checkbox", { name: "Curious" }));
+    expect(send.disabled).toBe(true);
+    fireEvent.change(within(card).getByRole("textbox", { name: "Anything else?" }), {
+      target: { value: "Not really" },
+    });
+    expect(send.disabled).toBe(false);
+    fireEvent.click(send);
+    expect(onAnswer).toHaveBeenCalledWith(
+      "q1",
+      { felt: 6, why: ["Angry", "Curious"], more: "Not really" },
+      expect.stringMatching(/^\d{4}-\d\d-\d\dT/),
+    );
+  });
+
+  it("can be put aside, unless it has to be answered", () => {
+    const { onDismiss } = draw();
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+    expect(onDismiss).toHaveBeenCalledWith("q1", expect.any(String));
+    cleanup();
+    draw(true, { ...question, required: true });
+    expect(screen.queryByRole("button", { name: "Not now" })).toBeNull();
+  });
+
+  it("unticking the last choice leaves it unanswered again", () => {
+    draw(true, {
+      ...question,
+      questions: [question.questions[1] as (typeof question.questions)[1]],
+    });
+    const send = screen.getByRole("button", { name: "Send" }) as HTMLButtonElement;
+    fireEvent.click(screen.getByRole("checkbox", { name: "Bored" }));
+    expect(send.disabled).toBe(false);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Bored" }));
+    expect(send.disabled).toBe(true);
+  });
+
+  it("shows nothing when the feature's off", () => {
+    draw(false);
+    expect(screen.queryByTestId("question-card")).toBeNull();
   });
 });
 

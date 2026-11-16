@@ -2,6 +2,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { healthResponseSchema } from "@truman3/core";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { createQuestionRoutes } from "./actions/questions.ts";
 import { createActionRoutes } from "./actions/routes.ts";
 import { createAccountRoutes } from "./admin/accounts.ts";
 import { createAddressRoutes } from "./admin/addresses.ts";
@@ -113,6 +114,7 @@ export function createApp({
   app.route("/", createFeedRoutes(participantDependencies));
   app.route("/", createMediaRoutes(participantDependencies));
   app.route("/", createActionRoutes(participantDependencies));
+  app.route("/", createQuestionRoutes(participantDependencies));
   app.route("/", createFlowRoutes(participantDependencies));
   // Before any admin route, so an agent can't reach what's for people only.
   app.use("/admin/*", agentLimits);

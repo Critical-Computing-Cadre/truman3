@@ -39,18 +39,19 @@ Give exactly one of these:
 
 ## What happens (`do`)
 
-| `action`  | Needs                                   | Does                                                                                                                                 |
-| --------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `post`    | `actor`, `text`                         | A new post                                                                                                                           |
-| `comment` | `actor`, `on`, `text`                   | A comment. On a comment, it's a reply where threads are on, and goes on the post where they're off                                   |
-| `like`    | `actor`, `on`                           | A like                                                                                                                               |
-| `repost`  | `actor`, `on`                           | Passes it along                                                                                                                      |
-| `follow`  | `actor`                                 | Follows the participant                                                                                                              |
-| `message` | `actor`, `text`                         | A direct message to the participant. It shows as unread on their Messages page, not as a notification                                |
-| `remove`  | `actor`, `on`, and optionally `reason`  | A moderator takes it down. Needs `removal` on                                                                                        |
-| `label`   | `actor`, `on`, `label`                  | A moderator labels it, such as "Misleading", up to 40 characters. Needs `labels` on                                                  |
-| `warn`    | `actor`, `on`, `warning`                | A moderator warns the participant about what they wrote, so `on` is `trigger`, set off by their post or comment. Needs `warnings` on |
-| `ban`     | `actor`, `who`, and optionally `reason` | A moderator bans someone in the cast, by username, from everywhere. Needs `bans` on                                                  |
+| `action`  | Needs                                           | Does                                                                                                                                                     |
+| --------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `post`    | `actor`, `text`                                 | A new post                                                                                                                                               |
+| `comment` | `actor`, `on`, `text`                           | A comment. On a comment, it's a reply where threads are on, and goes on the post where they're off                                                       |
+| `like`    | `actor`, `on`                                   | A like                                                                                                                                                   |
+| `repost`  | `actor`, `on`                                   | Passes it along                                                                                                                                          |
+| `follow`  | `actor`                                         | Follows the participant                                                                                                                                  |
+| `message` | `actor`, `text`                                 | A direct message to the participant. It shows as unread on their Messages page, not as a notification                                                    |
+| `remove`  | `actor`, `on`, and optionally `reason`          | A moderator takes it down. Needs `removal` on                                                                                                            |
+| `label`   | `actor`, `on`, `label`                          | A moderator labels it, such as "Misleading", up to 40 characters. Needs `labels` on                                                                      |
+| `warn`    | `actor`, `on`, `warning`                        | A moderator warns the participant about what they wrote, so `on` is `trigger`, set off by their post or comment. Needs `warnings` on                     |
+| `ban`     | `actor`, `who`, and optionally `reason`         | A moderator bans someone in the cast, by username, from everywhere. Needs `bans` on                                                                      |
+| `ask`     | `questions`, and optionally `title`, `required` | The site asks the participant up to three questions, over whatever page they're on. Nobody in the cast asks, so there's no `actor`. Needs `questions` on |
 
 `on` says what it's done to:
 - `trigger`: what set the beat off. That's what the participant wrote or acted on, or what the beat before made.
@@ -87,7 +88,7 @@ If a beat needs something that's off in a condition, like comments, it's skipped
 
 In a shared world, several participants are in one world (see [Shared worlds](shared-worlds.md)). A beat then happens either once for the whole world, or once for each participant:
 - **Set off by a participant:** theirs. Each person's first post can get its own reply from Jake, and `max` counts for each of them.
-- **Doing something to the participant,** like `message`, `follow`, or `warn`: once for each of them, so everyone gets Jake's message.
+- **Doing something to the participant,** like `message`, `follow`, `warn`, or `ask`: once for each of them, so everyone gets Jake's message.
 - **Anything else, like a timed post:** once for the world, since everyone sees the same post.
 
 `per: participant` or `per: world` changes this. For example, one post for everyone after anyone's first comment:

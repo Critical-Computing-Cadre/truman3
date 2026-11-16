@@ -153,6 +153,54 @@ const checkWording = (
   }
 };
 
+/**
+ * One thing a participant is asked, in the feed, at the moment a beat chooses (ADR 89). Kept to a
+ * few plain kinds, since it's read on a phone, in the middle of something else.
+ */
+export const askedQuestionSchema = z
+  .strictObject({
+    /** Its column in the export. */
+    id: idSchema,
+    text: z.string().min(1).max(300),
+    /** A scale of numbers, one of a list, several of a list, or a line of their own words. */
+    type: z.enum(["scale", "choice", "choices", "text"]),
+    /** For choice and choices. */
+    choices: z.array(z.string().min(1).max(80)).min(2).max(8).optional(),
+    /** For a scale: its ends, and what each means. 1 to 5 unless it says. */
+    min: z.number().int().min(0).max(1).optional(),
+    max: z.number().int().min(2).max(10).optional(),
+    minLabel: z.string().min(1).max(40).optional(),
+    maxLabel: z.string().min(1).max(40).optional(),
+  })
+  .superRefine((question, ctx) => {
+    const listed = question.type === "choice" || question.type === "choices";
+    if (listed && question.choices === undefined) {
+      ctx.addIssue({ code: "custom", message: `A ${question.type} question needs its choices.` });
+    }
+    if (!listed && question.choices !== undefined) {
+      ctx.addIssue({ code: "custom", message: "choices only go with choice or choices." });
+    }
+    if (listed && question.choices && new Set(question.choices).size !== question.choices.length) {
+      ctx.addIssue({ code: "custom", message: "Two of the choices are the same." });
+    }
+    const scaled = [question.min, question.max, question.minLabel, question.maxLabel].some(
+      (part) => part !== undefined,
+    );
+    if (question.type !== "scale" && scaled) {
+      ctx.addIssue({
+        code: "custom",
+        message: "min, max, minLabel, and maxLabel only go with a scale.",
+      });
+    }
+  });
+export type AskedQuestion = z.infer<typeof askedQuestionSchema>;
+
+/** Where a scale starts and ends, with what a study left out filled in. */
+export const scaleEnds = (question: AskedQuestion) => ({
+  min: question.min ?? 1,
+  max: question.max ?? 5,
+});
+
 const actionSchema = z.discriminatedUnion("action", [
   z
     .strictObject({ action: z.literal("post"), actor: z.string().min(1), ...wording })
@@ -194,6 +242,25 @@ const actionSchema = z.discriminatedUnion("action", [
     on: targetSchema,
     warning: z.string().min(1).max(500),
   }),
+  /**
+   * The site asks the participant something, there and then (ADR 89). Nobody in the cast asks it.
+   * It's a few questions at most, and they can put it aside unless it's `required`.
+   */
+  z
+    .strictObject({
+      action: z.literal("ask"),
+      /** A line above the questions, such as "A quick question". */
+      title: z.string().min(1).max(80).optional(),
+      questions: z.array(askedQuestionSchema).min(1).max(3),
+      /** Whether it stays until they answer. Otherwise they can press "Not now". */
+      required: z.boolean().default(false),
+    })
+    .superRefine((ask, ctx) => {
+      const ids = ask.questions.map(({ id }) => id);
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({ code: "custom", message: "Two questions have the same id." });
+      }
+    }),
   /** A moderator bans someone in the cast, from everywhere, by username. */
   z.strictObject({
     action: z.literal("ban"),

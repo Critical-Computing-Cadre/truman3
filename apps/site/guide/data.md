@@ -26,18 +26,19 @@ Test participants are never in a download.
 
 ## What's in the zip
 
-| File                                                          | What it has                                                                                                            |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `participants.csv`                                            | Each participant: their ID in this study, their version, their condition, how they were assigned, and how far they got |
-| `summary.csv`                                                 | One row per person with totals: likes, flags, votes, follows, time active, views                                       |
-| `events.csv`                                                  | The event log: everything participants did                                                                             |
-| `impressions.csv`                                             | What each person was shown, in what order, and whether a post was removed or labeled then                              |
-| `content.csv`                                                 | The study's own posts and comments, and what participants wrote                                                        |
-| `beat_runs.csv`                                               | Every decision about a beat, and how each line was worded                                                              |
-| `assignments.csv`                                             | Every assignment in order, when a decision point moved anyone                                                          |
-| `removals.csv`, `labels.csv`, and the other moderation sheets | What the version scripted, when a study has some                                                                       |
-| `recruitment_ids.csv`                                         | Only when asked for                                                                                                    |
-| `codebook.md`                                                 | The guide to all of it                                                                                                 |
+| File                                                          | What it has                                                                                                             |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `participants.csv`                                            | Each participant: their ID in this study, their version, their condition, how they were assigned, and how far they got  |
+| `summary.csv`                                                 | One row per person with totals: likes, flags, votes, follows, time active, views                                        |
+| `events.csv`                                                  | The event log: everything participants did                                                                              |
+| `impressions.csv`                                             | What each person was shown, in what order, and whether a post was removed or labeled then                               |
+| `content.csv`                                                 | The study's own posts and comments, and what participants wrote                                                         |
+| `beat_runs.csv`                                               | Every decision about a beat, and how each line was worded                                                               |
+| `answers.csv`                                                 | What beats asked participants in the feed, and what they answered, a row for each question. Only if something was asked |
+| `assignments.csv`                                             | Every assignment in order, when a decision point moved anyone                                                           |
+| `removals.csv`, `labels.csv`, and the other moderation sheets | What the version scripted, when a study has some                                                                        |
+| `recruitment_ids.csv`                                         | Only when asked for                                                                                                     |
+| `codebook.md`                                                 | The guide to all of it                                                                                                  |
 
 `participant_id` is specific to this study. It isn't the person's Prolific ID. If you passed it to your survey as in [Consent, surveys, and debriefing](/guide/flow), it's the column you join on.
 

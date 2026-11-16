@@ -1076,6 +1076,50 @@ export const beatRuns = pgTable(
 );
 
 /**
+ * What a beat asked a participant in the feed, and what they said (ADR 89). One row for each time a
+ * beat asks. It hangs from the beat's run, so it goes when the run does: with the world, or with
+ * the participant's own runs when they withdraw from a shared world.
+ *
+ * The questions are copied here as they were asked, so an answer can be read beside its question
+ * whatever a later version of the study says.
+ */
+export const beatAsks = pgTable(
+  "beat_asks",
+  {
+    id: id(),
+    beatRunId: uuid("beat_run_id")
+      .notNull()
+      .references(() => beatRuns.id, { onDelete: "cascade" }),
+    worldId: uuid("world_id")
+      .notNull()
+      .references(() => worlds.id, { onDelete: "cascade" }),
+    /** The participant who's asked. */
+    recipientActorId: uuid("recipient_actor_id")
+      .notNull()
+      .references(() => actors.id, { onDelete: "cascade" }),
+    /** The beat, by its id in beats.yaml. */
+    beat: text().notNull(),
+    title: text(),
+    questions: jsonb().notNull(),
+    /** Whether it stays on their screen until they answer. */
+    required: boolean().notNull().default(false),
+    /** When it appears. Like everything a beat does, it shows from then on. */
+    dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    /** When they put it aside without answering. */
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+    /** Each question's id with what they chose or wrote. */
+    answers: jsonb(),
+    /** From when it was on their screen to when they answered or put it aside, by their device. */
+    tookMs: integer("took_ms"),
+  },
+  (table) => [
+    unique("beat_asks_once").on(table.beatRunId),
+    index("beat_asks_waiting").on(table.worldId, table.recipientActorId, table.dueAt),
+  ],
+);
+
+/**
  * Scripted reactions to a participant, with when they come due. Notifications and like counts only
  * count ones that are due, so this needs no background worker.
  */

@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   createRootRoute,
   createRoute,
@@ -195,8 +195,15 @@ declare module "@tanstack/react-router" {
   }
 }
 
-const queryClient = new QueryClient({
+const queryClient: QueryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 5_000, retry: 1 } },
+  // A beat can ask a question right after they do something (ADR 89). So after anything they do,
+  // check whether one's waiting, and it's there in a moment instead of at the next check.
+  mutationCache: new MutationCache({
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["questions"] });
+    },
+  }),
 });
 
 const root = document.getElementById("root");

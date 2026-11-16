@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { COMMENT_SORTS, FEED_SORTS } from "./orders.ts";
 import { POST_TAGS } from "./post-extras.ts";
+import { type AskedQuestion, askedQuestionSchema, scaleEnds } from "./study/beats.ts";
 
 /** A flair label, as drawn. */
 const feedFlairSchema = z.object({ text: z.string(), color: z.string().optional() });
@@ -64,6 +65,66 @@ export const feedWarningSchema = z.object({
   at: z.iso.datetime(),
 });
 export type FeedWarning = z.infer<typeof feedWarningSchema>;
+
+/** What a beat is asking this participant, waiting for them to answer or put aside (ADR 89). */
+export const feedQuestionSchema = z.object({
+  id: z.string(),
+  title: z.string().optional(),
+  questions: z.array(askedQuestionSchema),
+  /** Whether it stays until they answer. */
+  required: z.boolean(),
+});
+export type FeedQuestion = z.infer<typeof feedQuestionSchema>;
+
+/** One answer: a number on a scale, one choice, several, or their own words. */
+export const questionAnswerSchema = z.union([
+  z.number().int(),
+  z.string().max(500),
+  z.array(z.string()).max(8),
+]);
+export type QuestionAnswer = z.infer<typeof questionAnswerSchema>;
+
+/**
+ * What's wrong with a set of answers, or null. Every question has to be answered, with something
+ * it offered. Used where they're typed and again where they're saved.
+ */
+export function problemWithAnswers(
+  questions: readonly AskedQuestion[],
+  answers: Record<string, QuestionAnswer>,
+): string | null {
+  const known = new Set(questions.map(({ id }) => id));
+  if (Object.keys(answers).some((id) => !known.has(id))) {
+    return "That isn't one of the questions.";
+  }
+  for (const question of questions) {
+    const answer = answers[question.id];
+    if (answer === undefined) {
+      return "Please answer each question.";
+    }
+    if (question.type === "scale") {
+      const { min, max } = scaleEnds(question);
+      if (typeof answer !== "number" || answer < min || answer > max) {
+        return "Please answer each question.";
+      }
+    } else if (question.type === "choice") {
+      if (typeof answer !== "string" || !question.choices?.includes(answer)) {
+        return "Please answer each question.";
+      }
+    } else if (question.type === "choices") {
+      if (
+        !Array.isArray(answer) ||
+        answer.length === 0 ||
+        new Set(answer).size !== answer.length ||
+        answer.some((choice) => !question.choices?.includes(choice))
+      ) {
+        return "Please answer each question.";
+      }
+    } else if (typeof answer !== "string" || answer.trim() === "") {
+      return "Please answer each question.";
+    }
+  }
+  return null;
+}
 
 /** One line of a mod log. It never has what the removed post or comment said. */
 export const modLogEntrySchema = z.object({

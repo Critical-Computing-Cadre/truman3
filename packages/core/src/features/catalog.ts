@@ -263,6 +263,13 @@ export const FEATURES = {
     version: 1,
     events: ["reaction.scheduled", "moderation.warning_acknowledged"],
   },
+  questions: {
+    name: "Questions in the feed",
+    description:
+      "A beat can ask the participant a question or two at a moment in the feed, such as right after they comment. What they answer, or that they put it aside, is recorded.",
+    version: 1,
+    events: ["question.answered", "question.dismissed"],
+  },
   modLog: {
     name: "A public mod log",
     description:
