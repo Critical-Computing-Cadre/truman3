@@ -52,6 +52,37 @@ As people take part, **Submissions** lists each Prolific ID with what they did a
 
 When people finish, Truman sends them back to Prolific with the right code. Someone who declines consent is sent back with a code asking them to return their submission. If your study sends people to a survey after Truman, the page shows the link to put at the end of your survey. See [Consent, surveys, and debriefing](/guide/flow).
 
+## Reminders to come back
+
+In a study that lasts more than a day, people need a nudge to return. Truman can't write to a participant itself: it knows their recruitment ID and nothing else. Prolific can, so reminders go to their Prolific inbox.
+
+On the **Recruit on Prolific** page, once the study is linked to its Prolific study, find **Reminders to come back**.
+
+1. Tick **Send them automatically**.
+2. Set **Hours since their last visit**. It starts at 20, which catches people the next day.
+3. Write **What it says**. It has to have `{link}` in it, which becomes each person's own link back in. `{site}` becomes the site's name.
+4. Press **Save reminders**.
+
+From then on Truman checks every 15 minutes and sends a reminder to anyone who:
+
+- is part way through the study, and hasn't finished or withdrawn
+- hasn't done anything for that many hours
+- hasn't had a reminder yet that day
+- still has days of the study left
+
+The link gets them back in as the same person, on any browser or computer. They don't need to have kept anything.
+
+**Send now** sends to everyone due one, there and then. The page says how many that is first.
+
+A few things to know:
+
+- **They're sent as you,** with your Prolific connection. If you disconnect it, or leave the lab, they stop until someone else turns them on.
+- **Keep the message in character.** Participant screens don't say Truman or research unless your study does, and this message shouldn't either.
+- **Only people who came through Prolific get them,** and only for a study whose Prolific draft was made from this page.
+- **Check how long Prolific gives people.** A Prolific study has a maximum time. If a submission times out there before your study's last day, that person stops getting reminders, and may not be paid. Set it up on Prolific for the days your study runs.
+
+Each send is listed under **What's been done from here**, with how many people.
+
 ## Monitor
 
 **Monitor and download** shows how a running study is going. It refreshes on its own and shows counts, never IDs.

@@ -11,11 +11,15 @@ import { importStudyFolder } from "@truman3/study-import";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../app.ts";
+import { createReminders, DEFAULT_MESSAGE } from "./reminders.ts";
 
 let database: Awaited<ReturnType<typeof createTestDatabase>>;
 let app: ReturnType<typeof createApp>;
 const storage = createStorage(storageConfigFromEnv());
 const fake = createFakeProlific({ tokens: ["good-token", "other-token"] });
+/** How far the server's clock is ahead of the real one. */
+let hoursOn = 0;
+let reminding: Parameters<typeof createReminders>[0];
 const dirs: string[] = [];
 const TOKEN = "good-token";
 
@@ -172,13 +176,8 @@ const stateOf = async (cookie: string, studyId: string) =>
 beforeAll(async () => {
   database = await createTestDatabase();
   await storage.ensureBucket();
-  app = createApp({
-    pingDatabase: database.ping,
+  reminding = {
     db: database.db,
-    storage,
-    mediaPublicUrl: "http://media.test",
-    getClientIp: () => undefined,
-    secureCookies: false,
     participantDomains: ["eatsnap.test"],
     prolific: {
       secretKey: randomBytes(32).toString("base64"),
@@ -186,6 +185,16 @@ beforeAll(async () => {
       participantAppUrl: "https://truman.test",
       fetch: fake.fetch,
     },
+    // Time can be moved on, to see who's due a reminder after a day away.
+    clock: () => new Date(Date.now() + hoursOn * 60 * 60 * 1000),
+  };
+  app = createApp({
+    pingDatabase: database.ping,
+    storage,
+    mediaPublicUrl: "http://media.test",
+    getClientIp: () => undefined,
+    secureCookies: false,
+    ...reminding,
   });
 });
 
@@ -566,5 +575,186 @@ describe("unlinking", () => {
     const state = await stateOf(cookie, study.id);
     expect(state.link).toBeNull();
     expect(state.actions[0]?.action).toBe("unlinked");
+  });
+});
+
+describe("reminders to come back (ADR 90)", () => {
+  const remindersOf = async (cookie: string, studyId: string) =>
+    (await (await call(cookie, "GET", `/admin/studies/${studyId}/prolific/reminders`)).json()) as {
+      on: boolean;
+      afterHours: number;
+      message: string;
+      by: string | null;
+      due: number | null;
+      problem: string | null;
+      sent: { day: string; people: number }[];
+    };
+  const save = (cookie: string, studyId: string, body: object) =>
+    call(cookie, "PUT", `/admin/studies/${studyId}/prolific/reminders`, body);
+  const sendNow = async (cookie: string, studyId: string) =>
+    (await (
+      await call(cookie, "POST", `/admin/studies/${studyId}/prolific/reminders/send`)
+    ).json()) as { sent: number; failed: number };
+  const to = (studyId: string) =>
+    fake.messages.filter((message) => message.studyId === studyId).map((message) => message);
+
+  /** A study with three people from Prolific: one part way, one finished, one who never arrived. */
+  async function underWay() {
+    hoursOn = 0;
+    const made = await linked();
+    const away = fake.addSubmission(made.prolificStudyId, { status: "ACTIVE" });
+    const done = fake.addSubmission(made.prolificStudyId);
+    fake.addSubmission(made.prolificStudyId, { status: "ACTIVE" });
+    const returned = fake.addSubmission(made.prolificStudyId, { status: "RETURNED" });
+    await join(made.slug, away.participant_id);
+    await join(made.slug, returned.participant_id);
+    await finish(await join(made.slug, done.participant_id));
+    return { ...made, away: away.participant_id };
+  }
+
+  afterAll(() => {
+    hoursOn = 0;
+  });
+
+  it("starts off, with a message that has their link in it, and nobody due yet", async () => {
+    const made = await underWay();
+    const state = await remindersOf(made.cookie, made.study.id);
+    expect(state).toMatchObject({ on: false, afterHours: 20, by: null, due: 0, problem: null });
+    expect(state.message).toBe(DEFAULT_MESSAGE);
+    expect(state.message).toContain("{link}");
+  });
+
+  it("is due for someone part way through who's been away, and nobody else", async () => {
+    const made = await underWay();
+    hoursOn = 21;
+    // Not the one who finished, the one who returned it on Prolific, or the one who never came.
+    expect((await remindersOf(made.cookie, made.study.id)).due).toBe(1);
+    expect(await sendNow(made.cookie, made.study.id)).toEqual({ sent: 1, failed: 0 });
+    expect(to(made.prolificStudyId)).toEqual([
+      {
+        studyId: made.prolificStudyId,
+        recipientId: made.away,
+        body: `You're part way through Demo, and there's more to see. Pick up where you left off: https://truman.test/join/${made.slug}?PROLIFIC_PID=${made.away}`,
+      },
+    ]);
+    const state = await stateOf(made.cookie, made.study.id);
+    expect(state.actions[0]).toMatchObject({ action: "sent reminders", people: 1 });
+  });
+
+  it("sends nobody two in a day, however many times it's asked", async () => {
+    const made = await underWay();
+    hoursOn = 21;
+    await sendNow(made.cookie, made.study.id);
+    expect(await sendNow(made.cookie, made.study.id)).toEqual({ sent: 0, failed: 0 });
+    expect((await remindersOf(made.cookie, made.study.id)).due).toBe(0);
+    expect(to(made.prolificStudyId)).toHaveLength(1);
+    // The next day they're due again, having still not come back.
+    hoursOn = 46;
+    expect((await remindersOf(made.cookie, made.study.id)).due).toBe(1);
+    expect((await remindersOf(made.cookie, made.study.id)).sent).toHaveLength(1);
+  });
+
+  it("stops once the study's days are up for them", async () => {
+    const made = await underWay();
+    // The study lasts two days.
+    hoursOn = 49;
+    expect((await remindersOf(made.cookie, made.study.id)).due).toBe(0);
+    expect(await sendNow(made.cookie, made.study.id)).toEqual({ sent: 0, failed: 0 });
+  });
+
+  it("the link in it gets them back in as the same person", async () => {
+    const made = await underWay();
+    hoursOn = 21;
+    await sendNow(made.cookie, made.study.id);
+    const link = /https:\/\/truman\.test(\/join\/\S+)/.exec(
+      to(made.prolificStudyId)[0]?.body ?? "",
+    )?.[1] as string;
+    const url = new URL(link, "https://truman.test");
+    expect(url.pathname).toBe(`/join/${made.slug}`);
+    const before = await database.db
+      .select()
+      .from(schema.participants)
+      .where(eq(schema.participants.studyId, made.study.id));
+    await join(made.slug, url.searchParams.get("PROLIFIC_PID") as string);
+    const after = await database.db
+      .select()
+      .from(schema.participants)
+      .where(eq(schema.participants.studyId, made.study.id));
+    expect(after).toHaveLength(before.length);
+  });
+
+  it("goes out by itself once turned on, as whoever turned it on", async () => {
+    const made = await underWay();
+    const saved = await save(made.cookie, made.study.id, {
+      on: true,
+      afterHours: 6,
+      message: "Day two is open. {link}",
+    });
+    expect(saved.status).toBe(200);
+    expect(await remindersOf(made.cookie, made.study.id)).toMatchObject({
+      on: true,
+      afterHours: 6,
+      by: "Owner",
+    });
+    const { sendAllDue } = createReminders(reminding);
+    hoursOn = 5;
+    await sendAllDue(reminding.clock?.());
+    expect(to(made.prolificStudyId)).toEqual([]);
+    hoursOn = 7;
+    await sendAllDue(reminding.clock?.());
+    await sendAllDue(reminding.clock?.());
+    expect(to(made.prolificStudyId).map(({ body }) => body)).toEqual([
+      `Day two is open. https://truman.test/join/${made.slug}?PROLIFIC_PID=${made.away}`,
+    ]);
+    const state = await stateOf(made.cookie, made.study.id);
+    expect(state.actions.map(({ action, by }) => [action, by]).slice(0, 2)).toEqual([
+      ["sent reminders", "the schedule"],
+      ["turned reminders on", made.email],
+    ]);
+
+    // Turned off, nothing more goes.
+    await save(made.cookie, made.study.id, { on: false, afterHours: 6, message: "x {link}" });
+    hoursOn = 31;
+    await sendAllDue(reminding.clock?.());
+    expect(to(made.prolificStudyId)).toHaveLength(1);
+  });
+
+  it("needs {link} in the message, and a connected account to turn it on", async () => {
+    const made = await underWay();
+    const noLink = await save(made.cookie, made.study.id, {
+      on: true,
+      afterHours: 20,
+      message: "Come back!",
+    });
+    expect(noLink.status).toBe(400);
+    expect(((await noLink.json()) as { error: string }).error).toContain("{link}");
+
+    const editor = await colleague(made.teamSlug, "editor");
+    const notConnected = await save(editor, made.study.id, {
+      on: true,
+      afterHours: 20,
+      message: "Back: {link}",
+    });
+    expect(notConnected.status).toBe(400);
+    const viewer = await colleague(made.teamSlug, "viewer");
+    expect(
+      (await call(viewer, "GET", `/admin/studies/${made.study.id}/prolific/reminders`)).status,
+    ).toBe(403);
+  });
+
+  it("gives back someone's turn when Prolific refuses their message", async () => {
+    const made = await underWay();
+    hoursOn = 21;
+    fake.unreachable.add(made.away);
+    expect(await sendNow(made.cookie, made.study.id)).toEqual({ sent: 0, failed: 1 });
+    fake.unreachable.delete(made.away);
+    expect(await sendNow(made.cookie, made.study.id)).toEqual({ sent: 1, failed: 0 });
+  });
+
+  it("isn't there for a study that doesn't recruit through Prolific", async () => {
+    const made = await connected();
+    expect(
+      (await call(made.cookie, "GET", `/admin/studies/${made.study.id}/prolific/reminders`)).status,
+    ).toBe(409);
   });
 });

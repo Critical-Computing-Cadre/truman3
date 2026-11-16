@@ -86,4 +86,27 @@ test("a researcher connects Prolific, creates a draft, and approves and pays peo
   await page.getByText("What's been done from here").click();
   await expect(page.getByText(/approved, 1 person/)).toBeVisible();
   await expect(page.getByText(/paid bonus, 1 person, 1.60 total/)).toBeVisible();
+
+  // Reminders to come back (ADR 90): off to start, with nobody due, and turned on once.
+  const reminders = page.getByRole("region", { name: "Reminders to come back" });
+  await expect(reminders.getByText("Off", { exact: true })).toBeVisible();
+  await expect(reminders.getByText("Nobody is due one right now.")).toBeVisible();
+  await expect(reminders.getByRole("button", { name: "Send now" })).toBeDisabled();
+  // A message with no link in it can't be saved: nobody could get back from it.
+  const says = reminders.getByLabel("What it says");
+  await expect(says).toHaveValue(/\{link\}/);
+  await says.fill("Come back when you can.");
+  await expect(reminders.getByRole("alert")).toContainText("needs {link}");
+  await expect(reminders.getByRole("button", { name: "Save reminders" })).toBeDisabled();
+  await says.fill("Day two is open: {link}");
+  await reminders.getByLabel("Send them automatically").check();
+  await reminders.getByLabel("Hours since their last visit").fill("12");
+  await reminders.getByRole("button", { name: "Save reminders" }).click();
+  await expect(reminders.getByText(/^On, sent as /)).toBeVisible();
+  await page.reload();
+  await expect(reminders.getByLabel("Hours since their last visit")).toHaveValue("12");
+  await expect(reminders.getByLabel("Send them automatically")).toBeChecked();
+  await reminders.screenshot({ path: testInfo.outputPath("reminders.png") });
+  await page.getByText("What's been done from here").click();
+  await expect(page.getByText(/turned reminders on/)).toBeVisible();
 });
