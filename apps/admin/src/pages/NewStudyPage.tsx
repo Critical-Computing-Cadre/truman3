@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { TEMPLATES, type TemplateKey } from "@truman3/core";
 import { type FormEvent, useState } from "react";
-import { type ContentPack, get, post } from "../api.ts";
+import { type ContentPack, get, post, upload } from "../api.ts";
 import { TemplateCards } from "../components/TemplateCards.tsx";
 
 const input = "rounded border border-stone-300 px-2 py-1.5 text-sm";
@@ -129,16 +129,27 @@ export function NewStudyPage() {
   const [template, setTemplate] = useState<TemplateKey | null>(null);
   /** An optional brief for an agent, which starts drafting once the study exists. ADR 65. */
   const [brief, setBrief] = useState("");
+  /** Starting from a replication bundle: someone else's study, as it ran (ADR 91). */
+  const [fromBundle, setFromBundle] = useState(false);
+  const [bundle, setBundle] = useState<File | null>(null);
 
   const slug = typedSlug ?? toLinkName(title);
   const teams = list.data?.teams ?? [];
   const teamId = teamChoice ?? teams[0]?.id ?? "";
   const pack = sample ? undefined : list.data?.packs.find(({ id }) => id === packId);
   const starter = list.data?.starters.find((item) => item.template === (template ?? "classic"));
-  const withSample = sample && starter !== undefined;
+  const withSample = sample && starter !== undefined && !fromBundle;
 
   const start = useMutation({
     mutationFn: async () => {
+      if (fromBundle && bundle) {
+        const form = new FormData();
+        form.set("file", bundle);
+        form.set("teamId", teamId);
+        form.set("title", title);
+        form.set("slug", slug);
+        return upload<{ draftId: string }>("/admin/bundles", form);
+      }
       const made = await post<{ draftId: string }>("/admin/studies", {
         teamId,
         title,
@@ -156,7 +167,7 @@ export function NewStudyPage() {
       return made;
     },
     onSuccess: ({ draftId }) =>
-      brief.trim()
+      brief.trim() && !fromBundle
         ? navigate({ to: "/drafts/$draftId/agent", params: { draftId } })
         : navigate({ to: "/drafts/$draftId", params: { draftId } }),
   });
@@ -223,7 +234,7 @@ export function NewStudyPage() {
           </label>
         )}
 
-        <fieldset className="space-y-2">
+        <fieldset hidden={fromBundle} className="space-y-2">
           <legend className="text-sm font-medium">What kind of platform is it?</legend>
           <TemplateCards chosen={template ?? "classic"} onChoose={setTemplate} />
           <p className={hint}>
@@ -245,20 +256,22 @@ export function NewStudyPage() {
               onChoose={() => {
                 setSample(true);
                 setPackId(null);
+                setFromBundle(false);
               }}
             />
           )}
           <label
-            className={`block cursor-pointer rounded-lg border bg-white p-3 ${packId === null && !withSample ? "border-primary ring-1 ring-primary" : "border-stone-200"}`}
+            className={`block cursor-pointer rounded-lg border bg-white p-3 ${packId === null && !withSample && !fromBundle ? "border-primary ring-1 ring-primary" : "border-stone-200"}`}
           >
             <span className="flex items-baseline gap-2">
               <input
                 type="radio"
                 name="start"
-                checked={packId === null && !withSample}
+                checked={packId === null && !withSample && !fromBundle}
                 onChange={() => {
                   setSample(false);
                   setPackId(null);
+                  setFromBundle(false);
                 }}
               />
               <span className="font-medium">Start with nothing</span>
@@ -269,16 +282,56 @@ export function NewStudyPage() {
             <PackChoice
               key={item.id}
               pack={item}
-              chosen={!withSample && packId === item.id}
+              chosen={!withSample && !fromBundle && packId === item.id}
               onChoose={() => {
                 setSample(false);
                 setPackId(item.id);
+                setFromBundle(false);
               }}
             />
           ))}
+          <div
+            className={`rounded-lg border bg-white p-3 ${fromBundle ? "border-primary ring-1 ring-primary" : "border-stone-200"}`}
+          >
+            <label className="flex cursor-pointer items-baseline gap-2">
+              <input
+                type="radio"
+                name="start"
+                checked={fromBundle}
+                onChange={() => {
+                  setFromBundle(true);
+                  setSample(false);
+                  setPackId(null);
+                }}
+              />
+              <span className="font-medium">From a replication bundle</span>
+            </label>
+            <p className="mt-1 text-sm text-stone-600">
+              A study someone published with a paper, as it ran: its settings, conditions, cast,
+              posts, and what happens when. You get it as a draft to look through and change.
+            </p>
+            {fromBundle && (
+              <div className="mt-2 space-y-1">
+                <label className="flex flex-col gap-1 text-sm font-medium">
+                  The bundle's zip file
+                  <input
+                    type="file"
+                    accept=".zip,application/zip"
+                    onChange={(event) => setBundle(event.target.files?.[0] ?? null)}
+                    className="text-sm font-normal"
+                  />
+                </label>
+                <p className={hint}>
+                  The kind of platform, the conditions, and how people are assigned come with it.
+                  Its consent page doesn't: yours has to be the wording your own ethics board
+                  approved.
+                </p>
+              </div>
+            )}
+          </div>
         </fieldset>
 
-        {pack && pack.targeted > 0 && (
+        {pack && pack.targeted > 0 && !fromBundle && (
           <fieldset className="space-y-1">
             <legend className="text-sm font-medium">What do you want from this pack?</legend>
             <label className="flex items-baseline gap-2 text-sm">
@@ -310,13 +363,13 @@ export function NewStudyPage() {
           </fieldset>
         )}
 
-        <fieldset className="space-y-1">
+        <fieldset hidden={fromBundle} className="space-y-1">
           <legend className="text-sm font-medium">How are people assigned to conditions?</legend>
           <label className="flex items-baseline gap-2 text-sm">
             <input
               type="radio"
               name="assignment"
-              required
+              required={!fromBundle}
               checked={assignment === "uniform"}
               onChange={() => setAssignment("uniform")}
             />
@@ -343,7 +396,7 @@ export function NewStudyPage() {
           </label>
         </fieldset>
 
-        <label className="block space-y-1">
+        <label hidden={fromBundle} className="block space-y-1">
           <span className="font-medium">Draft from a brief (optional)</span>
           <span className="block text-sm text-stone-600">
             Describe the study, and an agent drafts it for you to review: the cast, posts, beats,
@@ -367,10 +420,12 @@ export function NewStudyPage() {
         )}
         <button
           type="submit"
-          disabled={start.isPending || !title.trim() || !slug || !assignment}
+          disabled={
+            start.isPending || !title.trim() || !slug || (fromBundle ? !bundle : !assignment)
+          }
           className="btn btn-primary px-4 py-2"
         >
-          {start.isPending ? "Starting..." : "Start the study"}
+          {start.isPending ? "Starting..." : fromBundle ? "Load the study" : "Start the study"}
         </button>
       </form>
     </main>

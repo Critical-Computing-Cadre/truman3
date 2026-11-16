@@ -105,4 +105,26 @@ Synthetic participants are never in the study's real data, its counts, or the Mo
 - Your survey data probably contains Prolific IDs now. Remove that column.
 - Participants' own posts and comments are in `content.csv`. Read them before you publish them.
 
+## Share the study itself
+
+A paper says what the feed was like in a paragraph. A replication bundle is the feed: one saved version of your study, whole, in a zip file. It has the site's settings, your conditions, every page, the cast, every post and comment, your beats and tests, and the pictures. It has no participants and no data.
+
+On the **Studies** page, press **Replication bundle** beside the version you ran. Deposit the file with your paper, on OSF or Zenodo, or wherever your data goes.
+
+Inside it:
+
+- `README.md` says what it is, for someone who opens it without Truman, and has a sentence for your methods section.
+- `study.json` is the study.
+- `media/` has the pictures.
+- `checksums.txt` has a checksum of every file, so anyone can confirm they have what you deposited.
+
+Someone else loads it from **New study**, by choosing **From a replication bundle**. They get your study as a draft of their own, to look through, change, and run.
+
+Two things to know before you share one:
+
+- **Your consent text is in the file,** as a record of what participants agreed to. It isn't loaded into the other lab's study, which starts with placeholder text, since they have to use the wording their own ethics board approved.
+- **Check you may share the pictures.** A bundle has every picture in the study. If some are other people's photos, their terms come too.
+
+Take the bundle of the version that ran, not the newest one. The data's `study_version` column and the codebook say which that was.
+
 The export can also be written from the command line. See [Studies as files](/developers/study-files).

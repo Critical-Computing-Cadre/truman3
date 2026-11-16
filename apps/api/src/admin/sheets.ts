@@ -128,7 +128,9 @@ have yet. A column left out, or left empty, uses the study's default.
  * The files in an uploaded zip, by their path in it. If everything is inside one folder, as when
  * someone zips the folder itself, that folder is left off. Files a Mac adds are ignored.
  */
-function zipFiles(bytes: Uint8Array): { files: Map<string, Uint8Array> } | { error: string } {
+export function zipFiles(
+  bytes: Uint8Array,
+): { files: Map<string, Uint8Array> } | { error: string } {
   let total = 0;
   let entries: Record<string, Uint8Array>;
   try {

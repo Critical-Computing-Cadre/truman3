@@ -132,6 +132,10 @@ export function draftToDefinition(
           key === BEATS_FILE ||
           key === SCENARIOS_FILE ||
           key === PERSONAS_FILE ||
+          // The site's own pages: its rules, terms, and privacy policy.
+          key === settings.site.rules ||
+          key === settings.site.terms ||
+          key === settings.site.privacy ||
           settings.flow.some((step) => "page" in step && step.page === key),
       ),
     ),

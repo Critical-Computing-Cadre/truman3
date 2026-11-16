@@ -56,6 +56,394 @@ export async function writeHistory(
 }
 
 /**
+ * A frozen version's content as draft items: its cast, spaces, posts, comments, and everything
+ * scripted about them. Reads only. Opening a draft saves these, and a replication bundle turns
+ * them into the study's definition (ADR 91).
+ */
+async function itemsOfVersion(
+  tx: Pick<Database, "select">,
+  versionId: string,
+  draftId: string,
+): Promise<(typeof schema.draftItems.$inferInsert)[]> {
+  const actors = await tx
+    .select()
+    .from(schema.actors)
+    .where(and(eq(schema.actors.studyVersionId, versionId), isNull(schema.actors.worldId)));
+  const spaces = await tx
+    .select()
+    .from(schema.spaces)
+    .where(eq(schema.spaces.studyVersionId, versionId));
+  const content = await tx
+    .select()
+    .from(schema.content)
+    .where(and(eq(schema.content.studyVersionId, versionId), isNull(schema.content.worldId)));
+  const reactions = await tx
+    .select()
+    .from(schema.scriptedReactions)
+    .where(eq(schema.scriptedReactions.studyVersionId, versionId));
+  const removals = await tx
+    .select()
+    .from(schema.scriptedRemovals)
+    .where(eq(schema.scriptedRemovals.studyVersionId, versionId));
+  const labels = await tx
+    .select()
+    .from(schema.scriptedLabels)
+    .where(eq(schema.scriptedLabels.studyVersionId, versionId));
+  const flagAnswers = await tx
+    .select()
+    .from(schema.scriptedFlagAnswers)
+    .where(eq(schema.scriptedFlagAnswers.studyVersionId, versionId));
+  const bans = await tx
+    .select()
+    .from(schema.scriptedBans)
+    .where(eq(schema.scriptedBans.studyVersionId, versionId));
+  const reportAnswers = await tx
+    .select()
+    .from(schema.scriptedReportAnswers)
+    .where(eq(schema.scriptedReportAnswers.studyVersionId, versionId));
+  const autoRules = await tx
+    .select()
+    .from(schema.scriptedAutoRules)
+    .where(eq(schema.scriptedAutoRules.studyVersionId, versionId))
+    .orderBy(asc(schema.scriptedAutoRules.position));
+  const appealAnswers = await tx
+    .select()
+    .from(schema.scriptedAppealAnswers)
+    .where(eq(schema.scriptedAppealAnswers.studyVersionId, versionId))
+    .orderBy(asc(schema.scriptedAppealAnswers.position));
+  const contextNotes = await tx
+    .select()
+    .from(schema.scriptedContextNotes)
+    .where(eq(schema.scriptedContextNotes.studyVersionId, versionId));
+  const contentKinds = new Map(content.map(({ id, kind }) => [id, kind]));
+
+  // New IDs up front, since items point at each other.
+  const newId = new Map<string, string>();
+  for (const row of [...actors, ...spaces, ...content]) {
+    newId.set(row.id, crypto.randomUUID());
+  }
+  const asId = (oldId: string) => newId.get(oldId) as string;
+  const spaceIdByKey = new Map(spaces.map(({ key, id }) => [key, asId(id)]));
+  const actorFlair = (flair: Record<string, string> | undefined) => {
+    const pairs = Object.entries(flair ?? {}).flatMap(([key, text]) => {
+      const id = spaceIdByKey.get(key);
+      return id ? [[id, text]] : [];
+    });
+    return pairs.length > 0 ? { spaceFlair: Object.fromEntries(pairs) } : {};
+  };
+
+  // In a frozen version a comment's parent can be another comment. A draft keeps both.
+  const contentById = new Map(content.map((row) => [row.id, row]));
+  const commentPlace = (comment: (typeof content)[number]) => {
+    const parentId = comment.parentId as string;
+    let top = contentById.get(parentId) as (typeof content)[number];
+    while (top.parentId) {
+      top = contentById.get(top.parentId) as (typeof content)[number];
+    }
+    return {
+      postId: asId(top.id),
+      ...(parentId === top.id ? {} : { replyToId: asId(parentId) }),
+    };
+  };
+
+  const fromFile: Provenance = { origin: "file" };
+  const optional = (key: string, value: unknown) =>
+    value === null || value === undefined || value === "" ? {} : { [key]: value };
+
+  const rows: (typeof schema.draftItems.$inferInsert)[] = [
+    ...actors.map((actor, position) => {
+      const profile = actor.profile as Record<string, unknown>;
+      return {
+        id: asId(actor.id),
+        draftId: draftId,
+        kind: "actor",
+        position,
+        provenance: fromFile,
+        data: {
+          username: actor.username,
+          name: profile.name ?? actor.username,
+          ...optional("gender", profile.gender),
+          ...optional("age", profile.age),
+          ...optional("location", profile.location),
+          ...optional("bio", profile.bio),
+          ...optional("picture", profile.picture),
+          ...optional("banner", profile.banner),
+          ...optional(
+            "conditionPictures",
+            profile.conditionPictures as Record<string, string> | undefined,
+          ),
+          ...optional("moderator", profile.moderator),
+          ...optional("karma", profile.karma),
+          ...optional("followers", profile.followers),
+          ...optional("following", profile.following),
+          ...optional("startsFollowed", profile.startsFollowed),
+          ...optional("badge", profile.badge),
+          ...optional("suggested", profile.suggested),
+          ...actorFlair(profile.spaceFlair as Record<string, string> | undefined),
+          conditions: actor.conditions,
+          ...optional("class", actor.class),
+        },
+      };
+    }),
+    ...spaces.map((space) => ({
+      id: asId(space.id),
+      draftId: draftId,
+      kind: "space",
+      position: space.position,
+      provenance: fromFile,
+      data: {
+        key: space.key,
+        name: space.name,
+        ...optional("description", space.description),
+        ...optional("rules", space.rules),
+        ...optional("picture", space.picture),
+        ...optional("banner", space.banner),
+        ...optional("accent", space.accent),
+        startsJoined: space.startsJoined,
+        ...optional("members", space.baseMembers),
+        ...(space.postFlair.length > 0 ? { postFlair: space.postFlair } : {}),
+        ...(space.userFlair.length > 0 ? { userFlair: space.userFlair } : {}),
+        ...(space.requirePostFlair ? { requirePostFlair: true } : {}),
+        conditions: space.conditions,
+        ...optional("class", space.class),
+      },
+    })),
+    ...content
+      .filter(({ kind }) => kind !== "story")
+      .map((item, index) => {
+        const shared = {
+          ref: item.sourceRef ?? item.id,
+          body: item.body,
+          actorId: asId(item.authorActorId),
+          timeMs: item.offsetMs ?? 0,
+          likes: item.baseLikes,
+          ups: item.baseUps,
+          downs: item.baseDowns,
+          conditions: item.conditions,
+          ...optional("class", item.class),
+        };
+        return {
+          id: asId(item.id),
+          draftId: draftId,
+          kind: item.kind,
+          position: item.position ?? index,
+          provenance: (Object.keys(item.provenance as object).length
+            ? item.provenance
+            : fromFile) as Provenance,
+          data:
+            item.kind === "post"
+              ? {
+                  ...shared,
+                  ...optional("title", item.title),
+                  ...optional("link", item.linkUrl),
+                  ...(item.pinnedOn.length > 0 ? { pinnedOn: item.pinnedOn } : {}),
+                  ...(item.locked ? { locked: true } : {}),
+                  ...(item.tags.length > 0 ? { tags: item.tags } : {}),
+                  ...(item.poll ? { poll: item.poll } : {}),
+                  ...optional("flair", item.flair),
+                  ...(item.crosspostOf ? { crosspostOfId: asId(item.crosspostOf) } : {}),
+                  ...(item.repostOf ? { repostOfId: asId(item.repostOf) } : {}),
+                  ...(item.quoteOf ? { quoteOfId: asId(item.quoteOf) } : {}),
+                  ...(item.baseReposts ? { reposts: item.baseReposts } : {}),
+                  ...(item.baseQuotes ? { quotes: item.baseQuotes } : {}),
+                  ...optional("ad", item.adLabel),
+                  ...(item.likedByActorId ? { likedById: asId(item.likedByActorId) } : {}),
+                  ...optional("place", item.place),
+                  ...(item.taggedActorIds.length > 0
+                    ? { taggedIds: item.taggedActorIds.map(asId) }
+                    : {}),
+                  ...(item.tagsParticipant ? { tagsParticipant: true } : {}),
+                  ...(item.baseViews ? { views: item.baseViews } : {}),
+                  pictures: item.attachments.map(({ key }) => key),
+                  ...(item.spaceId ? { spaceId: asId(item.spaceId) } : {}),
+                }
+              : { ...shared, ...commentPlace(item) },
+        };
+      }),
+    ...reactions.map((reaction, position) => ({
+      draftId: draftId,
+      kind: "reaction",
+      position,
+      provenance: fromFile,
+      data: {
+        on: reaction.on,
+        nth: reaction.nth,
+        type: reaction.type,
+        actorId: asId(reaction.actorId),
+        afterMs: reaction.afterMs,
+        ...optional("body", reaction.body),
+        conditions: reaction.conditions,
+        ...optional("class", reaction.class),
+      },
+    })),
+    ...removals.map((removal, position) => ({
+      draftId: draftId,
+      kind: "removal",
+      position,
+      provenance: fromFile,
+      data: {
+        on: contentKinds.get(removal.contentId),
+        targetId: asId(removal.contentId),
+        actorId: asId(removal.actorId),
+        timeMs: removal.offsetMs,
+        ...optional("reason", removal.reason),
+        conditions: removal.conditions,
+        ...optional("class", removal.class),
+      },
+    })),
+    ...labels.map((labeling, position) => ({
+      draftId: draftId,
+      kind: "label",
+      position,
+      provenance: fromFile,
+      data: {
+        on: contentKinds.get(labeling.contentId),
+        targetId: asId(labeling.contentId),
+        actorId: asId(labeling.actorId),
+        timeMs: labeling.offsetMs,
+        label: labeling.label,
+        hides: labeling.hides,
+        ...optional("reason", labeling.reason),
+        showsWho: labeling.showsWho,
+        ...optional("ask", labeling.ask),
+        conditions: labeling.conditions,
+        ...optional("class", labeling.class),
+      },
+    })),
+    ...content
+      .filter(({ kind }) => kind === "story")
+      .map((story, position) => ({
+        id: asId(story.id),
+        draftId: draftId,
+        kind: "story",
+        position,
+        provenance: fromFile,
+        data: {
+          ref: story.sourceRef ?? newRef("story", story.id),
+          actorId: asId(story.authorActorId),
+          ...(story.attachments[0] ? { picture: story.attachments[0].key } : {}),
+          ...optional("caption", story.body || undefined),
+          timeMs: story.offsetMs ?? 0,
+          ...(story.lastsMs ? { lastsHours: story.lastsMs / 3_600_000 } : {}),
+          ...optional("highlight", story.highlight),
+          ...(story.closeFriends ? { closeFriends: true } : {}),
+          conditions: story.conditions,
+          ...optional("class", story.class),
+        },
+      })),
+    ...contextNotes.map((note, position) => ({
+      draftId: draftId,
+      kind: "contextNote",
+      position,
+      provenance: fromFile,
+      data: {
+        ref: note.ref,
+        targetId: asId(note.contentId),
+        body: note.body,
+        timeMs: note.offsetMs,
+        ...(note.baseHelpful ? { helpful: note.baseHelpful } : {}),
+        ...(note.baseNotHelpful ? { notHelpful: note.baseNotHelpful } : {}),
+        conditions: note.conditions,
+        ...optional("class", note.class),
+      },
+    })),
+    ...autoRules.map((rule, position) => ({
+      draftId: draftId,
+      kind: "autoRule",
+      position,
+      provenance: fromFile,
+      data: {
+        ref: rule.ref,
+        on: rule.on,
+        match: rule.match,
+        action: rule.action,
+        actorId: asId(rule.actorId),
+        afterMs: rule.afterMs,
+        ...optional("message", rule.message),
+        ...optional("holdOutcome", rule.holdOutcome),
+        conditions: rule.conditions,
+        ...optional("class", rule.class),
+      },
+    })),
+    ...appealAnswers.map((answer, position) => ({
+      draftId: draftId,
+      kind: "appealAnswer",
+      position,
+      provenance: fromFile,
+      data: {
+        action: answer.action,
+        actorId: asId(answer.actorId),
+        afterMs: answer.afterMs,
+        ...optional("message", answer.message),
+        conditions: answer.conditions,
+        ...optional("class", answer.class),
+      },
+    })),
+    ...bans.map((ban, position) => ({
+      draftId: draftId,
+      kind: "ban",
+      position,
+      provenance: fromFile,
+      data: {
+        bannedActorId: asId(ban.bannedActorId),
+        actorId: asId(ban.actorId),
+        timeMs: ban.offsetMs,
+        ...optional("reason", ban.reason),
+        ...(ban.spaceId ? { spaceId: asId(ban.spaceId) } : {}),
+        conditions: ban.conditions,
+        ...optional("class", ban.class),
+      },
+    })),
+    ...reportAnswers.map((answer, position) => ({
+      draftId: draftId,
+      kind: "reportAnswer",
+      position,
+      provenance: fromFile,
+      data: {
+        ...(answer.reportedActorId ? { reportedActorId: asId(answer.reportedActorId) } : {}),
+        action: answer.action,
+        actorId: asId(answer.actorId),
+        afterMs: answer.afterMs,
+        ...optional("message", answer.message),
+        conditions: answer.conditions,
+        ...optional("class", answer.class),
+      },
+    })),
+    ...flagAnswers.map((answer, position) => ({
+      draftId: draftId,
+      kind: "flagAnswer",
+      position,
+      provenance: fromFile,
+      data: {
+        ...(answer.contentId
+          ? { on: contentKinds.get(answer.contentId), targetId: asId(answer.contentId) }
+          : {}),
+        action: answer.action,
+        actorId: asId(answer.actorId),
+        afterMs: answer.afterMs,
+        ...optional("message", answer.message),
+        conditions: answer.conditions,
+        ...optional("class", answer.class),
+      },
+    })),
+  ];
+  return rows;
+}
+
+/** A frozen version's content, as the items a draft of it would have. Nothing is saved. */
+export async function versionItems(db: Pick<Database, "select">, versionId: string) {
+  // The items point at each other by ID, and belong to no draft.
+  const rows = await itemsOfVersion(db, versionId, "00000000-0000-0000-0000-000000000000");
+  return rows.map((row) => ({
+    id: row.id ?? crypto.randomUUID(),
+    kind: row.kind as DraftItem["kind"],
+    data: row.data,
+    provenance: row.provenance,
+    position: row.position,
+  }));
+}
+
+/**
  * The study's open draft. If there isn't one, this starts one by copying a frozen version, which
  * stays exactly as it was. A study has one open draft, so a team works on the same thing.
  */
@@ -95,368 +483,7 @@ export async function openDraft(
       return existing ? { draftId: existing.id, created: false } : null;
     }
 
-    const actors = await tx
-      .select()
-      .from(schema.actors)
-      .where(and(eq(schema.actors.studyVersionId, versionId), isNull(schema.actors.worldId)));
-    const spaces = await tx
-      .select()
-      .from(schema.spaces)
-      .where(eq(schema.spaces.studyVersionId, versionId));
-    const content = await tx
-      .select()
-      .from(schema.content)
-      .where(and(eq(schema.content.studyVersionId, versionId), isNull(schema.content.worldId)));
-    const reactions = await tx
-      .select()
-      .from(schema.scriptedReactions)
-      .where(eq(schema.scriptedReactions.studyVersionId, versionId));
-    const removals = await tx
-      .select()
-      .from(schema.scriptedRemovals)
-      .where(eq(schema.scriptedRemovals.studyVersionId, versionId));
-    const labels = await tx
-      .select()
-      .from(schema.scriptedLabels)
-      .where(eq(schema.scriptedLabels.studyVersionId, versionId));
-    const flagAnswers = await tx
-      .select()
-      .from(schema.scriptedFlagAnswers)
-      .where(eq(schema.scriptedFlagAnswers.studyVersionId, versionId));
-    const bans = await tx
-      .select()
-      .from(schema.scriptedBans)
-      .where(eq(schema.scriptedBans.studyVersionId, versionId));
-    const reportAnswers = await tx
-      .select()
-      .from(schema.scriptedReportAnswers)
-      .where(eq(schema.scriptedReportAnswers.studyVersionId, versionId));
-    const autoRules = await tx
-      .select()
-      .from(schema.scriptedAutoRules)
-      .where(eq(schema.scriptedAutoRules.studyVersionId, versionId))
-      .orderBy(asc(schema.scriptedAutoRules.position));
-    const appealAnswers = await tx
-      .select()
-      .from(schema.scriptedAppealAnswers)
-      .where(eq(schema.scriptedAppealAnswers.studyVersionId, versionId))
-      .orderBy(asc(schema.scriptedAppealAnswers.position));
-    const contextNotes = await tx
-      .select()
-      .from(schema.scriptedContextNotes)
-      .where(eq(schema.scriptedContextNotes.studyVersionId, versionId));
-    const contentKinds = new Map(content.map(({ id, kind }) => [id, kind]));
-
-    // New IDs up front, since items point at each other.
-    const newId = new Map<string, string>();
-    for (const row of [...actors, ...spaces, ...content]) {
-      newId.set(row.id, crypto.randomUUID());
-    }
-    const asId = (oldId: string) => newId.get(oldId) as string;
-    const spaceIdByKey = new Map(spaces.map(({ key, id }) => [key, asId(id)]));
-    const actorFlair = (flair: Record<string, string> | undefined) => {
-      const pairs = Object.entries(flair ?? {}).flatMap(([key, text]) => {
-        const id = spaceIdByKey.get(key);
-        return id ? [[id, text]] : [];
-      });
-      return pairs.length > 0 ? { spaceFlair: Object.fromEntries(pairs) } : {};
-    };
-
-    // In a frozen version a comment's parent can be another comment. A draft keeps both.
-    const contentById = new Map(content.map((row) => [row.id, row]));
-    const commentPlace = (comment: (typeof content)[number]) => {
-      const parentId = comment.parentId as string;
-      let top = contentById.get(parentId) as (typeof content)[number];
-      while (top.parentId) {
-        top = contentById.get(top.parentId) as (typeof content)[number];
-      }
-      return {
-        postId: asId(top.id),
-        ...(parentId === top.id ? {} : { replyToId: asId(parentId) }),
-      };
-    };
-
-    const fromFile: Provenance = { origin: "file" };
-    const optional = (key: string, value: unknown) =>
-      value === null || value === undefined || value === "" ? {} : { [key]: value };
-
-    const rows: (typeof schema.draftItems.$inferInsert)[] = [
-      ...actors.map((actor, position) => {
-        const profile = actor.profile as Record<string, unknown>;
-        return {
-          id: asId(actor.id),
-          draftId: created.id,
-          kind: "actor",
-          position,
-          provenance: fromFile,
-          data: {
-            username: actor.username,
-            name: profile.name ?? actor.username,
-            ...optional("gender", profile.gender),
-            ...optional("age", profile.age),
-            ...optional("location", profile.location),
-            ...optional("bio", profile.bio),
-            ...optional("picture", profile.picture),
-            ...optional("banner", profile.banner),
-            ...optional(
-              "conditionPictures",
-              profile.conditionPictures as Record<string, string> | undefined,
-            ),
-            ...optional("moderator", profile.moderator),
-            ...optional("karma", profile.karma),
-            ...optional("followers", profile.followers),
-            ...optional("following", profile.following),
-            ...optional("startsFollowed", profile.startsFollowed),
-            ...optional("badge", profile.badge),
-            ...optional("suggested", profile.suggested),
-            ...actorFlair(profile.spaceFlair as Record<string, string> | undefined),
-            conditions: actor.conditions,
-            ...optional("class", actor.class),
-          },
-        };
-      }),
-      ...spaces.map((space) => ({
-        id: asId(space.id),
-        draftId: created.id,
-        kind: "space",
-        position: space.position,
-        provenance: fromFile,
-        data: {
-          key: space.key,
-          name: space.name,
-          ...optional("description", space.description),
-          ...optional("rules", space.rules),
-          ...optional("picture", space.picture),
-          ...optional("banner", space.banner),
-          ...optional("accent", space.accent),
-          startsJoined: space.startsJoined,
-          ...optional("members", space.baseMembers),
-          ...(space.postFlair.length > 0 ? { postFlair: space.postFlair } : {}),
-          ...(space.userFlair.length > 0 ? { userFlair: space.userFlair } : {}),
-          ...(space.requirePostFlair ? { requirePostFlair: true } : {}),
-          conditions: space.conditions,
-          ...optional("class", space.class),
-        },
-      })),
-      ...content
-        .filter(({ kind }) => kind !== "story")
-        .map((item, index) => {
-          const shared = {
-            ref: item.sourceRef ?? item.id,
-            body: item.body,
-            actorId: asId(item.authorActorId),
-            timeMs: item.offsetMs ?? 0,
-            likes: item.baseLikes,
-            ups: item.baseUps,
-            downs: item.baseDowns,
-            conditions: item.conditions,
-            ...optional("class", item.class),
-          };
-          return {
-            id: asId(item.id),
-            draftId: created.id,
-            kind: item.kind,
-            position: item.position ?? index,
-            provenance: (Object.keys(item.provenance as object).length
-              ? item.provenance
-              : fromFile) as Provenance,
-            data:
-              item.kind === "post"
-                ? {
-                    ...shared,
-                    ...optional("title", item.title),
-                    ...optional("link", item.linkUrl),
-                    ...(item.pinnedOn.length > 0 ? { pinnedOn: item.pinnedOn } : {}),
-                    ...(item.locked ? { locked: true } : {}),
-                    ...(item.tags.length > 0 ? { tags: item.tags } : {}),
-                    ...(item.poll ? { poll: item.poll } : {}),
-                    ...optional("flair", item.flair),
-                    ...(item.crosspostOf ? { crosspostOfId: asId(item.crosspostOf) } : {}),
-                    ...(item.repostOf ? { repostOfId: asId(item.repostOf) } : {}),
-                    ...(item.quoteOf ? { quoteOfId: asId(item.quoteOf) } : {}),
-                    ...(item.baseReposts ? { reposts: item.baseReposts } : {}),
-                    ...(item.baseQuotes ? { quotes: item.baseQuotes } : {}),
-                    ...optional("ad", item.adLabel),
-                    ...(item.likedByActorId ? { likedById: asId(item.likedByActorId) } : {}),
-                    ...optional("place", item.place),
-                    ...(item.taggedActorIds.length > 0
-                      ? { taggedIds: item.taggedActorIds.map(asId) }
-                      : {}),
-                    ...(item.tagsParticipant ? { tagsParticipant: true } : {}),
-                    ...(item.baseViews ? { views: item.baseViews } : {}),
-                    pictures: item.attachments.map(({ key }) => key),
-                    ...(item.spaceId ? { spaceId: asId(item.spaceId) } : {}),
-                  }
-                : { ...shared, ...commentPlace(item) },
-          };
-        }),
-      ...reactions.map((reaction, position) => ({
-        draftId: created.id,
-        kind: "reaction",
-        position,
-        provenance: fromFile,
-        data: {
-          on: reaction.on,
-          nth: reaction.nth,
-          type: reaction.type,
-          actorId: asId(reaction.actorId),
-          afterMs: reaction.afterMs,
-          ...optional("body", reaction.body),
-          conditions: reaction.conditions,
-          ...optional("class", reaction.class),
-        },
-      })),
-      ...removals.map((removal, position) => ({
-        draftId: created.id,
-        kind: "removal",
-        position,
-        provenance: fromFile,
-        data: {
-          on: contentKinds.get(removal.contentId),
-          targetId: asId(removal.contentId),
-          actorId: asId(removal.actorId),
-          timeMs: removal.offsetMs,
-          ...optional("reason", removal.reason),
-          conditions: removal.conditions,
-          ...optional("class", removal.class),
-        },
-      })),
-      ...labels.map((labeling, position) => ({
-        draftId: created.id,
-        kind: "label",
-        position,
-        provenance: fromFile,
-        data: {
-          on: contentKinds.get(labeling.contentId),
-          targetId: asId(labeling.contentId),
-          actorId: asId(labeling.actorId),
-          timeMs: labeling.offsetMs,
-          label: labeling.label,
-          hides: labeling.hides,
-          ...optional("reason", labeling.reason),
-          showsWho: labeling.showsWho,
-          ...optional("ask", labeling.ask),
-          conditions: labeling.conditions,
-          ...optional("class", labeling.class),
-        },
-      })),
-      ...content
-        .filter(({ kind }) => kind === "story")
-        .map((story, position) => ({
-          id: asId(story.id),
-          draftId: created.id,
-          kind: "story",
-          position,
-          provenance: fromFile,
-          data: {
-            ref: story.sourceRef ?? newRef("story", story.id),
-            actorId: asId(story.authorActorId),
-            ...(story.attachments[0] ? { picture: story.attachments[0].key } : {}),
-            ...optional("caption", story.body || undefined),
-            timeMs: story.offsetMs ?? 0,
-            ...(story.lastsMs ? { lastsHours: story.lastsMs / 3_600_000 } : {}),
-            ...optional("highlight", story.highlight),
-            ...(story.closeFriends ? { closeFriends: true } : {}),
-            conditions: story.conditions,
-            ...optional("class", story.class),
-          },
-        })),
-      ...contextNotes.map((note, position) => ({
-        draftId: created.id,
-        kind: "contextNote",
-        position,
-        provenance: fromFile,
-        data: {
-          ref: note.ref,
-          targetId: asId(note.contentId),
-          body: note.body,
-          timeMs: note.offsetMs,
-          ...(note.baseHelpful ? { helpful: note.baseHelpful } : {}),
-          ...(note.baseNotHelpful ? { notHelpful: note.baseNotHelpful } : {}),
-          conditions: note.conditions,
-          ...optional("class", note.class),
-        },
-      })),
-      ...autoRules.map((rule, position) => ({
-        draftId: created.id,
-        kind: "autoRule",
-        position,
-        provenance: fromFile,
-        data: {
-          ref: rule.ref,
-          on: rule.on,
-          match: rule.match,
-          action: rule.action,
-          actorId: asId(rule.actorId),
-          afterMs: rule.afterMs,
-          ...optional("message", rule.message),
-          ...optional("holdOutcome", rule.holdOutcome),
-          conditions: rule.conditions,
-          ...optional("class", rule.class),
-        },
-      })),
-      ...appealAnswers.map((answer, position) => ({
-        draftId: created.id,
-        kind: "appealAnswer",
-        position,
-        provenance: fromFile,
-        data: {
-          action: answer.action,
-          actorId: asId(answer.actorId),
-          afterMs: answer.afterMs,
-          ...optional("message", answer.message),
-          conditions: answer.conditions,
-          ...optional("class", answer.class),
-        },
-      })),
-      ...bans.map((ban, position) => ({
-        draftId: created.id,
-        kind: "ban",
-        position,
-        provenance: fromFile,
-        data: {
-          bannedActorId: asId(ban.bannedActorId),
-          actorId: asId(ban.actorId),
-          timeMs: ban.offsetMs,
-          ...optional("reason", ban.reason),
-          ...(ban.spaceId ? { spaceId: asId(ban.spaceId) } : {}),
-          conditions: ban.conditions,
-          ...optional("class", ban.class),
-        },
-      })),
-      ...reportAnswers.map((answer, position) => ({
-        draftId: created.id,
-        kind: "reportAnswer",
-        position,
-        provenance: fromFile,
-        data: {
-          ...(answer.reportedActorId ? { reportedActorId: asId(answer.reportedActorId) } : {}),
-          action: answer.action,
-          actorId: asId(answer.actorId),
-          afterMs: answer.afterMs,
-          ...optional("message", answer.message),
-          conditions: answer.conditions,
-          ...optional("class", answer.class),
-        },
-      })),
-      ...flagAnswers.map((answer, position) => ({
-        draftId: created.id,
-        kind: "flagAnswer",
-        position,
-        provenance: fromFile,
-        data: {
-          ...(answer.contentId
-            ? { on: contentKinds.get(answer.contentId), targetId: asId(answer.contentId) }
-            : {}),
-          action: answer.action,
-          actorId: asId(answer.actorId),
-          afterMs: answer.afterMs,
-          ...optional("message", answer.message),
-          conditions: answer.conditions,
-          ...optional("class", answer.class),
-        },
-      })),
-    ];
+    const rows = await itemsOfVersion(tx, versionId, created.id);
 
     for (const batch of chunks(rows, INSERT_BATCH_SIZE)) {
       await tx.insert(schema.draftItems).values(batch);
