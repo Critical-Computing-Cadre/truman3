@@ -187,6 +187,54 @@ beats:
     ]);
   });
 
+  it("asks a question with no one in the cast, and says what's wrong with one", () => {
+    expect(
+      problems(`
+beats:
+  - id: felt
+    when: { participant: comment }
+    do:
+      action: ask
+      questions:
+        - { id: felt, text: How did that feel?, type: scale, max: 7, minLabel: Bad, maxLabel: Good }
+        - { id: why, text: Why?, type: choice, choices: [Bored, Angry] }
+        - { id: more, text: Anything else?, type: text }
+`),
+    ).toEqual([]);
+    const messages = (yaml: string) => parseBeats(yaml).issues.map(({ message }) => message);
+    expect(
+      messages(`
+beats:
+  - { id: a, when: { time: "0:01" }, do: { action: ask, questions: [{ id: q, text: Pick, type: choice }] } }
+  - { id: b, when: { time: "0:01" }, do: { action: ask, questions: [{ id: q, text: Rate, type: scale, choices: [A, B] }] } }
+  - { id: c, when: { time: "0:01" }, do: { action: ask, questions: [{ id: q, text: Say, type: text, max: 7 }] } }
+  - { id: d, when: { time: "0:01" }, do: { action: ask, questions: [{ id: q, text: One, type: text }, { id: q, text: Two, type: text }] } }
+  - { id: e, when: { time: "0:01" }, do: { action: ask, questions: [{ id: q, text: Pick, type: choices, choices: [Same, Same] }] } }
+`),
+    ).toEqual([
+      'The beat "a" (do.questions.0): A choice question needs its choices.',
+      'The beat "b" (do.questions.0): choices only go with choice or choices.',
+      'The beat "c" (do.questions.0): min, max, minLabel, and maxLabel only go with a scale.',
+      'The beat "d" (do): Two questions have the same id.',
+      'The beat "e" (do.questions.0): Two of the choices are the same.',
+    ]);
+    // More than three at once is a survey, which belongs in a survey tool.
+    expect(
+      messages(`
+beats:
+  - id: many
+    when: { time: "0:01" }
+    do:
+      action: ask
+      questions:
+        - { id: a, text: One, type: text }
+        - { id: b, text: Two, type: text }
+        - { id: c, text: Three, type: text }
+        - { id: d, text: Four, type: text }
+`).join(" "),
+    ).toContain('The beat "many" (do.questions)');
+  });
+
   it("needs a fallback for an improvised line, and either text or improvise", () => {
     const messages = (yaml: string) => parseBeats(yaml).issues.map(({ message }) => message);
     expect(

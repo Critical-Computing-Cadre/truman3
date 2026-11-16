@@ -979,7 +979,8 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
   for (const beat of study.beats) {
     const label = `The beat "${beat.id}"`;
     const { when, do: action } = beat;
-    if (!usernames.has(action.actor)) {
+    // A question is asked by the site, not by anyone in the cast.
+    if (action.action !== "ask" && !usernames.has(action.actor)) {
       beatProblem(
         "error",
         `${label} is done by "${action.actor}", who isn't in the list of actors.`,
@@ -1087,6 +1088,7 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       label: "labels",
       warn: "warnings",
       ban: "bans",
+      ask: "questions",
     } as const;
     const feature = action.action === "post" ? "posting" : needs[action.action];
     // A participant can only message someone where messages are on.

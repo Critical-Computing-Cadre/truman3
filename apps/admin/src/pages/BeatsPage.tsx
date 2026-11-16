@@ -58,6 +58,15 @@ function Reference() {
             </td>
           </tr>
           <tr>
+            <th className={`${row} font-mono`}>do: ask</th>
+            <td className={row}>
+              Asks the participant up to three <code>questions</code>, there and then. Each has an{" "}
+              <code>id</code>, its <code>text</code>, and a <code>type</code>: scale, choice,
+              choices, or text. No <code>actor</code>. Add <code>required: true</code> so it can't
+              be put aside
+            </td>
+          </tr>
+          <tr>
             <th className={`${row} font-mono`}>per</th>
             <td className={row}>
               When participants share a world: <code>participant</code> for once for each of them,

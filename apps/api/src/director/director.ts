@@ -111,7 +111,7 @@ function delayOf(beat: Cue, context: ParticipantContext, run: number) {
 
 /** Writes a beat down as pending, unless it's already used up its runs in this world. */
 /** Actions a beat does to "the participant", so in a shared world each participant gets their own. */
-const TO_THE_PARTICIPANT = new Set(["message", "follow", "warn"]);
+const TO_THE_PARTICIPANT = new Set(["message", "follow", "warn", "ask"]);
 
 /**
  * Who a run is for (ADR 67). In a world of one, it's always them, so runs are counted for the world.
@@ -330,12 +330,14 @@ const NEEDS = {
   label: "labels",
   warn: "warnings",
   ban: "bans",
+  ask: "questions",
 } as const;
 
 type Prepared =
   | {
       ready: true;
-      actorId: string;
+      /** Who in the cast does it. Nobody, for a question, which the site asks. */
+      actorId: string | null;
       target: typeof schema.content.$inferSelect | null;
       /** For a ban, who's banned. */
       bannedId?: string;
@@ -354,6 +356,9 @@ async function prepare(
   const features = featuresFor(context.settings, context.conditionKey);
   if (!features[NEEDS[action.action]]) {
     return { ready: false, reason: `${NEEDS[action.action]} is off in this condition` };
+  }
+  if (action.action === "ask") {
+    return { ready: true, actorId: null, target: null };
   }
   const actorId = await castMember(db, context, action.actor);
   if (!actorId) {
@@ -388,11 +393,31 @@ async function perform(
   tx: Transaction,
   context: ParticipantContext,
   beat: BeatDefinition,
-  { actorId, target, bannedId }: Extract<Prepared, { ready: true }>,
+  { actorId: by, target, bannedId }: Extract<Prepared, { ready: true }>,
   words: string | null,
   dueAt: Date,
+  runId: string,
 ): Promise<{ contentId: string | null; targetContentId: string | null }> {
   const action = beat.do;
+  if (action.action === "ask") {
+    // The questions are kept as asked, with the run, so an answer is always read beside them.
+    await tx
+      .insert(schema.beatAsks)
+      .values({
+        beatRunId: runId,
+        worldId: context.worldId,
+        recipientActorId: context.actorId,
+        beat: beat.id,
+        title: action.title ?? null,
+        questions: action.questions,
+        required: action.required,
+        dueAt,
+      })
+      .onConflictDoNothing();
+    return { contentId: null, targetContentId: null };
+  }
+  // Everything else is done by someone in the cast, whom `prepare` found.
+  const actorId = by as string;
   const features = featuresFor(context.settings, context.conditionKey);
   const base = {
     studyVersionId: context.studyVersionId,
@@ -767,7 +792,8 @@ async function decideDue(
           here,
           script,
           action,
-          prepared.actorId,
+          // Only someone in the cast says something.
+          prepared.actorId as string,
           prepared.target?.id ?? null,
           writer,
           `${beat.id}:${run.run}`,
@@ -809,7 +835,7 @@ async function fire(
   at: Date,
 ) {
   await db.transaction(async (tx) => {
-    const done = await perform(tx, context, beat, prepared, text, at);
+    const done = await perform(tx, context, beat, prepared, text, at, run.id);
     await tx
       .update(schema.beatRuns)
       .set({

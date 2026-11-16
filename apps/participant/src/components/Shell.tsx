@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { type FeedWarning, textOnAccent } from "@truman3/core";
+import {
+  type FeedQuestion,
+  type FeedWarning,
+  type QuestionAnswer,
+  textOnAccent,
+} from "@truman3/core";
 import {
   BrandName,
   type Chrome,
@@ -10,6 +15,7 @@ import {
   PageHeader,
   type PageLink,
   PlatformProvider,
+  QuestionCard,
   type TextLinks,
   TextLinksContext,
   WarningNotice,
@@ -20,6 +26,8 @@ import { useLive } from "../live.ts";
 import { flushTracking, track } from "../tracking.ts";
 
 const POLL_EVERY_MS = 30_000;
+/** How often to check whether a beat is asking them something (ADR 89). */
+const ASK_EVERY_MS = 10_000;
 
 /** Layouts whose sections show an icon before each word. A forum draws its own (ForumHeader). */
 const ICON_LAYOUTS: string[] = ["photo", "short-posts", "classic"];
@@ -122,6 +130,30 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
     mutationFn: (id: string) => post(`/warnings/${id}/acknowledge`),
     onSuccess: () => client.invalidateQueries({ queryKey: ["warnings"] }),
   });
+  // What a beat is asking them, if anything (ADR 89). One at a time, oldest first.
+  const questions = useQuery({
+    queryKey: ["questions"],
+    queryFn: () => get<{ questions: FeedQuestion[] }>("/questions"),
+    enabled: flow.features.questions,
+    // Sooner than the rest, since a question is about a moment that's passing.
+    refetchInterval: ASK_EVERY_MS,
+  });
+  const respond = useMutation({
+    mutationFn: ({
+      id,
+      shownAt,
+      answers,
+    }: {
+      id: string;
+      shownAt: string;
+      answers?: Record<string, QuestionAnswer>;
+    }) =>
+      answers
+        ? post(`/questions/${id}/answer`, { answers, shownAt })
+        : post(`/questions/${id}/dismiss`, { shownAt }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["questions"] }),
+  });
+  const asking = questions.data?.questions[0];
 
   const finish = useMutation({
     mutationFn: () => {
@@ -398,6 +430,17 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
               <TextLinksContext.Provider value={TEXT_LINKS}>
                 <Outlet />
               </TextLinksContext.Provider>
+              {asking && (
+                <QuestionCard
+                  // A new question starts with no answers, and its own time on screen.
+                  key={asking.id}
+                  question={asking}
+                  busy={respond.isPending}
+                  error={respond.error?.message}
+                  onAnswer={(id, answers, shownAt) => respond.mutate({ id, answers, shownAt })}
+                  onDismiss={(id, shownAt) => respond.mutate({ id, shownAt })}
+                />
+              )}
               {(flow.site.hasTerms || flow.site.hasPrivacy) && (
                 // Small print at the bottom, as real sites have.
                 <footer className="mt-8 flex justify-center gap-4 text-xs text-stone-500">

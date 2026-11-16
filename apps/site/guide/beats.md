@@ -64,12 +64,51 @@ Give exactly one `when`:
 | `follow`                         | Follows the participant                                       |
 | `message`                        | A direct message to the participant. Needs direct messages on |
 | `remove`, `label`, `warn`, `ban` | Moderation by someone in the cast. Each needs its feature on  |
+| `ask`                            | Asks the participant a question. See below                    |
 
 `on` says what it's done to:
 
 - `trigger` is whatever set the beat off: what the participant wrote or acted on, or what the beat before made.
 - `{ beat: jake-mocks }` is what that beat made.
 - `{ post: maya-art }` is one of the study's own posts, by its `id` in the posts sheet.
+
+## Asking a question in the moment
+
+A beat can ask the participant something, right when it matters: how a comment made them feel, just after they read it, or why they posted, just after they did. A survey at the end asks them to remember. This asks while it's happening.
+
+```yaml
+beats:
+  - id: after-jake
+    when: { participant: comment, under: jake-mocks }
+    do:
+      action: ask
+      title: About what you just wrote
+      questions:
+        - id: felt
+          text: How did Jake's comment make you feel?
+          type: scale
+          max: 7
+          minLabel: Upset
+          maxLabel: Fine
+        - id: why
+          text: Why did you reply?
+          type: choice
+          choices: [To defend Maya, To argue with Jake, No reason]
+```
+
+A card appears at the bottom of their screen, over whatever page they're on, and stays until they press **Send** or **Not now**.
+
+- **Up to three questions at once.** It's read on a phone, in the middle of something else. A longer set belongs in a survey.
+- **Four kinds:** `scale` (1 to 5 unless you set `min` and `max`, with a label for each end), `choice` (one of a list), `choices` (several of a list), and `text` (their own words, up to 500 characters).
+- **`required: true`** takes away **Not now**, so the card stays until they answer. Use it sparingly. A participant who can't get past a question may leave instead.
+- **Nobody in the cast asks.** It comes from the site, so there's no `actor`.
+- **Everything a beat can wait for, a question can too:** a time, something the participant does, or another beat. `max` lets it ask more than once, and `conditions` limits where.
+
+Asking changes what people do next. Someone who has just been asked how a comment made them feel may answer it differently. So decide which conditions ask, and keep the timing the same wherever you compare.
+
+What they answer is in `answers.csv` in your download, with how long they took. Someone who was asked and didn't answer is there too, so you know who saw the question. See [Your data](/guide/data).
+
+A beat can't yet wait for a participant to _see_ a post, only for something they do.
 
 ## Limits on a beat
 

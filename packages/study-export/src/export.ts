@@ -1,12 +1,14 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
+  type AskedQuestion,
   DEFAULT_TEMPLATE,
   FEATURE_KEYS,
   FEATURES,
   featuresFor,
   layoutFor,
   PARTICIPANT_TAG,
+  type QuestionAnswer,
   type StudySettings,
   studySettingsSchema,
   TEMPLATES,
@@ -536,6 +538,66 @@ export async function exportStudy(
           cost_usd: (run.writing as { costUsd?: number } | null)?.costUsd ?? "",
           writing: run.writing ? safeText(JSON.stringify(run.writing)) : "",
         })),
+      ),
+    );
+  }
+
+  // What beats asked in the feed, and what was answered (ADR 89). A row for each question each
+  // time it was asked, answered or not, so who was asked is known as well as who answered.
+  const asks = worldIds.length
+    ? await db
+        .select()
+        .from(schema.beatAsks)
+        .where(inArray(schema.beatAsks.worldId, worldIds))
+        .orderBy(asc(schema.beatAsks.dueAt))
+    : [];
+  if (asks.length > 0) {
+    const runOf = new Map(beatRuns.map((run) => [run.id, run.run]));
+    files.push(
+      writeCsv(
+        folder,
+        "answers.csv",
+        [
+          "participant_id",
+          "world_id",
+          "beat",
+          "run",
+          "question",
+          "text",
+          "type",
+          "answer",
+          "status",
+          "asked_at",
+          "answered_at",
+          "took_ms",
+        ],
+        asks.flatMap((ask) =>
+          (ask.questions as AskedQuestion[]).map((question) => {
+            const answer = (ask.answers as Record<string, QuestionAnswer> | null)?.[question.id];
+            return {
+              participant_id: ownerOf(ask.worldId, ask.recipientActorId),
+              world_id: ask.worldId,
+              beat: ask.beat,
+              run: runOf.get(ask.beatRunId) ?? "",
+              question: question.id,
+              text: safeText(question.text),
+              type: question.type,
+              // Several choices go in one cell, with " | " between them.
+              answer:
+                answer === undefined
+                  ? ""
+                  : Array.isArray(answer)
+                    ? safeText(answer.join(" | "))
+                    : typeof answer === "number"
+                      ? answer
+                      : safeText(answer),
+              status: ask.answeredAt ? "answered" : ask.dismissedAt ? "put aside" : "unanswered",
+              asked_at: iso(ask.dueAt),
+              answered_at: ask.answeredAt ? iso(ask.answeredAt) : "",
+              took_ms: ask.tookMs ?? "",
+            };
+          }),
+        ),
       ),
     );
   }
@@ -1241,6 +1303,30 @@ const FILE_DOCS: Record<string, [string, string][]> = {
       "How its words were chosen, as JSON: the prompt, the model, what it wrote, the check's answer, which rehearsed line, and, for a beat that waited for approval, the suggested line, who decided, and what was posted",
     ],
   ],
+  "answers.csv": [
+    [
+      "beat, run",
+      "What a beat asked a participant in the feed, and what they answered. A row for each question, each time the beat asked it, whether or not it was answered. The beat is in beats.yaml, and its run is in beat_runs.csv. Only present if something was asked",
+    ],
+    ["participant_id, world_id", "Who was asked"],
+    ["question, text, type", "The question's ID, its wording as asked, and its kind"],
+    [
+      "answer",
+      "What they chose or wrote. A number for a scale. Several choices are separated by ' | '. Empty if they didn't answer",
+    ],
+    [
+      "status",
+      "answered, put aside if they pressed Not now, or unanswered if it was still waiting when this was exported, or they never came back to it",
+    ],
+    [
+      "asked_at, answered_at",
+      "When it appeared for them, which is when the beat was due, and when their answer arrived",
+    ],
+    [
+      "took_ms",
+      "Milliseconds from when it was on their screen to when they answered or put it aside, by their device's clock. Empty if their device's clock made no sense of it. One number for all the questions asked together",
+    ],
+  ],
   "assignments.csv": [
     [
       "stage",
@@ -1413,6 +1499,9 @@ const EVENT_NOTES: Record<string, string> = {
     "They appealed a moderator's removal or label of what they wrote. `text` is their appeal, in their words. Treat it as sensitive. `of` says whether it was a removal or a label, and is missing from appeals recorded before labels, which were all of removals.",
   "reaction.scheduled":
     "Something scripted responded to what they wrote. `reaction` says what, and `dueAt` when it happens. `remove` means a moderator took it down, with any `reason` given, and `actor` names the moderator. `warn` means a moderator warned them, and `reason` is what it said. `label` means a moderator labeled it, and `reason` is the label. `answer` means a moderator answered their flag, and `reason` is what it said. A `remove` following a flag is about what they flagged, not something they wrote. An `answer` or `ban` following a report has `target_actor` instead of a post or comment. `hold` and `approve` are a rule holding what they wrote, with `dueAt` when it's decided. `uphold` and `restore` answer an appeal. `restore` puts back what was removed, and takes off its labels. `repost` and `follow` are someone in the cast passing along what they wrote, or following them.",
+  "question.answered":
+    "They answered what a beat asked them in the feed. `beat` names the beat, and `answers` has each question's ID with what they chose or wrote. answers.csv has the same, a row for each question, beside its wording.",
+  "question.dismissed": "They pressed Not now on what a beat asked them, without answering.",
   "moderation.warning_acknowledged":
     "They pressed the button on a moderator's warning, which stays on every page until they do. It names what the warning was about, and doesn't say they read it.",
   "space.joined": "They joined a space, so its posts show in their home feed. Names it by key.",

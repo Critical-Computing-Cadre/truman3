@@ -1,4 +1,6 @@
 export {
+  type AskedQuestion,
+  askedQuestionSchema,
   BEATS_FILE,
   type BeatAction,
   type BeatDefinition,
@@ -14,6 +16,7 @@ export {
   type Measure,
   PARTICIPANT_ACTIONS,
   type Persona,
+  scaleEnds,
 } from "./beats.ts";
 export { hasPlaceholderConsent, STARTING_CONSENT } from "./consent.ts";
 export {

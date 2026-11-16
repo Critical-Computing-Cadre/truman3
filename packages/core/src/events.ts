@@ -113,6 +113,21 @@ export const eventPayloadSchemas = {
   "push.sent": z.strictObject({ kind: z.enum(["notification", "message"]), about: z.string() }),
   /** They opened the app from a push notification. */
   "push.opened": z.strictObject({ kind: z.enum(["notification", "message"]) }),
+  /**
+   * They answered what a beat asked them in the feed (ADR 89). `beat` is the beat's ID. `answers`
+   * has each question's ID with what they chose or wrote. `tookMs` is from when it was on their
+   * screen to when they answered, by their device's clock.
+   */
+  "question.answered": z.strictObject({
+    beat: z.string(),
+    answers: z.record(z.string(), z.union([z.string(), z.number(), z.array(z.string())])),
+    tookMs: z.number().int().nonnegative().optional(),
+  }),
+  /** They put a beat's question aside without answering. */
+  "question.dismissed": z.strictObject({
+    beat: z.string(),
+    tookMs: z.number().int().nonnegative().optional(),
+  }),
   /** They pressed the button on a moderator's warning. `targetContentId` is what it was about. */
   "moderation.warning_acknowledged": empty,
   /**

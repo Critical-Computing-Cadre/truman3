@@ -47,16 +47,21 @@ function problemsWith(
     .map(({ file: where, message }) => `${where ?? ""}: ${message}`);
 }
 
+/** The one example on a page with this in it. */
+function example(page: string, having: string) {
+  const found = examples(page).filter((block) => block.includes(having));
+  expect(found, `${page} should have one example with "${having}"`).toHaveLength(1);
+  return found[0] as string;
+}
+
 describe("the guide's examples work as written", () => {
   it("Making things happen: a first beat, in the Classic sample", () => {
-    const [first] = examples("beats.md");
-    expect(first).toContain("id: welcome");
+    const first = example("beats.md", "id: welcome");
     expect(problemsWith("starters/classic", "beats.yaml", first as string)).toEqual([]);
   });
 
   it("Making things happen: the scene, in the bystander example it's cut down from", () => {
-    const [, scene] = examples("beats.md");
-    expect(scene).toContain("id: sam-defends");
+    const scene = example("beats.md", "id: sam-defends");
     // The example's own tests and personas are about beats the cut-down scene leaves out.
     const withoutItsTests = (dir: string) => {
       rmSync(path.join(dir, "scenarios.yaml"));
@@ -67,15 +72,26 @@ describe("the guide's examples work as written", () => {
     ).toEqual([]);
   });
 
+  it("Making things happen: a question in the moment, added to the scene it follows", () => {
+    const scene = example("beats.md", "id: sam-defends");
+    const asking = example("beats.md", "action: ask");
+    // The question waits for a reply under Jake's comment, which the scene makes.
+    const together = `${scene}\n${asking.replace(/^beats:\n/, "")}`;
+    const withoutItsTests = (dir: string) => {
+      rmSync(path.join(dir, "scenarios.yaml"));
+      rmSync(path.join(dir, "personas.yaml"));
+    };
+    expect(problemsWith("examples/bystander", "beats.yaml", together, withoutItsTests)).toEqual([]);
+  });
+
   it("Making things happen: a wrong name is caught, as the page says it is", () => {
-    const [first] = examples("beats.md");
+    const first = example("beats.md", "id: welcome");
     const wrong = (first as string).replace("actor: grace_o", "actor: nobody_here");
     expect(problemsWith("starters/classic", "beats.yaml", wrong).join("\n")).toContain("welcome");
   });
 
   it("Making things happen: the decision point, in a study with the conditions it names", () => {
-    const decide = examples("beats.md").find((example) => example.startsWith("decide:"));
-    expect(decide).toContain("id: day-2");
+    const decide = example("beats.md", "id: day-2");
     // The Classic sample has one condition. The example re-randomizes people out of one into two
     // others that nobody starts in, and runs for longer than the two days it waits.
     const withItsConditions = (dir: string) => {
@@ -100,14 +116,12 @@ describe("the guide's examples work as written", () => {
   });
 
   it("Testing a study: the scenario, in the bystander example", () => {
-    const [scenario] = examples("testing.md");
-    expect(scenario).toContain("scenarios:");
+    const scenario = example("testing.md", "scenarios:");
     expect(problemsWith("examples/bystander", "scenarios.yaml", scenario as string)).toEqual([]);
   });
 
   it("Testing a study: the persona, in the bystander example", () => {
-    const [, persona] = examples("testing.md");
-    expect(persona).toContain("personas:");
+    const persona = example("testing.md", "personas:");
     expect(problemsWith("examples/bystander", "personas.yaml", persona as string)).toEqual([]);
   });
 });
