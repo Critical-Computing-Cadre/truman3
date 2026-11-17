@@ -20,7 +20,7 @@ This one is made up for testing. It isn't from a published study. We wrote it to
 
 1. They arrive with their Prolific ID and read the consent page. The one in the example is a placeholder. It notes that a study like this shows people being unkind, so consent and debriefing need to say so.
 2. They make an account.
-3. They land in the feed of a site called Commons.
+3. They land in the feed of a photo site called Commons.
 
 It's a small site, with five people and three posts: Priya's pasta, Leo asking about the art fair, and Maya's painting with nine likes. The participant can post, like, comment, reply under a specific comment, and send private messages to people in the cast.
 

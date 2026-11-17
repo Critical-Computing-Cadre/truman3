@@ -134,7 +134,7 @@ describe("the library, on your own Truman", () => {
       mine: false,
     });
     expect(seen?.about).toMatchObject({
-      kind: "classic",
+      kind: "photo",
       conditions: ["defended", "silent"],
       cast: 5,
       posts: 3,

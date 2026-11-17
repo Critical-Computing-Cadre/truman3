@@ -211,9 +211,9 @@ onUnmounted(() => {
 
     <div class="hero" id="top">
       <div class="pitch">
-        <h1>We built a fake social network to study <em>real people.</em></h1>
-        <p>On Truman, the posts are written ahead of time and the other users are all made up. The likes are fake too. <b>The only real thing is the person scrolling</b>, and they don't know.</p>
-        <p class="hand">Right now that's you. Kitty just trashed Jake's pizza. Do something?</p>
+        <h1>A social media site where everyone is made up, <em>except you.</em></h1>
+        <p>Truman is a social media simulation for research. Participants scroll, like, comment, and post on what looks like a real site. But <b>every other person on it, and every post they see, was written by a research team</b>, and almost every part of it is a randomized experiment.</p>
+        <p class="hand">Right now you're the participant. Kitty just trashed Jake's pizza. What do you do?</p>
         <div class="actions">
           <a class="button" href="https://app.truman-research.org/admin/">Run a study on it</a>
           <a class="button quiet" href="#study">Try a study</a>
@@ -262,16 +262,16 @@ onUnmounted(() => {
   <div class="wrap">
     <div class="head">
       <p class="scene">How it works</p>
-      <h2>You make the whole world. Then you let one person in.</h2>
-      <p>No code. You build it in the browser, or fill in a spreadsheet.</p>
+      <h2>If you can make a Qualtrics survey, you can make a Truman study.</h2>
+      <p>There's no code. You build it in the browser, or fill in a spreadsheet. A study has six parts.</p>
     </div>
     <div class="parts">
-      <div class="part"><h3>The site</h3><p>It can look like a photo app, a short-posts app, a forum, or a plain feed. Give it a name, a logo, and a web address that doesn't say "research" anywhere.</p></div>
-      <div class="part"><h3>The people</h3><p>EatSnap has 76 of them. Each has a name, a face, a bio, and posts going back days. They're yours to write. They can also reply on their own, using an AI model that stays inside rules you set.</p></div>
-      <div class="part"><h3>The plot</h3><p>Things happen on a clock, or because of what the participant just did.</p><q>Day 2, minute 37: Kitty insults the pizza.</q><q>If the participant flags it: thank them.</q></div>
-      <div class="part"><h3>The versions</h3><p>This is the experiment. Half your participants see someone stick up for Jake. Half don't. Nothing else changes, so whatever they do differently is because of that.</p></div>
-      <div class="part"><h3>The dry run</h3><p>Before anyone real shows up, walk through it yourself at any minute of any day. Or send in a few hundred pretend participants and see what breaks.</p></div>
-      <div class="part"><h3>The tape</h3><p>You get everything: what each person saw, in what order, for how long, and what they did about it. It comes as spreadsheets, with a guide to every column.</p></div>
+      <div class="part"><h3>The site</h3><p>A photo app, a microblog, a forum, or a plain feed. You give it a name, a logo, and a web address that doesn't say "research" anywhere.</p></div>
+      <div class="part"><h3>The people</h3><p>EatSnap has 76 of them, each with a name, a face, a bio, and days of posts. You write them. If you want, an AI model can also reply as them, inside rules you set.</p></div>
+      <div class="part"><h3>What happens</h3><p>Things happen at a set time, or because of something the participant just did.</p><q>Day 2, minute 37: Kitty insults the pizza.</q><q>If the participant flags it, thank them.</q></div>
+      <div class="part"><h3>The conditions</h3><p>This is the experiment. Half your participants see someone stick up for Jake, and half don't. Nothing else changes. In other words, if they act differently, that's why.</p></div>
+      <div class="part"><h3>Testing it</h3><p>Before anyone real shows up, walk through it yourself, at any minute of any day. Or send in a few hundred simulated participants and see what breaks.</p></div>
+      <div class="part"><h3>Your data</h3><p>What each person saw, in what order, for how long, and what they did about it. It comes as spreadsheets, with a codebook that explains every column.</p></div>
     </div>
   </div>
 </section>
@@ -280,8 +280,8 @@ onUnmounted(() => {
   <div class="wrap">
     <div class="head">
       <p class="scene">What it can look like</p>
-      <h2>Four kinds of site, and they don't look like each other.</h2>
-      <p>These are the four starting points, each with its sample content, as a participant sees them. Change the name, the logo, the color, and what people can do, and it's your site.</p>
+      <h2>Four kinds of site to start from.</h2>
+      <p>Each one comes with sample content, shown here the way a participant sees it. Change the name, the logo, the colors, and what people can do, and it's your site.</p>
     </div>
     <div class="looks">
       <a href="/guide/kinds-of-site#classic"><img src="/shots/kind-classic-wide.png" alt="A community feed in blue, with stories, a menu down the left, and people to follow" loading="lazy" width="1280" height="800"><b>Classic</b><span>A community feed, with comments open under every post.</span></a>
@@ -296,16 +296,16 @@ onUnmounted(() => {
   <div class="wrap">
     <div class="head">
       <p class="scene">AI, where you want it</p>
-      <h2>The cast can improvise. You still write the script.</h2>
-      <p>A study runs fine with no AI at all. When you want it, a model can take on a few jobs, each inside limits you set. <a href="/guide/ai">How AI fits in →</a></p>
+      <h2>You don't need AI to run a study. But it can help.</h2>
+      <p>Most studies don't use it at all. When you do want it, a model can take on a few jobs, each one inside limits you set, and everything it writes is marked in your data. <a href="/guide/ai">How AI fits in →</a></p>
     </div>
     <div class="parts">
-      <div class="part"><h3>A cast that answers back</h3><p>A scripted reply can't know what the participant just said. A model can write the line in the character's voice, and a second check reads it before it's posted. You decide who speaks and when.</p></div>
-      <div class="part"><h3>Or you approve every line</h3><p>For a Wizard of Oz study, each line waits for a researcher to approve it, change it, or skip it.</p></div>
-      <div class="part"><h3>Pretend participants</h3><p>Describe a few people in a sentence each and have a model play them through your study. Then read what each one saw, did, and why.</p></div>
-      <div class="part"><h3>A first draft from a brief</h3><p>Describe the study you have in mind, and an agent drafts the cast, the posts, the plot, and the tests for you to review.</p></div>
-      <div class="part"><h3>Bring your own agent</h3><p>Already use Claude Code or another agent? Connect it to Truman and it can build and test studies with you. It can't launch one or touch participants' data. <a href="/developers/api-and-agents">How to connect one →</a></p></div>
-      <div class="part"><h3>It's all on the tape</h3><p>Your data says which lines a model wrote, what it was asked, what the check said, and what it cost.</p></div>
+      <div class="part"><h3>Replies that fit</h3><p>A scripted reply can't know what the participant just said. A model can write the line in that person's voice, and a second check reads it before it's posted. You still decide who speaks and when.</p></div>
+      <div class="part"><h3>Or you approve every line</h3><p>For a Wizard of Oz study, each line waits for someone on your team to approve it, change it, or skip it.</p></div>
+      <div class="part"><h3>Simulated participants</h3><p>Describe a few people in a sentence each, and a model plays them through your study. Then you read what each one saw, did, and why.</p></div>
+      <div class="part"><h3>A first draft</h3><p>Describe the study you have in mind, and an agent drafts the people, the posts, what happens, and the tests, for you to go through.</p></div>
+      <div class="part"><h3>Your own agent</h3><p>Already use Claude Code or another agent? Connect it, and it can build and test studies with you. It can't launch one or see participants' data. <a href="/developers/api-and-agents">How to connect one →</a></p></div>
+      <div class="part"><h3>All of it in your data</h3><p>Which lines a model wrote, what it was asked, what the check said, and what it cost.</p></div>
     </div>
   </div>
 </section>
@@ -314,8 +314,8 @@ onUnmounted(() => {
   <div class="wrap">
     <div class="head">
       <p class="scene">On a phone</p>
-      <h2>People live on their phones. A study can too.</h2>
-      <p>Every kind of site works in a phone's browser today. A phone app for participants is on the way: the same study, on their home screen, with notifications that bring them back on day two the way a real platform would. It isn't in the app stores yet. <a href="/guide/mobile-app">About the phone app →</a></p>
+      <h2>It works on a phone.</h2>
+      <p>Most people use social media on their phones, so every kind of site already works in a phone's browser. We're also building a phone app for participants: the same study on their home screen, with notifications that bring them back on day two, like a real app would. It isn't in the app stores yet. <a href="/guide/mobile-app">About the phone app →</a></p>
     </div>
   </div>
 </section>
@@ -325,8 +325,8 @@ onUnmounted(() => {
     <div class="head">
       <p class="scene">By the way</p>
       <h2>You've been in a study since you got here.</h2>
-      <p>When this page loaded, it flipped a coin and put you in version A or B. It has been taking notes since. This is roughly what a researcher gets back for every participant.</p>
-      <p class="after">Relax: it's all in your browser, we never see it, and it's gone when you close the tab. We didn't ask first because nothing was kept. A real study has to ask first, and has to tell people the truth at the end.</p>
+      <p>When this page loaded, it flipped a coin and put you in version A or B, and it's been taking notes ever since. This is roughly what a researcher gets for every participant.</p>
+      <p class="after">Don't worry, it's all in your browser. We never see any of it, and it's gone when you close the tab. That's also why we didn't ask first. A real study has to ask first, and has to tell people the truth at the end.</p>
     </div>
     <div class="monitor">
       <div class="screen" aria-live="off">
@@ -342,15 +342,15 @@ onUnmounted(() => {
     <div class="head">
       <p class="scene">Studies</p>
       <h2>Take one of ours and change it.</h2>
-      <p>These are finished studies, with every post, person, and rule written out. Four of them are running: press <b>Try it</b> and you're the participant. Read how one works, then start yours from it.</p>
+      <p>Here's a finished study on each kind of site, with every person, post, and rule written out. Press <b>Try it</b> and you're the participant. When you start your own, you can start from any of them.</p>
     </div>
     <div class="questions">
-      <div class="question"><h3>Will anyone stick up for a stranger?</h3><p>The pizza. This is where Truman started, in 2018.</p><span class="go"><a href="/studies/eatsnap">EatSnap →</a> <a class="try" data-try="eatsnap" href="https://clikbrite.com/join/try-eatsnap" target="_blank" rel="noopener">Try it</a></span></div>
-      <div class="question"><h3>Does it matter who flagged a post?</h3><p>Other users, an automated system, or nobody named. From Bhandari et al. (2021).</p><span class="go"><a href="/studies/flag-source">Who flagged this? →</a> <a class="try" data-try="flag-source" href="https://clikbrite.com/join/try-flag-source" target="_blank" rel="noopener">Try it</a></span></div>
-      <div class="question"><h3>If everyone seems vaccinated, do you believe more?</h3><p>Profile pictures with a frame on them. From Aghajari et al. (2024).</p><span class="go"><a href="/studies/vaccine-frames">Vaccine frames →</a> <a class="try" data-try="vaccine-frames" href="https://clikbrite.com/join/try-vaccine-frames" target="_blank" rel="noopener">Try it</a></span></div>
-      <div class="question"><h3>Is rudeness contagious?</h3><p>Six real people share one town forum. The fake ones start out polite, or don't.</p><a href="/studies/town-talk">Town talk →</a></div>
-      <div class="question"><h3>What happens when a pile-on starts?</h3><p>Someone posts her first painting. It goes badly.</p><span class="go"><a href="/studies/bystander">Bystander →</a> <a class="try" data-try="bystander" href="https://clikbrite.com/join/try-bystander" target="_blank" rel="noopener">Try it</a></span></div>
+      <div class="question"><h3><span class="kind">Classic</span>Will anyone stick up for a stranger?</h3><p>The pizza. This is where Truman started, in 2018.</p><span class="go"><a href="/studies/eatsnap">EatSnap →</a> <a class="try" data-try="eatsnap" href="https://clikbrite.com/join/try-eatsnap" target="_blank" rel="noopener">Try it</a></span></div>
+      <div class="question"><h3><span class="kind">Photo</span>What happens when a pile-on starts?</h3><p>Someone posts her first painting. It doesn't go well.</p><span class="go"><a href="/studies/bystander">Bystander →</a> <a class="try" data-try="bystander" href="https://clikbrite.com/join/try-bystander" target="_blank" rel="noopener">Try it</a></span></div>
+      <div class="question"><h3><span class="kind">Short posts</span>Does it matter who flagged a post?</h3><p>Other users, an automated system, or nobody at all. From Bhandari et al. (2021).</p><span class="go"><a href="/studies/flag-source">Who flagged this? →</a> <a class="try" data-try="flag-source" href="https://clikbrite.com/join/try-flag-source" target="_blank" rel="noopener">Try it</a></span></div>
+      <div class="question"><h3><span class="kind">Forum</span>Is rudeness contagious?</h3><p>Six real people share one town forum. The made-up ones start out polite, or they don't. There's no demo of this one, since the people in it are real.</p><a href="/studies/town-talk">Town talk →</a></div>
     </div>
+    <p style="margin-top:1.5rem"><a href="/studies/">All the example studies →</a></p>
   </div>
 </section>
 
@@ -359,14 +359,14 @@ onUnmounted(() => {
     <div>
       <div class="head">
         <p class="scene">Is this allowed?</p>
-        <h2>It's deception research. There are rules, and Truman is built around them.</h2>
-        <p>You can't study how people really act online by asking them. So you build a place and watch, and then you owe them the truth.</p>
+        <h2>It's deception research, so there are rules. Truman is built around them.</h2>
+        <p>You can't find out how people really act online by asking them. Ask someone if they'd stick up for a stranger and they'll say yes. So you build a place and watch, and then you owe them the truth.</p>
       </div>
       <ul>
         <li><b>People agree before they start.</b> Consent is a step you put in the study, with your approved wording.</li>
         <li><b>People find out at the end.</b> The debrief is a page you write, shown when they finish.</li>
-        <li><b>People can leave.</b> When someone withdraws, you delete what they did with one click.</li>
-        <li><b>The fake people have limits.</b> Anything an AI writes is checked before it's posted, and you can cut it off.</li>
+        <li><b>People can leave.</b> When someone withdraws, everything they did is deleted with one click.</li>
+        <li><b>The made-up people have limits.</b> Anything an AI writes is checked before it's posted, and you can turn it off.</li>
         <li><b>Your ethics board gets <a href="/irb">a page of its own</a></b> that says what's kept and who can see it.</li>
       </ul>
     </div>
@@ -386,7 +386,7 @@ onUnmounted(() => {
   <div class="wrap">
     <div class="head">
       <p class="scene">Papers</p>
-      <h2>People have been publishing with it since 2018.</h2>
+      <h2>Labs have been publishing with it since 2018.</h2>
     </div>
     <ul class="papers">
       <li>Zhao et al. (2025). Restorative justice appeals trump retributive vigilance on social media. <i>PNAS Nexus.</i></li>
@@ -404,11 +404,11 @@ onUnmounted(() => {
   <div class="wrap">
     <div class="head">
       <p class="scene">Your turn</p>
-      <h2>Go build one.</h2>
+      <h2>Want to try it?</h2>
     </div>
     <div class="ways">
-      <div class="way"><h3>Use ours</h3><p>Sign your lab up and start building today. It's free. This is a beta: build, test, and pilot all you like, but hold off on real participants until we say it's ready.</p><div class="actions"><a class="button onpaper" href="https://app.truman-research.org/admin/">Sign your lab up</a> <a class="button quiet" href="/guide/">Read the guide</a></div></div>
-      <div class="way"><h3>Run your own</h3><p>It's open source. Put it on your own servers, keep your own data, change whatever you want.</p><div class="actions"><a class="button quiet" href="https://github.com/Critical-Computing-Cadre/truman3">Get the code</a> <a class="button quiet" href="/developers/">Developer docs</a></div></div>
+      <div class="way"><h3>Use ours</h3><p>Sign your lab up and start building. It's free. It's also a beta, so build, test, and pilot all you want, but hold off on real participants until we say it's ready.</p><div class="actions"><a class="button onpaper" href="https://app.truman-research.org/admin/">Sign your lab up</a> <a class="button quiet" href="/guide/">Read the guide</a></div></div>
+      <div class="way"><h3>Run your own</h3><p>Truman is open source. You can run it on your own servers, keep your own data, and change whatever you want.</p><div class="actions"><a class="button quiet" href="https://github.com/Critical-Computing-Cadre/truman3">Get the code</a> <a class="button quiet" href="/developers/">Developer docs</a></div></div>
     </div>
   </div>
 </section>
@@ -640,6 +640,7 @@ onUnmounted(() => {
     align-items: baseline; padding-block: 1.05rem; border-bottom: 1px solid var(--line);
   }
   .question h3 { font-size: 1.35rem; }
+  .question .kind { display: block; margin-bottom: 0.2rem; font: 700 0.75rem/1.2 var(--script); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); }
   .question p { color: var(--ink-soft); }
   .question a { font: 700 0.9rem/1.2 var(--script); white-space: nowrap; }
   .question .go { display: flex; gap: 0.9rem; align-items: baseline; white-space: nowrap; }

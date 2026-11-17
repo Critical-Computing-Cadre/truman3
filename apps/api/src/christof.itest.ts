@@ -129,6 +129,9 @@ describe("the bystander reference study", () => {
       path.join(dir, "study.yaml"),
       readFileSync(path.join(source, "study.yaml"), "utf8")
         .replace("slug: bystander", `slug: ${slug}`)
+        // These check what the cast does, through the feed's own answer. On the Photo kind of site
+        // that the example runs on, comments are shown on a post's own page instead.
+        .replace("template: photo", "template: classic")
         .replace(/flow:[\s\S]*$/, "flow: [{ step: feed }, { step: exit }]\n"),
     );
     await import("node:fs").then(({ cpSync }) =>

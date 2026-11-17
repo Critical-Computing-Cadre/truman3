@@ -6,7 +6,7 @@ description: Five finished studies that come with Truman, each built to answer o
 
 # Example studies
 
-Truman comes with five finished studies. Each one answers a question, and each uses a different part of the platform. The quickest way to start your own is to read the one closest to what you want to run, then change it.
+Truman comes with five finished studies. Each one answers a question, and each uses a different part of the platform. Between them they cover all four kinds of site: EatSnap and Vaccine frames are Classic, Bystander is Photo, Who flagged this? is Short posts, and Town talk is a Forum. The quickest way to start your own is to read the one closest to what you want to run, then change it.
 
 Four of them are running as demos. Each one's page has a **Try it** button that opens it the way a participant would see it.
 
@@ -48,13 +48,13 @@ It's made up for testing and isn't from a published study. Start here to see how
 
 If you're choosing between them, this table lines up the basics.
 
-| Study                                     | Conditions | Runs for         | Participants together | Uses                                                                 |
-| ----------------------------------------- | ---------- | ---------------- | --------------------- | -------------------------------------------------------------------- |
-| [EatSnap](/studies/eatsnap)               | 5          | 2 days           | No                    | A large scripted feed, scripted reactions to the participant's posts |
-| [Who flagged this?](/studies/flag-source) | 6 (3 x 2)  | 2 days           | No                    | Labels, flagging, community rules                                    |
-| [Vaccine frames](/studies/vaccine-frames) | 3          | About a minute   | No                    | Profile pictures by condition, a survey link at the end              |
-| [Town talk](/studies/town-talk)           | 2          | About 15 minutes | Six to a world        | Shared worlds, automatic rules, live moderation                      |
-| [Bystander](/studies/bystander)           | 2          | 1 day            | No                    | Beats, direct messages, optional live writing                        |
+| Study                                     | Kind of site | Conditions | Runs for         | Participants together | Uses                                                                 |
+| ----------------------------------------- | ------------ | ---------- | ---------------- | --------------------- | -------------------------------------------------------------------- |
+| [EatSnap](/studies/eatsnap)               | Classic      | 5          | 2 days           | No                    | A large scripted feed, scripted reactions to the participant's posts |
+| [Who flagged this?](/studies/flag-source) | Short posts  | 6 (3 x 2)  | 2 days           | No                    | Labels, flagging, community rules                                    |
+| [Vaccine frames](/studies/vaccine-frames) | Classic      | 3          | About a minute   | No                    | Profile pictures by condition, a survey link at the end              |
+| [Town talk](/studies/town-talk)           | Forum        | 2          | About 15 minutes | Six to a world        | Shared worlds, automatic rules, live moderation                      |
+| [Bystander](/studies/bystander)           | Photo        | 2          | 1 day            | No                    | Beats, direct messages, optional live writing                        |
 
 ## Getting one
 

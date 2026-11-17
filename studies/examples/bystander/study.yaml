@@ -14,8 +14,8 @@ conditions:
   assignment: { method: blocked, blockSize: 2 }
   arms: [{ key: defended }, { key: silent }]
 platform:
-  style: mixed
-  template: classic
+  style: photo
+  template: photo
   # Replies to a comment stay under it, so a reply to the mocking comment can be told apart.
   # Messages are on, so a participant can talk to Jake or Maya privately (ADR 61).
   features: { threads: true, messages: true }

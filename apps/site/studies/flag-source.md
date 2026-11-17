@@ -8,7 +8,7 @@ description: A two-day, 3 x 2 study of whether the source of a flag changes what
 
 Does it matter who flagged a comment? And does that change whether a bystander flags the next one themselves?
 
-A participant is scrolling a food-photo site when they reach a comment with a notice on it, saying it was flagged as harassment. The notice names who flagged it, or it doesn't. Further down, someone else is being harassed, and nobody has flagged that yet. What the participant does about the second comment is what the study is after.
+A participant is scrolling a food site, laid out as short posts, when they reach a comment with a notice on it, saying it was flagged as harassment. The notice names who flagged it, or it doesn't. Further down, someone else is being harassed, and nobody has flagged that yet. What the participant does about the second comment is what the study is after.
 
 <TryIt study="flag-source" name="Who flagged this?" />
 
@@ -23,7 +23,7 @@ The same study is also written up in Ozanne et al. (2022) in _Big Data & Society
 We rebuilt the design on Truman 3 to check the platform can run it.
 
 ::: warning These aren't the original materials
-These are not the original study's materials or settings. If you want to replicate the paper, start from the paper.
+These are not the original study's materials or settings. If you want to replicate the paper, start from the paper. The original was a photo feed. This one runs on Short posts, so the examples between them show every kind of site.
 :::
 
 ## What a participant sees and does

@@ -1,7 +1,7 @@
 ---
 
 layout: false
-title: A fake social network for studying real people
+title: A social media simulation for research
 titleTemplate: Truman
 ---
 
