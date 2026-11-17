@@ -32,6 +32,7 @@ conditions:
 worlds: { size: 6, waitMinutes: 10 }
 platform:
   style: text
+  template: forum
   # A rule takes down threats of self-harm, for everyone's safety. Researchers watching the Monitor
   # page can take down anything else, as commons_team.
   features: { autoRules: true, removal: true }

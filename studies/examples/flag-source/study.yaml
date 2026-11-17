@@ -39,9 +39,11 @@ conditions:
     - { key: ai-clear, factors: { source: ai, wording: clear } }
     - { key: ai-ambiguous, factors: { source: ai, wording: ambiguous } }
 platform:
-  style: photo
-  # Labels carry the flag notices. Flagging is on in the Classic template already, and is said here
-  # because flagging the unflagged comment is the main measure.
+  style: mixed
+  # Short posts, so there's an example of each kind of site. The original was a photo feed.
+  template: shortPosts
+  # Labels carry the flag notices. Flagging is said here because flagging the unflagged comment is
+  # the main measure.
   features: { labels: true, flagging: true }
 feed: { ranker: chronological }
 flow:
