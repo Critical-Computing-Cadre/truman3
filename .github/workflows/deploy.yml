@@ -12,11 +12,6 @@ on:
     # The repo's own docs don't run anywhere. The site's pages, in apps/site, do.
     paths-ignore: ["docs/**", "*.md"]
 
-# One deploy at a time, in the order the merges happened. None is cancelled partway.
-concurrency:
-  group: deploy
-  cancel-in-progress: false
-
 permissions:
   contents: read
 
@@ -25,6 +20,11 @@ jobs:
     # The API's image is built for ARM, which this builds without emulation.
     runs-on: ubuntu-24.04-arm
     environment: staging
+    # One deploy of staging at a time, never cancelled partway. If several merges are waiting, the
+    # newest goes next. Production's wait for approval is a separate queue, so it can't hold this up.
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write
@@ -55,6 +55,9 @@ jobs:
     runs-on: ubuntu-24.04-arm
     # This environment has required reviewers, so the job waits here until one of them approves.
     environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write
@@ -67,6 +70,15 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      # Each merge waits for its own approval. Approving an older one after a newer one has gone
+      # out would put production back. So only the newest merge deploys: an older run stops here.
+      - name: Check this is still the newest merge
+        run: |
+          git fetch --quiet origin main
+          if [ "$(git rev-parse origin/main)" != "${{ github.sha }}" ]; then
+            echo "::error title=A newer merge is waiting::main has moved on from this commit. Approve the newest run instead, and reject this one."
+            exit 1
+          fi
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - uses: aws-actions/configure-aws-credentials@v6
