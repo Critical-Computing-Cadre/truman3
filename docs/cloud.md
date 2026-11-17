@@ -278,6 +278,8 @@ The script refuses two kinds of change, and the run fails saying a person has to
 
 After a refusal, main is ahead of what's live until someone deploys by hand. The next merge's run then deploys as usual.
 
+**Several merges at once.** Staging takes them one at a time, and if more than one is waiting, the newest goes next: it has the others in it. Each merge then waits for its own approval for production. Approve the newest. An older run that's approved after main has moved on stops with "A newer merge is waiting", so production can't be put back to an earlier commit. Reject the older ones to clear them.
+
 The logs are public, so the script keeps each stage's address and the stack's outputs out of them. To see the outputs, run `pnpm run diff` or look at the stack in the console.
 
 **The environments are settings in GitHub, not code.** Under the repository's Settings, then Environments, `staging` and `production` should each allow deployments only from `main`, and `production` should list its required reviewers. Without reviewers, production would deploy on every merge. To check from a terminal:
