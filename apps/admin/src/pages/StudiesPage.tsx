@@ -70,6 +70,138 @@ function BundleButton({ version }: { version: StudyVersion }) {
   );
 }
 
+const LICENSES = ["CC BY 4.0", "CC BY-NC 4.0", "CC0 1.0", "Ask the authors first"];
+
+/**
+ * Publishes a version to the library (ADR 92), for other labs on this Truman to copy. What's
+ * published is the study as it ran, with no participants or data.
+ */
+function PublishButton({ version }: { version: StudyVersion }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [summary, setSummary] = useState("");
+  const [paper, setPaper] = useState("");
+  const [license, setLicense] = useState(LICENSES[0] as string);
+  const [mayShare, setMayShare] = useState(false);
+  const publish = useMutation({
+    mutationFn: () =>
+      post<{ status: "waiting" | "listed" }>(`/admin/versions/${version.id}/publish`, {
+        summary,
+        paper,
+        license,
+        mayShare,
+      }),
+  });
+  return (
+    <>
+      <button type="button" onClick={() => dialog.current?.showModal()} className="btn">
+        Publish
+      </button>
+      <dialog
+        ref={dialog}
+        aria-label={`Publish version ${version.version}`}
+        className="m-auto w-[min(90vw,34rem)] p-6 backdrop:bg-black/50"
+      >
+        {publish.data ? (
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold">
+              {publish.data.status === "listed" ? "It's in the library" : "Sent to be listed"}
+            </h2>
+            <p className="text-sm">
+              {publish.data.status === "listed"
+                ? "Other labs here can see it and copy it now."
+                : "Whoever runs this Truman looks at each study before it's listed. You'll see it in the Library, marked as waiting, until then."}
+            </p>
+            <div className="flex justify-end">
+              <button type="button" onClick={() => dialog.current?.close()} className="btn">
+                Close
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              publish.mutate();
+            }}
+          >
+            <h2 className="text-lg font-semibold">
+              Publish version {version.version} to the library?
+            </h2>
+            <p className="text-sm text-stone-600">
+              Other labs on this Truman will be able to see this study and copy it: its settings,
+              conditions, cast, posts, beats, and pictures. Your consent text goes with it as a
+              record, and isn't loaded into their copies. No participants or data are included.
+            </p>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              What the study tests
+              <textarea
+                required
+                rows={4}
+                minLength={20}
+                maxLength={1500}
+                value={summary}
+                onChange={(event) => setSummary(event.target.value)}
+                className="rounded border border-stone-300 p-2 font-normal"
+              />
+              <span className="text-xs font-normal text-stone-500">
+                A few sentences, for someone deciding whether to copy it.
+              </span>
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              The paper it's from (optional)
+              <input
+                maxLength={500}
+                value={paper}
+                onChange={(event) => setPaper(event.target.value)}
+                placeholder="A citation or a link"
+                className="rounded border border-stone-300 px-2 py-1.5 font-normal"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              What others may do with it
+              <select
+                value={license}
+                onChange={(event) => setLicense(event.target.value)}
+                className="rounded border border-stone-300 px-2 py-1.5 font-normal"
+              >
+                {LICENSES.map((name) => (
+                  <option key={name}>{name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-baseline gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={mayShare}
+                onChange={(event) => setMayShare(event.target.checked)}
+              />
+              <span>I may share everything in this study, including its pictures.</span>
+            </label>
+            {publish.error && (
+              <p role="alert" className="text-sm text-rose-800">
+                {publish.error.message}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => dialog.current?.close()} className="btn">
+                Not now
+              </button>
+              <button
+                type="submit"
+                disabled={publish.isPending || !mayShare || summary.trim().length < 20}
+                className="btn btn-primary"
+              >
+                {publish.isPending ? "Publishing..." : "Publish it"}
+              </button>
+            </div>
+          </form>
+        )}
+      </dialog>
+    </>
+  );
+}
+
 /** Starts a test participant, whose data stays out of exports. */
 function TryIt({ version, participantUrl }: { version: StudyVersion; participantUrl: string }) {
   const [condition, setCondition] = useState(version.conditions[0] ?? "");
@@ -692,6 +824,7 @@ export function StudiesPage() {
                         Simulate
                       </Link>
                       <BundleButton version={version} />
+                      {canChange && <PublishButton version={version} />}
                       <TryIt version={version} participantUrl={study.participantUrl} />
                       {canChange && !isLive && <LaunchButton study={study} version={version} />}
                       {canChange && isLive && <StopButton study={study} />}

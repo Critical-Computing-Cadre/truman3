@@ -125,6 +125,21 @@ Two things to know before you share one:
 - **Your consent text is in the file,** as a record of what participants agreed to. It isn't loaded into the other lab's study, which starts with placeholder text, since they have to use the wording their own ethics board approved.
 - **Check you may share the pictures.** A bundle has every picture in the study. If some are other people's photos, their terms come too.
 
+### Publish it to the library
+
+On hosted Truman, and on any Truman with more than one lab, you can also put the study where other labs will find it. On the **Studies** page, press **Publish** beside the version.
+
+1. Say **what the study tests**, in a few sentences, for someone deciding whether to copy it.
+2. Add **the paper it's from**, as a citation or a link, if there is one.
+3. Choose **what others may do with it**: CC BY 4.0, CC BY-NC 4.0, CC0 1.0, or "Ask the authors first".
+4. Tick that you may share everything in it, including its pictures.
+
+On hosted Truman, whoever runs it looks at each study before it's listed. Until then it shows in the **Library** as waiting, to your lab only.
+
+Other labs see it on their **Library** page, with what it tests, its conditions, and a few of its pictures. **Copy into my lab** gives them your study as a draft of their own. Their copy starts with placeholder consent text, as with a bundle.
+
+What's published is the version as it was that day. Changing or archiving your study later doesn't change it. **Take down** on the Library page removes it. Copies other labs already made stay with them.
+
 Take the bundle of the version that ran, not the newest one. The data's `study_version` column and the codebook say which that was.
 
 The export can also be written from the command line. See [Studies as files](/developers/study-files).

@@ -26,6 +26,7 @@ export const GUIDE_PAGES: Record<string, { page: string; about: string }> = {
   "/drafts/$draftId/agent": { page: "/guide/ai", about: "AI in Truman" },
   "/lab": { page: "/guide/your-lab", about: "Your lab on hosted Truman" },
   "/tokens": { page: "/guide/ai", about: "AI in Truman" },
+  "/library": { page: "/guide/data", about: "Your data" },
   "/operator": { page: "/developers/run-your-own", about: "Run your own Truman" },
 };
 

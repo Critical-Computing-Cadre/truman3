@@ -16,6 +16,7 @@ import { BeatsPage } from "./pages/BeatsPage.tsx";
 import { CastPage } from "./pages/CastPage.tsx";
 import { DraftPage } from "./pages/DraftPage.tsx";
 import { LabPage } from "./pages/LabPage.tsx";
+import { LibraryPage } from "./pages/LibraryPage.tsx";
 import { InvitePage, ResetPage } from "./pages/LinkPages.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
 import { ModerationPage } from "./pages/ModerationPage.tsx";
@@ -207,6 +208,12 @@ const labRoute = createRoute({
   component: LabPage,
 });
 
+const libraryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/library",
+  component: LibraryPage,
+});
+
 const operatorRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/operator",
@@ -240,6 +247,7 @@ const router = createRouter({
     prolificRoute,
     tokensRoute,
     operatorRoute,
+    libraryRoute,
     labRoute,
     agentRoute,
   ]),

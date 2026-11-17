@@ -18,12 +18,15 @@ const DEFAULT_DAYS = 90;
 const MAX_DAYS = 365;
 
 /**
- * What a token can't do, by method and path. Launching, stopping, deleting, withdrawing, real data
+ * What a token can't do, by method and path. Launching, publishing, stopping, deleting, withdrawing, real data
  * and participants' photos, what participants write in shared worlds, Prolific, approving what the cast says to participants, Christof's
  * controls, and tokens themselves.
  */
 const FOR_PEOPLE_ONLY: { methods: string[]; path: RegExp }[] = [
   { methods: ["POST"], path: /^\/admin\/versions\/[^/]+\/launch$/ },
+  // Publishing a study to other labs, and deciding what's listed (ADR 92).
+  { methods: ["POST"], path: /^\/admin\/versions\/[^/]+\/publish$/ },
+  { methods: ["PUT"], path: /^\/admin\/library\/[^/]+\/status$/ },
   { methods: ["POST"], path: /^\/admin\/studies\/[^/]+\/stop$/ },
   { methods: ["DELETE"], path: /^\/admin\/studies\/[^/]+$/ },
   { methods: ["POST", "GET"], path: /^\/admin\/studies\/[^/]+\/withdraw$/ },
