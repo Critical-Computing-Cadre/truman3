@@ -13,6 +13,7 @@ import { createChristofRoutes } from "./admin/christof.ts";
 import { createDraftRoutes } from "./admin/drafts.ts";
 import { createHostingRoutes } from "./admin/hosting.ts";
 import { createLaunchRoutes } from "./admin/launch.ts";
+import { createLibraryRoutes } from "./admin/library.ts";
 import { createMonitorRoutes } from "./admin/monitor.ts";
 import { createPackRoutes } from "./admin/packs.ts";
 import { createProlificRoutes } from "./admin/prolific.ts";
@@ -148,6 +149,7 @@ export function createApp({
   app.route("/", createProlificRoutes(participantDependencies));
   app.route("/", createReminderRoutes(participantDependencies));
   app.route("/", createBundleRoutes(participantDependencies));
+  app.route("/", createLibraryRoutes(participantDependencies));
 
   app.doc("/openapi.json", {
     openapi: "3.0.0",

@@ -104,6 +104,16 @@ A few more things:
 - **The record itself** is the CloudTrail trail `<stage>-calls`, kept a year in its own bucket.
 - Reports reach the API at `/api/hooks/key-events`, with a key held in the secret `<stage>/key-events-hook-key`. Nothing else should call it.
 
+## Studies labs publish
+
+A lab can publish a saved version to the library, for other labs on this Truman to copy (ADR 92). On a hosted Truman it waits for an operator first.
+
+- **Open Library in the admin app's menu.** Studies waiting are marked, and only you and the lab that published them see those.
+- **Read it before listing it.** **Replication bundle** downloads exactly what other labs would get: the settings, the cast, every post, the pictures, and the lab's consent text. Check there's nothing in it that shouldn't be passed around, such as real people's photos used without leave.
+- **List it** makes it visible to every lab. **Take down** removes any study, listed or waiting, with its file.
+
+Nothing tells you when one is waiting. Look when a lab says they've published.
+
 ## Reports of security problems
 
 A stage with `mail.securityContact` set takes mail for that address, `security@truman-research.org` on production, and sends each message to the topic `<stage>-security-reports` (ADR 84). A deploy prints the topic as `SecurityReportsTopic`.

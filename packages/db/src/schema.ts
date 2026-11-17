@@ -1319,6 +1319,46 @@ export const contentPacks = pgTable(
   (table) => [index("content_packs_team").on(table.teamId)],
 );
 
+/**
+ * A study a lab has published for others on this Truman to copy (ADR 92). It's a replication
+ * bundle (ADR 91), kept as its own file, so it stays as published whatever happens to the study it
+ * came from. On a hosted Truman it's listed once an operator has looked at it.
+ */
+export const libraryStudies = pgTable(
+  "library_studies",
+  {
+    id: id(),
+    /** The lab that published it. */
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id),
+    title: text().notNull(),
+    /** What the study tests, in a few sentences, for someone deciding whether to copy it. */
+    summary: text().notNull(),
+    /** The paper it's from, as a citation or a link. */
+    paper: text().notNull().default(""),
+    /** What others may do with it, such as "CC BY 4.0". */
+    license: text().notNull(),
+    /** The bundle's zip file, in storage. */
+    bundleKey: text("bundle_key").notNull(),
+    /** The version's content hash, so the same version isn't published twice by a lab. */
+    contentHash: text("content_hash").notNull(),
+    /** The kind of site, its conditions, some counts, and a few pictures, to list it by. */
+    about: jsonb().notNull(),
+    /** waiting for an operator, listed, or removed. */
+    status: text().notNull(),
+    publishedBy: text("published_by").notNull(),
+    publishedAt: time("published_at").notNull().defaultNow(),
+    decidedBy: text("decided_by"),
+    decidedAt: time("decided_at"),
+  },
+  (table) => [
+    unique("library_studies_once").on(table.teamId, table.contentHash),
+    index("library_studies_status").on(table.status),
+    check("library_studies_status", inList(table.status, ["waiting", "listed", "removed"])),
+  ],
+);
+
 /** A version of a study being worked on. A study has at most one open at a time. */
 export const studyDrafts = pgTable(
   "study_drafts",

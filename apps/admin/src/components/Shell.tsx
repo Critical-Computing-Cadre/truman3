@@ -18,6 +18,7 @@ const ICONS = {
     "M12 3v3M7 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM9.500 11v2M14.500 11v2M2 12h3M19 12h3",
   labs: "M3 21V8l6-4v17M9 21V10h8l4 3v8M2 21h20M13 14h2M13 17h2",
   back: "M15 5l-7 7 7 7",
+  library: "M4 5v14M8 5v14M12 5v14M15.500 6l4 13",
   help: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM9.500 9.500a2.500 2.500 0 1 1 3.500 2.300c-.700.400-1 .900-1 1.700M12 17h.010",
   feed: "M4 4h16v6H4zM4 14h16v6H4z",
   cast: "M9 11a3.500 3.500 0 1 0 0-7 3.500 3.500 0 0 0 0 7zM2.500 20a6.500 6.500 0 0 1 13 0M16 4.500a3.500 3.500 0 0 1 0 6.500M18 14.500a6.500 6.500 0 0 1 3.500 5.500",
@@ -165,13 +166,19 @@ function StudyMenu({ draftId, here }: { draftId: string; here: string }) {
 }
 
 function LabMenu({ me, here }: { me: Researcher; here: string }) {
-  const elsewhere = ["/lab", "/operator", "/tokens"];
+  const elsewhere = ["/lab", "/operator", "/tokens", "/library"];
   return (
     <Group>
       <li>
         <Link to="/" activeOptions={{ exact: true }} className={item(!elsewhere.includes(here))}>
           <Icon name="studies" />
           Studies
+        </Link>
+      </li>
+      <li>
+        <Link to="/library" className={item(here === "/library")}>
+          <Icon name="library" />
+          Library
         </Link>
       </li>
       <li>
