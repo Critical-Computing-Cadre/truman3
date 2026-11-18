@@ -68,6 +68,8 @@ c1,maya_r,-76:10,Farmers market haul. I went for eggs and came back with five ki
 c2,dev_m,-73:30,First loaf from the new starter!! Crust came out way better than I expected. Crumb is a little tight but I'm not telling the bread that.,first-loaf.jpg,31
 ```
 
+A post can have a video in place of pictures. Add a `video` column naming an MP4 in `media/posts`, and optionally a `poster` column naming a picture to show before it plays. The video has to be H.264, up to 10 minutes and 200 MB. `pnpm study import` checks it as it stores it.
+
 And its `comments.csv`:
 
 ```csv

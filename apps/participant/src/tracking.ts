@@ -13,6 +13,21 @@ type ReportedEvent =
       targetContentId: string;
       payload: { dwellMs: number; surface: string };
     }
+  | {
+      type: "video.watched";
+      targetContentId: string;
+      payload: {
+        playedMs: number;
+        seconds: number;
+        furthestSeconds: number;
+        ended: number;
+        plays: number;
+        pauses: number;
+        seeks: number;
+        soundOn: boolean;
+        surface: string;
+      };
+    }
   // From Truman's app, around this site (ADR 66).
   | { type: "app.opened"; payload: { platform: "ios" | "android" } }
   | { type: "app.closed"; payload: { secondsOpen: number } }

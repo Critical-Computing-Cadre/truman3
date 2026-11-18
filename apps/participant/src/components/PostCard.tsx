@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { FeedComment, FeedPost } from "@truman3/core";
-import { CommentBox, FeedPostView } from "@truman3/ui";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { CommentBox, FeedPostView, type VideoWatching, VideoWatchingContext } from "@truman3/ui";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { flowQuery, meQuery, post as send, type Written } from "../api.ts";
 import { createDwellTimer } from "../dwell.ts";
 import { rememberOpenedFrom, track } from "../tracking.ts";
@@ -143,6 +143,17 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
     }
   }, [crossposting]);
 
+  // Each spell of watching this post's video, if it has one (ADR 94).
+  const reportWatching = useCallback(
+    (watching: VideoWatching) =>
+      track({
+        type: "video.watched",
+        targetContentId: post.id,
+        payload: { ...watching, surface },
+      }),
+    [post.id, surface],
+  );
+
   return (
     <>
       {quoting && (
@@ -155,135 +166,137 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
           onClose={() => setCrossposting(false)}
         />
       )}
-      <FeedPostView
-        post={post}
-        rootRef={ref}
-        detail={detail}
-        {...(pages
-          ? {
-              renderPostLink: (postId: string, className: string, children: ReactNode) => (
-                <Link
-                  to="/p/$postId"
-                  params={{ postId }}
-                  className={className}
-                  onClick={() => rememberOpenedFrom(surface)}
-                >
-                  {children}
-                </Link>
-              ),
-            }
-          : {})}
-        actions={{
-          onLike: (id, active) => action.mutate({ url: `/content/${id}/like`, active }),
-          onVote: (id, value) => vote.mutate({ id, value }),
-          onFlag: (id, active) => action.mutate({ url: `/content/${id}/flag`, active }),
-          onSave: (id, active) => action.mutate({ url: `/content/${id}/save`, active }),
-          onHide: (id, active) => action.mutate({ url: `/content/${id}/hide`, active }),
-          onMuteThread: (id, active) =>
-            action.mutate({ url: `/content/${id}/mute-thread`, active }),
-          // Copied first, since a browser only allows it straight after a click.
-          onShare: async (id) => {
-            const copied = await navigator.clipboard
-              .writeText(`${window.location.origin}/p/${id}`)
-              .then(() => true)
-              .catch(() => false);
-            if (copied) {
-              await send(`/content/${id}/share`, { method: "copy" }).catch(() => {});
-            }
-            return copied;
-          },
-          onOpenLink: (id) => {
-            send(`/content/${id}/link-opened`).catch(() => {});
-          },
-          onReveal: (id) => {
-            send(`/content/${id}/reveal`).catch(() => {});
-          },
-          onLabelShown: (id, label) => {
-            send(`/content/${id}/label-shown`, { label }).catch(() => {});
-          },
-          onLabelAnswered: (id, label, agree) => {
-            send(`/content/${id}/label-answer`, { label, agree }).catch(() => {});
-          },
-          ...(flow.data?.site.hasRules
-            ? { onOpenRules: () => navigate({ to: "/rules", search: { from: "label" } }) }
-            : {}),
-          onAppeal: (id, text) => {
-            send(`/content/${id}/appeal`, { text })
-              .catch(() => {})
-              .finally(() => client.invalidateQueries());
-          },
-          onPollVote: (id, option) => pollVote.mutate({ id, option }),
-          onCrosspost: () => setCrossposting(true),
-          onRepost: (id, active) => repost.mutate({ id, active }),
-          onRateNote: (id, value) => {
-            send(`/content/${id}/note-rating`, { value })
-              .catch(() => {})
-              .finally(() => client.invalidateQueries());
-          },
-          onQuote: () => setQuoting(true),
-          onReply: () => {
-            if (pages && !detail) {
-              openPost();
-              return;
-            }
-            setReplying(true);
-            inputRef.current?.focus();
-          },
-          ...(post.locked || post.removed ? {} : { onReplyTo: setReplyTo }),
-        }}
-        renderSpace={(key, className, name) => (
-          <Link to="/spaces/$key" params={{ key }} className={className}>
-            {name}
-          </Link>
-        )}
-        renderAuthor={(author, className, children) => (
-          <Link to="/u/$username" params={{ username: author.username }} className={className}>
-            {children}
-          </Link>
-        )}
-        belowComments={
-          post.locked && detail && flow.data?.features.comments ? (
-            <p className="text-sm text-stone-500">
-              This post is locked, so nobody can add new comments.
-            </p>
-          ) : (
-            !post.locked &&
-            !post.removed &&
-            me.data &&
-            (detail || !pages) &&
-            (flow.data?.commentBox === "open" || replying || replyTo) && (
-              <>
-                {replyTo && (
-                  <p className="flex justify-between text-xs text-stone-500">
-                    <span>Replying to {replyTo.author.name}</span>
-                    <button type="button" className="underline" onClick={() => setReplyTo(null)}>
-                      Cancel
-                    </button>
-                  </p>
-                )}
-                {asked && (
-                  <AreYouSure
-                    asked={asked}
+      <VideoWatchingContext.Provider value={reportWatching}>
+        <FeedPostView
+          post={post}
+          rootRef={ref}
+          detail={detail}
+          {...(pages
+            ? {
+                renderPostLink: (postId: string, className: string, children: ReactNode) => (
+                  <Link
+                    to="/p/$postId"
+                    params={{ postId }}
+                    className={className}
+                    onClick={() => rememberOpenedFrom(surface)}
+                  >
+                    {children}
+                  </Link>
+                ),
+              }
+            : {})}
+          actions={{
+            onLike: (id, active) => action.mutate({ url: `/content/${id}/like`, active }),
+            onVote: (id, value) => vote.mutate({ id, value }),
+            onFlag: (id, active) => action.mutate({ url: `/content/${id}/flag`, active }),
+            onSave: (id, active) => action.mutate({ url: `/content/${id}/save`, active }),
+            onHide: (id, active) => action.mutate({ url: `/content/${id}/hide`, active }),
+            onMuteThread: (id, active) =>
+              action.mutate({ url: `/content/${id}/mute-thread`, active }),
+            // Copied first, since a browser only allows it straight after a click.
+            onShare: async (id) => {
+              const copied = await navigator.clipboard
+                .writeText(`${window.location.origin}/p/${id}`)
+                .then(() => true)
+                .catch(() => false);
+              if (copied) {
+                await send(`/content/${id}/share`, { method: "copy" }).catch(() => {});
+              }
+              return copied;
+            },
+            onOpenLink: (id) => {
+              send(`/content/${id}/link-opened`).catch(() => {});
+            },
+            onReveal: (id) => {
+              send(`/content/${id}/reveal`).catch(() => {});
+            },
+            onLabelShown: (id, label) => {
+              send(`/content/${id}/label-shown`, { label }).catch(() => {});
+            },
+            onLabelAnswered: (id, label, agree) => {
+              send(`/content/${id}/label-answer`, { label, agree }).catch(() => {});
+            },
+            ...(flow.data?.site.hasRules
+              ? { onOpenRules: () => navigate({ to: "/rules", search: { from: "label" } }) }
+              : {}),
+            onAppeal: (id, text) => {
+              send(`/content/${id}/appeal`, { text })
+                .catch(() => {})
+                .finally(() => client.invalidateQueries());
+            },
+            onPollVote: (id, option) => pollVote.mutate({ id, option }),
+            onCrosspost: () => setCrossposting(true),
+            onRepost: (id, active) => repost.mutate({ id, active }),
+            onRateNote: (id, value) => {
+              send(`/content/${id}/note-rating`, { value })
+                .catch(() => {})
+                .finally(() => client.invalidateQueries());
+            },
+            onQuote: () => setQuoting(true),
+            onReply: () => {
+              if (pages && !detail) {
+                openPost();
+                return;
+              }
+              setReplying(true);
+              inputRef.current?.focus();
+            },
+            ...(post.locked || post.removed ? {} : { onReplyTo: setReplyTo }),
+          }}
+          renderSpace={(key, className, name) => (
+            <Link to="/spaces/$key" params={{ key }} className={className}>
+              {name}
+            </Link>
+          )}
+          renderAuthor={(author, className, children) => (
+            <Link to="/u/$username" params={{ username: author.username }} className={className}>
+              {children}
+            </Link>
+          )}
+          belowComments={
+            post.locked && detail && flow.data?.features.comments ? (
+              <p className="text-sm text-stone-500">
+                This post is locked, so nobody can add new comments.
+              </p>
+            ) : (
+              !post.locked &&
+              !post.removed &&
+              me.data &&
+              (detail || !pages) &&
+              (flow.data?.commentBox === "open" || replying || replyTo) && (
+                <>
+                  {replyTo && (
+                    <p className="flex justify-between text-xs text-stone-500">
+                      <span>Replying to {replyTo.author.name}</span>
+                      <button type="button" className="underline" onClick={() => setReplyTo(null)}>
+                        Cancel
+                      </button>
+                    </p>
+                  )}
+                  {asked && (
+                    <AreYouSure
+                      asked={asked}
+                      sending={comment.isPending}
+                      onPost={() => comment.mutate({ body: draft, confirmedRule: asked.rule })}
+                      onBack={() => setAsked(null)}
+                    />
+                  )}
+                  <CommentBox
+                    seed={me.data.username}
+                    pictureUrl={me.data.pictureUrl}
+                    value={draft}
+                    onChange={setDraft}
+                    onSubmit={() => comment.mutate({ body: draft })}
+                    {...(flow.data?.maxPostLength ? { maxLength: flow.data.maxPostLength } : {})}
                     sending={comment.isPending}
-                    onPost={() => comment.mutate({ body: draft, confirmedRule: asked.rule })}
-                    onBack={() => setAsked(null)}
+                    inputRef={inputRef}
                   />
-                )}
-                <CommentBox
-                  seed={me.data.username}
-                  pictureUrl={me.data.pictureUrl}
-                  value={draft}
-                  onChange={setDraft}
-                  onSubmit={() => comment.mutate({ body: draft })}
-                  {...(flow.data?.maxPostLength ? { maxLength: flow.data.maxPostLength } : {})}
-                  sending={comment.isPending}
-                  inputRef={inputRef}
-                />
-              </>
+                </>
+              )
             )
-          )
-        }
-      />
+          }
+        />
+      </VideoWatchingContext.Provider>
     </>
   );
 }

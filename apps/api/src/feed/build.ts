@@ -1,6 +1,8 @@
 import {
+  type Attachment,
   type CommentSort,
   type FeatureSet,
+  type FeedAttachment,
   type FeedAuthor,
   type FeedLabel,
   type FeedOriginal,
@@ -17,6 +19,7 @@ import {
   type StudySettings,
   scriptedKarmaChange,
   startingKarmaFor,
+  thumbnailKeyOf,
 } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import {
@@ -158,6 +161,20 @@ export function mediaUrl(key: string, publicUrl: string): string {
   return key.startsWith("uploads/")
     ? `/api/media/${key}`
     : `${publicUrl.replace(/\/$/, "")}/${key}`;
+}
+
+/** An attachment as the browser gets it: its address, and for a video, its poster and details. */
+export function feedAttachment(attachment: Attachment, publicUrl: string): FeedAttachment {
+  if (attachment.type === "image") {
+    return { type: "image", url: mediaUrl(attachment.key, publicUrl) };
+  }
+  const { key, poster, type: _type, ...details } = attachment;
+  return {
+    type: "video",
+    url: mediaUrl(key, publicUrl),
+    ...(poster ? { posterUrl: mediaUrl(poster, publicUrl) } : {}),
+    ...details,
+  };
 }
 
 /** Scripted content is timed from the start of the world. Everything else has an actual time. */
@@ -864,13 +881,13 @@ export async function shapeFeedPosts({
     }
     const profile = (authorById.get(original.authorActorId) as FeedActor).profile as ActorProfile;
     const space = original.spaceId ? spaces.get(original.spaceId) : undefined;
-    const picture = original.attachments[0];
+    const picture = thumbnailKeyOf(original.attachments[0]);
     return {
       id: original.id,
       authorName: profile.name ?? (authorById.get(original.authorActorId) as FeedActor).username,
       body: original.body,
       ...(original.title && features.titles ? { title: original.title } : {}),
-      ...(picture ? { imageUrl: mediaUrl(picture.key, mediaPublicUrl) } : {}),
+      ...(picture ? { imageUrl: mediaUrl(picture, mediaPublicUrl) } : {}),
       ...(original.linkUrl && features.links ? { linkDomain: linkDomain(original.linkUrl) } : {}),
       ...(space ? { space: { key: space.key, name: space.name } } : {}),
     };
@@ -1148,10 +1165,7 @@ export async function shapeFeedPosts({
         : {}),
       ...place,
       ...(tags.length > 0 ? { tags } : {}),
-      attachments: item.attachments.map(({ type, key }) => ({
-        type,
-        url: mediaUrl(key, mediaPublicUrl),
-      })),
+      attachments: item.attachments.map((attachment) => feedAttachment(attachment, mediaPublicUrl)),
       comments,
       commentCount: passesAlong(listed)
         ? (commentCounts.get(item.id) ?? 0)

@@ -173,12 +173,43 @@ export const feedCommentSchema = z.object({
 /** The most photos one post can have. */
 export const MAX_ATTACHMENTS = 10;
 
-/** A file on a post. Each has a type, so other kinds, such as video, can join images. */
-export const attachmentSchema = z.object({ type: z.enum(["image"]), key: z.string() });
+/** What's known about a video from the file itself (ADR 94). Older or hosted ones may not have it. */
+export const videoDetailsSchema = z.object({
+  seconds: z.number().nonnegative().optional(),
+  width: z.number().int().nonnegative().optional(),
+  height: z.number().int().nonnegative().optional(),
+  hasSound: z.boolean().optional(),
+});
+
+/** A file on a post: a photo, or a video with a picture to show before it plays (ADR 24, 94). */
+export const attachmentSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("image"), key: z.string() }),
+  z.object({
+    type: z.literal("video"),
+    key: z.string(),
+    /** The picture shown before it plays. Without one, the browser shows its first frame. */
+    poster: z.string().optional(),
+    ...videoDetailsSchema.shape,
+  }),
+]);
 export type Attachment = z.infer<typeof attachmentSchema>;
 
-export const feedAttachmentSchema = z.object({ type: z.enum(["image"]), url: z.string() });
+export const feedAttachmentSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("image"), url: z.string() }),
+  z.object({
+    type: z.literal("video"),
+    url: z.string(),
+    posterUrl: z.string().optional(),
+    ...videoDetailsSchema.shape,
+  }),
+]);
 export type FeedAttachment = z.infer<typeof feedAttachmentSchema>;
+
+/** The picture that stands for an attachment in a thumbnail: a photo, or a video's poster. */
+export const thumbnailOf = (attachment: FeedAttachment | undefined): string | undefined =>
+  attachment?.type === "video" ? attachment.posterUrl : attachment?.url;
+export const thumbnailKeyOf = (attachment: Attachment | undefined): string | undefined =>
+  attachment?.type === "video" ? attachment.poster : attachment?.key;
 
 /**
  * A poll, as this viewer may see it. The counts only reach a browser if they're allowed to see them

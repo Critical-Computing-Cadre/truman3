@@ -1481,6 +1481,8 @@ const EVENT_NOTES: Record<string, string> = {
     "They opened their conversation with target_actor. Messages from them before this count as read.",
   "content.reposted":
     "They passed a post along. It names the first post, even if they saw it through someone else's repost. content.unreposted is taking that back.",
+  "video.watched":
+    "One spell of watching a post's video, reported when it left the screen or the page closed. In the payload: `playedMs` is time it was actually playing, `seconds` is the video's length, `furthestSeconds` is how far into it they got, `ended` is how many times it reached its end (it can loop), `plays`, `pauses`, and `seeks` count those, and `soundOn` says whether its sound was ever on. A post can have several of these. Add them up per person per post for total watching.",
   "story.viewed":
     "They saw one story, for dwell_ms. `ended` says how: next, previous, closed, or timer, when it moved on by itself. `from` is highlight if they opened it from a highlight on someone's profile, and missing if from the row of stories. A story is a row in content.csv with kind story.",
   "actor.close_friend_added":

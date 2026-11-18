@@ -95,8 +95,10 @@ export function draftToDefinition(
     }
   }
   for (const { item, data } of posts) {
-    for (const picture of data.pictures ?? []) {
-      mediaKeys.set(path.join(MEDIA_FOLDERS.posts, picture), picture);
+    for (const picture of [...(data.pictures ?? []), data.video?.key, data.video?.poster]) {
+      if (picture) {
+        mediaKeys.set(path.join(MEDIA_FOLDERS.posts, picture), picture);
+      }
     }
     provenance.set(`post:${data.ref}`, item.provenance as Provenance);
   }
@@ -163,10 +165,23 @@ export function draftToDefinition(
           likedById,
           taggedIds,
           tagsParticipant,
+          video,
           ...post
         },
       }) => ({
         ...post,
+        ...(video
+          ? {
+              video: video.key,
+              ...(video.poster ? { poster: video.poster } : {}),
+              videoDetails: {
+                ...(video.seconds !== undefined ? { seconds: video.seconds } : {}),
+                ...(video.width !== undefined ? { width: video.width } : {}),
+                ...(video.height !== undefined ? { height: video.height } : {}),
+                ...(video.hasSound !== undefined ? { hasSound: video.hasSound } : {}),
+              },
+            }
+          : {}),
         actor: usernameOf(actorId),
         ...(likedById ? { likedBy: usernameOf(likedById) } : {}),
         ...(taggedIds?.length || tagsParticipant

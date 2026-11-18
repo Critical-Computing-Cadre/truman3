@@ -194,12 +194,18 @@ const reportedEventSchema = z.discriminatedUnion("type", [
     payload: eventPayloadSchemas["content.viewed"],
     targetContentId: z.uuid(),
   }),
+  actionMetaSchema.extend({
+    type: z.literal("video.watched"),
+    payload: eventPayloadSchemas["video.watched"],
+    targetContentId: z.uuid(),
+  }),
 ]);
 
 const reportRoute = createRoute({
   method: "post",
   path: "/events",
-  summary: "Report timing from the browser: pages viewed, time active, and time on content",
+  summary:
+    "Report timing from the browser: pages viewed, time active, time on content, and videos watched",
   request: {
     body: {
       required: true,
@@ -481,6 +487,18 @@ export function createFlowRoutes({
               .onConflictDoNothing();
           }
           return result;
+        });
+        recorded += stored ? 1 : 0;
+      } else if (event.type === "video.watched") {
+        // Only a video they could see.
+        if (!(await findVisibleContent(db, context, event.targetContentId, now))) {
+          continue;
+        }
+        const stored = await recordEvent(db, {
+          ...meta,
+          type: event.type,
+          payload: event.payload,
+          targetContentId: event.targetContentId,
         });
         recorded += stored ? 1 : 0;
       } else if (event.type === "page.viewed") {

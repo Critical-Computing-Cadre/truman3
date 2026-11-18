@@ -77,7 +77,7 @@ test("a researcher edits in the feed, saves, tries it, launches, and a new parti
 
   // Drop a photo onto the new post, the way a person would drag one in.
   const photoPost = feed.locator("article").filter({ hasText: addedText });
-  await expect(photoPost.getByText("Drop a photo here")).toBeVisible();
+  await expect(photoPost.getByText("Drop a photo or a video here")).toBeVisible();
   const dataTransfer = await page.evaluateHandle((base64) => {
     const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
     const transfer = new DataTransfer();

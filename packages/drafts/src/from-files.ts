@@ -43,6 +43,9 @@ export function postItemData(
     likedBy,
     tagged,
     source: _source,
+    video,
+    poster,
+    videoDetails,
     ...post
   }: Post,
   ids: ItemIds,
@@ -60,6 +63,7 @@ export function postItemData(
   const crosspostOfId = posted(crosspostOf);
   return {
     ...post,
+    ...(video ? { video: { key: video, ...(poster ? { poster } : {}), ...videoDetails } } : {}),
     actorId: ids.actors.get(actor) as string,
     ...(spaceId ? { spaceId } : {}),
     ...(repostOfId ? { repostOfId } : {}),

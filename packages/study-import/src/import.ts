@@ -2,13 +2,16 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
+  type Attachment,
   createRandom,
   freezePlatform,
   hasErrors,
   PARTICIPANT_TAG,
   pickFrom,
+  readVideoInfo,
   type StudyDefinition,
   type StudyIssue,
+  videoLimitProblem,
 } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
@@ -27,6 +30,7 @@ const CONTENT_TYPES: Record<string, string> = {
   ".webp": "image/webp",
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
+  ".mp4": "video/mp4",
 };
 
 export type ImportResult =
@@ -122,8 +126,10 @@ export async function storeMedia(
     }
   }
   for (const post of study.posts) {
-    for (const picture of post.pictures) {
-      files.set(path.join(MEDIA_FOLDERS.posts, picture), picture);
+    for (const picture of [...post.pictures, post.video, post.poster]) {
+      if (picture) {
+        files.set(path.join(MEDIA_FOLDERS.posts, picture), picture);
+      }
     }
   }
   for (const story of study.stories) {
@@ -168,6 +174,45 @@ export async function storeMedia(
 }
 
 /**
+ * Reads each stored video's description, to check every browser can play it and it's within the
+ * limits, and to know its length, shape, and sound (ADR 94). Hosted videos can't be read, so
+ * they're taken as they are. Returns the study with what was read, or why a video can't be used.
+ */
+export async function describeVideos(
+  study: StudyDefinition,
+  mediaKeys: Map<string, string>,
+  storage: Storage,
+): Promise<{ study: StudyDefinition; issues: StudyIssue[] }> {
+  const issues: StudyIssue[] = [];
+  const posts = await Promise.all(
+    study.posts.map(async (post) => {
+      const key = post.video && mediaKeys.get(path.join(MEDIA_FOLDERS.posts, post.video));
+      if (!post.video || !key || /^https?:/.test(key)) {
+        return post;
+      }
+      const size = (await storage.size(key)) ?? 0;
+      const read = await readVideoInfo(
+        (offset, length) => storage.getRange(key, offset, length),
+        size,
+      );
+      const problem = read.ok ? videoLimitProblem(read.info, size) : read.reason;
+      if (problem || !read.ok) {
+        issues.push({
+          severity: "error",
+          message: `The video "${post.video}" can't be used. ${problem}`,
+          file: post.source?.file,
+          row: post.source?.row,
+        });
+        return post;
+      }
+      const { seconds, width, height, hasSound } = read.info;
+      return { ...post, videoDetails: { seconds, width, height, hasSound } };
+    }),
+  );
+  return { study: { ...study, posts }, issues };
+}
+
+/**
  * Validates a study folder, stores its media, and saves it as a new frozen version. That doesn't
  * open it to participants: launching is a separate step, unless asked for here. Importing the
  * same content again changes nothing. Everything goes in one transaction, so a failure can't leave
@@ -195,7 +240,13 @@ export async function importStudyFolder(
   const study = change ? change(read) : read;
 
   const { keys: mediaKeys, uploaded: mediaUploaded } = await storeMedia(study, folder, storage);
-  const result = await freezeStudy(db, study, mediaKeys, issues, mediaUploaded, { teamId });
+  const videos = await describeVideos(study, mediaKeys, storage);
+  if (hasErrors(videos.issues)) {
+    return { status: "failed", issues: [...issues, ...videos.issues] };
+  }
+  const result = await freezeStudy(db, videos.study, mediaKeys, issues, mediaUploaded, {
+    teamId,
+  });
   if (launch && result.status !== "failed") {
     const [row] = await db
       .select({ id: schema.studies.id })
@@ -204,6 +255,25 @@ export async function importStudyFolder(
     await launchVersion(db, row?.id as string, result.studyVersionId, "import");
   }
   return result;
+}
+
+/** A post's files, as stored: its video, or its photos. */
+function attachmentsOf(
+  post: StudyDefinition["posts"][number],
+  mediaKeys: Map<string, string>,
+): Attachment[] {
+  const keyOf = (name: string) => mediaKeys.get(path.join(MEDIA_FOLDERS.posts, name)) as string;
+  if (post.video) {
+    return [
+      {
+        type: "video",
+        key: keyOf(post.video),
+        ...(post.poster ? { poster: keyOf(post.poster) } : {}),
+        ...post.videoDetails,
+      },
+    ];
+  }
+  return post.pictures.map((picture) => ({ type: "image", key: keyOf(picture) }));
 }
 
 export interface FreezeOptions {
@@ -437,10 +507,7 @@ export async function freezeStudy(
           tagsParticipant: (post.tagged ?? []).includes(PARTICIPANT_TAG),
           baseViews: post.views ?? 0,
           body: post.body,
-          attachments: post.pictures.map((picture) => ({
-            type: "image" as const,
-            key: mediaKeys.get(path.join(MEDIA_FOLDERS.posts, picture)) as string,
-          })),
+          attachments: attachmentsOf(post, mediaKeys),
           offsetMs: post.timeMs,
           position: positions.get(post.ref),
           baseLikes: drawLikes(post.likes, settings.likes.posts),

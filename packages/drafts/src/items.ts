@@ -10,6 +10,7 @@ import {
   PIN_PLACES,
   POST_TAGS,
   pollSchema,
+  videoDetailsSchema,
 } from "@truman3/core";
 import { z } from "zod";
 
@@ -62,6 +63,10 @@ export const itemDataSchemas = {
     title: z.string().min(1).max(MAX_TITLE_LENGTH).optional(),
     body: z.string(),
     pictures: z.array(z.string()).max(MAX_ATTACHMENTS).optional(),
+    /** Its video, stored, in place of pictures (ADR 94). */
+    video: z
+      .strictObject({ key: z.string(), poster: z.string().optional(), ...videoDetailsSchema.shape })
+      .optional(),
     actorId: z.uuid(),
     /** The one space it belongs to. */
     spaceId: z.uuid().optional(),

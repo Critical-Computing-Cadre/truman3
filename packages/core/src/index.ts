@@ -51,6 +51,9 @@ export {
   type StoryGroup,
   spaceViewSchema,
   storyGroupSchema,
+  thumbnailKeyOf,
+  thumbnailOf,
+  videoDetailsSchema,
 } from "./feed.ts";
 export { type HealthResponse, healthResponseSchema } from "./health.ts";
 export {
@@ -105,3 +108,12 @@ export {
   teamApplicationSchema,
   teamLimitsSchema,
 } from "./teams.ts";
+export {
+  MAX_VIDEO_BYTES,
+  MAX_VIDEO_SECONDS,
+  PLAYABLE_CODECS,
+  type ReadBytes,
+  readVideoInfo,
+  type VideoInfo,
+  videoLimitProblem,
+} from "./video.ts";

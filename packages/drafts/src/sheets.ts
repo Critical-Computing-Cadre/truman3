@@ -45,6 +45,17 @@ export function checkSheets(
 ): StudyIssue[] {
   const { definition } = draftToDefinition(settings, pages, items);
   const clashes: StudyIssue[] = [];
+  // Videos are too big for a zip of sheets, and go on posts in the builder (ADR 94).
+  for (const post of sheets.posts) {
+    if (post.video || post.poster) {
+      clashes.push({
+        severity: "error",
+        message: `Post "${post.ref}" has a video. Sheets can't bring videos in. Add the post without it, then drop the video on it in the builder.`,
+        file: post.source?.file,
+        row: post.source?.row,
+      });
+    }
+  }
   /** Names the sheets give that the draft already has, for each kind that has a name. */
   const check = <T extends { source?: Source }>(
     had: readonly T[],
