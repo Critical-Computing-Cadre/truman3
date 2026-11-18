@@ -4,6 +4,7 @@ import { ACCENT_PATTERN } from "../color.ts";
 import { FEATURE_KEYS } from "../features/catalog.ts";
 import { MAX_DECOR_ADDED, MAX_DECOR_LABEL } from "../features/decor.ts";
 import { LAYOUT_KEYS, TEMPLATE_KEYS } from "../features/templates.ts";
+import { videoDetailsSchema } from "../feed.ts";
 import { COMMENT_SORTS, FEED_SORTS } from "../orders.ts";
 import { flairSchema, pollSchema } from "../polls-flair.ts";
 import { linkSchema, PIN_PLACES, POST_TAGS } from "../post-extras.ts";
@@ -378,6 +379,12 @@ export const postDefinitionSchema = z.object({
   body: z.string(),
   /** Its photos, in order. */
   pictures: z.array(z.string().min(1)).default([]),
+  /** Its video, an MP4 in media/posts, in place of photos (ADR 94). */
+  video: z.string().min(1).optional(),
+  /** The picture shown before its video plays, in media/posts. */
+  poster: z.string().min(1).optional(),
+  /** What the video file says about itself. Filled in as it's stored, not written by hand. */
+  videoDetails: videoDetailsSchema.optional(),
   /** The key of the one space it belongs to, if any. */
   space: z.string().min(1).optional(),
   /** Where it links to, on a platform with link posts. */

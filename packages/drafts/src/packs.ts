@@ -19,7 +19,7 @@ import {
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
 import { loadStudyFolder, MEDIA_FOLDERS } from "@truman3/study-files";
-import { storeMedia } from "@truman3/study-import";
+import { describeVideos, storeMedia } from "@truman3/study-import";
 import { and, eq, isNull } from "drizzle-orm";
 import type { EditProblem } from "./drafts.ts";
 import { type ItemIds, itemsFromTables } from "./from-files.ts";
@@ -178,6 +178,12 @@ export function packContents(
       pictures: post.pictures.map(
         (picture) => mediaKeys.get(path.join(MEDIA_FOLDERS.posts, picture)) ?? picture,
       ),
+      ...(post.video
+        ? { video: mediaKeys.get(path.join(MEDIA_FOLDERS.posts, post.video)) ?? post.video }
+        : {}),
+      ...(post.poster
+        ? { poster: mediaKeys.get(path.join(MEDIA_FOLDERS.posts, post.poster)) ?? post.poster }
+        : {}),
     })),
     comments: comments.map(withoutSource),
     reactions: reactions.map(withoutSource),
@@ -294,11 +300,15 @@ export async function savePackFromFolder(
     return { status: "failed", issues };
   }
   const { keys } = await storeMedia(definition, folder, storage);
+  const videos = await describeVideos(definition, keys, storage);
+  if (hasErrors(videos.issues)) {
+    return { status: "failed", issues: videos.issues };
+  }
   return savePack(db, {
     teamId: null,
     name: options.name ?? definition.settings.title,
     ...(options.description ? { description: options.description } : {}),
-    contents: packContents(definition, keys),
+    contents: packContents(videos.study, keys),
   });
 }
 
@@ -559,7 +569,11 @@ export function starterFor(storage: Storage, template: TemplateKey): Promise<Sta
       path.join(STARTERS_FOLDER, STARTER_FOLDERS[template]),
       storage,
     );
-    const contents = packContents(definition, keys);
+    const videos = await describeVideos(definition, keys, storage);
+    if (hasErrors(videos.issues)) {
+      return null;
+    }
+    const contents = packContents(videos.study, keys);
     return {
       id: `starter:${template}`,
       name: definition.settings.title,

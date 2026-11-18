@@ -18,6 +18,11 @@ export { FeedPostView } from "./FeedPostView.tsx";
 export { KarmaBadge } from "./features/karma.tsx";
 export { type TextLinks, TextLinksContext } from "./features/post-text.tsx";
 export { QuestionCard } from "./features/questions.tsx";
+export {
+  createWatchMeter,
+  type VideoWatching,
+  VideoWatchingContext,
+} from "./features/video.tsx";
 export { WarningNotice } from "./features/warnings.tsx";
 export { LinkIcon, PlusIcon } from "./icons.tsx";
 export type { PageLink } from "./layouts/page-props.ts";

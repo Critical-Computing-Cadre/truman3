@@ -15,6 +15,7 @@ import {
   type Poll,
   platformFor,
   pollSchema,
+  videoDetailsSchema,
 } from "@truman3/core";
 import { schema } from "@truman3/db";
 import {
@@ -56,6 +57,7 @@ import {
 import { feedSettingsFor } from "@truman3/feed";
 import { eq } from "drizzle-orm";
 import { MAX_IMAGE_BYTES, storeStudyImage } from "../actions/images.ts";
+import { storeStudyVideo } from "../actions/videos.ts";
 import { type FeedActor, type FeedContent, mediaUrl } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { previewContent } from "./preview.ts";
@@ -305,6 +307,15 @@ const fieldsSchema = z.strictObject({
   picture: z.string().regex(STORED_IMAGE).nullable().optional(),
   /** A post's photos, in order. Anything new has to be stored here (see updateItem). */
   pictures: z.array(z.string().max(2000)).max(MAX_ATTACHMENTS).optional(),
+  /** A post's video, as the upload gave it. Null takes it off. */
+  video: z
+    .object({
+      key: z.string().max(2000),
+      poster: z.string().regex(STORED_IMAGE).optional(),
+      ...videoDetailsSchema.shape,
+    })
+    .nullable()
+    .optional(),
   actorId: z.uuid().optional(),
   postId: z.uuid().optional(),
   replyToId: z.uuid().optional(),
@@ -393,6 +404,38 @@ const uploadRoute = createRoute({
       },
     },
     400: errorResponse("It isn't a usable image"),
+    ...commonErrors,
+  },
+});
+
+const videoUploadRoute = createRoute({
+  method: "post",
+  path: "/admin/drafts/{draftId}/videos",
+  summary: "Upload a video to use in this draft",
+  description:
+    "The body is the MP4 itself, with its Content-Length. It has to be H.264, up to 10 minutes and 200 MB (ADR 94).",
+  request: {
+    params: draftParams,
+    body: {
+      required: true,
+      content: {
+        "video/mp4": { schema: z.any().openapi({ type: "string", format: "binary" }) },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Stored. Set it as a post's video to use it",
+      content: {
+        "application/json": {
+          schema: z.object({
+            video: z.object({ key: z.string(), ...videoDetailsSchema.shape }),
+            url: z.string(),
+          }),
+        },
+      },
+    },
+    400: errorResponse("It isn't a usable video"),
     ...commonErrors,
   },
 });
@@ -613,7 +656,9 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
         tagsParticipant: data.tagsParticipant ?? false,
         baseViews: data.views ?? 0,
         body: data.body,
-        attachments: (data.pictures ?? []).map((key) => ({ type: "image" as const, key })),
+        attachments: data.video
+          ? [{ type: "video" as const, ...data.video }]
+          : (data.pictures ?? []).map((key) => ({ type: "image" as const, key })),
         offsetMs: data.timeMs,
         visibleAt: null,
         position: item.position,
@@ -787,7 +832,10 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
               repostOfId: data.repostOfId ?? null,
               quoteOfId: data.quoteOfId ?? null,
               authorName: author?.name ?? "",
-              imageUrl: data.pictures?.[0] ? mediaUrl(data.pictures[0], mediaPublicUrl) : null,
+              imageUrl: (() => {
+                const picture = data.video ? data.video.poster : data.pictures?.[0];
+                return picture ? mediaUrl(picture, mediaPublicUrl) : null;
+              })(),
             };
           }),
         comments: items
@@ -1191,6 +1239,28 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
       );
     }
     return c.json({ picture, url: mediaUrl(picture, mediaPublicUrl) }, 200);
+  });
+
+  app.openapi(videoUploadRoute, async (c) => {
+    const { draftId } = c.req.valid("param");
+    const editing = await forEditing(c, draftId);
+    if ("failure" in editing) {
+      const [body, status] = editing.failure;
+      return c.json(body, status);
+    }
+    const body = c.req.raw.body;
+    const length = Number(c.req.header("content-length"));
+    if (!body) {
+      return c.json({ error: "There's no video." }, 400);
+    }
+    const stored = await storeStudyVideo(storage, body, length);
+    if (!stored.ok) {
+      return c.json({ error: `That video can't be used. ${stored.reason}` }, 400);
+    }
+    return c.json(
+      { video: { key: stored.key, ...stored.info }, url: mediaUrl(stored.key, mediaPublicUrl) },
+      200,
+    );
   });
 
   const stripUndefined = (fields: z.infer<typeof fieldsSchema>) =>

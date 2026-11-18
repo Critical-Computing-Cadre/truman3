@@ -1,4 +1,4 @@
-import { featureOn, featuresFor } from "@truman3/core";
+import { featureOn, featuresFor, thumbnailKeyOf } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { and, count, eq, gt, inArray, lte } from "drizzle-orm";
 import { onParticipantAct } from "../director/director.ts";
@@ -656,10 +656,10 @@ export async function listNotifications(
       commentId: row.replyContentId ?? (target?.kind === "comment" ? target.id : null),
       targetIsTheirs,
       targetBody: withheld ? "" : (target?.body ?? ""),
-      targetImageUrl:
-        !withheld && target?.attachments[0]
-          ? mediaUrl(target.attachments[0].key, mediaPublicUrl)
-          : null,
+      targetImageUrl: (() => {
+        const picture = withheld ? undefined : thumbnailKeyOf(target?.attachments[0]);
+        return picture ? mediaUrl(picture, mediaPublicUrl) : null;
+      })(),
       replyBody: row.replyContentId ? (contentById.get(row.replyContentId)?.body ?? null) : null,
       reason: row.reason,
       ...((row.type === "uphold" || row.type === "restore") && row.targetContentId

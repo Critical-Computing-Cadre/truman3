@@ -1,4 +1,6 @@
+import type { Readable } from "node:stream";
 import {
+  CopyObjectCommand,
   CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
@@ -128,6 +130,74 @@ export function createStorage(config: StorageConfig) {
           ...(kmsKeyId
             ? { ServerSideEncryption: "aws:kms", SSEKMSKeyId: kmsKeyId, BucketKeyEnabled: true }
             : {}),
+        }),
+      );
+    },
+
+    /**
+     * Part of a file: `length` bytes from `offset`, fewer at its end, or none past it. For reading a
+     * video's description without fetching the video (ADR 94).
+     */
+    getRange: async (key: string, offset: number, length: number): Promise<Uint8Array> => {
+      if (length <= 0) {
+        return new Uint8Array();
+      }
+      try {
+        const object = await client.send(
+          new GetObjectCommand({
+            Bucket,
+            Key: key,
+            Range: `bytes=${offset}-${offset + length - 1}`,
+          }),
+        );
+        return object.Body ? await object.Body.transformToByteArray() : new Uint8Array();
+      } catch (error) {
+        // Asking past the end of a file isn't an error for a reader.
+        if ((error as { name?: string }).name === "InvalidRange") {
+          return new Uint8Array();
+        }
+        throw error;
+      }
+    },
+
+    /** A file's size in bytes, or null if there's no such file. */
+    size: async (key: string): Promise<number | null> => {
+      try {
+        const head = await client.send(new HeadObjectCommand({ Bucket, Key: key }));
+        return head.ContentLength ?? 0;
+      } catch (error) {
+        if ((error as { name?: string }).name === "NotFound") {
+          return null;
+        }
+        throw error;
+      }
+    },
+
+    /**
+     * Stores a stream of known length without holding it in memory, for files too big for `put`,
+     * such as videos.
+     */
+    putStream: async (key: string, body: Readable, length: number, contentType: string) => {
+      await client.send(
+        new PutObjectCommand({
+          Bucket,
+          Key: key,
+          Body: body,
+          ContentLength: length,
+          ContentType: contentType,
+        }),
+      );
+    },
+
+    /** Copies a file within storage, giving the copy its own content type. */
+    copy: async (from: string, to: string, contentType: string) => {
+      await client.send(
+        new CopyObjectCommand({
+          Bucket,
+          Key: to,
+          CopySource: `${Bucket}/${from}`,
+          ContentType: contentType,
+          MetadataDirective: "REPLACE",
         }),
       );
     },

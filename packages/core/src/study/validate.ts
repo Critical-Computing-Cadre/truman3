@@ -584,7 +584,19 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     if (post.repostOf && post.quoteOf) {
       error(`${label} can be a repost or a quote, not both.`, post.source);
     }
-    if (post.repostOf && (post.body || post.title || post.pictures.length > 0)) {
+    if (post.video && post.pictures.length > 0) {
+      error(`${label} has a video and pictures. A post can have one or the other.`, post.source);
+    }
+    if (post.poster && !post.video) {
+      warning(`${label} has a poster but no video, so the poster won't show.`, post.source);
+    }
+    if (post.video && !post.video.toLowerCase().endsWith(".mp4") && !/^https?:/.test(post.video)) {
+      error(
+        `${label}'s video "${post.video}" isn't an MP4. Videos have to be .mp4 files.`,
+        post.source,
+      );
+    }
+    if (post.repostOf && (post.body || post.title || post.pictures.length > 0 || post.video)) {
       warning(
         `${label} is a repost, so what it says itself won't show. Make it a quote instead.`,
         post.source,
@@ -606,13 +618,14 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     if (
       !post.body &&
       post.pictures.length === 0 &&
+      !post.video &&
       !post.title &&
       !post.link &&
       !post.poll &&
       !post.crosspostOf &&
       !post.repostOf
     ) {
-      error(`${label} has no text and no picture.`, post.source);
+      error(`${label} has no text, picture, or video.`, post.source);
     }
     if (post.pictures.length > MAX_ATTACHMENTS) {
       error(`${label} has more than ${MAX_ATTACHMENTS} pictures.`, post.source);

@@ -1,5 +1,6 @@
 import type { FeedPost } from "@truman3/core";
 import { useFeature } from "../platform.tsx";
+import { PostVideo } from "./video.tsx";
 
 /**
  * A post's photos. Without galleries, only the first shows, so the same post can run in both
@@ -7,6 +8,11 @@ import { useFeature } from "../platform.tsx";
  */
 export function PostPhotos({ post }: { post: FeedPost }) {
   const galleries = useFeature("galleries");
+  const [first] = post.attachments;
+  // A post's video is the only thing it has (ADR 94).
+  if (first?.type === "video") {
+    return <PostVideo video={first} />;
+  }
   const shown = galleries ? post.attachments : post.attachments.slice(0, 1);
 
   if (shown.length <= 1) {

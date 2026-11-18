@@ -1,4 +1,5 @@
 export {
+  describeVideos,
   type FreezeOptions,
   freezeStudy,
   type ImportResult,

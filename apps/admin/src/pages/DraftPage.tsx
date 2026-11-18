@@ -30,11 +30,58 @@ import {
   post,
   send,
   upload,
+  uploadWithProgress,
 } from "../api.ts";
 import { PostTimeline } from "../components/PostTimeline.tsx";
 import { SavedCheckbox } from "../components/SavedCheckbox.tsx";
 import { SheetUpload } from "../components/SheetUpload.tsx";
 import { TimelineControls, useTimeline } from "../components/TimelineControls.tsx";
+
+/**
+ * A frame from a video, to show before it plays, taken in the browser so the server never has to
+ * decode video. Null if this browser can't play the file.
+ */
+async function posterFrom(file: File): Promise<Blob | null> {
+  const url = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  video.src = url;
+  try {
+    return await new Promise<Blob | null>((resolve) => {
+      const give = (blob: Blob | null) => resolve(blob);
+      const timer = setTimeout(() => give(null), 15_000);
+      video.onerror = () => {
+        clearTimeout(timer);
+        give(null);
+      };
+      video.onloadedmetadata = () => {
+        // A moment in, since the very first frame is often black.
+        video.currentTime = Math.min(1, (video.duration || 0) / 4);
+      };
+      video.onseeked = () => {
+        clearTimeout(timer);
+        const width = Math.min(video.videoWidth, 1080);
+        const height = Math.round((video.videoHeight * width) / (video.videoWidth || 1));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        if (!context || !width || !height) {
+          give(null);
+          return;
+        }
+        context.drawImage(video, 0, 0, width, height);
+        canvas.toBlob(give, "image/jpeg", 0.85);
+      };
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+const isVideo = (file: File) => file.type === "video/mp4" || /\.mp4$/i.test(file.name);
 
 /** Marks an edit to a draft, so the page can tell when one is still on its way. */
 const draftEditKey = (draftId: string) => ["draft-edit", draftId];
@@ -116,6 +163,37 @@ export function useDraftEdits(draftId: string) {
       },
       onSettled: refresh,
     }),
+    /** Puts a video on a post in place of its photos, with a poster taken from the video. */
+    setVideo: useMutation({
+      mutationKey,
+      mutationFn: async ({
+        itemId,
+        file,
+        onProgress,
+      }: {
+        itemId: string;
+        file: File;
+        onProgress: (fraction: number) => void;
+      }) => {
+        const { video } = await uploadWithProgress<{ video: object }>(
+          `/admin/drafts/${draftId}/videos`,
+          file,
+          onProgress,
+        );
+        const frame = await posterFrom(file);
+        let poster: string | undefined;
+        if (frame) {
+          const form = new FormData();
+          form.append("image", frame, "poster.jpg");
+          poster = (await upload<{ picture: string }>(`/admin/drafts/${draftId}/images`, form))
+            .picture;
+        }
+        return send("PATCH", `${base}/${itemId}`, {
+          changes: { video: { ...video, ...(poster ? { poster } : {}) }, pictures: [] },
+        });
+      },
+      onSettled: refresh,
+    }),
     setImage: useMutation({
       mutationKey,
       /** Replaces the first photo, or with `add`, goes after the ones there already. */
@@ -137,7 +215,7 @@ export function useDraftEdits(draftId: string) {
           form,
         );
         const pictures = add ? [...current, picture] : [picture, ...current.slice(1)];
-        return send("PATCH", `${base}/${itemId}`, { changes: { pictures } });
+        return send("PATCH", `${base}/${itemId}`, { changes: { pictures, video: null } });
       },
       onSettled: refresh,
     }),
@@ -370,12 +448,15 @@ function ImageDrop({
   itemId,
   image,
   pictures,
+  hasVideo,
   several,
   edits,
 }: {
   itemId: string;
   image: React.ReactNode;
   pictures: string[];
+  /** Whether the post has a video, in place of photos (ADR 94). */
+  hasVideo: boolean;
   /** Whether this platform lets a post have several photos. */
   several: boolean;
   edits: DraftEdits;
@@ -385,11 +466,23 @@ function ImageDrop({
   const input = useRef<HTMLInputElement>(null);
   const adding = useRef(false);
 
+  const [progress, setProgress] = useState<number | null>(null);
   const addPhoto = (file: File | undefined, add = adding.current) => {
     if (!file) {
       return;
     }
     setProblem(null);
+    if (isVideo(file)) {
+      setProgress(0);
+      edits.setVideo.mutate(
+        { itemId, file, onProgress: setProgress },
+        {
+          onError: (error) => setProblem(error.message),
+          onSettled: () => setProgress(null),
+        },
+      );
+      return;
+    }
     edits.setImage.mutate(
       { itemId, file, current: pictures, add },
       { onError: (error) => setProblem(error.message) },
@@ -400,7 +493,10 @@ function ImageDrop({
     input.current?.click();
   };
 
-  const saving = edits.setImage.isPending && edits.setImage.variables?.itemId === itemId;
+  const saving =
+    (edits.setImage.isPending && edits.setImage.variables?.itemId === itemId) ||
+    (edits.setVideo.isPending && edits.setVideo.variables?.itemId === itemId);
+  const what = hasVideo ? "video" : "photo";
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: dropping is an extra; the buttons do the same
@@ -420,7 +516,18 @@ function ImageDrop({
     >
       {image ?? (
         <div className="m-3 mb-0 flex flex-col items-center gap-1 rounded border-2 border-dashed border-stone-300 p-5 text-sm text-stone-500">
-          <span>{saving ? "Adding the photo..." : "Drop a photo here"}</span>
+          <span>
+            {progress !== null
+              ? progress < 1
+                ? `Uploading the video... ${Math.round(progress * 100)}%`
+                : "Checking the video..."
+              : saving
+                ? "Adding the photo..."
+                : "Drop a photo or a video here"}
+          </span>
+          {progress !== null && (
+            <progress value={progress} max={1} aria-label="Video uploaded" className="w-40" />
+          )}
           <button type="button" onClick={() => choose(false)} className="underline">
             or choose one
           </button>
@@ -428,7 +535,7 @@ function ImageDrop({
       )}
       {image && (
         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100">
-          {several && pictures.length < MAX_ATTACHMENTS && (
+          {several && !hasVideo && pictures.length < MAX_ATTACHMENTS && (
             <button
               type="button"
               onClick={() => choose(true)}
@@ -442,24 +549,31 @@ function ImageDrop({
             onClick={() => choose(false)}
             className="rounded bg-white/90 px-2 py-1 text-xs shadow"
           >
-            {saving ? "Replacing..." : "Replace photo"}
+            {saving
+              ? progress !== null && progress < 1
+                ? `Uploading... ${Math.round(progress * 100)}%`
+                : "Replacing..."
+              : `Replace ${what}`}
           </button>
           <button
             type="button"
             onClick={() =>
-              edits.update.mutate({ itemId, changes: { pictures: pictures.slice(1) } })
+              edits.update.mutate({
+                itemId,
+                changes: hasVideo ? { video: null } : { pictures: pictures.slice(1) },
+              })
             }
             className="rounded bg-white/90 px-2 py-1 text-xs shadow"
           >
-            Remove photo
+            Remove {what}
           </button>
         </div>
       )}
       <input
         ref={input}
         type="file"
-        aria-label="Choose a photo"
-        accept="image/jpeg,image/png,image/gif,image/webp"
+        aria-label="Choose a photo or video"
+        accept="image/jpeg,image/png,image/gif,image/webp,video/mp4"
         className="sr-only"
         tabIndex={-1}
         onChange={(event) => {
@@ -1359,6 +1473,7 @@ function EditableFeed({
                         itemId={shown.id}
                         image={image}
                         pictures={items[shown.id]?.pictures ?? []}
+                        hasVideo={shown.attachments[0]?.type === "video"}
                         several={
                           info.conditions.find(({ key }) => key === condition)?.features
                             .galleries ?? false

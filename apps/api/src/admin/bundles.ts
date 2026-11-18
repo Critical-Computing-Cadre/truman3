@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { readVideoInfo, videoLimitProblem } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { bundleVersion, loadBundle, readBundle } from "@truman3/drafts";
 import type { Storage } from "@truman3/storage";
@@ -101,7 +102,24 @@ async function storePictures(
   const stored = new Set<string>();
   for (const key of keys) {
     const bytes = files.get(key);
-    if (!bytes || bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES) {
+    if (!bytes || bytes.length === 0) {
+      continue;
+    }
+    // A video has to be one every browser plays, within the limits, as when it's uploaded (ADR 94).
+    if (key.endsWith(".mp4")) {
+      const read = await readVideoInfo(
+        async (offset, length) => bytes.subarray(offset, offset + length),
+        bytes.length,
+      );
+      if (read.ok && !videoLimitProblem(read.info, bytes.length)) {
+        if (!(await storage.exists(key))) {
+          await storage.put(key, bytes, "video/mp4");
+        }
+        stored.add(key);
+      }
+      continue;
+    }
+    if (bytes.length > MAX_IMAGE_BYTES) {
       continue;
     }
     const type =

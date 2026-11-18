@@ -45,6 +45,40 @@ export async function upload<T>(path: string, form: FormData): Promise<T> {
   return parse<T>(await fetch(`/api${path}`, { method: "POST", body: form }));
 }
 
+/**
+ * Sends a file as the whole body, saying how far it's got as it goes. For videos, which are big
+ * enough that people want to see it moving (ADR 94).
+ */
+export function uploadWithProgress<T>(
+  path: string,
+  file: File,
+  onProgress: (fraction: number) => void,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", `/api${path}`);
+    request.setRequestHeader("content-type", file.type || "video/mp4");
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(event.loaded / event.total);
+      }
+    };
+    request.onload = () => {
+      let body: { error?: string } = {};
+      try {
+        body = JSON.parse(request.responseText);
+      } catch {}
+      if (request.status >= 200 && request.status < 300) {
+        resolve(body as T);
+      } else {
+        reject(new ApiError(request.status, body.error ?? "Something went wrong."));
+      }
+    };
+    request.onerror = () => reject(new ApiError(0, "The upload stopped. Check your connection."));
+    request.send(file);
+  });
+}
+
 /** Fetches a file, and saves it the way a link to it would. */
 export async function download(path: string, body: object): Promise<void> {
   const response = await fetch(`/api${path}`, {

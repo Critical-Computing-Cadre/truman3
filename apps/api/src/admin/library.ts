@@ -246,7 +246,10 @@ function aboutOf(bundle: Bundle): z.infer<typeof aboutSchema> {
   // Pictures from posts say more about a study than its cast's faces.
   const pictures = bundle.items
     .filter((item) => item.kind === "post")
-    .flatMap((item) => (item.data as { pictures?: string[] }).pictures ?? [])
+    .flatMap((item) => {
+      const data = item.data as { pictures?: string[]; video?: { poster?: string } };
+      return data.video ? (data.video.poster ? [data.video.poster] : []) : (data.pictures ?? []);
+    })
     .filter((key) => bundle.media.some((file) => file.key === key));
   return {
     kind: settings.platform?.template ?? "classic",

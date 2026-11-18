@@ -39,9 +39,20 @@ Details also holds whatever your site's features add to a post, such as a link, 
 
 Every change is listed under **Recent changes**, with who made it and an **Undo** button. You can work alongside a teammate, too. If one has the same draft open, you'll see **Also here** with their name, and their changes appear within a couple of seconds.
 
-## Pictures
+## Pictures and videos
 
-Drop a photo on a post where it says **Drop a photo here**, or press **or choose one**. **Replace photo** and **Remove photo** appear once there's one. On a site with several photos on a post, **Add another photo** adds more.
+Drop a photo on a post where it says **Drop a photo or a video here**, or press **or choose one**. **Replace photo** and **Remove photo** appear once there's one. On a site with several photos on a post, **Add another photo** adds more.
+
+A post can have a video in place of its photos. Drop an MP4 on it the same way. You'll see how much has uploaded, then Truman checks it. Truman takes a frame from it to show before it plays.
+
+A video has to be:
+
+- **An MP4, encoded as H.264.** That's what every browser can play. Phones often record in HEVC, so export it as H.264 first. Many apps call this "Most compatible".
+- **Up to 10 minutes long, and up to 200 MB.**
+
+If it isn't, Truman says what's wrong. Participants press play to start a video, and it stops when they scroll past it. Your data has how long each person watched each video, how far they got, and whether they turned the sound on. See `video.watched` in the codebook.
+
+Videos can't come in through a spreadsheet zip, since they're too big. Add the post there, then drop the video on it here.
 
 ## Timing
 

@@ -1,4 +1,5 @@
 import {
+  type Attachment,
   DEFAULT_TEMPLATE,
   hasErrors,
   type StudyIssue,
@@ -254,7 +255,7 @@ async function itemsOfVersion(
                     : {}),
                   ...(item.tagsParticipant ? { tagsParticipant: true } : {}),
                   ...(item.baseViews ? { views: item.baseViews } : {}),
-                  pictures: item.attachments.map(({ key }) => key),
+                  ...videoOrPictures(item.attachments),
                   ...(item.spaceId ? { spaceId: asId(item.spaceId) } : {}),
                 }
               : { ...shared, ...commentPlace(item) },
@@ -568,6 +569,18 @@ const CLOSED: EditProblem = {
 
 /** Only images uploaded through the app, so a post can't point at anything else. */
 export const STORED_IMAGE = /^media\/[0-9a-f]{64}\.(jpg|png|gif|webp)$/;
+/** Only videos uploaded through the app, which were checked as they were stored (ADR 94). */
+export const STORED_VIDEO = /^media\/[0-9a-f]{64}\.mp4$/;
+
+/** A saved post's files, as a draft holds them: its video, or its pictures. */
+function videoOrPictures(attachments: Attachment[]) {
+  const [first] = attachments;
+  if (first?.type === "video") {
+    const { type: _type, ...video } = first;
+    return { video };
+  }
+  return { pictures: attachments.map(({ key }) => key) };
+}
 
 const MAX_SPACE_KEY_LENGTH = 50;
 /** The same as a study file allows, since a draft becomes one. */
@@ -812,6 +825,16 @@ export async function createItem(
     ) {
       return { problem: "invalid" as const, message: "That picture isn't stored here." };
     }
+    const video = fields.video as { key?: unknown; poster?: unknown } | undefined;
+    if (
+      video &&
+      (typeof video.key !== "string" ||
+        !STORED_VIDEO.test(video.key) ||
+        (video.poster !== undefined &&
+          (typeof video.poster !== "string" || !STORED_IMAGE.test(video.poster))))
+    ) {
+      return { problem: "invalid" as const, message: "That video isn't stored here." };
+    }
 
     const id = crypto.randomUUID();
     const newItem = async () => {
@@ -926,6 +949,18 @@ export async function updateItem(
       );
       if (unknown) {
         return { problem: "invalid" as const, message: "That picture isn't stored here." };
+      }
+    }
+    if (changes.video && typeof changes.video === "object") {
+      const current = (item.data as { video?: { key: string; poster?: string } }).video;
+      const { key, poster } = changes.video as { key?: unknown; poster?: unknown };
+      const known = (value: unknown, pattern: RegExp, had: string | undefined) =>
+        typeof value === "string" && (pattern.test(value) || value === had);
+      if (
+        !known(key, STORED_VIDEO, current?.key) ||
+        (poster !== undefined && !known(poster, STORED_IMAGE, current?.poster))
+      ) {
+        return { problem: "invalid" as const, message: "That video isn't stored here." };
       }
     }
 

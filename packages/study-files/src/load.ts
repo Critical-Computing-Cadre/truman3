@@ -69,6 +69,8 @@ export const POSTS: CsvSpec = {
     "title",
     "body",
     "picture",
+    "video",
+    "poster",
     "space",
     "link",
     "pinned",
@@ -507,6 +509,8 @@ export function readStudyTables(
         .split("|")
         .map((name) => name.trim())
         .filter(Boolean),
+      ...optional("video", cells.video),
+      ...optional("poster", cells.poster),
       ...optional("space", cells.space),
       ...optional("link", cells.link),
       ...(pinnedOn.length > 0 ? { pinnedOn } : {}),
@@ -834,11 +838,16 @@ export function readStudyTables(
   }
 
   if (!settings.media.baseUrl) {
-    const checkMedia = (file: string, name: string | undefined, from?: CsvRowSource) => {
+    const checkMedia = (
+      file: string,
+      name: string | undefined,
+      from?: CsvRowSource,
+      kind: "image" | "video" = "image",
+    ) => {
       if (name && !source.has(path.join(file, name))) {
         issues.push({
           severity: "error",
-          message: `The image "${name}" isn't in ${file}.`,
+          message: `The ${kind} "${name}" isn't in ${file}.`,
           file: from?.file,
           row: from?.row,
         });
@@ -859,6 +868,8 @@ export function readStudyTables(
       for (const picture of post.pictures) {
         checkMedia(MEDIA_FOLDERS.posts, picture, post.source);
       }
+      checkMedia(MEDIA_FOLDERS.posts, post.video, post.source, "video");
+      checkMedia(MEDIA_FOLDERS.posts, post.poster, post.source);
     }
     for (const story of stories) {
       checkMedia(MEDIA_FOLDERS.posts, story.picture, story.source);
