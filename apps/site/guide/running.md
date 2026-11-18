@@ -41,7 +41,7 @@ Participants open the link in a browser, on a computer or a phone. There's also 
 
 ## Recruit on Prolific
 
-You can give the study link to any recruitment platform that can add an ID to it. For Prolific, Truman does most of the setup. Open **Monitor and download** for the study, then press **Recruit on Prolific**.
+You can give the study link to any recruitment platform that can add an ID to it. For Prolific, Truman does most of the setup. On the **Studies** page, press **Recruit on Prolific** beside the version's **Launch** button.
 
 1. **Connect your account.** Create a token in Prolific under Settings, then API tokens. Paste it under **Prolific API token** and press **Connect**. Each researcher connects their own. It's stored encrypted and can't be shown again.
 2. **Create the study on Prolific.** Fill in what participants see, the pay, and **Number of people**, then press **Create the draft on Prolific**. This makes an unpublished draft with the right link and completion codes. Nothing is spent.

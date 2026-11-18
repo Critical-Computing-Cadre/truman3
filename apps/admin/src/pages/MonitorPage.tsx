@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { shortTime } from "@truman3/ui";
 import { type FormEvent, useRef, useState } from "react";
 import { download, get, post } from "../api.ts";
@@ -466,11 +466,6 @@ export function MonitorPage() {
             Test participants aren't counted
           </p>
         </div>
-        {monitor.role !== "viewer" && (
-          <Link to="/studies/$studyId/prolific" params={{ studyId }} className="btn">
-            Recruit on Prolific
-          </Link>
-        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

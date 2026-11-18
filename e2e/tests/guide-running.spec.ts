@@ -70,8 +70,9 @@ test("the guide's page on running a study can be followed as written", async ({
   // Nothing has been flagged, so there's no card of photos to look at.
   await expect(page.getByText("Photos to look at")).toHaveCount(0);
 
-  // Recruit on Prolific: connecting an account is the first step.
-  await page.getByRole("link", { name: "Recruit on Prolific" }).click();
+  // Recruit on Prolific: beside the version's Launch or Stop button. Connecting an account is first.
+  await page.getByRole("link", { name: "Studies", exact: true }).click();
+  await study.getByRole("link", { name: "Recruit on Prolific" }).click();
   await expect(page.getByRole("heading", { name: "Recruit on Prolific" })).toBeVisible();
   await expect(page.getByLabel("Prolific API token")).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect" })).toBeVisible();
