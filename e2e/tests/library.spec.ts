@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { type Browser, expect, type Page, test } from "@playwright/test";
-import { ADMIN_PORT } from "../playwright.config.ts";
+import { ADMIN_PORT, APP_PORT } from "../playwright.config.ts";
 
 // The library (ADR 92): one lab publishes a study, whoever runs this Truman lists it, and another
 // lab copies it into theirs.
@@ -61,6 +61,8 @@ test("a lab publishes a study, it's listed, and another lab copies it", async ({
   await publishing.getByLabel("What others may do with it").selectOption("CC BY-NC 4.0");
   await expect(publishIt).toBeDisabled();
   await publishing.getByLabel(/I may share everything in this study/).check();
+  // And anyone may see it, once it's listed (ADR 93).
+  await publishing.getByLabel(/Let anyone see it and download it/).check();
   await publishIt.click();
   // This Truman is a hosted one, so it waits for whoever runs it.
   await expect(publishing.getByRole("heading", { name: "Sent to be listed" })).toBeVisible();
@@ -91,6 +93,15 @@ test("a lab publishes a study, it's listed, and another lab copies it", async ({
     operator.getByRole("listitem", { name: title }).getByText("Waiting to be listed"),
   ).toHaveCount(0);
 
+  // It's on the public list now, for anyone, without an account.
+  const publicList = async () =>
+    (
+      (await (
+        await author.request.get(`http://localhost:${APP_PORT}/api/admin/public/library`)
+      ).json()) as { studies: { title: string }[] }
+    ).studies.map((study) => study.title);
+  expect(await publicList()).toContain(title);
+
   // Now the other lab sees what it is, and copies it.
   await reader.reload();
   const listed = reader.getByRole("listitem", { name: title });
@@ -109,8 +120,15 @@ test("a lab publishes a study, it's listed, and another lab copies it", async ({
   await expect(reader.getByRole("button", { name: "Save as new version" })).toBeVisible();
   await expect(reader.getByText(`Written by the author ${stamp}`).first()).toBeVisible();
 
-  // The author can take theirs down, and it's gone for everyone.
+  // The author can make it for researchers here only again.
   await author.reload();
+  const mine = author.getByRole("listitem", { name: title });
+  await expect(mine.getByText("Public", { exact: true })).toBeVisible();
+  await mine.getByRole("button", { name: "Make it for researchers here only" }).click();
+  await expect(mine.getByText("Public", { exact: true })).toHaveCount(0);
+  expect(await publicList()).not.toContain(title);
+
+  // And take it down, and it's gone for everyone.
   await author
     .getByRole("listitem", { name: title })
     .getByRole("button", { name: "Take down" })

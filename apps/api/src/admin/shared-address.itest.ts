@@ -108,6 +108,9 @@ const OPEN_TO_ANYONE = new Set([
   "POST /admin/login",
   "POST /admin/logout",
   "GET /admin/hosting",
+  // What labs chose to make public, and nothing else (ADR 93).
+  "GET /admin/public/library",
+  "GET /admin/public/library/:id/bundle",
   "POST /admin/apply",
   // Emailed links: they answer the same whether or not there's an account, or need the link's token.
   "POST /admin/password-reset",

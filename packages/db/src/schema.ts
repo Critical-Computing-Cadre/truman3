@@ -1347,6 +1347,11 @@ export const libraryStudies = pgTable(
     about: jsonb().notNull(),
     /** waiting for an operator, listed, or removed. */
     status: text().notNull(),
+    /**
+     * Whether its lab lets anyone read it and download it, without an account, on a public page
+     * (ADR 93). Only once it's listed.
+     */
+    open: boolean().notNull().default(false),
     publishedBy: text("published_by").notNull(),
     publishedAt: time("published_at").notNull().defaultNow(),
     decidedBy: text("decided_by"),

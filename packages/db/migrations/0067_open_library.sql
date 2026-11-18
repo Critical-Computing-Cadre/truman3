@@ -1,0 +1,1 @@
+ALTER TABLE "library_studies" ADD COLUMN "open" boolean DEFAULT false NOT NULL;

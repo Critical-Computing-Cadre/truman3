@@ -133,6 +133,7 @@ On hosted Truman, and on any Truman with more than one lab, you can also put the
 2. Add **the paper it's from**, as a citation or a link, if there is one.
 3. Choose **what others may do with it**: CC BY 4.0, CC BY-NC 4.0, CC0 1.0, or "Ask the authors first".
 4. Tick that you may share everything in it, including its pictures.
+5. If you want, tick **Let anyone see it and download it**. Once it's listed, it also shows on the public [Library](/library) page, where anyone can read about it and download its bundle without an account. You can turn this on or off later, on the admin app's **Library** page.
 
 On hosted Truman, whoever runs it looks at each study before it's listed. Until then it shows in the **Library** as waiting, to your lab only.
 
