@@ -72,6 +72,7 @@ const studies = [
 /** Every page a reader can reach, in reading order, for the plain-text copies (see buildEnd). */
 const PAGES = [
   ...studies.flatMap(({ items }) => items),
+  { text: "Library", link: "/library" },
   { text: "For IRBs", link: "/irb" },
   ...guide.flatMap(({ items }) => items),
   ...developers.flatMap(({ items }) => items),
@@ -105,6 +106,7 @@ export default defineConfig({
     siteTitle: "truman",
     nav: [
       { text: "Studies", link: "/studies/", activeMatch: "^/studies/" },
+      { text: "Library", link: "/library" },
       { text: "Guide", link: "/guide/", activeMatch: "^/guide/" },
       { text: "Developers", link: "/developers/", activeMatch: "^/developers/" },
       { text: "For IRBs", link: "/irb" },

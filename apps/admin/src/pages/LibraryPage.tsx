@@ -22,6 +22,7 @@ interface LibraryStudy {
     pictures: string[];
   };
   mine: boolean;
+  open: boolean;
 }
 
 interface Library {
@@ -171,6 +172,11 @@ export function LibraryPage() {
       send("PUT", `/admin/library/${id}/status`, { status }),
     onSettled: () => client.invalidateQueries({ queryKey: ["library"] }),
   });
+  const opening = useMutation({
+    mutationFn: ({ id, open }: { id: string; open: boolean }) =>
+      send("PUT", `/admin/library/${id}/open`, { open }),
+    onSettled: () => client.invalidateQueries({ queryKey: ["library"] }),
+  });
   const bundle = useMutation({
     mutationFn: (id: string) => download(`/admin/library/${id}/bundle`, {}),
   });
@@ -196,9 +202,9 @@ export function LibraryPage() {
           Nothing has been published here yet.
         </div>
       )}
-      {(decide.error ?? bundle.error) && (
+      {(decide.error ?? opening.error ?? bundle.error) && (
         <p role="alert" className="text-sm text-rose-700">
-          {(decide.error ?? bundle.error)?.message}
+          {(decide.error ?? opening.error ?? bundle.error)?.message}
         </p>
       )}
       <ul className="space-y-4">
@@ -212,6 +218,7 @@ export function LibraryPage() {
                     <span className="badge badge-wait">Waiting to be listed</span>
                   )}
                   {study.mine && <span className="badge">From your lab</span>}
+                  {study.open && <span className="badge badge-new">Public</span>}
                 </div>
                 <p className="mt-0.5 text-sm text-stone-600">
                   {study.lab} · published {new Date(study.publishedAt).toLocaleDateString()}
@@ -237,6 +244,16 @@ export function LibraryPage() {
                     className="btn btn-go"
                   >
                     List it
+                  </button>
+                )}
+                {study.mine && (
+                  <button
+                    type="button"
+                    disabled={opening.isPending}
+                    onClick={() => opening.mutate({ id: study.id, open: !study.open })}
+                    className="btn"
+                  >
+                    {study.open ? "Make it for researchers here only" : "Make it public"}
                   </button>
                 )}
                 {(study.mine || decides) && (

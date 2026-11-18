@@ -30,6 +30,7 @@ Truman already had the start of a shared shelf: packs available to every team on
 
 ## Consequences
 
+- **A lab can make its study public too,** readable without an account (ADR 93).
 - **The library is per Truman.** A study published on hosted Truman isn't seen by someone running their own, except as a bundle file they're given.
 - **Publishing is a claim about rights that Truman can't check.** The tick box records that the lab said so. The operator's look before listing is the only other check.
 - **A lab's consent wording is visible to other labs,** inside the bundle. The publish window says so. It's still never loaded into a copy.

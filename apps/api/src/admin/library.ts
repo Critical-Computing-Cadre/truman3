@@ -61,6 +61,55 @@ const entrySchema = z.object({
   about: aboutSchema.extend({ pictures: z.array(z.string()) }),
   /** Whether it's from one of this researcher's labs, so they can take it down. */
   mine: z.boolean(),
+  /** Whether anyone can read it, without an account. */
+  open: z.boolean(),
+});
+
+/** What anyone can see of a study, without an account. Never who published it by name or email. */
+const openEntrySchema = entrySchema.omit({ status: true, mine: true, open: true });
+
+const openListRoute = createRoute({
+  method: "get",
+  path: "/admin/public/library",
+  summary: "Published studies whose labs let anyone read them. No sign-in needed",
+  responses: {
+    200: {
+      description: "Listed, open studies, newest first",
+      content: {
+        "application/json": { schema: z.object({ studies: z.array(openEntrySchema) }) },
+      },
+    },
+  },
+});
+
+const openBundleRoute = createRoute({
+  method: "get",
+  path: "/admin/public/library/{id}/bundle",
+  summary: "Download an open study's replication bundle. No sign-in needed",
+  request: { params: idParams },
+  responses: {
+    200: {
+      description: "The zip file, as published",
+      content: {
+        "application/zip": { schema: z.any().openapi({ type: "string", format: "binary" }) },
+      },
+    },
+    404: errorResponse("Not an open study"),
+  },
+});
+
+const openRoute = createRoute({
+  method: "put",
+  path: "/admin/library/{id}/open",
+  summary: "Let anyone read a published study without an account, or stop letting them",
+  request: {
+    params: idParams,
+    body: {
+      required: true,
+      content: { "application/json": { schema: z.strictObject({ open: z.boolean() }) } },
+    },
+  },
+  responses: { 200: ok, ...errors },
 });
 
 const listRoute = createRoute({
@@ -101,6 +150,8 @@ const publishRoute = createRoute({
             license: z.enum(LICENSES),
             /** They have to say they may share everything in it, pictures included. */
             mayShare: z.literal(true),
+            /** Whether anyone may read it and download it, without an account (ADR 93). */
+            open: z.boolean().default(false),
           }),
         },
       },
@@ -213,6 +264,7 @@ export function createLibraryRoutes({
   storage,
   hosted = false,
   mediaPublicUrl,
+  participantAppUrl,
   clock = realClock,
 }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
@@ -293,6 +345,7 @@ export function createLibraryRoutes({
               publishedAt: entry.publishedAt.toISOString(),
               about: { ...about, pictures: about.pictures.map((key) => `${base}/${key}`) },
               mine: standing.teams.has(entry.teamId),
+              open: entry.open,
             };
           }),
         // On your own server, whoever publishes decides. Nobody else is there to.
@@ -349,6 +402,7 @@ export function createLibraryRoutes({
         contentHash: made.bundle.contentHash,
         about: aboutOf(made.bundle),
         status,
+        open: input.open,
         publishedBy: researcher.email,
         ...(status === "listed" ? { decidedBy: researcher.email, decidedAt: clock() } : {}),
       })
@@ -435,6 +489,101 @@ export function createLibraryRoutes({
         "content-disposition": `attachment; filename="${name || "study"}-replication.zip"`,
       },
     }) as never;
+  });
+
+  const fileName = (title: string) =>
+    `${
+      title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "study"
+    }-replication.zip`;
+
+  /**
+   * Open to anyone (ADR 93). These two give out only what a lab chose to make public, and only
+   * once it's listed. Another site's page may read the list, so it says so. Nothing here knows or
+   * says who's asking.
+   */
+  app.openapi(openListRoute, async (c) => {
+    const rows = await db
+      .select({ entry: schema.libraryStudies, lab: schema.teams.name })
+      .from(schema.libraryStudies)
+      .innerJoin(schema.teams, eq(schema.teams.id, schema.libraryStudies.teamId))
+      .where(and(eq(schema.libraryStudies.status, "listed"), eq(schema.libraryStudies.open, true)))
+      .orderBy(desc(schema.libraryStudies.publishedAt));
+    // A page on another site needs whole addresses for the pictures, not ones relative to here.
+    const origin = participantAppUrl ?? new URL(c.req.url).origin;
+    const media = new URL(
+      mediaPublicUrl.endsWith("/") ? mediaPublicUrl : `${mediaPublicUrl}/`,
+      origin,
+    );
+    c.header("access-control-allow-origin", "*");
+    c.header("cache-control", "public, max-age=300");
+    return c.json(
+      {
+        studies: rows.map(({ entry, lab }) => {
+          const about = entry.about as z.infer<typeof aboutSchema>;
+          return {
+            id: entry.id,
+            title: entry.title,
+            summary: entry.summary,
+            paper: entry.paper,
+            license: entry.license,
+            lab,
+            publishedAt: entry.publishedAt.toISOString(),
+            about: { ...about, pictures: about.pictures.map((key) => new URL(key, media).href) },
+          };
+        }),
+      },
+      200,
+    );
+  });
+
+  app.openapi(openBundleRoute, async (c) => {
+    const [entry] = await db
+      .select()
+      .from(schema.libraryStudies)
+      .where(
+        and(
+          eq(schema.libraryStudies.id, c.req.valid("param").id),
+          eq(schema.libraryStudies.status, "listed"),
+          eq(schema.libraryStudies.open, true),
+        ),
+      );
+    // Sent as it's read from storage, so a large file is never held in memory for a stranger.
+    const stream = entry ? await storage.get(entry.bundleKey) : null;
+    if (!entry || !stream) {
+      return c.json(notAvailable, 404);
+    }
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        "content-type": "application/zip",
+        "content-disposition": `attachment; filename="${fileName(entry.title)}"`,
+      },
+    }) as never;
+  });
+
+  app.openapi(openRoute, async (c) => {
+    const researcher = await researcherFromRequest(c, db);
+    if (!researcher) {
+      return c.json(pleaseSignIn, 401);
+    }
+    const { id } = c.req.valid("param");
+    const [entry] = await db
+      .select()
+      .from(schema.libraryStudies)
+      .where(eq(schema.libraryStudies.id, id));
+    const standing = await standingOf(db, researcher.id);
+    // Only its own lab decides this. Whoever runs the place can take a study down, not open it.
+    if (!entry || !standing.teams.has(entry.teamId)) {
+      return c.json(notAvailable, 404);
+    }
+    await db
+      .update(schema.libraryStudies)
+      .set({ open: c.req.valid("json").open })
+      .where(eq(schema.libraryStudies.id, id));
+    return c.json({ ok: true as const }, 200);
   });
 
   app.openapi(decideRoute, async (c) => {

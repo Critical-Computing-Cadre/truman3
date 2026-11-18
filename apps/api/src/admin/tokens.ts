@@ -26,7 +26,7 @@ const FOR_PEOPLE_ONLY: { methods: string[]; path: RegExp }[] = [
   { methods: ["POST"], path: /^\/admin\/versions\/[^/]+\/launch$/ },
   // Publishing a study to other labs, and deciding what's listed (ADR 92).
   { methods: ["POST"], path: /^\/admin\/versions\/[^/]+\/publish$/ },
-  { methods: ["PUT"], path: /^\/admin\/library\/[^/]+\/status$/ },
+  { methods: ["PUT"], path: /^\/admin\/library\/[^/]+\/(status|open)$/ },
   { methods: ["POST"], path: /^\/admin\/studies\/[^/]+\/stop$/ },
   { methods: ["DELETE"], path: /^\/admin\/studies\/[^/]+$/ },
   { methods: ["POST", "GET"], path: /^\/admin\/studies\/[^/]+\/withdraw$/ },

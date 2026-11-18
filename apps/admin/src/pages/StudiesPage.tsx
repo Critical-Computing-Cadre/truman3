@@ -82,6 +82,7 @@ function PublishButton({ version }: { version: StudyVersion }) {
   const [paper, setPaper] = useState("");
   const [license, setLicense] = useState(LICENSES[0] as string);
   const [mayShare, setMayShare] = useState(false);
+  const [open, setOpen] = useState(false);
   const publish = useMutation({
     mutationFn: () =>
       post<{ status: "waiting" | "listed" }>(`/admin/versions/${version.id}/publish`, {
@@ -89,6 +90,7 @@ function PublishButton({ version }: { version: StudyVersion }) {
         paper,
         license,
         mayShare,
+        open,
       }),
   });
   return (
@@ -177,6 +179,20 @@ function PublishButton({ version }: { version: StudyVersion }) {
                 onChange={(event) => setMayShare(event.target.checked)}
               />
               <span>I may share everything in this study, including its pictures.</span>
+            </label>
+            <label className="flex items-baseline gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={open}
+                onChange={(event) => setOpen(event.target.checked)}
+              />
+              <span>
+                Let anyone see it and download it, without an account{" "}
+                <span className="text-stone-500">
+                  It's listed on truman-research.org/library once it's in the library. You can
+                  change this later.
+                </span>
+              </span>
             </label>
             {publish.error && (
               <p role="alert" className="text-sm text-rose-800">

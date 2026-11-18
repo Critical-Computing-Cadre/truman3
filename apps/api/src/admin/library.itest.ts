@@ -301,3 +301,78 @@ describe("the library, on a hosted Truman", () => {
     expect(((await published.json()) as { status: string }).status).toBe("listed");
   });
 });
+
+describe("the public library (ADR 93)", () => {
+  const openList = async (app: App) => {
+    const response = await app.request("/admin/public/library");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    return ((await response.json()) as { studies: { id: string; title: string; lab: string }[] })
+      .studies;
+  };
+  const openBundle = (app: App, id: string) => app.request(`/admin/public/library/${id}/bundle`);
+
+  it("shows only what a lab chose to make public, to anyone, without an account", async () => {
+    const author = await lab(own);
+    const shut = (await (await publish(author, await bystanderIn(author))).json()) as {
+      id: string;
+    };
+    const open = (await (
+      await publish(author, await bystanderIn(author), { ...details, open: true })
+    ).json()) as { id: string };
+
+    const listed = await openList(own);
+    expect(listed.map(({ id }) => id)).toContain(open.id);
+    expect(listed.map(({ id }) => id)).not.toContain(shut.id);
+    const entry = listed.find(({ id }) => id === open.id) as Record<string, unknown>;
+    // Nobody's email, and nothing about who's asking.
+    expect(JSON.stringify(entry)).not.toContain("@");
+    expect(entry).not.toHaveProperty("mine");
+    expect((entry.about as { pictures: string[] }).pictures[0]).toMatch(
+      /^http:\/\/[^/]+\/media\/[0-9a-f]{64}\.png$/,
+    );
+
+    const bundle = await openBundle(own, open.id);
+    expect(bundle.status).toBe(200);
+    expect(bundle.headers.get("content-type")).toBe("application/zip");
+    expect(Object.keys(unzipSync(new Uint8Array(await bundle.arrayBuffer())))).toContain(
+      "study.json",
+    );
+    expect((await openBundle(own, shut.id)).status).toBe(404);
+    expect((await openBundle(own, randomUUID())).status).toBe(404);
+  });
+
+  it("is the publishing lab's to open and close, and nobody else's", async () => {
+    const author = await lab(own);
+    const other = await lab(own);
+    const { id } = (await (await publish(author, await bystanderIn(author))).json()) as {
+      id: string;
+    };
+    const setOpen = (team: Lab, open: boolean) =>
+      team.call("PUT", `/admin/library/${id}/open`, { open });
+    expect((await setOpen(other, true)).status).toBe(404);
+    expect((await setOpen(author, true)).status).toBe(200);
+    expect((await openList(own)).map((study) => study.id)).toContain(id);
+    expect(await find(other, id)).toMatchObject({ open: true });
+    expect((await setOpen(author, false)).status).toBe(200);
+    expect((await openList(own)).map((study) => study.id)).not.toContain(id);
+    expect((await openBundle(own, id)).status).toBe(404);
+  });
+
+  it("on a hosted Truman, shows nothing until whoever runs it has listed it", async () => {
+    const author = await lab(hosted);
+    const operator = await lab(hosted);
+    await makeOperator(database.db, operator.email);
+    const { id } = (await (
+      await publish(author, await bystanderIn(author), { ...details, open: true })
+    ).json()) as { id: string };
+    expect((await openList(hosted)).map((study) => study.id)).not.toContain(id);
+    expect((await openBundle(hosted, id)).status).toBe(404);
+    // Whoever runs it can't make another lab's study public, only list it.
+    expect((await operator.call("PUT", `/admin/library/${id}/open`, { open: true })).status).toBe(
+      404,
+    );
+    await operator.call("PUT", `/admin/library/${id}/status`, { status: "listed" });
+    expect((await openList(hosted)).map((study) => study.id)).toContain(id);
+  });
+});
