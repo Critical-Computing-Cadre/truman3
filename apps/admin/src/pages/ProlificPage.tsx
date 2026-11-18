@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { get, send } from "../api.ts";
 import { RemindersCard } from "../components/RemindersCard.tsx";
@@ -764,10 +764,7 @@ export function ProlificPage() {
   return (
     <main className="page space-y-4">
       <div>
-        <Link to="/studies/$studyId/monitor" params={{ studyId }} className="text-sm underline">
-          Back to the monitor
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold">Recruit on Prolific</h1>
+        <h1 className="text-2xl font-semibold">Recruit on Prolific</h1>
         {state.data && <p className="text-sm text-stone-600">{state.data.title}</p>}
       </div>
       <Problem error={state.error} />

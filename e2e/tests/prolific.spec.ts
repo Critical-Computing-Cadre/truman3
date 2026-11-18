@@ -31,8 +31,8 @@ test("a researcher connects Prolific, creates a draft, and approves and pays peo
   await expect(page.getByRole("heading", { name: "Studies" })).toBeVisible();
 
   const card = page.locator("li, section, article").filter({ hasText: "Prolific study" }).last();
-  await card.getByRole("link", { name: "Monitor and download" }).click();
-  await page.getByRole("link", { name: "Recruit on Prolific" }).click();
+  // Beside Launch, on the version people get.
+  await card.getByRole("link", { name: "Recruit on Prolific" }).click();
 
   // Each person connects their own account. A bad token gets refused.
   await page.getByLabel("Prolific API token").fill("not-a-real-token");

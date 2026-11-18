@@ -810,8 +810,10 @@ export function StudiesPage() {
                 hidden={study.archived}
                 className="divide-y divide-stone-200 border-t border-stone-200"
               >
-                {study.versions.map((version) => {
+                {study.versions.map((version, index) => {
                   const isLive = version.id === study.liveVersionId;
+                  // Recruiting is for the version people get: the live one, or else the newest.
+                  const recruits = isLive || (!study.liveVersionId && index === 0);
                   return (
                     <li
                       key={version.id}
@@ -844,6 +846,15 @@ export function StudiesPage() {
                       <TryIt version={version} participantUrl={study.participantUrl} />
                       {canChange && !isLive && <LaunchButton study={study} version={version} />}
                       {canChange && isLive && <StopButton study={study} />}
+                      {canChange && recruits && (
+                        <Link
+                          to="/studies/$studyId/prolific"
+                          params={{ studyId: study.id }}
+                          className="btn"
+                        >
+                          Recruit on Prolific
+                        </Link>
+                      )}
                       <Tests version={version} canRun={canChange} />
                     </li>
                   );
