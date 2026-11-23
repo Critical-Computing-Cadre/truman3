@@ -491,12 +491,12 @@ describe("sample content for each kind of platform", () => {
     const withVideo = (await itemsOf(videos, "post")).filter(
       ({ data }) => (data as { video?: unknown }).video,
     );
-    expect(withVideo.length).toBe(8);
+    expect(withVideo.length).toBe(9);
     expect((withVideo[0]?.data as { video?: object } | undefined)?.video).toMatchObject({
       key: expect.stringMatching(/^media\/[0-9a-f]{64}\.mp4$/),
       poster: expect.stringMatching(/^media\/[0-9a-f]{64}\.jpg$/),
-      width: 720,
-      height: 1280,
+      width: 540,
+      height: 960,
       hasSound: true,
     });
   });

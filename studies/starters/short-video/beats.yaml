@@ -1,15 +1,15 @@
 # What a new account on a short-video app gets in its first minutes: a follow and a hello.
 # It's here so Messages and Notifications aren't empty in the sample.
 beats:
-  - id: mira-follows
-    note: Mira follows them as they arrive.
+  - id: sunwatcher-follows
+    note: The sun account follows them as they arrive.
     when: { time: "0:00" }
-    do: { action: follow, actor: mira.runs }
+    do: { action: follow, actor: sunwatcher }
 
-  - id: mira-says-hi
-    note: Mira says hello.
+  - id: sunwatcher-says-hi
+    note: And says hello.
     when: { time: "0:00" }
     do:
       action: message
-      actor: mira.runs
+      actor: sunwatcher
       text: "hey! welcome to Loop. swipe up for more"
