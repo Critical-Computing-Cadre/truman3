@@ -55,6 +55,18 @@ export function CreatePostBar({
       </button>
     );
   }
+  if (layout === "short-video") {
+    // Over the video, a short-video app has only a plus to start a post.
+    return (
+      <button
+        {...button}
+        aria-label={name}
+        className="flex h-9 w-12 items-center justify-center rounded-lg bg-[#fff] text-[#000] shadow"
+      >
+        <PlusIcon className="h-5 w-5" />
+      </button>
+    );
+  }
   if (layout === "short-posts") {
     return (
       <div className="flex items-center gap-3 border-b border-stone-200 bg-white p-3">

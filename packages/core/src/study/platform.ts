@@ -163,6 +163,7 @@ export function platformFor(settings: StudySettings, conditionKey: string) {
       add: (settings.platform.decor?.add ?? []).map(({ label }) => label),
     },
     sureButton: sureButtonFor(settings, conditionKey),
+    videoSound: settings.platform.videoSound ?? ("tap" as const),
     canJoinSpaces: canJoinSpacesFor(settings, conditionKey),
     canSort: canSortFor(settings, conditionKey),
     canSortComments: canSortCommentsFor(settings, conditionKey),

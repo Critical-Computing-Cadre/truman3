@@ -21,6 +21,8 @@ export interface PlatformChoices {
   accent?: string | null | undefined;
   /** What's only for show that the study left out, by key, and what it added, by label. */
   decor?: { hide: string[]; add: string[] } | undefined;
+  /** How videos that play by themselves get their sound (ADR 95). Without one, a tap. */
+  videoSound?: "tap" | "askFirst" | undefined;
 }
 
 /**

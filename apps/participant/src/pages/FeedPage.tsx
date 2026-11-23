@@ -16,7 +16,7 @@ import {
   type SpaceView,
   safeLink,
 } from "@truman3/core";
-import { CreatePostBar, FeedFrame, PhotoIcon, ProfileCard } from "@truman3/ui";
+import { CreatePostBar, FeedFrame, PhotoIcon, ProfileCard, usePlatform } from "@truman3/ui";
 import { type FormEvent, type RefObject, useEffect, useRef, useState } from "react";
 import { type FlowState, flowQuery, get, meQuery, post, postForm, type Written } from "../api.ts";
 import { AreYouSure } from "../components/AreYouSure.tsx";
@@ -512,46 +512,10 @@ export function FeedPage() {
     }
   }, [feed.dataUpdatedAt, caughtUp]);
 
-  return (
-    <FeedFrame
-      {...(flow.data?.features.stories
-        ? {
-            top: (
-              <StoriesRow
-                canPost={flow.data.features.posting}
-                {...(me.data ? { me: me.data } : {})}
-              />
-            ),
-          }
-        : {})}
-      renderProfile={(compact) =>
-        me.data && (
-          <ProfileCard
-            {...me.data}
-            compact={compact}
-            renderName={(className, name) => (
-              <Link to="/u/$username" params={{ username: me.data.username }} className={className}>
-                {name}
-              </Link>
-            )}
-            footer={
-              <Link
-                to="/account"
-                className="block border-t border-stone-200 py-2 text-center text-sm text-stone-700"
-              >
-                Edit profile
-              </Link>
-            }
-          />
-        )
-      }
-      side={
-        <>
-          {flow.data?.features.spaces && <CommunitiesCard />}
-          {(flow.data?.features.trending || flow.data?.features.whoToFollow) && <ExploreCards />}
-        </>
-      }
-    >
+  // A short-video site shows one post at a time, with these floating over it (ADR 95).
+  const oneAtATime = usePlatform().layout === "short-video";
+  const controls = (
+    <>
       {flow.data?.features.posting && me.data && (
         <>
           <CreatePostBar
@@ -600,12 +564,63 @@ export function FeedPage() {
           </button>
         </div>
       )}
+    </>
+  );
+  const posts = (
+    <>
       {feed.data?.posts.length === 0 && (
         <p className="p-6 text-center text-stone-500">No posts to show.</p>
       )}
       {feed.data?.posts.map((post) => (
         <PostCard key={post.repostedBy?.id ?? post.id} post={post} />
       ))}
+    </>
+  );
+
+  return (
+    <FeedFrame
+      {...(oneAtATime
+        ? { top: controls }
+        : flow.data?.features.stories
+          ? {
+              top: (
+                <StoriesRow
+                  canPost={flow.data.features.posting}
+                  {...(me.data ? { me: me.data } : {})}
+                />
+              ),
+            }
+          : {})}
+      renderProfile={(compact) =>
+        me.data && (
+          <ProfileCard
+            {...me.data}
+            compact={compact}
+            renderName={(className, name) => (
+              <Link to="/u/$username" params={{ username: me.data.username }} className={className}>
+                {name}
+              </Link>
+            )}
+            footer={
+              <Link
+                to="/account"
+                className="block border-t border-stone-200 py-2 text-center text-sm text-stone-700"
+              >
+                Edit profile
+              </Link>
+            }
+          />
+        )
+      }
+      side={
+        <>
+          {flow.data?.features.spaces && <CommunitiesCard />}
+          {(flow.data?.features.trending || flow.data?.features.whoToFollow) && <ExploreCards />}
+        </>
+      }
+    >
+      {!oneAtATime && controls}
+      {posts}
     </FeedFrame>
   );
 }

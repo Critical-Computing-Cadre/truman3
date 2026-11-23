@@ -6,7 +6,7 @@ description: Five finished studies that come with Truman, each built to answer o
 
 # Example studies
 
-Truman comes with five finished studies. Each one answers a question, and each uses a different part of the platform. Between them they cover all four kinds of site: EatSnap and Vaccine frames are Classic, Bystander is Photo, Who flagged this? is Short posts, and Town talk is a Forum. The quickest way to start your own is to read the one closest to what you want to run, then change it.
+Truman comes with five finished studies. Each one answers a question, and each uses a different part of the platform. Between them they cover the four kinds of site that came first: EatSnap and Vaccine frames are Classic, Bystander is Photo, Who flagged this? is Short posts, and Town talk is a Forum. The quickest way to start your own is to read the one closest to what you want to run, then change it.
 
 Four of them are running as demos. Each one's page has a **Try it** button that opens it the way a participant would see it.
 

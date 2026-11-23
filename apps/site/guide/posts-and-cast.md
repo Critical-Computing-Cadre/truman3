@@ -50,7 +50,7 @@ A video has to be:
 - **An MP4, encoded as H.264.** That's what every browser can play. Phones often record in HEVC, so export it as H.264 first. Many apps call this "Most compatible".
 - **Up to 10 minutes long, and up to 200 MB.**
 
-If it isn't, Truman says what's wrong. Participants press play to start a video, and it stops when they scroll past it. Your data has how long each person watched each video, how far they got, and whether they turned the sound on. See `video.watched` in the codebook.
+If it isn't, Truman says what's wrong. On most kinds of site, participants press play to start a video, and it stops when they scroll past it. On Short video, videos play by themselves, one at a time. See [Kinds of site](/guide/kinds-of-site#short-video). Your data has how long each person watched each video, how far they got, and whether they turned the sound on. See `video.watched` in the codebook.
 
 Videos can't come in through a spreadsheet zip, since they're too big. Add the post there, then drop the video on it here.
 

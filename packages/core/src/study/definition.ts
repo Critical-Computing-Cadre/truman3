@@ -137,6 +137,13 @@ export const decorSchema = z.strictObject({
 /** Which button an "are you sure?" box makes the dark one, the one it nudges people toward. */
 export const sureButtonSchema = z.enum(["goBack", "postAnyway"]);
 
+/**
+ * How videos that play by themselves get their sound (ADR 95). Browsers won't play sound until
+ * someone has tapped the page. `tap` starts muted, and one tap turns sound on for every video after.
+ * `askFirst` asks for a tap before the first video, so sound is on from the start.
+ */
+export const VIDEO_SOUNDS = ["tap", "askFirst"] as const;
+
 /** Features to turn on or off. Whatever's left out comes from the template. */
 const featureChangesSchema = z.partialRecord(z.enum(FEATURE_KEYS), z.boolean());
 
@@ -256,6 +263,8 @@ export const studySettingsSchema = z.strictObject({
       decor: decorSchema.optional(),
       /** Which button an "are you sure?" box makes dark. "Go back and edit" unless a study says. */
       sureButton: sureButtonSchema.optional(),
+      /** How videos that play by themselves get their sound. Leave out for one tap (`tap`). */
+      videoSound: z.enum(VIDEO_SOUNDS).optional(),
       /** The starting point for this platform. Leave out for Classic. */
       template: z.enum(TEMPLATE_KEYS).optional(),
       /** Set when a version freezes, so later changes to a template can't affect it. */

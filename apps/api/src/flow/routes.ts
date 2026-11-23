@@ -7,6 +7,7 @@ import {
   LAYOUT_KEYS,
   maxPostLengthFor,
   platformFor,
+  VIDEO_SOUNDS,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { feedSettingsFor } from "@truman3/feed";
@@ -55,6 +56,7 @@ const flowStateSchema = z.object({
   decor: z.object({ hide: z.array(z.string()), add: z.array(z.string()) }),
   /** Which button an "are you sure?" box makes dark. */
   sureButton: z.enum(["goBack", "postAnyway"]),
+  videoSound: z.enum(VIDEO_SOUNDS),
   /** Whether the comment box is always there, or appears on Reply. */
   commentBox: z.enum(["open", "onReply"]),
   /** How posts are arranged. */

@@ -443,7 +443,7 @@ describe("sample content for each kind of platform", () => {
       starters: { template: string; posts: number; imageUrls: string[] }[];
     };
     expect(starters.map(({ template }) => template).sort()).toEqual(
-      ["classic", "forum", "photo", "shortPosts"].sort(),
+      ["classic", "forum", "photo", "shortPosts", "shortVideo"].sort(),
     );
     for (const starter of starters) {
       expect(starter.posts).toBeGreaterThan(5);
@@ -453,7 +453,7 @@ describe("sample content for each kind of platform", () => {
     );
   });
 
-  it.each(["classic", "forum", "shortPosts", "photo"])(
+  it.each(["classic", "forum", "shortPosts", "photo", "shortVideo"])(
     "starts a %s study with nothing to fix, on that kind of platform",
     async (template) => {
       const team = await lab();
@@ -486,5 +486,18 @@ describe("sample content for each kind of platform", () => {
     expect((await itemsOf(photo, "story")).length).toBeGreaterThan(1);
     const short = await startedDraft(team, { starter: true, template: "shortPosts" });
     expect((await itemsOf(short, "label")).length).toBeGreaterThan(0);
+    // Short video's posts are videos, described as they were stored (ADR 95).
+    const videos = await startedDraft(team, { starter: true, template: "shortVideo" });
+    const withVideo = (await itemsOf(videos, "post")).filter(
+      ({ data }) => (data as { video?: unknown }).video,
+    );
+    expect(withVideo.length).toBe(8);
+    expect((withVideo[0]?.data as { video?: object } | undefined)?.video).toMatchObject({
+      key: expect.stringMatching(/^media\/[0-9a-f]{64}\.mp4$/),
+      poster: expect.stringMatching(/^media\/[0-9a-f]{64}\.jpg$/),
+      width: 720,
+      height: 1280,
+      hasSound: true,
+    });
   });
 });

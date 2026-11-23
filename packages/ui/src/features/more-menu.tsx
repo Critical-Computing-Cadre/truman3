@@ -22,7 +22,10 @@ export function useMoreMenu(
   const button = useRef<HTMLButtonElement>(null);
 
   // Three dots where the buttons beside it are icons, and the word where they're words.
-  const dots = platform.layout === "photo" || platform.layout === "short-posts";
+  const dots =
+    platform.layout === "photo" ||
+    platform.layout === "short-posts" ||
+    platform.layout === "short-video";
   const collapsed = phone && features.some((feature) => platform.features[feature]);
   return {
     /** Whether the buttons are behind "More", rather than in the row. */

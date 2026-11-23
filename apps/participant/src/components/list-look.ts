@@ -28,6 +28,11 @@ const LOOKS: Record<LayoutKey, { frame: string; heading: string; unread: string 
     heading: "border-b border-stone-200 p-4 text-xl font-extrabold",
     unread: "bg-accent-soft",
   },
+  "short-video": {
+    frame: "mx-auto max-w-[37.5rem] bg-white",
+    heading: "px-4 pt-5 pb-3 text-xl font-bold",
+    unread: "bg-accent-soft",
+  },
 };
 
 export function useListLook() {

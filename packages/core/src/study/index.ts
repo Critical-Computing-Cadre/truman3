@@ -57,6 +57,7 @@ export {
   studySettingsSchema,
   type TrendingItem,
   trendingItemSchema,
+  VIDEO_SOUNDS,
 } from "./definition.ts";
 export { fillLinkTemplate, LINK_PLACEHOLDERS } from "./links.ts";
 export {
