@@ -1,6 +1,6 @@
 # A starter: sample content for trying out the Short video kind of platform. The New Study page
-# offers it as "Start with sample content". Its people and posts are made up, and its videos were
-# drawn by Truman itself (ADR 95), so they show how the site works, not what real videos look like.
+# offers it as "Start with sample content". Its people and posts are made up. Its videos are cut
+# from NASA's public-domain footage, with their sound replaced. CREDITS.md says where each is from.
 schemaVersion: 1
 slug: short-video-starter
 title: Short video sample

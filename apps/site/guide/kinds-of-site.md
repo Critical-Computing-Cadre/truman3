@@ -64,7 +64,7 @@ Posts here should be videos. See [Pictures and videos](/guide/posts-and-cast#pic
 
 It starts with likes, comments, saving, sharing, following, the profile and Explore grids, hashtags, mentions, and messages off until you turn them on. Moderation is off too.
 
-The sample content is eight short clips Truman made itself, with shapes and captions and a little music. They show how the site works. A real study needs real videos.
+The sample content is nine short science clips cut from NASA's public-domain footage: a solar flare, Perseverance landing on Mars, the Artemis I launch, Earth from the space station, and more. Each post credits NASA. Their sound is replaced with soft music, so **Tap for sound** has something to play.
 
 Photo, Short posts, and Forum also start with the moderation features on: removing, warning, banning, answering flags and reports, and automatic rules. They do nothing until you write some moderation. See [Moderation](/guide/moderation).
 

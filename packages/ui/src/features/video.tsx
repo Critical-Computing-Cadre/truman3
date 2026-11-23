@@ -49,7 +49,7 @@ export function createWatchMeter(seconds: number, now: () => number = Date.now) 
     },
     /** A pause the viewer made. Reaching the end, or scrolling away, isn't one. */
     paused: (byViewer: boolean) => {
-      if (playingSince !== null && byViewer) {
+      if (byViewer) {
         counts.pauses += 1;
       }
       stopClock();
@@ -149,11 +149,15 @@ export function useVideoSound() {
  */
 export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
-  const report = useContext(VideoWatchingContext);
+  // Kept in a ref, so a new reporting function doesn't start the count again part way through.
+  const report = useRef(useContext(VideoWatchingContext));
+  report.current = useContext(VideoWatchingContext);
   const shared = useVideoSound();
   const onScreen = useRef(false);
   const [pausedByViewer, setPausedByViewer] = useState(false);
   const viewerPaused = useRef(false);
+  /** Set by a tap that pauses it, so that pause is counted as the viewer's, whatever else happens. */
+  const viewerPausing = useRef(false);
 
   useEffect(() => {
     const element = ref.current;
@@ -163,8 +167,8 @@ export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?
     const meter = createWatchMeter(video.seconds ?? 0);
     const send = () => {
       const taken = meter.take();
-      if (taken && report) {
-        report({ ...taken, seconds: element.duration || taken.seconds });
+      if (taken && report.current) {
+        report.current({ ...taken, seconds: element.duration || taken.seconds });
       }
     };
     // Pauses the browser makes itself, at the end or when it's scrolled away, aren't the viewer's.
@@ -174,8 +178,10 @@ export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?
       [
         "pause",
         () => {
-          meter.paused(!pausingOurselves && !element.ended);
+          // Where it plays by itself, only a tap pauses it. Elsewhere it's the browser's controls.
+          meter.paused(autoplay ? viewerPausing.current : !pausingOurselves && !element.ended);
           pausingOurselves = false;
+          viewerPausing.current = false;
         },
       ],
       ["ended", () => meter.ended()],
@@ -188,6 +194,10 @@ export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?
     meter.sound(!element.muted && element.volume > 0);
     for (const [name, listener] of listeners) {
       element.addEventListener(name, listener);
+    }
+    // Counting may start while it's already playing, with no "playing" event to come.
+    if (!element.paused) {
+      meter.playing();
     }
 
     const observer = new IntersectionObserver(
@@ -229,7 +239,7 @@ export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?
       }
       send();
     };
-  }, [report, video.seconds, autoplay]);
+  }, [video.seconds, autoplay]);
 
   // React doesn't keep `muted` in step with the element, so it's set here.
   useEffect(() => {
@@ -272,6 +282,7 @@ export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?
       element.play().catch(() => {});
     } else {
       viewerPaused.current = true;
+      viewerPausing.current = true;
       setPausedByViewer(true);
       element.pause();
     }
