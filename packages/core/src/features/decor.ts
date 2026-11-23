@@ -127,6 +127,13 @@ export const DECOR_ITEMS: Record<LayoutKey, readonly DecorItem[]> = {
       "Accessibility",
     ]),
   ],
+  "short-video": [
+    { key: "live", label: "LIVE", where: "Top bar" },
+    { key: "friends", label: "Friends", where: "Menu", opens: "explore" },
+    { key: "shop", label: "Shop", where: "Menu" },
+    { key: "more", label: "More", where: "Menu", opens: "account" },
+    ...print(["Company", "Programs", ["Terms", "terms"], ["Privacy", "privacy"], "Help", "Safety"]),
+  ],
 };
 
 /** The most a study can add of its own, which is what fits in a menu without crowding it. */

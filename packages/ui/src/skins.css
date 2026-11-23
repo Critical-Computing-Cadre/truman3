@@ -54,6 +54,14 @@
   --icon-stroke: 1.9;
 }
 
+/* A short-video site: violet, with the videos on black, whatever the theme. */
+[data-layout="short-video"] {
+  --accent-base: #6d28d9;
+  --color-page: var(--color-white);
+  --color-like: #fe2c55;
+  --icon-stroke: 2;
+}
+
 /* A discussion site: orange, on a gray page. */
 [data-layout="forum"] {
   --accent-base: #c9470a;
@@ -74,7 +82,9 @@
 :root[data-theme="dark"] [data-layout="photo"],
 :root[data-theme="dark"][data-layout="photo"],
 :root[data-theme="dark"] [data-layout="short-posts"],
-:root[data-theme="dark"][data-layout="short-posts"] {
+:root[data-theme="dark"][data-layout="short-posts"],
+:root[data-theme="dark"] [data-layout="short-video"],
+:root[data-theme="dark"][data-layout="short-video"] {
   --color-page: var(--color-white);
 }
 

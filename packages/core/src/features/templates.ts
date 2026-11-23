@@ -4,7 +4,7 @@ import { FEATURE_KEYS, type FeatureSet } from "./catalog.ts";
  * How posts and the page around them are arranged. A layout's look can't change once a study has
  * launched with it, so changing one means adding a new name, such as `classic-2` (ADR 18).
  */
-export const LAYOUT_KEYS = ["classic", "forum", "short-posts", "photo"] as const;
+export const LAYOUT_KEYS = ["classic", "forum", "short-posts", "photo", "short-video"] as const;
 
 export type LayoutKey = (typeof LAYOUT_KEYS)[number];
 
@@ -21,6 +21,8 @@ export const LAYOUT_THEMES: Record<LayoutKey, "light" | "dark"> = {
   photo: "dark",
   "short-posts": "dark",
   forum: "light",
+  // Videos are watched in the dark on the apps this looks like, with nothing around them.
+  "short-video": "dark",
 };
 
 export const LAYOUT_ACCENTS: Record<LayoutKey, string> = {
@@ -28,6 +30,7 @@ export const LAYOUT_ACCENTS: Record<LayoutKey, string> = {
   photo: "#d02a6a",
   "short-posts": "#0a7d85",
   forum: "#c9470a",
+  "short-video": "#6d28d9",
 };
 
 export interface TemplateDefinition {
@@ -212,6 +215,55 @@ export const TEMPLATES = {
       contextNotes: false,
       trending: false,
       viewCounts: false,
+    },
+    feed: { ranker: "new", commentOrder: "top" },
+  },
+  shortVideo: {
+    name: "Short video",
+    description:
+      "One short video at a time, filling the screen, with a swipe for the next. Comments open over the video.",
+    about:
+      "Looks like a short-video app, such as TikTok or Reels. One video fills the screen and plays by itself, and swiping up goes to the next. The author, like, comments, save, and share run down the right side, with what the post says along the bottom. Comments slide up over the video, which keeps playing. Sound starts off, and one tap turns it on. A profile is a grid of videos.",
+    layout: "short-video",
+    features: {
+      ...allFeatures,
+      // Off unless a study turns it on, so studies that launched before it look the same.
+      messages: false,
+      push: false,
+      votes: false,
+      titles: false,
+      karma: false,
+      spaces: false,
+      flair: false,
+      crossposting: false,
+      adultTags: false,
+      appeals: false,
+      modLog: false,
+      quotes: false,
+      reposts: false,
+      threadMuting: false,
+      labels: false,
+      galleries: false,
+      links: false,
+      polls: false,
+      contextNotes: false,
+      trending: false,
+      whoToFollow: false,
+      stories: false,
+      highlights: false,
+      closeFriends: false,
+      places: false,
+      photoTags: false,
+      postPages: false,
+      pinning: false,
+      locking: false,
+      spoilers: false,
+      flagAnswers: false,
+      reportAnswers: false,
+      warnings: false,
+      removal: false,
+      bans: false,
+      autoRules: false,
     },
     feed: { ranker: "new", commentOrder: "top" },
   },

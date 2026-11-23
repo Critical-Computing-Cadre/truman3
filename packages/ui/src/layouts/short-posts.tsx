@@ -40,7 +40,8 @@ import { shortTime } from "../time.ts";
 const ROW =
   "flex flex-wrap items-center gap-x-8 gap-y-1 pt-2 text-sm text-stone-500 [&_svg]:h-5 [&_svg]:w-5";
 
-function ShortComment({
+/** A reply, small and close to the next. The short-video layout uses it in its sheet of comments. */
+export function ShortComment({
   comment,
   actions,
   renderAuthor,

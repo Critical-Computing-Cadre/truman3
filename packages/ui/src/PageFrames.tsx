@@ -36,6 +36,12 @@ import {
   CoverProfileHeader,
   PhotoProfileHeader,
 } from "./layouts/profile-headers.tsx";
+import {
+  ShortVideoBody,
+  ShortVideoFeedFrame,
+  ShortVideoHeader,
+  ShortVideoPostFrame,
+} from "./layouts/short-video-page.tsx";
 import { useIsPhone, usePlatform } from "./platform.tsx";
 
 /** The page around posts belongs to a layout too, so these pick the one for this platform. */
@@ -83,6 +89,15 @@ const FRAMES: Record<
     Post: PhotoPostFrame,
     Profile: PhotoProfileHeader,
     Body: PhotoBody,
+  },
+  // One video at a time, filling a tall column, with a rail of sections down the left (ADR 95).
+  "short-video": {
+    Header: ShortVideoHeader,
+    Feed: ShortVideoFeedFrame,
+    Space: ForumSpaceFrame,
+    Post: ShortVideoPostFrame,
+    Profile: PhotoProfileHeader,
+    Body: ShortVideoBody,
   },
 };
 

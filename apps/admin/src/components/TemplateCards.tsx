@@ -108,6 +108,7 @@ function featureNames(template: TemplateKey) {
  */
 const QUESTIONS: { question: string; suggests: TemplateKey }[] = [
   { question: "Do people belong to communities, each with its own page?", suggests: "forum" },
+  { question: "Is every post a short video, watched one at a time?", suggests: "shortVideo" },
   { question: "Is every post a photo?", suggests: "photo" },
   { question: "Are posts short, and passed along with reposts?", suggests: "shortPosts" },
 ];

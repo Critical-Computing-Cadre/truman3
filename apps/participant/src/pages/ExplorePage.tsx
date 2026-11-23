@@ -55,6 +55,13 @@ const SIDE: Record<
     suggested: "People to follow",
     follow: "rounded-full border border-accent px-3 py-1 text-sm font-semibold text-accent",
   },
+  "short-video": {
+    card: "px-1",
+    heading: "mb-3 text-sm font-semibold text-stone-500",
+    trending: "Trending",
+    suggested: "Suggested accounts",
+    follow: "rounded-md bg-accent-fill px-4 py-1.5 text-sm font-semibold text-on-accent",
+  },
 };
 
 export const exploreQuery = {

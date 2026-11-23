@@ -374,6 +374,25 @@ function StudyForm({
           set({ ...value, platform: accent ? { ...platform, accent } : platform });
         }}
       />
+      {TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].layout === "short-video" && (
+        <Choice
+          legend="How do videos get their sound?"
+          value={value.platform.videoSound ?? "tap"}
+          onChange={(videoSound) => set({ ...value, platform: { ...value.platform, videoSound } })}
+          options={[
+            {
+              value: "tap",
+              label: "One tap turns it on",
+              hint: "Videos start without sound, with a button to turn it on for every video after. Default.",
+            },
+            {
+              value: "askFirst",
+              label: "Ask for a tap before the first video",
+              hint: "Nothing plays until they tap, and then sound is on from the start. Browsers don't allow sound before a tap.",
+            },
+          ]}
+        />
+      )}
       <Choice
         legend={'In an "are you sure?" box, which button is dark?'}
         value={value.platform.sureButton ?? "goBack"}

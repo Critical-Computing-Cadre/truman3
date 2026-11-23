@@ -29,6 +29,7 @@ const KINDS: Record<string, string> = {
   photo: "Photo",
   shortPosts: "Short posts",
   forum: "Forum",
+  shortVideo: "Short video",
 };
 const studies = ref<Study[] | null>(null);
 const failed = ref(false);

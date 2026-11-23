@@ -63,6 +63,8 @@ export interface FlowState {
   accent: string | null;
   decor: { hide: string[]; add: string[] };
   sureButton: "goBack" | "postAnyway";
+  /** How videos that play by themselves get their sound (ADR 95). */
+  videoSound: "tap" | "askFirst";
   layout: LayoutKey;
   features: FeatureSet;
   maxPostLength: number | null;

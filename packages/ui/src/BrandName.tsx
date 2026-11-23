@@ -54,6 +54,24 @@ export function BrandMark({
           <path d="M7 31V20h6v-8h7v6h5v-9h8v22z" fill="var(--color-on-accent)" />
         </svg>
       );
+    case "short-video":
+      // A play button, with a second one behind it: one video, then the next.
+      return (
+        <svg aria-hidden="true" viewBox="0 0 40 40" className={box}>
+          <rect width="40" height="40" rx="11" fill="#111" />
+          <path
+            d="M15 11l15 9-15 9z"
+            fill="var(--color-accent-fill)"
+            transform="translate(-2 -1.500)"
+          />
+          <path
+            d="M15 11l15 9-15 9z"
+            fill="#fff"
+            transform="translate(0.500 0.500)"
+            opacity="0.92"
+          />
+        </svg>
+      );
     default:
       // A speech bubble with a thread running through it.
       return (

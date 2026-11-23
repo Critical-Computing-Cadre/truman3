@@ -30,7 +30,7 @@ const POLL_EVERY_MS = 30_000;
 const ASK_EVERY_MS = 10_000;
 
 /** Layouts whose sections show an icon before each word. A forum draws its own (ForumHeader). */
-const ICON_LAYOUTS: string[] = ["photo", "short-posts", "classic"];
+const ICON_LAYOUTS: string[] = ["photo", "short-posts", "classic", "short-video"];
 
 /**
  * On a platform that shows icons for its sections, an icon goes before each link's word. The link

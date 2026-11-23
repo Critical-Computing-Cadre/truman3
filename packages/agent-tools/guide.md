@@ -12,7 +12,7 @@ A study is a **draft** while it's being written, and a **version** once it's sav
 
 - **Settings** (`study`, `conditions`, `feed`, and `flow` sections):
   - the site's name and look
-  - the platform template (`classic`, `forum`, `shortPosts`, `photo`) and which features are on in each condition
+  - the platform template (`classic`, `forum`, `shortPosts`, `photo`, `shortVideo`) and which features are on in each condition
   - how long it runs
   - the conditions and how people are assigned to them
   - the steps: consent, pages, the feed, and the exit

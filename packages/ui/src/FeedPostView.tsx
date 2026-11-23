@@ -4,6 +4,7 @@ import { ClassicPost } from "./layouts/classic.tsx";
 import { ForumPost } from "./layouts/forum.tsx";
 import { PhotoPost } from "./layouts/photo.tsx";
 import { ShortPost } from "./layouts/short-posts.tsx";
+import { ShortVideoPost } from "./layouts/short-video.tsx";
 import { usePlatform } from "./platform.tsx";
 import type { FeedPostViewProps } from "./post-props.ts";
 
@@ -12,6 +13,7 @@ const LAYOUTS: Record<LayoutKey, ComponentType<FeedPostViewProps>> = {
   forum: ForumPost,
   "short-posts": ShortPost,
   photo: PhotoPost,
+  "short-video": ShortVideoPost,
 };
 
 /**
