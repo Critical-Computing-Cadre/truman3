@@ -1022,6 +1022,36 @@ export const agentRuns = pgTable(
 );
 
 /**
+ * A community drafted by a model for a researcher to review, from the builder's Community page:
+ * what they asked for, how far it's got, and what it cost. What it wrote is ordinary draft posts and
+ * comments, each with this run's id in its provenance. See ADR 99.
+ */
+export const communityRuns = pgTable(
+  "community_runs",
+  {
+    id: id(),
+    draftId: uuid("draft_id")
+      .notNull()
+      .references(() => studyDrafts.id, { onDelete: "cascade" }),
+    /** What the researcher asked for: the brief, the cast, how busy, which days, and conditions. */
+    request: jsonb().notNull(),
+    status: text({ enum: ["running", "done", "error"] }).notNull(),
+    model: text().notNull(),
+    costUsd: numeric("cost_usd", { mode: "number" }).notNull().default(0),
+    /** Days written of how many, posts and replies added, and lines the check left out. */
+    progress: jsonb().notNull().default({}),
+    /** Why it stopped, if it didn't finish. */
+    error: text(),
+    startedBy: uuid("started_by")
+      .notNull()
+      .references(() => researchers.id),
+    startedAt: time("started_at").notNull().defaultNow(),
+    finishedAt: time("finished_at"),
+  },
+  (table) => [index("community_runs_draft").on(table.draftId)],
+);
+
+/**
  * Each time Christof, the director, considers a beat in a participant's world: what set it off,
  * when it's due, and then whether it happened and why not. It's the decision trace for beats, and
  * goes with the world on withdrawal. A beat waits as `pending` until it's due, and is decided then,

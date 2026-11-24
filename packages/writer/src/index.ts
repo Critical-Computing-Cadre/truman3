@@ -50,6 +50,53 @@ export interface Chosen {
   costUsd: number;
 }
 
+/**
+ * A day of a community, written ahead for a researcher to review (ADR 99). Each post is by someone
+ * in the cast, at a minute of the day, with replies from others.
+ */
+export interface CommunityRequest {
+  model: string;
+  /** The community, its people, and the limits, which are the same for every day. */
+  system: string;
+  /** This day, what's come before, and how much to write. */
+  prompt: string;
+  /** Who may post, by username. Anything by anyone else is left out. */
+  cast: string[];
+  maxLength: number;
+}
+
+export interface CommunityReply {
+  actor: string;
+  body: string;
+  /** Minutes after the post. */
+  minutesAfter: number;
+  /** The reply this answers, by its place in the post's replies from 0, or null for the post. */
+  replyTo: number | null;
+}
+
+export interface CommunityPost {
+  actor: string;
+  title: string;
+  body: string;
+  /** Minutes into the day, from 0 to 1439. */
+  minute: number;
+  likes: number;
+  replies: CommunityReply[];
+}
+
+export interface CommunityDay {
+  posts: CommunityPost[];
+  model: string;
+  costUsd: number;
+}
+
+/** Many lines checked in one call, each allowed or not, in the same order. */
+export interface CheckedAll {
+  results: { allowed: boolean; reason: string }[];
+  model: string;
+  costUsd: number;
+}
+
 export interface Rehearsed {
   lines: string[];
   model: string;
@@ -144,6 +191,10 @@ export interface Writer {
   choose(request: ChooseRequest): Promise<Chosen>;
   /** Several different lines for a beat, written ahead of time for a researcher to review. */
   rehearse(request: WriteRequest & { count: number }): Promise<Rehearsed>;
+  /** A day of posts and replies for a community, written ahead for review. See ADR 99. */
+  community(request: CommunityRequest): Promise<CommunityDay>;
+  /** Whether each of many lines can be posted, in one call. */
+  checkAll(texts: readonly string[], limits: readonly string[], model: string): Promise<CheckedAll>;
   /** A simulated participant's next move. See ADR 60. */
   act(request: ActRequest): Promise<Acted>;
   /** An agent working with tools, such as drafting a study from a brief. See ADR 65. */
@@ -195,6 +246,60 @@ const choiceSchema = z.object({
   newLine: z.string(),
 });
 const rehearsalSchema = z.object({ lines: z.array(z.string()) });
+const communitySchema = z.object({
+  posts: z.array(
+    z.object({
+      actor: z.string(),
+      title: z.string(),
+      body: z.string(),
+      minute: z.number().int(),
+      likes: z.number().int(),
+      replies: z.array(
+        z.object({
+          actor: z.string(),
+          body: z.string(),
+          minutesAfter: z.number().int(),
+          replyTo: z.number().int().nullable(),
+        }),
+      ),
+    }),
+  ),
+});
+const verdictsSchema = z.object({
+  verdicts: z.array(z.object({ line: z.number().int(), allowed: z.boolean(), reason: z.string() })),
+});
+
+const CHECK_ALL_SYSTEM = `You check lines written for characters in a social media research simulation, before a researcher reviews them. The study decides what happens, and some studies deliberately include rudeness or conflict, so don't block a line for being unkind or wrong. Block a line only if it crosses one of the limits you're given. Give a verdict for every line, by its number.`;
+
+/** Keeps what a model wrote for a community to the cast, and within the limits of a day. */
+export function cleanCommunity(
+  posts: z.infer<typeof communitySchema>["posts"],
+  cast: readonly string[],
+  maxLength: number,
+): CommunityPost[] {
+  const allowed = new Set(cast);
+  return posts
+    .filter((post) => allowed.has(post.actor) && post.body.trim())
+    .map((post) => ({
+      actor: post.actor,
+      title: cleanLine(post.title, 300),
+      body: cleanLine(post.body, maxLength),
+      minute: Math.min(1439, Math.max(0, post.minute)),
+      likes: Math.min(100_000, Math.max(0, post.likes)),
+      replies: post.replies
+        .filter((reply) => allowed.has(reply.actor) && reply.body.trim())
+        .map((reply, index) => ({
+          actor: reply.actor,
+          body: cleanLine(reply.body, maxLength),
+          minutesAfter: Math.min(24 * 60, Math.max(1, reply.minutesAfter)),
+          // Only to an earlier reply, so a thread can always be built in order.
+          replyTo:
+            reply.replyTo !== null && reply.replyTo >= 0 && reply.replyTo < index
+              ? reply.replyTo
+              : null,
+        })),
+    }));
+}
 const actSchema = z.object({
   why: z.string(),
   action: z.enum(ACTS),
@@ -315,6 +420,63 @@ export function anthropicWriter(apiKey: string): Writer {
         throw new NothingWritten("The model couldn't choose a line.");
       }
       return { ...picked, model: response.model, costUsd };
+    },
+    async community({ model, system, prompt, cast, maxLength }) {
+      const response = await client.beta.messages.parse({
+        model,
+        max_tokens: 32000,
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        output_config: { effort: "medium", format: betaZodOutputFormat(communitySchema) },
+        system,
+        messages: [{ role: "user", content: prompt }],
+      });
+      if (response.stop_reason === "refusal" || !response.parsed_output) {
+        throw new NothingWritten("The model declined to write this day.");
+      }
+      return {
+        posts: cleanCommunity(response.parsed_output.posts, cast, maxLength),
+        model: response.model,
+        costUsd: costOf(response.model, response.usage.input_tokens, response.usage.output_tokens),
+      };
+    },
+    async checkAll(texts, limits, model) {
+      if (texts.length === 0) {
+        return { results: [], model, costUsd: 0 };
+      }
+      const response = await client.beta.messages.parse({
+        model,
+        max_tokens: 16000,
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        output_config: { effort: "low", format: betaZodOutputFormat(verdictsSchema) },
+        system: CHECK_ALL_SYSTEM,
+        messages: [
+          {
+            role: "user",
+            content: `Limits:\n${limits.map((limit) => `- ${limit}`).join("\n")}\n\nLines:\n${texts.map((text, index) => `${index + 1}. ${text.replaceAll("\n", " ")}`).join("\n")}`,
+          },
+        ],
+      });
+      const costUsd = costOf(
+        response.model,
+        response.usage.input_tokens,
+        response.usage.output_tokens,
+      );
+      const verdicts =
+        response.stop_reason === "refusal" ? [] : (response.parsed_output?.verdicts ?? []);
+      const byLine = new Map(verdicts.map((verdict) => [verdict.line, verdict]));
+      // A line with no clear yes is a no, as with one line at a time.
+      return {
+        results: texts.map((_, index) => {
+          const verdict = byLine.get(index + 1);
+          return verdict
+            ? { allowed: verdict.allowed, reason: verdict.reason }
+            : { allowed: false, reason: "The check couldn't decide." };
+        }),
+        model: response.model,
+        costUsd,
+      };
     },
     async rehearse({ model, system, prompt, maxLength, count }) {
       const response = await client.beta.messages.parse({
@@ -478,6 +640,43 @@ export function standInWriter(
         request.maxLength,
       ) ?? { choice: 0, text: request.lines[0] as string };
       return { ...picked, model: "stand-in", costUsd: 0.01 };
+    },
+    // Two posts a day by the first two in the cast, each with a reply from the next.
+    async community(request) {
+      calls.push({ ...request, maxLength: request.maxLength });
+      const [first, second = first, third = first] = request.cast;
+      const day = (request.prompt.match(/Day (-?\d+)/) ?? [])[1] ?? "0";
+      return {
+        posts: [first, second].filter(Boolean).map((actor, index) => ({
+          actor: actor as string,
+          title: `Stand-in post ${index + 1} on day ${day}`,
+          body: `A stand-in post by ${actor}, on day ${day}.`,
+          minute: 60 + index * 300,
+          likes: 3 + index,
+          replies: [
+            {
+              actor: third as string,
+              body: `A stand-in reply to ${actor}.`,
+              minutesAfter: 10,
+              replyTo: null,
+            },
+          ],
+        })),
+        model: "stand-in",
+        costUsd: 0.05,
+      };
+    },
+    // Anything that says "unsafe" fails, so tests can see a line dropped.
+    async checkAll(texts) {
+      return {
+        results: texts.map((text) =>
+          text.includes("unsafe")
+            ? { allowed: false, reason: "It says unsafe." }
+            : { allowed: true, reason: "" },
+        ),
+        model: "stand-in",
+        costUsd: 0.01,
+      };
     },
     async rehearse(request) {
       calls.push(request);

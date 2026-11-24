@@ -14,6 +14,7 @@ import "./index.css";
 import { AgentPage } from "./pages/AgentPage.tsx";
 import { BeatsPage } from "./pages/BeatsPage.tsx";
 import { CastPage } from "./pages/CastPage.tsx";
+import { CommunityPage } from "./pages/CommunityPage.tsx";
 import { DraftPage } from "./pages/DraftPage.tsx";
 import { LabPage } from "./pages/LabPage.tsx";
 import { LibraryPage } from "./pages/LibraryPage.tsx";
@@ -179,6 +180,12 @@ const simulateRoute = createRoute({
   component: SimulatePage,
 });
 
+const communityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/drafts/$draftId/community",
+  component: CommunityPage,
+});
+
 const storiesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/drafts/$draftId/stories",
@@ -250,6 +257,7 @@ const router = createRouter({
     personasRoute,
     simulateRoute,
     storiesRoute,
+    communityRoute,
     monitorRoute,
     prolificRoute,
     recruitRoute,

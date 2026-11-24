@@ -26,6 +26,18 @@ A beat normally has fixed text. You can give the model more room one step at a t
 
 All four are covered in [A cast that writes for itself](/guide/live-writing). What to tell your ethics board about machine-written content is in [Ethics](/guide/ethics).
 
+## A whole community, drafted ahead
+
+The cast can talk among themselves, not only in the moments your beats set up. On the **Community** page in the builder, describe the community: what it is and what it's like, what people talk about, how many posts a day and how many replies, who in the cast takes part, and the days before participants arrive and while they're there. Add anything that must never be said.
+
+Press **Draft the community**, and the model writes it a day at a time, each day following from the ones before. Every line is checked against your limits and Truman's, and anything that fails is left out. It lands in your draft as ordinary posts and replies, marked as generated. Read them on the **Feed** page, and change or delete any of them, as with anything else. **Take out what this wrote** removes a whole draft if it isn't what you wanted.
+
+With more than one condition, choose **The same community in every condition**, or **A different community for each condition**, saying what's different in each, such as one friendly and one hostile.
+
+Nothing reaches a participant until you save a version, so a person has read every line, and everyone in a condition sees the same community. Each person's persona card, on the **Beats** page, shapes how they write. What it costs is shown, and counted against your lab's budget. In your data, each post and reply's provenance says it was generated.
+
+The moments that matter, and anything that reacts to the participant, are still beats.
+
 ## As participants
 
 Before you pay real people, you can have a model play a few. You describe each persona in a sentence or two on the **Personas** page, save a version, and run them from **Simulate** on the **Studies** page. Afterwards you read a transcript for each one: what they saw, what they did, and why, in their words.
