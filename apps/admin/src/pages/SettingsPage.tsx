@@ -21,6 +21,7 @@ import {
 import { type ReactNode, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { type DraftSections, type DraftSettings, get, send } from "../api.ts";
+import { PrerollAds } from "../components/PrerollAds.tsx";
 import { RecentChanges, useDraftPresence } from "./DraftPage.tsx";
 
 type Others = ReturnType<typeof useDraftPresence>;
@@ -309,9 +310,13 @@ function Section<K extends keyof DraftSections>({
 function StudyForm({
   value,
   set,
+  draftId,
+  conditions,
 }: {
   value: DraftSections["study"];
   set: (value: DraftSections["study"]) => void;
+  draftId: string;
+  conditions: string[];
 }) {
   return (
     <>
@@ -374,6 +379,17 @@ function StudyForm({
           set({ ...value, platform: accent ? { ...platform, accent } : platform });
         }}
       />
+      {TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].layout === "video" && (
+        <PrerollAds
+          draftId={draftId}
+          value={value.platform.prerolls}
+          conditions={conditions}
+          set={(prerolls) => {
+            const { prerolls: _, ...platform } = value.platform;
+            set({ ...value, platform: prerolls ? { ...platform, prerolls } : platform });
+          }}
+        />
+      )}
       {TEMPLATES[value.platform.template ?? DEFAULT_TEMPLATE].layout === "short-video" && (
         <Choice
           legend="How do videos get their sound?"
@@ -888,6 +904,36 @@ function ArmDifferences({ arm, set }: { arm: EditingArm; set: (arm: EditingArm) 
           value={platform.canJoinSpaces === undefined ? "" : String(platform.canJoinSpaces)}
           options={YES_NO}
           onChange={(value) => change("platform", "canJoinSpaces", yesNo(value))}
+        />
+        <SelectField
+          label="Pre-roll ads"
+          value={platform.prerollEvery === undefined ? "" : String(platform.prerollEvery)}
+          options={[
+            { value: "0", label: "None" },
+            { value: "1", label: "Before every video" },
+            { value: "2", label: "Every 2nd video" },
+            { value: "3", label: "Every 3rd video" },
+          ]}
+          onChange={(value) =>
+            change("platform", "prerollEvery", value === "" ? undefined : Number(value))
+          }
+        />
+        <SelectField
+          label="Pre-roll ads can be skipped"
+          value={platform.prerollSkipAfter === undefined ? "" : String(platform.prerollSkipAfter)}
+          options={[
+            { value: "0", label: "Straight away" },
+            { value: "5", label: "After 5 seconds" },
+            { value: "15", label: "After 15 seconds" },
+            { value: "never", label: "Never" },
+          ]}
+          onChange={(value) =>
+            change(
+              "platform",
+              "prerollSkipAfter",
+              value === "" ? undefined : value === "never" ? "never" : Number(value),
+            )
+          }
         />
         <OptionalNumber
           label="Feed reaches back (hours)"
@@ -2016,7 +2062,16 @@ export function SettingsPage() {
           title="Study and platform"
           intro="What this platform is like."
         >
-          {(value, set) => <StudyForm value={value} set={set} />}
+          {(value, set) => (
+            <StudyForm
+              value={value}
+              set={set}
+              draftId={draftId}
+              conditions={(
+                data.sections.conditions.value as { conditions: { arms: { key: string }[] } }
+              ).conditions.arms.map(({ key }) => key)}
+            />
+          )}
         </Section>
         <Section
           {...shared}

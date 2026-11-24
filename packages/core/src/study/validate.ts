@@ -1,4 +1,5 @@
 import { ruleTerms } from "../auto-rules.ts";
+import { DEFAULT_TEMPLATE, TEMPLATES } from "../features/templates.ts";
 import { MAX_ATTACHMENTS } from "../feed.ts";
 import { BEATS_FILE, type DecisionDefinition } from "./beats.ts";
 import { hasPlaceholderConsent } from "./consent.ts";
@@ -36,6 +37,47 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
 
   const { settings } = study;
   const armKeys = new Set(settings.conditions.arms.map((arm) => arm.key));
+
+  // Pre-roll ads (ADR 97).
+  const prerolls = settings.platform.prerolls;
+  if (prerolls) {
+    const seen = new Set<string>();
+    for (const ad of prerolls.ads) {
+      if (seen.has(ad.id)) {
+        error(`Two pre-roll ads are called "${ad.id}". Give each its own.`);
+      }
+      seen.add(ad.id);
+      if (!/^https?:/.test(ad.video) && !ad.video.toLowerCase().endsWith(".mp4")) {
+        error(
+          `Pre-roll ad "${ad.id}"'s video "${ad.video}" isn't an MP4. Videos have to be .mp4 files.`,
+        );
+      }
+      for (const key of ad.conditions) {
+        if (!armKeys.has(key)) {
+          error(
+            `Pre-roll ad "${ad.id}" is for a condition called "${key}", which this study doesn't have.`,
+          );
+        }
+      }
+    }
+    const everies = [
+      prerolls.every,
+      ...settings.conditions.arms.map((arm) => arm.platform?.prerollEvery ?? prerolls.every),
+    ];
+    if (everies.some((every) => every > 0)) {
+      if (prerolls.ads.length === 0) {
+        warning("Pre-roll ads are on, but there aren't any ads to play.");
+      }
+      const layout =
+        settings.platform.layout ??
+        TEMPLATES[settings.platform.template ?? DEFAULT_TEMPLATE].layout;
+      if (layout !== "video") {
+        warning(
+          "Pre-roll ads only play on the Video platform kind of site, so they won't show here.",
+        );
+      }
+    }
+  }
 
   // Shared worlds (ADR 67).
   if (settings.worlds?.waitMinutes === 0) {
@@ -586,6 +628,12 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
     }
     if (post.video && post.pictures.length > 0) {
       error(`${label} has a video and pictures. A post can have one or the other.`, post.source);
+    }
+    if (post.preroll && !post.video) {
+      warning(
+        `${label} says when it has a pre-roll ad, but it isn't a video, so it never will.`,
+        post.source,
+      );
     }
     if (post.poster && !post.video) {
       warning(`${label} has a poster but no video, so the poster won't show.`, post.source);

@@ -15,6 +15,7 @@ import {
   layoutFor,
   platformFor,
   platformStyleFor,
+  prerollsFor,
   sureButtonFor,
   themeFor,
 } from "./platform.ts";
@@ -311,5 +312,39 @@ describe("features", () => {
     expect(featuresFor(frozen, "a")).toEqual(
       featuresFor(settings({ features: { likes: false } }), "a"),
     );
+  });
+});
+
+describe("prerollsFor", () => {
+  const ad = (id: string, conditions: string[] = []) => ({
+    id,
+    video: `${id}.mp4`,
+    advertiser: "Someone",
+    label: "Ad",
+    conditions,
+  });
+  const study = (prerolls: object, arms: object[] = [{ key: "a" }, { key: "b" }]) =>
+    settings({
+      platform: { style: "mixed", template: "videoPlatform", prerolls },
+      conditions: { assignment: { method: "uniform" }, arms },
+    });
+
+  it("has none where there are no ads, or no ads are on", () => {
+    expect(prerollsFor(settings({ platform: { style: "mixed" } }), "a")).toBeNull();
+    expect(prerollsFor(study({ every: 0, ads: [ad("x")] }), "a")).toBeNull();
+    expect(prerollsFor(study({ every: 2, ads: [] }), "a")).toBeNull();
+  });
+
+  it("gives each condition its own ads, how often, and how soon they can skip", () => {
+    const both = study({ every: 2, skipAfter: 5, ads: [ad("all"), ad("only-b", ["b"])] }, [
+      { key: "a" },
+      { key: "b", platform: { prerollEvery: 1, prerollSkipAfter: "never" } },
+    ]);
+    expect(prerollsFor(both, "a")).toMatchObject({ every: 2, skipAfter: 5, ads: [{ id: "all" }] });
+    expect(prerollsFor(both, "b")).toMatchObject({
+      every: 1,
+      skipAfter: "never",
+      ads: [{ id: "all" }, { id: "only-b" }],
+    });
   });
 });

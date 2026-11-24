@@ -14,6 +14,19 @@ type ReportedEvent =
       payload: { dwellMs: number; surface: string };
     }
   | {
+      type: "preroll.watched";
+      targetContentId: string;
+      payload: {
+        ad: string;
+        playedMs: number;
+        seconds: number;
+        skippedAt: number | null;
+        completed: boolean;
+        visited: boolean;
+        soundOn: boolean;
+      };
+    }
+  | {
       type: "video.watched";
       targetContentId: string;
       payload: {

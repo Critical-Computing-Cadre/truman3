@@ -56,6 +56,7 @@ export type FeedContent = Pick<
   | "baseReposts"
   | "baseQuotes"
   | "adLabel"
+  | "preroll"
   | "likedByActorId"
   | "place"
   | "taggedActorIds"
@@ -1045,6 +1046,7 @@ export async function shapeFeedPosts({
     const passing = {
       ...repostedBy,
       ...(item.adLabel && features.ads ? { ad: item.adLabel } : {}),
+      ...(item.preroll ? { preroll: item.preroll } : {}),
       ...(item.likedByActorId && features.likes && authorById.has(item.likedByActorId)
         ? {
             likedBy:

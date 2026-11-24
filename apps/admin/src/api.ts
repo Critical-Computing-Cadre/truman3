@@ -498,6 +498,8 @@ export interface DraftItemDetails {
   reposts: number;
   quotes: number;
   ad: string | null;
+  hasVideo: boolean;
+  preroll: "always" | "never" | null;
   views: number;
   likedById: string | null;
   place: string | null;

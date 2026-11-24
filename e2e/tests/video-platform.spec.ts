@@ -107,6 +107,27 @@ test("a participant opens a video from the grid, subscribes, comments, and autop
   await expect(participant.getByRole("heading", { name: nextTitle })).toBeVisible({
     timeout: 10_000,
   });
+
+  // It's the second video they've opened, so an ad plays first (ADR 97): the sample has one before
+  // every second video, skippable after 5 seconds.
+  const ad = participant.getByRole("region", { name: "Ad from Hollowbean Coffee" });
+  await expect(ad).toBeVisible();
+  await expect(ad.getByRole("link", { name: "Visit site" })).toHaveAttribute(
+    "href",
+    "https://example.com/hollowbean",
+  );
+  await expect(ad.getByRole("button", { name: /Skip in/ })).toBeDisabled();
+  await participant.screenshot({ path: testInfo.outputPath("ad.png") });
+  await ad.getByRole("button", { name: "Skip ad ›" }).click({ timeout: 10_000 });
+  // Then the video itself.
+  await expect(ad).toHaveCount(0);
+  await expect
+    .poll(() =>
+      participant.locator("article video").evaluate((element: HTMLVideoElement) => !element.paused),
+    )
+    .toBe(true);
+  // Leaving sends what's waiting to be recorded.
+  await participant.goto(`http://localhost:${APP_PORT}/rules`);
   await context.close();
 
   // How each was opened is recorded: from the grid, then by autoplay.
@@ -130,6 +151,26 @@ test("a participant opens a video from the grid, subscribes, comments, and autop
       ).map(({ payload }) => (payload as { from: string }).from),
     )
     .toEqual(["feed", "autoplay"]);
+  const watchedAds = await database.db
+    .select({ payload: schema.events.payload })
+    .from(schema.events)
+    .where(
+      and(
+        eq(schema.events.participantId, row?.id as string),
+        eq(schema.events.type, "preroll.watched"),
+      ),
+    );
+  expect(watchedAds.map(({ payload }) => payload)).toEqual([
+    expect.objectContaining({
+      ad: "coffee",
+      completed: false,
+      visited: false,
+      skippedAt: expect.any(Number),
+    }),
+  ]);
+  expect(
+    (watchedAds[0]?.payload as { skippedAt: number } | undefined)?.skippedAt,
+  ).toBeGreaterThanOrEqual(5);
   const follows = await database.db
     .select({ type: schema.events.type })
     .from(schema.events)

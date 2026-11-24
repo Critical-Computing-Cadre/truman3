@@ -76,7 +76,23 @@ Video platform looks like a video site, such as YouTube. Home is a grid of thumb
 
 Posts here should be videos with titles. See [Pictures and videos](/guide/posts-and-cast#pictures-and-videos) for adding them.
 
-The sample content is seven NASA science videos with made-up channels, credited in each description. Their sound is replaced with soft music. Pre-roll ads are coming.
+The sample content is seven NASA science videos with made-up channels, credited in each description. Their sound is replaced with soft music.
+
+#### Pre-roll ads
+
+An ad can play before a video, in the player, as on video sites. It says **Ad** and who it's from, counts down how long is left, has **Visit site** if you give it a link, and shows **Skip in 5** until it can be skipped. When it ends or is skipped, the video starts.
+
+In **Settings**, under **Pre-roll ads**:
+
+- **How often**: no ads, before every video, or before every 2nd, 3rd, 4th, or 5th video someone opens in a visit.
+- **Skipping**: straight away, after a number of seconds, or never.
+- **The ads**: press **Add an ad (MP4)**, then give each one its advertiser, its label (such as "Ad" or "Sponsored"), and where **Visit site** goes. Each ad can play in all conditions or only some. A condition's ads take turns.
+
+A condition can have its own **Pre-roll ads** and **Pre-roll ads can be skipped**, under **Settings that differ in this condition**, so you can compare ads that can be skipped with ones that can't. Any video can also be set to always or never have one, in its **Details** in the builder.
+
+Your data has a `preroll.watched` event for each ad someone saw: how long it played, whether and when they skipped, whether they pressed Visit site, and whether the sound was on. The sample has an ad before every second video, for two made-up advertisers.
+
+Pre-roll ads are only for Video platform. On every other kind, an ad is a post with an **Ad label** in its details. Give it a video and it's a video ad in the feed, as on Facebook or Instagram.
 
 Photo, Short posts, and Forum also start with the moderation features on: removing, warning, banning, answering flags and reports, and automatic rules. They do nothing until you write some moderation. See [Moderation](/guide/moderation).
 

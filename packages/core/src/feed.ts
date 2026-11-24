@@ -277,6 +277,8 @@ export const feedPostSchema = z.object({
     .optional(),
   /** Marks this as an ad, with the label the study wrote. */
   ad: z.string().optional(),
+  /** Whether this video always or never has a pre-roll ad (ADR 97). */
+  preroll: z.enum(["always", "never"]).optional(),
   /** Someone in the cast who liked it, for "Liked by Ann and 41 others." */
   likedBy: z.string().optional(),
   /** Where it says it was, on a platform with places. */

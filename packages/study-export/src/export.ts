@@ -1481,6 +1481,8 @@ const EVENT_NOTES: Record<string, string> = {
     "They opened their conversation with target_actor. Messages from them before this count as read.",
   "content.reposted":
     "They passed a post along. It names the first post, even if they saw it through someone else's repost. content.unreposted is taking that back.",
+  "preroll.watched":
+    "A pre-roll ad before a video, on a video site, reported when it ended, was skipped, or the page closed. target_content is the video it came before. In the payload: `ad` is the ad's id in the study's settings, `playedMs` is time it played, `seconds` is its length, `skippedAt` is how many seconds in they pressed Skip (null if they didn't), `completed` is whether it played to the end, `visited` is whether they pressed Visit site, and `soundOn` is whether its sound was on.",
   "video.watched":
     "One spell of watching a post's video, reported when it left the screen or the page closed. In the payload: `playedMs` is time it was actually playing, `seconds` is the video's length, `furthestSeconds` is how far into it they got, `ended` is how many times it reached its end (it can loop), `plays`, `pauses`, and `seeks` count those, and `soundOn` says whether its sound was ever on. A post can have several of these. Add them up per person per post for total watching.",
   "story.viewed":

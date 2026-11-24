@@ -89,6 +89,20 @@ export const eventPayloadSchemas = {
    * `playedMs` is time it was actually playing. `furthestSeconds` is how far into it they got.
    * `ended` is how many times it reached its end. `soundOn` is whether its sound was ever on.
    */
+  /**
+   * A pre-roll ad before a video (ADR 97), reported when it ends, is skipped, or the page closes.
+   * The target is the video it came before. `skippedAt` is how many seconds in they skipped, or
+   * null. `visited` is whether they pressed Visit site.
+   */
+  "preroll.watched": z.strictObject({
+    ad: z.string(),
+    playedMs: z.number().nonnegative(),
+    seconds: z.number().nonnegative(),
+    skippedAt: z.number().nonnegative().nullable(),
+    completed: z.boolean(),
+    visited: z.boolean(),
+    soundOn: z.boolean(),
+  }),
   "video.watched": z.strictObject({
     playedMs: z.number().nonnegative(),
     seconds: z.number().nonnegative(),

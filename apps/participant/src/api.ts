@@ -52,6 +52,16 @@ export async function postForm<T>(
   return parse<T>(await fetch(`/api${path}`, { method: "POST", body: form }));
 }
 
+export interface PrerollAd {
+  id: string;
+  url: string;
+  posterUrl: string | null;
+  advertiser: string;
+  label: string;
+  link: string | null;
+  seconds: number | null;
+}
+
 export interface FlowState {
   step: "consent" | "account" | "page" | "feed" | "exit" | "done";
   position: number;
@@ -65,6 +75,12 @@ export interface FlowState {
   sureButton: "goBack" | "postAnyway";
   /** How videos that play by themselves get their sound (ADR 95). */
   videoSound: "tap" | "askFirst";
+  /** Ads before videos in their condition (ADR 97), or null where there are none. */
+  prerolls: {
+    every: number;
+    skipAfter: number | "never";
+    ads: PrerollAd[];
+  } | null;
   layout: LayoutKey;
   features: FeatureSet;
   maxPostLength: number | null;

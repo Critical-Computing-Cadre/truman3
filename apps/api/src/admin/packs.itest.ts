@@ -486,6 +486,26 @@ describe("sample content for each kind of platform", () => {
     expect((await itemsOf(photo, "story")).length).toBeGreaterThan(1);
     const short = await startedDraft(team, { starter: true, template: "shortPosts" });
     expect((await itemsOf(short, "label")).length).toBeGreaterThan(0);
+    // Video platform's sample has pre-roll ads, stored like its videos (ADR 97).
+    const watch = await startedDraft(team, { starter: true, template: "videoPlatform" });
+    const [setting] = await database.db
+      .select({ settings: schema.studyDrafts.settings })
+      .from(schema.studyDrafts)
+      .where(eq(schema.studyDrafts.id, watch));
+    const prerolls = (
+      setting?.settings as { platform: { prerolls?: { every: number; ads: object[] } } } | undefined
+    )?.platform.prerolls;
+    expect(prerolls?.every).toBe(2);
+    expect(prerolls?.ads).toEqual([
+      expect.objectContaining({
+        id: "coffee",
+        video: expect.stringMatching(/^media\/[0-9a-f]{64}\.mp4$/),
+        poster: expect.stringMatching(/^media\/[0-9a-f]{64}\.jpg$/),
+        videoDetails: expect.objectContaining({ width: 640, height: 360 }),
+      }),
+      expect.objectContaining({ id: "phone", label: "Sponsored" }),
+    ]);
+
     // Short video's posts are videos, described as they were stored (ADR 95).
     const videos = await startedDraft(team, { starter: true, template: "shortVideo" });
     const withVideo = (await itemsOf(videos, "post")).filter(

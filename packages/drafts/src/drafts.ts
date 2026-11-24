@@ -248,6 +248,7 @@ async function itemsOfVersion(
                   ...(item.baseReposts ? { reposts: item.baseReposts } : {}),
                   ...(item.baseQuotes ? { quotes: item.baseQuotes } : {}),
                   ...optional("ad", item.adLabel),
+                  ...optional("preroll", item.preroll),
                   ...(item.likedByActorId ? { likedById: asId(item.likedByActorId) } : {}),
                   ...optional("place", item.place),
                   ...(item.taggedActorIds.length > 0
@@ -1132,6 +1133,21 @@ export async function saveSection(
           problem: "invalid" as const,
           message: "A study keeps the template it started with.",
         };
+      }
+      // A pre-roll ad's video has to be one uploaded here, or one it already had (ADR 97).
+      const had = new Set(
+        (was.prerolls?.ads ?? []).flatMap(({ video, poster }) => [video, poster ?? ""]),
+      );
+      for (const ad of now.prerolls?.ads ?? []) {
+        if (
+          (!STORED_VIDEO.test(ad.video) && !had.has(ad.video)) ||
+          (ad.poster !== undefined && !STORED_IMAGE.test(ad.poster) && !had.has(ad.poster))
+        ) {
+          return {
+            problem: "invalid" as const,
+            message: `The ad "${ad.id}" has a video that isn't stored here.`,
+          };
+        }
       }
       // A save that leaves them out isn't asking to change them.
       if (was.template) {

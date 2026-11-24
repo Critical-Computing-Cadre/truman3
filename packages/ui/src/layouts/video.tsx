@@ -1,5 +1,5 @@
 import type { FeedPost } from "@truman3/core";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useContext, useState } from "react";
 import { Avatar } from "../Avatar.tsx";
 import { ReplyButton } from "../features/comments.tsx";
 import { FlaggedPostCover, PostFlagButton } from "../features/flagging.tsx";
@@ -7,6 +7,7 @@ import { PostLikeButton } from "../features/likes.tsx";
 import { useMoreMenu } from "../features/more-menu.tsx";
 import { HideButton, SaveButton, ShareButton } from "../features/post-extras.tsx";
 import { PostText } from "../features/post-text.tsx";
+import { PrerollContext, PrerollPlayer } from "../features/preroll.tsx";
 import { RemovedNote } from "../features/removal.tsx";
 import { PostTitle } from "../features/titles.tsx";
 import { PostVideo } from "../features/video.tsx";
@@ -148,6 +149,8 @@ function WatchPage({
 }: FeedPostViewProps) {
   const [first] = post.attachments;
   const [more, setMore] = useState(false);
+  // An ad first, where the participant app says this video gets one (ADR 97).
+  const preroll = useContext(PrerollContext);
   const comments = useFeature("comments");
   const menu = useMoreMenu(["flagging", "hiding", "saving"], "text-sm text-stone-700", true);
   const author = (className: string, children: ReactNode) =>
@@ -157,7 +160,9 @@ function WatchPage({
       <span className={className}>{children}</span>
     );
   const media =
-    first?.type === "video" ? (
+    first?.type === "video" && preroll ? (
+      <PrerollPlayer />
+    ) : first?.type === "video" ? (
       <PostVideo video={first} watch />
     ) : first ? (
       <img

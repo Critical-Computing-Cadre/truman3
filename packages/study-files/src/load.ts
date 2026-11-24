@@ -71,6 +71,7 @@ export const POSTS: CsvSpec = {
     "picture",
     "video",
     "poster",
+    "preroll",
     "space",
     "link",
     "pinned",
@@ -511,6 +512,7 @@ export function readStudyTables(
         .filter(Boolean),
       ...optional("video", cells.video),
       ...optional("poster", cells.poster),
+      ...optional("preroll", cells.preroll),
       ...optional("space", cells.space),
       ...optional("link", cells.link),
       ...(pinnedOn.length > 0 ? { pinnedOn } : {}),
@@ -870,6 +872,12 @@ export function readStudyTables(
       }
       checkMedia(MEDIA_FOLDERS.posts, post.video, post.source, "video");
       checkMedia(MEDIA_FOLDERS.posts, post.poster, post.source);
+    }
+    for (const ad of settings.platform.prerolls?.ads ?? []) {
+      if (!/^https?:/.test(ad.video)) {
+        checkMedia(MEDIA_FOLDERS.posts, ad.video, undefined, "video");
+      }
+      checkMedia(MEDIA_FOLDERS.posts, ad.poster);
     }
     for (const story of stories) {
       checkMedia(MEDIA_FOLDERS.posts, story.picture, story.source);

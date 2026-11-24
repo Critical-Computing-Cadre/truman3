@@ -144,6 +144,40 @@ export const sureButtonSchema = z.enum(["goBack", "postAnyway"]);
  */
 export const VIDEO_SOUNDS = ["tap", "askFirst"] as const;
 
+/** How long before an ad can be skipped, in seconds, or "never" for one that can't be (ADR 97). */
+const prerollSkipSchema = z.union([z.number().int().min(0).max(60), z.literal("never")]);
+
+/**
+ * An ad that plays before a video, on a video site (ADR 97). The research team writes it: a video,
+ * who it's from, what it's labeled, and where Visit site goes.
+ */
+export const prerollAdSchema = z.strictObject({
+  id: keySchema,
+  /** An MP4 in media/posts, or a stored key once it's in the builder. */
+  video: z.string().min(1),
+  /** The picture shown before it plays. */
+  poster: z.string().min(1).optional(),
+  /** Who it says it's from. */
+  advertiser: z.string().min(1).max(60),
+  /** What marks it as an ad. "Ad" unless a study says. */
+  label: z.string().min(1).max(30).default("Ad"),
+  /** Where Visit site goes. Without one, there's no button. */
+  link: z.url().optional(),
+  /** The conditions it plays in. Empty means all of them. */
+  conditions: z.array(z.string()).default([]),
+  /** What the video file says about itself. Filled in as it's stored, not written by hand. */
+  videoDetails: videoDetailsSchema.optional(),
+});
+
+/** Pre-roll ads on a video site: how often, how soon they can be skipped, and which (ADR 97). */
+export const prerollsSchema = z.strictObject({
+  /** An ad before every this many videos someone opens. 1 is every video. 0 is none. */
+  every: z.number().int().min(0).max(100).default(0),
+  /** Seconds before Skip appears, or "never". */
+  skipAfter: prerollSkipSchema.default(5),
+  ads: z.array(prerollAdSchema).default([]),
+});
+
 /** Features to turn on or off. Whatever's left out comes from the template. */
 const featureChangesSchema = z.partialRecord(z.enum(FEATURE_KEYS), z.boolean());
 
@@ -177,6 +211,10 @@ const armSchema = z.strictObject({
       trending: z.array(trendingItemSchema).optional(),
       /** Replaces the study's list for this condition. */
       karmaChanges: z.array(karmaChangeSchema).optional(),
+      /** How often pre-roll ads play in this condition, as the study's `every` (ADR 97). */
+      prerollEvery: z.number().int().min(0).max(100).optional(),
+      /** How soon they can be skipped in this condition, as the study's `skipAfter`. */
+      prerollSkipAfter: prerollSkipSchema.optional(),
     })
     .optional(),
 });
@@ -265,6 +303,8 @@ export const studySettingsSchema = z.strictObject({
       sureButton: sureButtonSchema.optional(),
       /** How videos that play by themselves get their sound. Leave out for one tap (`tap`). */
       videoSound: z.enum(VIDEO_SOUNDS).optional(),
+      /** Ads before videos, on a video site (ADR 97). */
+      prerolls: prerollsSchema.optional(),
       /** The starting point for this platform. Leave out for Classic. */
       template: z.enum(TEMPLATE_KEYS).optional(),
       /** Set when a version freezes, so later changes to a template can't affect it. */
@@ -394,6 +434,8 @@ export const postDefinitionSchema = z.object({
   poster: z.string().min(1).optional(),
   /** What the video file says about itself. Filled in as it's stored, not written by hand. */
   videoDetails: videoDetailsSchema.optional(),
+  /** Whether this video always or never has a pre-roll ad, whatever the study's `every` (ADR 97). */
+  preroll: z.enum(["always", "never"]).optional(),
   /** The key of the one space it belongs to, if any. */
   space: z.string().min(1).optional(),
   /** Where it links to, on a platform with link posts. */
