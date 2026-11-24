@@ -55,7 +55,16 @@ function refusing(why: string): Writer {
   const no = async (): Promise<never> => {
     throw new NothingWritten(why);
   };
-  return { write: no, check: no, choose: no, rehearse: no, act: no, runAgent: no };
+  return {
+    write: no,
+    check: no,
+    choose: no,
+    rehearse: no,
+    community: no,
+    checkAll: no,
+    act: no,
+    runAgent: no,
+  };
 }
 
 async function studyOf(db: Database, scope: AiScope): Promise<string | null> {
@@ -163,6 +172,14 @@ export function createAi({
       rehearse: async (request) => {
         await withinBudget();
         return record("rehearse", await inner.rehearse(request));
+      },
+      community: async (request) => {
+        await withinBudget();
+        return record("community", await inner.community(request));
+      },
+      checkAll: async (texts, limits, model) => {
+        await withinBudget();
+        return record("check", await inner.checkAll(texts, limits, model));
       },
       act: async (request) => {
         await withinBudget();

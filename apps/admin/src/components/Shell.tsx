@@ -12,6 +12,8 @@ import { Logo } from "./Logo.tsx";
  */
 
 const ICONS = {
+  community:
+    "M4 6.500h11a1.500 1.500 0 0 1 1.500 1.500v6a1.500 1.500 0 0 1-1.500 1.500H9l-3.500 3v-3H4A1.500 1.500 0 0 1 2.500 14V8A1.500 1.500 0 0 1 4 6.500zM19 9.500h1a1.500 1.500 0 0 1 1.500 1.500v6A1.500 1.500 0 0 1 20 18.500h-1v2.500l-3-2.500",
   studies: "M4 5h16v4H4zM4 11h16v4H4zM4 17h10v2H4z",
   lab: "M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.800 3h10.400a2 2 0 0 0 1.800-3l-5-9V3M7.500 15h9",
   agents:
@@ -97,6 +99,7 @@ function StudyMenu({ draftId, here }: { draftId: string; here: string }) {
     path:
       | ""
       | "/cast"
+      | "/community"
       | "/stories"
       | "/spaces"
       | "/moderation"
@@ -145,6 +148,7 @@ function StudyMenu({ draftId, here }: { draftId: string; here: string }) {
       <Group label="What's in it">
         {page("", "Feed", "feed")}
         {page("/cast", "Cast", "cast")}
+        {page("/community", "Community", "community")}
         {conditions.some(({ features }) => features.stories) &&
           page("/stories", "Stories", "stories")}
         {conditions.some(({ features }) => features.spaces) && page("/spaces", "Spaces", "spaces")}

@@ -18,6 +18,7 @@ export const GUIDE_PAGES: Record<string, { page: string; about: string }> = {
   "/drafts/$draftId": { page: "/guide/posts-and-cast", about: "Posts and the cast" },
   "/drafts/$draftId/cast": { page: "/guide/posts-and-cast", about: "Posts and the cast" },
   "/drafts/$draftId/stories": { page: "/guide/kinds-of-site", about: "Kinds of site" },
+  "/drafts/$draftId/community": { page: "/guide/ai", about: "AI in Truman" },
   "/drafts/$draftId/spaces": { page: "/guide/kinds-of-site", about: "Kinds of site" },
   "/drafts/$draftId/beats": { page: "/guide/beats", about: "Making things happen" },
   "/drafts/$draftId/moderation": { page: "/guide/moderation", about: "Moderation" },

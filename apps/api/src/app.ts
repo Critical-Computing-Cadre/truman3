@@ -10,6 +10,7 @@ import { createAgentRoutes } from "./admin/agent.ts";
 import { createArchiveRoutes } from "./admin/archive.ts";
 import { createBundleRoutes } from "./admin/bundles.ts";
 import { createChristofRoutes } from "./admin/christof.ts";
+import { createCommunityRoutes } from "./admin/community.ts";
 import { createDraftRoutes } from "./admin/drafts.ts";
 import { createHostingRoutes } from "./admin/hosting.ts";
 import { createLaunchRoutes } from "./admin/launch.ts";
@@ -149,6 +150,7 @@ export function createApp({
   app.route("/", createLaunchRoutes(participantDependencies));
   app.route("/", createProlificRoutes(participantDependencies));
   app.route("/", createRecruitingRoutes(participantDependencies));
+  app.route("/", createCommunityRoutes(participantDependencies));
   app.route("/", createReminderRoutes(participantDependencies));
   app.route("/", createBundleRoutes(participantDependencies));
   app.route("/", createLibraryRoutes(participantDependencies));
