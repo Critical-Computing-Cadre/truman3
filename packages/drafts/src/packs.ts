@@ -536,6 +536,7 @@ const STARTER_FOLDERS: Record<TemplateKey, string> = {
   shortPosts: "short-posts",
   photo: "photo",
   shortVideo: "short-video",
+  videoPlatform: "video-platform",
 };
 
 export interface Starter {

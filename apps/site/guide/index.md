@@ -18,7 +18,7 @@ Because you control everything on the site, you can change one thing between two
 
 A study is made of five parts. Each is covered in more depth later in this guide, so this is only the short version.
 
-**The site.** Its name, its look, and what people can do on it. You pick one of five kinds: a classic feed, a photo app, a short-posts app, a forum, or a short-video app. Then you turn features on or off, such as likes, votes, reposts, stories, or direct messages. See [Kinds of site](/guide/kinds-of-site).
+**The site.** Its name, its look, and what people can do on it. You pick one of six kinds: a classic feed, a photo app, a short-posts app, a forum, a short-video app, or a video site. Then you turn features on or off, such as likes, votes, reposts, stories, or direct messages. See [Kinds of site](/guide/kinds-of-site).
 
 **The cast.** These are the made-up people. Each has a name, a username, a picture, a bio, and the posts and comments you write for them. See [Posts and the cast](/guide/posts-and-cast).
 

@@ -113,6 +113,7 @@ describe("themeFor", () => {
     expect(themeFor(of("photo"), "a")).toBe("dark");
     expect(themeFor(of("shortPosts"), "a")).toBe("dark");
     expect(themeFor(of("shortVideo"), "a")).toBe("dark");
+    expect(themeFor(of("videoPlatform"), "a")).toBe("light");
     expect(
       themeFor(settings({ platform: { style: "mixed", template: "photo", theme: "light" } }), "a"),
     ).toBe("light");

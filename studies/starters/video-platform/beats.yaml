@@ -1,0 +1,7 @@
+# What a new account on a video site gets in its first minutes: a subscriber.
+# It's here so Notifications isn't empty in the sample.
+beats:
+  - id: dana-subscribes
+    note: Dana subscribes to them as they arrive.
+    when: { time: "0:00" }
+    do: { action: follow, actor: danawatches }

@@ -1,24 +1,24 @@
 ---
 
 title: Kinds of site
-description: The five kinds of site a Truman study can be, what each looks like, and the features you can turn on or off.
+description: The six kinds of site a Truman study can be, what each looks like, and the features you can turn on or off.
 ---
 
 # Kinds of site
 
-Every study is one of five kinds of site. The kind decides how the pages are laid out and which features start switched on. You choose it on the **New study** page, under **What kind of platform is it?**
+Every study is one of six kinds of site. The kind decides how the pages are laid out and which features start switched on. You choose it on the **New study** page, under **What kind of platform is it?**
 
 ::: warning The kind is permanent
 The kind can't change once the study starts. The features can, in **Settings**.
 :::
 
-| Classic                                               | Photo                                                                         | Short posts                                                                                          | Forum                                                                            | Short video                                                            |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| ![A classic feed on a phone](/shots/kind-classic.png) | ![A photo app on a phone, with stories across the top](/shots/kind-photo.png) | ![A short-posts app on a phone, with a labeled post and a context note](/shots/kind-short-posts.png) | ![A forum on a phone, with a community, flair, and karma](/shots/kind-forum.png) | ![A short video filling a phone's screen](/shots/kind-short-video.png) |
+| Classic                                               | Photo                                                                         | Short posts                                                                                          | Forum                                                                            | Short video                                                            | Video platform                                                           |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| ![A classic feed on a phone](/shots/kind-classic.png) | ![A photo app on a phone, with stories across the top](/shots/kind-photo.png) | ![A short-posts app on a phone, with a labeled post and a context note](/shots/kind-short-posts.png) | ![A forum on a phone, with a community, flair, and karma](/shots/kind-forum.png) | ![A short video filling a phone's screen](/shots/kind-short-video.png) | ![A video site on a phone, with a grid of videos](/shots/kind-video.png) |
 
 Each picture is the sample content for that kind, as a participant sees it on a phone. The kinds differ in more than layout: each has its own main color, its own icons, and its own way of starting a post, so two studies don't look like one site with the name changed.
 
-## The five kinds
+## The six kinds
 
 ### Classic
 
@@ -66,18 +66,31 @@ It starts with likes, comments, saving, sharing, following, the profile and Expl
 
 The sample content is nine short science clips cut from NASA's public-domain footage: a solar flare, Perseverance landing on Mars, the Artemis I launch, Earth from the space station, and more. Each post credits NASA. Their sound is replaced with soft music, so **Tap for sound** has something to play.
 
+### Video platform
+
+![A video site on a wide screen, with a grid of thumbnails and a menu down the left](/shots/kind-video-wide.png)
+
+Video platform looks like a video site, such as YouTube. Home is a grid of thumbnails, each with the video's length, its title, the channel, and its views. Pressing one opens its page: the video starts, with the title, the channel with a **Subscribe** button, likes, the description, and comments under it.
+
+**Up next** runs down the side. It's the rest of the feed, in the order you set for the feed, so what a participant is "recommended" is in your hands, and can differ by condition. When a video ends, the next one starts after a five-second countdown, which they can cancel, or they can turn **Autoplay** off. Your data records how each video was opened: from the grid (`feed`), from Up next (`upNext`), or by itself (`autoplay`), in `content.opened`. Subscribing is following, so it's `actor.followed`.
+
+Posts here should be videos with titles. See [Pictures and videos](/guide/posts-and-cast#pictures-and-videos) for adding them.
+
+The sample content is seven NASA science videos with made-up channels, credited in each description. Their sound is replaced with soft music. Pre-roll ads are coming.
+
 Photo, Short posts, and Forum also start with the moderation features on: removing, warning, banning, answering flags and reports, and automatic rules. They do nothing until you write some moderation. See [Moderation](/guide/moderation).
 
 ## Choosing
 
-On the **New study** page, each card shows the same sample post drawn the way that kind draws it, which makes the five easy to compare. Press **Read more** on a card for a description and the full list of **What people can do**. If you still can't decide, **Help me decide** asks four questions about how the platform works and suggests a card:
+On the **New study** page, each card shows the same sample post drawn the way that kind draws it, which makes the six easy to compare. Press **Read more** on a card for a description and the full list of **What people can do**. If you still can't decide, **Help me decide** asks five questions about how the platform works and suggests a card:
 
 - Do people belong to communities, each with its own page?
 - Is every post a short video, watched one at a time?
+- Are posts videos, each opened on its own page with more to watch beside it?
 - Is every post a photo?
 - Are posts short, and passed along with reposts?
 
-Answer no to all four and it suggests Classic.
+Answer no to all five and it suggests Classic.
 
 Choosing **Sample content** on the same page copies in made-up people and posts that use what that kind has, so you can see it working before you write anything. Each sample also has a few [beats](/guide/beats): someone sends a hello as you arrive and a couple of people follow you, so Messages and Notifications have something in them. They're on the Beats page, to change or delete like the rest.
 
@@ -89,8 +102,8 @@ The same card has:
 
 - **Name of the site**, which is what participants see as the name of the platform
 - **What kind of platform is this?** with **Mixed** (posts can have text, a photo, or both), **Photo** (every post needs a photo), or **Text** (posts can't have photos)
-- **Light or dark?** Classic and Forum start light, and Photo, Short posts, and Short video start dark. Either way it's the same for every participant, unless you choose **Whatever their device uses**.
-- **Main color**, for the site's name, links, and buttons. Each kind comes with its own: blue for Classic, pink for Photo, teal for Short posts, orange for Forum, and violet for Short video. Pick another to match your logo, or to make two of your studies look like different sites.
+- **Light or dark?** Classic, Forum, and Video platform start light, and Photo, Short posts, and Short video start dark. Either way it's the same for every participant, unless you choose **Whatever their device uses**.
+- **Main color**, for the site's name, links, and buttons. Each kind comes with its own: blue for Classic, pink for Photo, teal for Short posts, orange for Forum, violet for Short video, and green for Video platform. Pick another to match your logo, or to make two of your studies look like different sites.
 - **How do comment boxes appear?** with **Always open** or **After pressing Reply**
 - **The most a participant can write in a post or comment**. A short posts site might use 280.
 

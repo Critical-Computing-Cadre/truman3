@@ -25,7 +25,8 @@ export function useMoreMenu(
   const dots =
     platform.layout === "photo" ||
     platform.layout === "short-posts" ||
-    platform.layout === "short-video";
+    platform.layout === "short-video" ||
+    platform.layout === "video";
   const collapsed = phone && features.some((feature) => platform.features[feature]);
   return {
     /** Whether the buttons are behind "More", rather than in the row. */

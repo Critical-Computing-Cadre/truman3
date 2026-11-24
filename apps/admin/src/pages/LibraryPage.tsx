@@ -37,6 +37,7 @@ const KINDS: Record<string, string> = {
   shortPosts: "Short posts",
   forum: "Forum",
   shortVideo: "Short video",
+  videoPlatform: "Video platform",
 };
 const toLinkName = (title: string) =>
   title

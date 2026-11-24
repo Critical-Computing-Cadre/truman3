@@ -106,6 +106,9 @@ test("a participant watches short videos, turns the sound on, swipes, and commen
   await third.getByRole("button", { name: "Pause" }).click();
   await expect.poll(() => state(third.locator("video"))).toMatchObject({ playing: false });
   await expect(third.getByRole("button", { name: "Play" })).toBeVisible();
+  // Swiping on ends that spell of watching, which sends it.
+  await participant.getByLabel("Videos").press("ArrowDown");
+  await expect.poll(() => state(posts.nth(3).locator("video"))).toMatchObject({ playing: true });
 
   // Leaving sends what was watched.
   await participant.goto(`http://localhost:${APP_PORT}/rules`);

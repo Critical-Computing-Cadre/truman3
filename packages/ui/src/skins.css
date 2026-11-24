@@ -54,6 +54,14 @@
   --icon-stroke: 1.9;
 }
 
+/* A video site: white, with green for the name and what's chosen. */
+[data-layout="video"] {
+  --accent-base: #047857;
+  --color-page: var(--color-white);
+  --color-like: var(--color-stone-900);
+  --icon-stroke: 1.8;
+}
+
 /* A short-video site: violet, with the videos on black, whatever the theme. */
 [data-layout="short-video"] {
   --accent-base: #6d28d9;

@@ -130,7 +130,7 @@ study folder ─────────────import───▶ frozen ve
 
 ### Starting a study
 
-- **Templates.** A new study chooses a template on the New Study page: Classic, Forum, Short posts, Photo, or Short video ([ADR 44](adr/0044-choosing-a-template-on-one-page.md), [ADR 95](adr/0095-a-short-video-kind-of-site.md)). It keeps that template. Features can still change in Settings.
+- **Templates.** A new study chooses a template on the New Study page: Classic, Forum, Short posts, Photo, Short video, or Video platform ([ADR 44](adr/0044-choosing-a-template-on-one-page.md), [ADR 95](adr/0095-a-short-video-kind-of-site.md), [ADR 96](adr/0096-a-video-platform-kind-of-site.md)). It keeps that template. Features can still change in Settings.
 - **Packs** hold a cast, posts, comments, reactions, and conditions. Starting from one copies it in, and leaves out consent ([ADR 15](adr/0015-content-packs-are-copied.md)). `pnpm study add-pack` adds one for every team. Packs saved in the app are for one team.
 - **Starters** are sample content for each template, read from `studies/starters/` when needed ([ADR 50](adr/0050-sample-content-for-each-kind.md)).
 - **Sheets.** "Add from sheets" downloads a zip of spreadsheets for the study's features, and adds what's uploaded, all or nothing ([ADR 45](adr/0045-adding-a-feed-from-sheets.md), [ADR 48](adr/0048-every-sheet-from-an-upload.md)).

@@ -134,6 +134,22 @@ export const DECOR_ITEMS: Record<LayoutKey, readonly DecorItem[]> = {
     { key: "more", label: "More", where: "Menu", opens: "account" },
     ...print(["Company", "Programs", ["Terms", "terms"], ["Privacy", "privacy"], "Help", "Safety"]),
   ],
+  video: [
+    { key: "search", label: "Search box", where: "Top bar" },
+    { key: "shorts", label: "Shorts", where: "Menu" },
+    { key: "subscriptions", label: "Subscriptions", where: "Menu", opens: "explore" },
+    { key: "history", label: "History", where: "Menu" },
+    { key: "watch-later", label: "Watch later", where: "Menu", opens: "saved" },
+    ...print([
+      "About",
+      "Press",
+      "Creators",
+      "Advertise",
+      ["Terms", "terms"],
+      ["Privacy", "privacy"],
+      "Help",
+    ]),
+  ],
 };
 
 /** The most a study can add of its own, which is what fits in a menu without crowding it. */

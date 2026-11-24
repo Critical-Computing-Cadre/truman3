@@ -42,6 +42,7 @@ import {
   ShortVideoHeader,
   ShortVideoPostFrame,
 } from "./layouts/short-video-page.tsx";
+import { VideoBody, VideoFeedFrame, VideoHeader, VideoPostFrame } from "./layouts/video-page.tsx";
 import { useIsPhone, usePlatform } from "./platform.tsx";
 
 /** The page around posts belongs to a layout too, so these pick the one for this platform. */
@@ -98,6 +99,15 @@ const FRAMES: Record<
     Post: ShortVideoPostFrame,
     Profile: PhotoProfileHeader,
     Body: ShortVideoBody,
+  },
+  // A grid of videos, each with a watch page and Up next beside it (ADR 96).
+  video: {
+    Header: VideoHeader,
+    Feed: VideoFeedFrame,
+    Space: ForumSpaceFrame,
+    Post: VideoPostFrame,
+    Profile: BannerProfileHeader,
+    Body: VideoBody,
   },
 };
 

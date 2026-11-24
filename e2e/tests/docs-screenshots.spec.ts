@@ -29,6 +29,7 @@ const KINDS = [
   { radio: "Short posts", file: "short-posts" },
   { radio: "Forum", file: "forum" },
   { radio: "Short video", file: "short-video" },
+  { radio: "Video platform", file: "video" },
 ] as const;
 
 /** Gets a test participant from the link to the feed, through whatever steps the study has. */

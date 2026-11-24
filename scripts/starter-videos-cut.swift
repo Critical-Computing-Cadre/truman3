@@ -4,10 +4,12 @@
 // macOS only, since it uses Apple's own video tools. To remake one:
 //
 //   swiftc -O scripts/starter-videos-cut.swift -o /tmp/cut
-//   /tmp/cut <in.mp4> <out.mp4> <start s> <end s> <crop:x | fit> <note in Hz>
+//   /tmp/cut <in.mp4> <out.mp4> <start s> <end s> <crop:x | fit> <note in Hz> [width x height]
 //
 // `crop:0.5` takes a tall slice centred halfway across, `crop:0.3` one further left, and
-// `crop:0.5:0.9` the same zoomed out a little. `fit` keeps the whole picture, on black. Where each one came from is in studies/starters/short-video/CREDITS.md.
+// `crop:0.5:0.9` the same zoomed out a little. `fit` keeps the whole picture, on black.
+// The size is 540x960 unless given. Where each one came from is in each starter's CREDITS.md:
+// studies/starters/short-video and studies/starters/video-platform.
 import AVFoundation
 import CoreGraphics
 import Foundation
@@ -18,7 +20,9 @@ let out = URL(fileURLWithPath: a[2])
 let start = Double(a[3])!, end = Double(a[4])!
 let mode = a[5]
 let baseHz = Double(a[6])!
-let width = 540, height = 960, fps = 30
+// Tall for a phone unless a size is given, such as 640x360 for the Video platform sample.
+let size = a.count > 7 ? a[7].split(separator: "x").map { Int($0)! } : [540, 960]
+let width = size[0], height = size[1], fps = 30
 try? FileManager.default.removeItem(at: out)
 
 let source = input.tracks(withMediaType: .video)[0]
@@ -71,7 +75,7 @@ writer.shouldOptimizeForNetworkUse = true
 let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
   AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: width, AVVideoHeightKey: height,
   AVVideoCompressionPropertiesKey: [
-    AVVideoAverageBitRateKey: 750_000,
+    AVVideoAverageBitRateKey: width > height ? 450_000 : 750_000,
     AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
   ],
 ])

@@ -1,0 +1,21 @@
+# A starter: sample content for trying out the Video platform kind of site. The New Study page
+# offers it as "Start with sample content". Its people and posts are made up. Its videos are cut
+# from NASA's public-domain footage, with their sound replaced. CREDITS.md says where each is from.
+schemaVersion: 1
+slug: video-platform-starter
+title: Video platform sample
+site: { name: Lookout }
+length: { days: 2 }
+entry: { idParam: PROLIFIC_PID, idLabel: Prolific ID, source: prolific }
+conditions:
+  assignment: { method: uniform }
+  arms: [{ key: control }]
+platform:
+  style: mixed
+  template: videoPlatform
+  maxPostLength: 5000
+flow:
+  - { step: consent, page: pages/consent.md }
+  - { step: account }
+  - { step: feed }
+  - { step: exit }

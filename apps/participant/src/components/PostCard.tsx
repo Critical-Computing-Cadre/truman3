@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import type { FeedComment, FeedPost } from "@truman3/core";
-import { CommentBox, FeedPostView, type VideoWatching, VideoWatchingContext } from "@truman3/ui";
+import type { FeedAuthor, FeedComment, FeedPost } from "@truman3/core";
+import {
+  CommentBox,
+  FeedPostView,
+  usePlatform,
+  type VideoWatching,
+  VideoWatchingContext,
+} from "@truman3/ui";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { flowQuery, meQuery, post as send, type Written } from "../api.ts";
 import { createDwellTimer } from "../dwell.ts";
@@ -9,6 +15,7 @@ import { rememberOpenedFrom, track } from "../tracking.ts";
 import { AreYouSure } from "./AreYouSure.tsx";
 import { CrosspostDialog } from "./CrosspostDialog.tsx";
 import { QuoteDialog } from "./QuoteDialog.tsx";
+import { SubscribeButton } from "./SubscribeButton.tsx";
 
 /** Counts as being looked at once half of it is on screen. */
 const IN_VIEW_THRESHOLD = 0.5;
@@ -44,14 +51,16 @@ function useContentDwell(contentId: string, surface: string) {
     observer.observe(element);
 
     const onVisibility = () => report(timer.setTabVisible(document.visibilityState === "visible"));
-    document.addEventListener("visibilitychange", onVisibility);
+    // Ahead of tracking's own listener, which sends what's waiting as the page closes, so this
+    // last report goes with it. Listeners that capture run first.
+    document.addEventListener("visibilitychange", onVisibility, { capture: true });
     const onPageHide = () => report(timer.setInView(false));
-    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("pagehide", onPageHide, { capture: true });
 
     return () => {
       observer.disconnect();
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibility, { capture: true });
+      window.removeEventListener("pagehide", onPageHide, { capture: true });
       report(timer.setInView(false));
     };
   }, [contentId, surface]);
@@ -143,6 +152,9 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
     }
   }, [crossposting]);
 
+  // A video site has Subscribe beside the channel's name on a watch page (ADR 96).
+  const subscribe =
+    usePlatform().layout === "video" && Boolean(flow.data?.features.following) && detail;
   // Each spell of watching this post's video, if it has one (ADR 94).
   const reportWatching = useCallback(
     (watching: VideoWatching) =>
@@ -248,6 +260,9 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
               {name}
             </Link>
           )}
+          {...(subscribe
+            ? { renderFollow: (author: FeedAuthor) => <SubscribeButton author={author} /> }
+            : {})}
           renderAuthor={(author, className, children) => (
             <Link to="/u/$username" params={{ username: author.username }} className={className}>
               {children}
