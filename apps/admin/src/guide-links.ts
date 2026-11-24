@@ -14,6 +14,7 @@ export const GUIDE_PAGES: Record<string, { page: string; about: string }> = {
   "/versions/$versionId/simulate": { page: "/guide/testing", about: "Testing a study" },
   "/studies/$studyId/monitor": { page: "/guide/running", about: "Running a study" },
   "/studies/$studyId/prolific": { page: "/guide/running", about: "Running a study" },
+  "/studies/$studyId/recruit": { page: "/guide/running", about: "Running a study" },
   "/drafts/$draftId": { page: "/guide/posts-and-cast", about: "Posts and the cast" },
   "/drafts/$draftId/cast": { page: "/guide/posts-and-cast", about: "Posts and the cast" },
   "/drafts/$draftId/stories": { page: "/guide/kinds-of-site", about: "Kinds of site" },

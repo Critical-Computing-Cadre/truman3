@@ -41,7 +41,7 @@ Participants open the link in a browser, on a computer or a phone. There's also 
 
 ## Recruit on Prolific
 
-You can give the study link to any recruitment platform that can add an ID to it. For Prolific, Truman does most of the setup. On the **Studies** page, press **Recruit on Prolific** beside the version's **Launch** button.
+You can give the study link to any recruitment platform that can add an ID to it. On the **Studies** page, press **Recruit** beside the version's **Launch** button, and choose where you're recruiting. For Prolific, Truman does most of the setup: choose **Prolific**, then **Recruit on Prolific**.
 
 1. **Connect your account.** Create a token in Prolific under Settings, then API tokens. Paste it under **Prolific API token** and press **Connect**. Each researcher connects their own. It's stored encrypted and can't be shown again.
 2. **Create the study on Prolific.** Fill in what participants see, the pay, and **Number of people**, then press **Create the draft on Prolific**. This makes an unpublished draft with the right link and completion codes. Nothing is spent.
@@ -51,6 +51,18 @@ You can give the study link to any recruitment platform that can add an ID to it
 As people take part, **Submissions** lists each Prolific ID with what they did and whether they pass your rules. Press **Select everyone who passes**, then the approve button. A confirmation comes first, because approving pays people from your Prolific balance. Bonuses work the same way.
 
 When people finish, Truman sends them back to Prolific with the right code. Someone who declines consent is sent back with a code asking them to return their submission. If your study sends people to a survey after Truman, the page shows the link to put at the end of your survey. See [Consent, surveys, and debriefing](/guide/flow).
+
+## Recruit on CloudResearch, SONA, or anywhere else
+
+Every platform needs three things from a study: the link to give out, the name of the ID in it, and where people go when they finish. Press **Recruit**, choose the platform, and the page shows them.
+
+- **CloudResearch Connect.** Copy the link into your Connect project's URL. Connect adds each person's ID as `participantId`. Paste the completion redirect Connect shows you when you set up the project, so people who finish are sent back to it.
+- **SONA.** Copy the link, which ends in `?id=%SURVEY_CODE%`, into your SONA study. Paste SONA's client-side completion URL. Truman puts each person's code where it says `XXXX`, so SONA grants their credit.
+- **Somewhere else.** Choose the name of the ID in the link, what it's called, and how it's recorded, and paste where people go at the end. `{externalId}` in that address is replaced by each person's ID.
+
+Under **What the study does now**, the page checks the version people get. If something needs to change, press **Make these changes in a draft**. It opens a draft with the changes made, on its Settings page. Save it as a new version and launch that, as with any change.
+
+Truman can't approve or pay people on these platforms for you, as it does on Prolific. Download your data, and match `recruitment_ids.csv` to the platform's list.
 
 ## Reminders to come back
 

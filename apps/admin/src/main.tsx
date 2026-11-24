@@ -26,6 +26,7 @@ import { OperatorPage } from "./pages/OperatorPage.tsx";
 import { PersonasPage } from "./pages/PersonasPage.tsx";
 import { PreviewPage } from "./pages/PreviewPage.tsx";
 import { ProlificPage } from "./pages/ProlificPage.tsx";
+import { RecruitPage } from "./pages/RecruitPage.tsx";
 import { ScenariosPage } from "./pages/ScenariosPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { SimulatePage } from "./pages/SimulatePage.tsx";
@@ -190,6 +191,12 @@ const monitorRoute = createRoute({
   component: MonitorPage,
 });
 
+const recruitRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/studies/$studyId/recruit",
+  component: RecruitPage,
+});
+
 const prolificRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/studies/$studyId/prolific",
@@ -245,6 +252,7 @@ const router = createRouter({
     storiesRoute,
     monitorRoute,
     prolificRoute,
+    recruitRoute,
     tokensRoute,
     operatorRoute,
     libraryRoute,

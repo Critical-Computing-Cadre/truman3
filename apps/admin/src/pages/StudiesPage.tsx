@@ -848,11 +848,11 @@ export function StudiesPage() {
                       {canChange && isLive && <StopButton study={study} />}
                       {canChange && recruits && (
                         <Link
-                          to="/studies/$studyId/prolific"
+                          to="/studies/$studyId/recruit"
                           params={{ studyId: study.id }}
                           className="btn"
                         >
-                          Recruit on Prolific
+                          Recruit
                         </Link>
                       )}
                       <Tests version={version} canRun={canChange} />
