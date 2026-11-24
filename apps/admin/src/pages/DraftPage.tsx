@@ -943,6 +943,20 @@ function PostExtras({
           />
         </label>
       )}
+      {details.hasVideo && info.conditions.some(({ layout }) => layout === "video") && (
+        <label className="flex items-center gap-2">
+          Pre-roll ad
+          <select
+            value={details.preroll ?? ""}
+            onChange={(event) => change({ preroll: event.target.value || null })}
+            className={field}
+          >
+            <option value="">As the study says</option>
+            <option value="always">Always one before this video</option>
+            <option value="never">Never one before this video</option>
+          </select>
+        </label>
+      )}
       {on("likes") && (
         <label className="flex items-center gap-2">
           Liked by

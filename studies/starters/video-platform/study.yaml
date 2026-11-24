@@ -14,6 +14,24 @@ platform:
   style: mixed
   template: videoPlatform
   maxPostLength: 5000
+  # Ads before videos (ADR 97): one before every 2nd video someone opens, skippable after 5 seconds.
+  # Both advertisers are made up, and their links go nowhere real.
+  prerolls:
+    every: 2
+    skipAfter: 5
+    ads:
+      - id: coffee
+        video: ad-coffee.mp4
+        poster: ad-coffee.jpg
+        advertiser: Hollowbean Coffee
+        label: Ad
+        link: https://example.com/hollowbean
+      - id: phone
+        video: ad-phone.mp4
+        poster: ad-phone.jpg
+        advertiser: Zephyr Talk
+        label: Sponsored
+        link: https://example.com/zephyr
 flow:
   - { step: consent, page: pages/consent.md }
   - { step: account }

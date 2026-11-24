@@ -7,6 +7,7 @@ import {
   LAYOUT_KEYS,
   maxPostLengthFor,
   platformFor,
+  prerollsFor,
   VIDEO_SOUNDS,
 } from "@truman3/core";
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
@@ -57,6 +58,27 @@ const flowStateSchema = z.object({
   /** Which button an "are you sure?" box makes dark. */
   sureButton: z.enum(["goBack", "postAnyway"]),
   videoSound: z.enum(VIDEO_SOUNDS),
+  /**
+   * Ads before videos in their condition (ADR 97): one before every `every` videos they open, in
+   * turn, skippable after `skipAfter` seconds or never. Null where there are none.
+   */
+  prerolls: z
+    .object({
+      every: z.number(),
+      skipAfter: z.union([z.number(), z.literal("never")]),
+      ads: z.array(
+        z.object({
+          id: z.string(),
+          url: z.string(),
+          posterUrl: z.string().nullable(),
+          advertiser: z.string(),
+          label: z.string(),
+          link: z.string().nullable(),
+          seconds: z.number().nullable(),
+        }),
+      ),
+    })
+    .nullable(),
   /** Whether the comment box is always there, or appears on Reply. */
   commentBox: z.enum(["open", "onReply"]),
   /** How posts are arranged. */
@@ -194,6 +216,11 @@ const reportedEventSchema = z.discriminatedUnion("type", [
   actionMetaSchema.extend({
     type: z.literal("content.viewed"),
     payload: eventPayloadSchemas["content.viewed"],
+    targetContentId: z.uuid(),
+  }),
+  actionMetaSchema.extend({
+    type: z.literal("preroll.watched"),
+    payload: eventPayloadSchemas["preroll.watched"],
     targetContentId: z.uuid(),
   }),
   actionMetaSchema.extend({
@@ -381,6 +408,24 @@ export function createFlowRoutes({
         ...(waiting ? { waiting } : {}),
         shared: context.worldMode === "shared",
         ...platformFor(context.settings, context.conditionKey),
+        prerolls: (() => {
+          const prerolls = prerollsFor(context.settings, context.conditionKey);
+          return prerolls
+            ? {
+                every: prerolls.every,
+                skipAfter: prerolls.skipAfter,
+                ads: prerolls.ads.map((ad) => ({
+                  id: ad.id,
+                  url: mediaUrl(ad.video, mediaPublicUrl),
+                  posterUrl: ad.poster ? mediaUrl(ad.poster, mediaPublicUrl) : null,
+                  advertiser: ad.advertiser,
+                  label: ad.label,
+                  link: ad.link ?? null,
+                  seconds: ad.videoDetails?.seconds ?? null,
+                })),
+              }
+            : null;
+        })(),
         maxPostLength: maxPostLengthFor(context.settings, context.conditionKey),
         feedTabs: {
           home: feedSettings.homeTabLabel ?? "For you",
@@ -491,7 +536,7 @@ export function createFlowRoutes({
           return result;
         });
         recorded += stored ? 1 : 0;
-      } else if (event.type === "video.watched") {
+      } else if (event.type === "video.watched" || event.type === "preroll.watched") {
         // Only a video they could see.
         if (!(await findVisibleContent(db, context, event.targetContentId, now))) {
           continue;

@@ -135,6 +135,14 @@ export async function storeMedia(
   for (const story of study.stories) {
     files.set(path.join(MEDIA_FOLDERS.posts, story.picture), story.picture);
   }
+  // Pre-roll ads' videos live with posts' (ADR 97).
+  for (const ad of study.settings.platform.prerolls?.ads ?? []) {
+    for (const name of [ad.video, ad.poster]) {
+      if (name && !/^https?:/.test(name)) {
+        files.set(path.join(MEDIA_FOLDERS.posts, name), name);
+      }
+    }
+  }
   for (const image of [site.logo, site.favicon, site.homepageImage]) {
     if (image) {
       files.set(image, image);
@@ -184,32 +192,68 @@ export async function describeVideos(
   storage: Storage,
 ): Promise<{ study: StudyDefinition; issues: StudyIssue[] }> {
   const issues: StudyIssue[] = [];
+  /** What a stored video says about itself, or why it can't be used. */
+  const describe = async (name: string, from: string, source?: { file: string; row: number }) => {
+    const key = mediaKeys.get(path.join(MEDIA_FOLDERS.posts, name)) ?? name;
+    if (/^https?:/.test(key) || !(await storage.exists(key))) {
+      return { key, details: undefined };
+    }
+    const size = (await storage.size(key)) ?? 0;
+    const read = await readVideoInfo(
+      (offset, length) => storage.getRange(key, offset, length),
+      size,
+    );
+    const problem = read.ok ? videoLimitProblem(read.info, size) : read.reason;
+    if (problem || !read.ok) {
+      issues.push({
+        severity: "error",
+        message: `The video "${name}"${from} can't be used. ${problem}`,
+        file: source?.file,
+        row: source?.row,
+      });
+      return { key, details: undefined };
+    }
+    const { seconds, width, height, hasSound } = read.info;
+    return { key, details: { seconds, width, height, hasSound } };
+  };
+
   const posts = await Promise.all(
     study.posts.map(async (post) => {
       const key = post.video && mediaKeys.get(path.join(MEDIA_FOLDERS.posts, post.video));
       if (!post.video || !key || /^https?:/.test(key)) {
         return post;
       }
-      const size = (await storage.size(key)) ?? 0;
-      const read = await readVideoInfo(
-        (offset, length) => storage.getRange(key, offset, length),
-        size,
-      );
-      const problem = read.ok ? videoLimitProblem(read.info, size) : read.reason;
-      if (problem || !read.ok) {
-        issues.push({
-          severity: "error",
-          message: `The video "${post.video}" can't be used. ${problem}`,
-          file: post.source?.file,
-          row: post.source?.row,
-        });
-        return post;
-      }
-      const { seconds, width, height, hasSound } = read.info;
-      return { ...post, videoDetails: { seconds, width, height, hasSound } };
+      const { details } = await describe(post.video, "", post.source);
+      return details ? { ...post, videoDetails: details } : post;
     }),
   );
-  return { study: { ...study, posts }, issues };
+
+  // Pre-roll ads live in the settings, so their files become stored keys there (ADR 97).
+  const prerolls = study.settings.platform.prerolls;
+  const ads = prerolls
+    ? await Promise.all(
+        prerolls.ads.map(async (ad) => {
+          const { key, details } = await describe(ad.video, ` for the ad "${ad.id}"`);
+          const poster = ad.poster
+            ? (mediaKeys.get(path.join(MEDIA_FOLDERS.posts, ad.poster)) ?? ad.poster)
+            : undefined;
+          return {
+            ...ad,
+            video: key,
+            ...(poster ? { poster } : {}),
+            ...(details ? { videoDetails: details } : {}),
+          };
+        }),
+      )
+    : undefined;
+  const settings =
+    prerolls && ads
+      ? {
+          ...study.settings,
+          platform: { ...study.settings.platform, prerolls: { ...prerolls, ads } },
+        }
+      : study.settings;
+  return { study: { ...study, posts, settings }, issues };
 }
 
 /**
@@ -499,6 +543,7 @@ export async function freezeStudy(
           baseReposts: post.reposts ?? 0,
           baseQuotes: post.quotes ?? 0,
           adLabel: post.ad,
+          preroll: post.preroll ?? null,
           likedByActorId: post.likedBy ? actorId(post.likedBy) : null,
           place: post.place ?? null,
           taggedActorIds: (post.tagged ?? [])

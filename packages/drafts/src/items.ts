@@ -84,6 +84,7 @@ export const itemDataSchemas = {
     reposts: z.number().int().nonnegative().optional(),
     quotes: z.number().int().nonnegative().optional(),
     ad: z.string().min(1).max(40).optional(),
+    preroll: z.enum(["always", "never"]).optional(),
     likedById: z.uuid().optional(),
     place: z.string().min(1).max(MAX_PLACE_LENGTH).optional(),
     /** People in the cast tagged in it. */

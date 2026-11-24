@@ -149,6 +149,26 @@ export function scriptedKarmaChange(
     .reduce((total, { change }) => total + change, 0);
 }
 
+/**
+ * The pre-roll ads someone in a condition gets (ADR 97): how often, how soon they can skip, and
+ * which ads, in the order they take turns. Null where there are none.
+ */
+export function prerollsFor(settings: StudySettings, conditionKey: string) {
+  const prerolls = settings.platform.prerolls;
+  if (!prerolls) {
+    return null;
+  }
+  const arm = settings.conditions.arms.find(({ key }) => key === conditionKey);
+  const every = arm?.platform?.prerollEvery ?? prerolls.every;
+  const ads = prerolls.ads.filter(
+    ({ conditions }) => conditions.length === 0 || conditions.includes(conditionKey),
+  );
+  if (every === 0 || ads.length === 0) {
+    return null;
+  }
+  return { every, skipAfter: arm?.platform?.prerollSkipAfter ?? prerolls.skipAfter, ads };
+}
+
 /** Everything a browser needs to draw this platform for someone in a condition. */
 export function platformFor(settings: StudySettings, conditionKey: string) {
   return {

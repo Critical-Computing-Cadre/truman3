@@ -70,6 +70,25 @@ c2,dev_m,-73:30,First loaf from the new starter!! Crust came out way better than
 
 A post can have a video in place of pictures. Add a `video` column naming an MP4 in `media/posts`, and optionally a `poster` column naming a picture to show before it plays. The video has to be H.264, up to 10 minutes and 200 MB. `pnpm study import` checks it as it stores it.
 
+On the Video platform kind, pre-roll ads go in `study.yaml`, with their videos in `media/posts`. A `preroll` column in `posts.csv` can say `always` or `never` for one video:
+
+```yaml
+platform:
+  template: videoPlatform
+  prerolls:
+    every: 2 # an ad before every 2nd video; 0 for none
+    skipAfter: 5 # seconds, or never
+    ads:
+      - id: coffee
+        video: ad-coffee.mp4
+        advertiser: Hollowbean Coffee
+        label: Ad
+        link: https://example.com/hollowbean
+        conditions: [] # empty for every condition
+```
+
+A condition can set `prerollEvery` and `prerollSkipAfter` under its own `platform`.
+
 And its `comments.csv`:
 
 ```csv

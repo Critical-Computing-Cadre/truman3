@@ -6,13 +6,20 @@ import {
   type FeedResponse,
   SORT_LABELS,
 } from "@truman3/core";
-import { PostFrame, usePlatform, VideoEndedContext } from "@truman3/ui";
+import {
+  PostFrame,
+  type Preroll,
+  PrerollContext,
+  usePlatform,
+  VideoEndedContext,
+} from "@truman3/ui";
 import { useEffect, useRef, useState } from "react";
 import { flowQuery, get, post } from "../api.ts";
 import { CommunityCard } from "../components/Community.tsx";
 import { PostCard } from "../components/PostCard.tsx";
 import { UpNext } from "../components/UpNext.tsx";
-import { takeOpenedFrom } from "../tracking.ts";
+import { prerollFor } from "../prerolls.ts";
+import { takeOpenedFrom, track } from "../tracking.ts";
 
 type CommentSort = ChosenSort | null;
 
@@ -77,6 +84,33 @@ export function PostPage() {
   // On a video site, Up next is down the side, and the next one follows when this ends (ADR 96).
   const watchPage = usePlatform().layout === "video";
   const [ended, setEnded] = useState(false);
+  const flow = useQuery(flowQuery);
+  // An ad before this video, decided once when it's opened (ADR 97).
+  const [preroll, setPreroll] = useState<{ postId: string; value: Preroll | null } | null>(null);
+  useEffect(() => {
+    if (!shown || !flow.data || preroll?.postId === shown.id) {
+      return;
+    }
+    const ad = prerollFor(shown, flow.data.prerolls);
+    const skipAfter = flow.data.prerolls?.skipAfter ?? 5;
+    setPreroll({
+      postId: shown.id,
+      value: ad
+        ? {
+            ad,
+            skipAfter,
+            onDone: () =>
+              setPreroll((current) => (current ? { ...current, value: null } : current)),
+            onReport: (report) =>
+              track({
+                type: "preroll.watched",
+                targetContentId: shown.id,
+                payload: { ad: ad.id, ...report },
+              }),
+          }
+        : null,
+    });
+  }, [shown, flow.data, preroll?.postId]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new post starts with nothing ended
   useEffect(() => setEnded(false), [postId]);
 
@@ -98,38 +132,42 @@ export function PostPage() {
   }
   return (
     <VideoEndedContext.Provider value={watchPage ? () => setEnded(true) : null}>
-      <PostFrame
-        side={
-          watchPage ? (
-            <UpNext currentId={postId} ended={ended} />
-          ) : shown?.space ? (
-            <CommunityCard spaceKey={shown.space.key} />
-          ) : undefined
-        }
+      <PrerollContext.Provider
+        value={preroll?.postId === shown?.id ? (preroll?.value ?? null) : null}
       >
-        <Link
-          to="/"
-          aria-label="Back to the feed"
-          className="mx-2 mt-2 inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold hover:bg-stone-200/60 sm:mx-0 sm:mt-0"
+        <PostFrame
+          side={
+            watchPage ? (
+              <UpNext currentId={postId} ended={ended} />
+            ) : shown?.space ? (
+              <CommunityCard spaceKey={shown.space.key} />
+            ) : undefined
+          }
         >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-5 w-5"
+          <Link
+            to="/"
+            aria-label="Back to the feed"
+            className="mx-2 mt-2 inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold hover:bg-stone-200/60 sm:mx-0 sm:mt-0"
           >
-            <path d="M19 12H5M11 6l-6 6 6 6" />
-          </svg>
-          Back
-        </Link>
-        {/* Not before it's loaded, or a choice made meanwhile wouldn't show until the next reload. */}
-        {feed.data && <CommentSortPicker sort={feed.data.commentSort ?? null} />}
-        {shown && <PostCard key={shown.id} post={shown} surface="post" />}
-      </PostFrame>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+            >
+              <path d="M19 12H5M11 6l-6 6 6 6" />
+            </svg>
+            Back
+          </Link>
+          {/* Not before it's loaded, or a choice made meanwhile wouldn't show until the next reload. */}
+          {feed.data && <CommentSortPicker sort={feed.data.commentSort ?? null} />}
+          {shown && <PostCard key={shown.id} post={shown} surface="post" />}
+        </PostFrame>
+      </PrerollContext.Provider>
     </VideoEndedContext.Provider>
   );
 }

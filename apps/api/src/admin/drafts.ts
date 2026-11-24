@@ -282,6 +282,8 @@ const fieldsSchema = z.strictObject({
   quotes: z.number().int().nonnegative().optional(),
   /** Marks it as an ad, with this label. Null makes it an ordinary post. */
   ad: z.string().trim().min(1).max(40).nullable().optional(),
+  /** Whether this video always or never gets a pre-roll ad. Null follows the study (ADR 97). */
+  preroll: z.enum(["always", "never"]).nullable().optional(),
   views: z.number().int().nonnegative().optional(),
   /** Someone in the cast who liked a post. Null takes them away. */
   likedById: z.uuid().nullable().optional(),
@@ -650,6 +652,7 @@ function asFeedContent(items: LoadedDraft["items"]): FeedContent[] {
         baseReposts: data.reposts ?? 0,
         baseQuotes: data.quotes ?? 0,
         adLabel: data.ad ?? null,
+        preroll: data.preroll ?? null,
         likedByActorId: data.likedById ?? null,
         place: data.place ?? null,
         taggedActorIds: data.taggedIds ?? [],
@@ -1176,6 +1179,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
         reposts: number;
         quotes: number;
         ad: string | null;
+        hasVideo: boolean;
+        preroll: "always" | "never" | null;
         views: number;
         likedById: string | null;
         place: string | null;
@@ -1208,6 +1213,8 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           reposts: data.reposts ?? 0,
           quotes: data.quotes ?? 0,
           ad: data.ad ?? null,
+          hasVideo: Boolean(data.video),
+          preroll: data.preroll ?? null,
           views: data.views ?? 0,
           likedById: data.likedById ?? null,
           place: data.place ?? null,

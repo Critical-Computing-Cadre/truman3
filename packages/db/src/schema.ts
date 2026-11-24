@@ -528,6 +528,8 @@ export const content = pgTable(
     closeFriends: boolean("close_friends").notNull().default(false),
     /** Marks it as an ad, with this label. */
     adLabel: text("ad_label"),
+    /** Whether this video always or never has a pre-roll ad, whatever the study says (ADR 97). */
+    preroll: text().$type<"always" | "never">(),
     baseViews: integer("base_views").notNull().default(0),
     baseReposts: integer("base_reposts").notNull().default(0),
     baseQuotes: integer("base_quotes").notNull().default(0),

@@ -17,6 +17,12 @@ export {
 export { FeedPostView } from "./FeedPostView.tsx";
 export { KarmaBadge } from "./features/karma.tsx";
 export { type TextLinks, TextLinksContext } from "./features/post-text.tsx";
+export {
+  type Preroll,
+  type PrerollAd,
+  PrerollContext,
+  type PrerollReport,
+} from "./features/preroll.tsx";
 export { QuestionCard } from "./features/questions.tsx";
 export {
   createWatchMeter,

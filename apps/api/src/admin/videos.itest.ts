@@ -46,7 +46,7 @@ afterAll(async () => {
 });
 
 /** A study folder whose first post is a video, and a lab signed in to the builder. */
-async function studyWithVideo(posts: string, media: Record<string, string>) {
+async function studyWithVideo(posts: string, media: Record<string, string>, platform = "") {
   const id = randomUUID().slice(0, 8);
   const { teamId, password } = await setUpTeam(database.db, {
     teamName: `lab-${id}`,
@@ -68,6 +68,7 @@ conditions:
   assignment: { method: blocked, blockSize: 1 }
   arms: [{ key: a }]
 flow: [{ step: feed }]
+${platform}
 `,
     "actors.csv": "username,name\nann,Ann\n",
     "posts.csv": posts,
@@ -249,5 +250,94 @@ describe("a video uploaded in the builder", () => {
     expect(made.status).toBe(400);
     // Signed out, nothing is stored.
     expect((await upload("", draftId, video("silent.mp4"))).status).toBe(401);
+  });
+});
+
+describe("pre-roll ads (ADR 97)", () => {
+  const platform = `
+platform:
+  style: mixed
+  template: videoPlatform
+  prerolls:
+    every: 2
+    skipAfter: 5
+    ads:
+      - { id: coffee, video: ad.mp4, advertiser: Hollowbean Coffee, link: "https://example.com/c" }
+      - { id: phone, video: ad.mp4, advertiser: Zephyr Talk, label: Sponsored }
+`;
+
+  it("are stored, described, and given to each participant for their condition", async () => {
+    const { imported, slug } = await studyWithVideo(
+      "id,actor,time,title,body,video,preroll\nclip,ann,-0:10,A clip,Watch this,clip.mp4,always\n",
+      { "clip.mp4": path.join(VIDEOS, "silent.mp4"), "ad.mp4": path.join(VIDEOS, "h264.mp4") },
+      platform,
+    );
+    expect(imported.status).toBe("imported");
+    const entered = await app.request(`/studies/${slug}/enter`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ externalId: randomUUID() }),
+    });
+    const cookie = (entered.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+    const flow = (await (await call(cookie, "GET", "/me/flow")).json()) as {
+      prerolls: {
+        every: number;
+        skipAfter: number;
+        ads: { id: string; url: string; seconds: number }[];
+      };
+    };
+    expect(flow.prerolls).toEqual({
+      every: 2,
+      skipAfter: 5,
+      ads: [
+        {
+          id: "coffee",
+          url: expect.stringMatching(/^http:\/\/media\.test\/media\/[0-9a-f]{64}\.mp4$/),
+          posterUrl: null,
+          advertiser: "Hollowbean Coffee",
+          label: "Ad",
+          link: "https://example.com/c",
+          seconds: expect.closeTo(2, 1),
+        },
+        expect.objectContaining({ id: "phone", label: "Sponsored", link: null }),
+      ],
+    });
+    // The video says it always has one.
+    const posts = ((await (await call(cookie, "GET", "/feed")).json()) as FeedResponse).posts;
+    const clip = byBody(posts, "Watch this") as FeedPost;
+    expect(clip.preroll).toBe("always");
+
+    // What happened with it is recorded, against the video.
+    const reported = await call(cookie, "POST", "/events", {
+      events: [
+        {
+          clientEventId: randomUUID(),
+          occurredAt: new Date().toISOString(),
+          type: "preroll.watched",
+          targetContentId: clip.id,
+          payload: {
+            ad: "coffee",
+            playedMs: 5200,
+            seconds: 2,
+            skippedAt: 5.1,
+            completed: false,
+            visited: true,
+            soundOn: true,
+          },
+        },
+      ],
+    });
+    expect(((await reported.json()) as { recorded: number }).recorded).toBe(1);
+  });
+
+  it("refuse an ad whose video isn't a playable MP4", async () => {
+    const { imported } = await studyWithVideo(
+      "id,actor,time,body\nt,ann,-0:10,Words\n",
+      { "ad.mp4": path.join(VIDEOS, "hevc.mp4") },
+      platform,
+    );
+    expect(JSON.stringify(imported)).toContain(
+      'The video \\"ad.mp4\\" for the ad \\"coffee\\" can\'t be used',
+    );
   });
 });
