@@ -443,7 +443,7 @@ describe("sample content for each kind of platform", () => {
       starters: { template: string; posts: number; imageUrls: string[] }[];
     };
     expect(starters.map(({ template }) => template).sort()).toEqual(
-      ["classic", "forum", "photo", "shortPosts", "shortVideo"].sort(),
+      ["classic", "forum", "photo", "shortPosts", "shortVideo", "videoPlatform"].sort(),
     );
     for (const starter of starters) {
       expect(starter.posts).toBeGreaterThan(5);
@@ -453,7 +453,7 @@ describe("sample content for each kind of platform", () => {
     );
   });
 
-  it.each(["classic", "forum", "shortPosts", "photo", "shortVideo"])(
+  it.each(["classic", "forum", "shortPosts", "photo", "shortVideo", "videoPlatform"])(
     "starts a %s study with nothing to fix, on that kind of platform",
     async (template) => {
       const team = await lab();

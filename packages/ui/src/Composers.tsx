@@ -55,6 +55,19 @@ export function CreatePostBar({
       </button>
     );
   }
+  if (layout === "video") {
+    // A video site's button to post is one word in the top bar's corner.
+    return (
+      <button
+        {...button}
+        aria-label={name}
+        className="flex items-center gap-1.5 rounded-full bg-stone-100 px-4 py-2 text-sm font-semibold hover:bg-stone-200"
+      >
+        <PlusIcon className="h-5 w-5" />
+        Create
+      </button>
+    );
+  }
   if (layout === "short-video") {
     // Over the video, a short-video app has only a plus to start a post.
     return (

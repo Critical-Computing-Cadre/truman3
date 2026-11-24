@@ -83,7 +83,10 @@ export const AGENT_TOOLS: AgentTool[] = [
       slug: z.string().describe("The study's link name: lowercase letters, numbers, and dashes."),
       assignment: z.enum(["uniform", "blocked"]),
       packId: z.string().nullable().default(null),
-      template: z.string().optional().describe("classic, forum, shortPosts, photo, or shortVideo"),
+      template: z
+        .string()
+        .optional()
+        .describe("classic, forum, shortPosts, photo, shortVideo, or videoPlatform"),
     },
     run: (client, input) => client.call("POST", "/admin/studies", input),
   }),

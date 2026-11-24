@@ -203,7 +203,14 @@ test("choosing a kind of platform, with a look at each and help deciding", async
   await page.getByRole("link", { name: "New study" }).click();
 
   // A card for each, Classic unless someone chooses another.
-  for (const name of ["Classic", "Forum", "Short posts", "Photo", "Short video"]) {
+  for (const name of [
+    "Classic",
+    "Forum",
+    "Short posts",
+    "Photo",
+    "Short video",
+    "Video platform",
+  ]) {
     await expect(page.getByRole("radio", { name, exact: true })).toBeVisible();
   }
   await expect(page.getByRole("radio", { name: "Classic", exact: true })).toBeChecked();

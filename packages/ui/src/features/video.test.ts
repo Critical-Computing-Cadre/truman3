@@ -77,4 +77,25 @@ describe("createWatchMeter", () => {
     pass(100);
     expect(heard.take()?.soundOn).toBe(true);
   });
+
+  it("sends nothing more after the clock has stopped, and starts again without another play", () => {
+    const { now, pass } = clock();
+    const meter = createWatchMeter(10, now);
+    meter.playing();
+    pass(2000);
+    meter.paused(false);
+    expect(meter.take()).toMatchObject({ playedMs: 2000, plays: 1, pauses: 0 });
+    pass(5);
+    expect(meter.take()).toBeNull();
+    meter.resumed();
+    pass(1000);
+    expect(meter.take()).toMatchObject({ playedMs: 1000, plays: 0 });
+  });
+
+  it("still sends a pause that came after the last report", () => {
+    const { now } = clock();
+    const meter = createWatchMeter(10, now);
+    meter.paused(true);
+    expect(meter.take()).toMatchObject({ pauses: 1, playedMs: 0 });
+  });
 });

@@ -14,8 +14,9 @@ export function PostLikeButton({
   /** Words, an icon with a count, or an icon with the word, as a layout chooses. */
   look?: "words" | "icon" | "both";
 }) {
-  // A thumb on a community feed, and a heart everywhere else.
-  const LikeIcon = usePlatform().layout === "classic" ? ThumbIcon : HeartIcon;
+  // A thumb on a community feed and a video site, and a heart everywhere else.
+  const { layout } = usePlatform();
+  const LikeIcon = layout === "classic" || layout === "video" ? ThumbIcon : HeartIcon;
   if (!useFeature("likes")) {
     return null;
   }
@@ -43,7 +44,7 @@ export function PostLikeButton({
         className={`flex items-center gap-1 ${post.liked ? "text-like" : ""}`}
         onClick={() => actions?.onLike(post.id, !post.liked)}
       >
-        <HeartIcon filled={post.liked} />
+        <LikeIcon filled={post.liked} />
         {post.likes > 0 && <span className="text-sm font-semibold">{post.likes}</span>}
       </button>
     );

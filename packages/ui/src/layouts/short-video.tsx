@@ -129,7 +129,11 @@ export function ShortVideoPost({
             <button
               type="button"
               aria-label="Close comments"
-              onClick={() => setCommentsOpen(false)}
+              onClick={(event) => {
+                setCommentsOpen(false);
+                // Typing can move the feed a little. This puts the video back where it was.
+                event.currentTarget.closest("article")?.scrollIntoView({ block: "start" });
+              }}
               className="text-xl leading-none text-stone-500"
             >
               ×

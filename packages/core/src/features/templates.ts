@@ -4,7 +4,14 @@ import { FEATURE_KEYS, type FeatureSet } from "./catalog.ts";
  * How posts and the page around them are arranged. A layout's look can't change once a study has
  * launched with it, so changing one means adding a new name, such as `classic-2` (ADR 18).
  */
-export const LAYOUT_KEYS = ["classic", "forum", "short-posts", "photo", "short-video"] as const;
+export const LAYOUT_KEYS = [
+  "classic",
+  "forum",
+  "short-posts",
+  "photo",
+  "short-video",
+  "video",
+] as const;
 
 export type LayoutKey = (typeof LAYOUT_KEYS)[number];
 
@@ -23,6 +30,7 @@ export const LAYOUT_THEMES: Record<LayoutKey, "light" | "dark"> = {
   forum: "light",
   // Videos are watched in the dark on the apps this looks like, with nothing around them.
   "short-video": "dark",
+  video: "light",
 };
 
 export const LAYOUT_ACCENTS: Record<LayoutKey, string> = {
@@ -31,6 +39,7 @@ export const LAYOUT_ACCENTS: Record<LayoutKey, string> = {
   "short-posts": "#0a7d85",
   forum: "#c9470a",
   "short-video": "#6d28d9",
+  video: "#047857",
 };
 
 export interface TemplateDefinition {
@@ -266,6 +275,54 @@ export const TEMPLATES = {
       autoRules: false,
     },
     feed: { ranker: "new", commentOrder: "top" },
+  },
+  videoPlatform: {
+    name: "Video platform",
+    description:
+      "A grid of videos, each opening on its own page with Up next beside it and comments under it.",
+    about:
+      "Looks like a video site, such as YouTube. Home is a grid of thumbnails, each with a title, the channel, views, and how long ago. A video opens on its own page, with the player, the title, the channel and a Subscribe button, likes, a description, and comments. Up next runs down the side, and the next video plays by itself when one ends, unless they turn that off. A channel's page has its videos.",
+    layout: "video",
+    features: {
+      ...allFeatures,
+      // Off unless a study turns it on, so studies that launched before it look the same.
+      messages: false,
+      push: false,
+      votes: false,
+      karma: false,
+      spaces: false,
+      flair: false,
+      crossposting: false,
+      adultTags: false,
+      appeals: false,
+      modLog: false,
+      quotes: false,
+      reposts: false,
+      threadMuting: false,
+      labels: false,
+      galleries: false,
+      links: false,
+      polls: false,
+      contextNotes: false,
+      trending: false,
+      whoToFollow: false,
+      stories: false,
+      highlights: false,
+      closeFriends: false,
+      places: false,
+      photoTags: false,
+      exploreGrid: false,
+      pinning: false,
+      locking: false,
+      spoilers: false,
+      flagAnswers: false,
+      reportAnswers: false,
+      warnings: false,
+      removal: false,
+      bans: false,
+      autoRules: false,
+    },
+    feed: { ranker: "top", commentOrder: "top" },
   },
 } as const satisfies Record<string, TemplateDefinition>;
 

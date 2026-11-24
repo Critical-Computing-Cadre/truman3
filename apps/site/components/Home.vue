@@ -281,7 +281,7 @@ onUnmounted(() => {
   <div class="wrap">
     <div class="head">
       <p class="scene">What it can look like</p>
-      <h2>Five kinds of site to start from.</h2>
+      <h2>Six kinds of site to start from.</h2>
       <p>Each one comes with sample content, shown here the way a participant sees it. Change the name, the logo, the colors, and what people can do, and it's your site.</p>
     </div>
     <div class="looks">
@@ -290,6 +290,7 @@ onUnmounted(() => {
       <a href="/guide/kinds-of-site#short-posts"><img src="/shots/kind-short-posts-wide.png" alt="A navy microblog, with short posts, a context note, and what's happening" loading="lazy" width="1280" height="800"><b>Short posts</b><span>A microblog, with reposts, quotes, labels, and context notes.</span></a>
       <a href="/guide/kinds-of-site#forum"><img src="/shots/kind-forum-wide.png" alt="A forum in orange, with communities, votes, and flair" loading="lazy" width="1280" height="800"><b>Forum</b><span>Communities with votes, threads, rules, and moderators.</span></a>
       <a href="/guide/kinds-of-site#short-video"><img src="/shots/kind-short-video-wide.png" alt="A tall video in the middle of the page, with likes and comments down its side" loading="lazy" width="1280" height="800"><b>Short video</b><span>One video at a time, filling the screen, with a swipe for the next.</span></a>
+      <a href="/guide/kinds-of-site#video-platform"><img src="/shots/kind-video-wide.png" alt="A grid of video thumbnails, with a menu of sections down the left" loading="lazy" width="1280" height="800"><b>Video platform</b><span>A grid of videos, each with its own page and Up next beside it.</span></a>
     </div>
   </div>
 </section>

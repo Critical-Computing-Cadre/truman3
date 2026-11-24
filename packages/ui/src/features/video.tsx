@@ -61,6 +61,12 @@ export function createWatchMeter(seconds: number, now: () => number = Date.now) 
     at: (position: number) => {
       counts.furthestSeconds = Math.max(counts.furthestSeconds, position);
     },
+    /** Counting time again, for a video that kept playing while it wasn't counted. */
+    resumed: () => {
+      if (playingSince === null) {
+        playingSince = now();
+      }
+    },
     /** Played through and started again by itself, without stopping. */
     looped: () => {
       counts.ended += 1;
@@ -83,7 +89,14 @@ export function createWatchMeter(seconds: number, now: () => number = Date.now) 
       if (running) {
         playingSince = now();
       }
-      return taken.playedMs > 0 || taken.plays > 0 ? taken : null;
+      // Anything counted is worth sending, even a pause with no playing since the last report.
+      const happened =
+        taken.playedMs > 0 ||
+        taken.plays > 0 ||
+        taken.pauses > 0 ||
+        taken.seeks > 0 ||
+        taken.ended > 0;
+      return happened ? taken : null;
     },
   };
 }
@@ -147,7 +160,27 @@ export function useVideoSound() {
  * as on most sites. With `autoplay`, as on a short-video site, it plays by itself while it's on
  * screen, loops, and a tap pauses it (ADR 95). Each spell of watching is reported when it ends.
  */
-export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?: boolean }) {
+/**
+ * Said when a video on a watch page ends, so the page can go on to the next one (ADR 96). The
+ * participant app gives one there. Elsewhere a video just stops.
+ */
+export const VideoEndedContext = createContext<(() => void) | null>(null);
+
+export function PostVideo({
+  video,
+  autoplay = false,
+  watch = false,
+}: {
+  video: Video;
+  autoplay?: boolean;
+  /**
+   * The video a watch page is for (ADR 96). It starts as the page opens, with sound if the
+   * browser allows, and keeps playing while they scroll down to the comments.
+   */
+  watch?: boolean;
+}) {
+  const ended = useRef(useContext(VideoEndedContext));
+  ended.current = useContext(VideoEndedContext);
   const ref = useRef<HTMLVideoElement>(null);
   // Kept in a ref, so a new reporting function doesn't start the count again part way through.
   const report = useRef(useContext(VideoWatchingContext));
@@ -158,6 +191,8 @@ export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?
   const viewerPaused = useRef(false);
   /** Set by a tap that pauses it, so that pause is counted as the viewer's, whatever else happens. */
   const viewerPausing = useRef(false);
+  /** The count of this spell of watching, so a tap can add a pause to it directly. */
+  const counting = useRef<ReturnType<typeof createWatchMeter> | null>(null);
 
   useEffect(() => {
     const element = ref.current;
@@ -165,6 +200,7 @@ export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?
       return;
     }
     const meter = createWatchMeter(video.seconds ?? 0);
+    counting.current = meter;
     const send = () => {
       const taken = meter.take();
       if (taken && report.current) {
@@ -184,7 +220,13 @@ export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?
           viewerPausing.current = false;
         },
       ],
-      ["ended", () => meter.ended()],
+      [
+        "ended",
+        () => {
+          meter.ended();
+          ended.current?.();
+        },
+      ],
       ["timeupdate", () => meter.at(element.currentTime)],
       // A looping video seeks back to its start by itself, which is once through, not a seek. One
       // that plays by itself has no controls, so the viewer can't seek it.
@@ -207,7 +249,8 @@ export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?
         }
         const showing = entry.intersectionRatio >= (autoplay ? PLAYS_AT : ON_SCREEN);
         onScreen.current = showing;
-        if (showing) {
+        // A watch page's video keeps going below the fold, as on these sites.
+        if (showing || watch) {
           if (autoplay && sound.started && !viewerPaused.current) {
             element.play().catch(() => {});
           }
@@ -217,29 +260,51 @@ export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?
           pausingOurselves = true;
           element.pause();
         }
+        // The clock stops now, not when the browser gets round to saying it's paused, so a second
+        // report straight after this one has nothing in it.
+        meter.paused(false);
         send();
       },
       { threshold: [0, ON_SCREEN, PLAYS_AT, 1] },
     );
     observer.observe(element);
+    // A watch page starts its video, with sound if the click that opened it allows that, or
+    // without if the browser says no.
+    if (watch) {
+      element.play().catch(() => {
+        element.muted = true;
+        element.play().catch(() => {});
+      });
+    }
+    // Time with the page hidden isn't watching. Coming back to one still playing starts the
+    // clock again, without counting another play.
     const onHidden = () => {
       if (document.visibilityState === "hidden") {
+        meter.paused(false);
         send();
+      } else if (!element.paused) {
+        meter.resumed();
       }
     };
-    document.addEventListener("visibilitychange", onHidden);
-    window.addEventListener("pagehide", send);
+    const onLeave = () => {
+      meter.paused(false);
+      send();
+    };
+    // Ahead of the participant app's own listener, which sends what's waiting as the page closes,
+    // so this last report goes with it. Listeners that capture run first.
+    document.addEventListener("visibilitychange", onHidden, { capture: true });
+    window.addEventListener("pagehide", onLeave, { capture: true });
 
     return () => {
       observer.disconnect();
-      document.removeEventListener("visibilitychange", onHidden);
-      window.removeEventListener("pagehide", send);
+      document.removeEventListener("visibilitychange", onHidden, { capture: true });
+      window.removeEventListener("pagehide", onLeave, { capture: true });
       for (const [name, listener] of listeners) {
         element.removeEventListener(name, listener);
       }
       send();
     };
-  }, [video.seconds, autoplay]);
+  }, [video.seconds, autoplay, watch]);
 
   // React doesn't keep `muted` in step with the element, so it's set here.
   useEffect(() => {
@@ -265,8 +330,8 @@ export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?
         playsInline
         preload="metadata"
         aria-label="Video"
-        style={{ aspectRatio: shape }}
-        className="max-h-[80vh] w-full bg-[#000] object-contain"
+        style={{ aspectRatio: watch ? "16 / 9" : shape }}
+        className={`w-full bg-[#000] object-contain ${watch ? "max-h-[75vh] sm:rounded-xl" : "max-h-[80vh]"}`}
       />
     );
   }
@@ -276,14 +341,20 @@ export function PostVideo({ video, autoplay = false }: { video: Video; autoplay?
     if (!element) {
       return;
     }
-    if (element.paused) {
+    // What the button says decides, not whether it happens to be playing: it may have stopped
+    // itself for a moment, such as when typing a comment moves the page.
+    if (viewerPaused.current) {
       viewerPaused.current = false;
       setPausedByViewer(false);
       element.play().catch(() => {});
+      return;
+    }
+    viewerPaused.current = true;
+    setPausedByViewer(true);
+    if (element.paused) {
+      counting.current?.paused(true);
     } else {
-      viewerPaused.current = true;
       viewerPausing.current = true;
-      setPausedByViewer(true);
       element.pause();
     }
   };

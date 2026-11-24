@@ -6,11 +6,12 @@ import {
   type FeedResponse,
   SORT_LABELS,
 } from "@truman3/core";
-import { PostFrame } from "@truman3/ui";
-import { useEffect, useRef } from "react";
+import { PostFrame, usePlatform, VideoEndedContext } from "@truman3/ui";
+import { useEffect, useRef, useState } from "react";
 import { flowQuery, get, post } from "../api.ts";
 import { CommunityCard } from "../components/Community.tsx";
 import { PostCard } from "../components/PostCard.tsx";
+import { UpNext } from "../components/UpNext.tsx";
 import { takeOpenedFrom } from "../tracking.ts";
 
 type CommentSort = ChosenSort | null;
@@ -73,6 +74,11 @@ export function PostPage() {
   }, [postId]);
 
   const shown = feed.data?.posts[0];
+  // On a video site, Up next is down the side, and the next one follows when this ends (ADR 96).
+  const watchPage = usePlatform().layout === "video";
+  const [ended, setEnded] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new post starts with nothing ended
+  useEffect(() => setEnded(false), [postId]);
 
   // A notification can point at one comment, which isn't on the page until the post has loaded.
   const pointedAt = useRef<string | null>(null);
@@ -91,29 +97,39 @@ export function PostPage() {
     return <p className="p-6 text-center text-stone-500">This post isn't available.</p>;
   }
   return (
-    <PostFrame side={shown?.space ? <CommunityCard spaceKey={shown.space.key} /> : undefined}>
-      <Link
-        to="/"
-        aria-label="Back to the feed"
-        className="mx-2 mt-2 inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold hover:bg-stone-200/60 sm:mx-0 sm:mt-0"
+    <VideoEndedContext.Provider value={watchPage ? () => setEnded(true) : null}>
+      <PostFrame
+        side={
+          watchPage ? (
+            <UpNext currentId={postId} ended={ended} />
+          ) : shown?.space ? (
+            <CommunityCard spaceKey={shown.space.key} />
+          ) : undefined
+        }
       >
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-5 w-5"
+        <Link
+          to="/"
+          aria-label="Back to the feed"
+          className="mx-2 mt-2 inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold hover:bg-stone-200/60 sm:mx-0 sm:mt-0"
         >
-          <path d="M19 12H5M11 6l-6 6 6 6" />
-        </svg>
-        Back
-      </Link>
-      {/* Not before it's loaded, or a choice made meanwhile wouldn't show until the next reload. */}
-      {feed.data && <CommentSortPicker sort={feed.data.commentSort ?? null} />}
-      {shown && <PostCard post={shown} surface="post" />}
-    </PostFrame>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-5 w-5"
+          >
+            <path d="M19 12H5M11 6l-6 6 6 6" />
+          </svg>
+          Back
+        </Link>
+        {/* Not before it's loaded, or a choice made meanwhile wouldn't show until the next reload. */}
+        {feed.data && <CommentSortPicker sort={feed.data.commentSort ?? null} />}
+        {shown && <PostCard key={shown.id} post={shown} surface="post" />}
+      </PostFrame>
+    </VideoEndedContext.Provider>
   );
 }

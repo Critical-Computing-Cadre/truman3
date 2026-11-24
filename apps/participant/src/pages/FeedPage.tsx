@@ -29,6 +29,12 @@ import { ExploreCards } from "./ExplorePage.tsx";
 /** Picked once per page load, for studies that reshuffle the feed on each visit. */
 const VISIT = Math.floor(Math.random() * 2 ** 31);
 
+/** The home feed, as this page shows it. A video site's Up next reads the same list (ADR 96). */
+export const homeFeedQuery = {
+  queryKey: ["feed", "home"],
+  queryFn: () => get<FeedResponse>(`/feed?visit=${VISIT}`),
+};
+
 const COMPOSER = {
   photo: { placeholder: "Add a caption..." },
   text: { placeholder: "What's new?" },
@@ -512,8 +518,10 @@ export function FeedPage() {
     }
   }, [feed.dataUpdatedAt, caughtUp]);
 
-  // A short-video site shows one post at a time, with these floating over it (ADR 95).
-  const oneAtATime = usePlatform().layout === "short-video";
+  // A short-video site shows one post at a time, with these floating over it (ADR 95). A video
+  // site's grid has them above it, out of the grid (ADR 96).
+  const { layout } = usePlatform();
+  const oneAtATime = layout === "short-video" || layout === "video";
   const controls = (
     <>
       {flow.data?.features.posting && me.data && (

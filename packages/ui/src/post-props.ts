@@ -58,4 +58,9 @@ export interface FeedPostViewProps {
   detail?: boolean;
   /** Wraps where the image goes, even if there isn't one. The admin app uses it to drop images on. */
   wrapImage?: (image: ReactNode) => ReactNode;
+  /**
+   * A way to follow the author from beside their name, such as a video site's Subscribe button
+   * (ADR 96). The participant app gives one. Without it, there's no button.
+   */
+  renderFollow?: (author: FeedAuthor) => ReactNode;
 }

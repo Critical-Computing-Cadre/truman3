@@ -55,6 +55,13 @@ const SIDE: Record<
     suggested: "People to follow",
     follow: "rounded-full border border-accent px-3 py-1 text-sm font-semibold text-accent",
   },
+  video: {
+    card: "rounded-xl border border-stone-200 p-4",
+    heading: "mb-3 text-lg font-bold",
+    trending: "Trending",
+    suggested: "Channels for you",
+    follow: "rounded-full bg-stone-900 px-4 py-1.5 text-sm font-semibold text-white",
+  },
   "short-video": {
     card: "px-1",
     heading: "mb-3 text-sm font-semibold text-stone-500",
