@@ -6,7 +6,7 @@ These steps use Qualtrics and Prolific. Other survey tools work the same way if 
 
 ## The quickest way: from the admin app
 
-If your server has `TRUMAN_SECRET_KEY` set, press **Recruit on Prolific** beside a study's **Launch** button on the Studies page. You can:
+If your server has `TRUMAN_SECRET_KEY` set, press **Recruit** beside a study's **Launch** button on the Studies page, then choose Prolific. The same page sets a study up for CloudResearch Connect, SONA, or any other platform (ADR 98). You can:
 
 1. **Connect your own Prolific account** with an API token, created on Prolific under Settings. Each person connects their own, so you can do exactly what your Prolific account allows.
 2. **Create an unpublished draft,** with the right link and completion codes. This spends nothing. You choose the audience and publish it on Prolific. Truman never publishes.
