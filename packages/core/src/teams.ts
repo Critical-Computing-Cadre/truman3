@@ -23,6 +23,11 @@ export const teamLimitsSchema = z.object({
    * participants can't add photos until some are deleted or the limit is raised. ADR 80.
    */
   uploadsGb: z.number().nonnegative().max(100_000).optional(),
+  /**
+   * How much the videos its researchers upload in the builder may take up in all, in gigabytes.
+   * Once it's reached, no more can be uploaded until the limit is raised. ADR 100.
+   */
+  videosGb: z.number().nonnegative().max(100_000).optional(),
 });
 export type TeamLimits = z.infer<typeof teamLimitsSchema>;
 
@@ -31,6 +36,7 @@ export const HOSTED_STARTING_LIMITS: Required<TeamLimits> = {
   runningStudies: 10,
   starterBudgetUsd: 5,
   uploadsGb: 5,
+  videosGb: 20,
 };
 
 /** What a lab tells a hosted Truman when it applies. */

@@ -33,7 +33,12 @@ export function LabPage() {
 interface TeamUsage {
   status: "pending" | "approved" | "suspended";
   limits: TeamLimits;
-  usage: { participantsLast30Days: number; runningStudies: number; uploadBytes: number };
+  usage: {
+    participantsLast30Days: number;
+    runningStudies: number;
+    uploadBytes: number;
+    videoBytes: number;
+  };
   key: {
     made: boolean;
     events: { at: string; kind: "used" | "changed"; action: string; by: string }[];
@@ -94,6 +99,11 @@ function UsageCard({ team }: { team: Researcher["teams"][number] }) {
             name="Photos from participants"
             used={gb(used.uploadBytes)}
             {...(limits.uploadsGb === undefined ? {} : { limit: `${limits.uploadsGb} GB` })}
+          />
+          <Used
+            name="Videos you've uploaded"
+            used={gb(used.videoBytes)}
+            {...(limits.videosGb === undefined ? {} : { limit: `${limits.videosGb} GB` })}
           />
         </ul>
         {nearlyFull && (

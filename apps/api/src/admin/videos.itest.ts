@@ -4,9 +4,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { setUpTeam } from "@truman3/accounts";
 import type { FeedPost, FeedResponse } from "@truman3/core";
+import { schema } from "@truman3/db";
 import { createTestDatabase } from "@truman3/db/testing";
 import { createStorage, storageConfigFromEnv } from "@truman3/storage";
 import { importStudyFolder } from "@truman3/study-import";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../app.ts";
 
@@ -46,7 +48,12 @@ afterAll(async () => {
 });
 
 /** A study folder whose first post is a video, and a lab signed in to the builder. */
-async function studyWithVideo(posts: string, media: Record<string, string>, platform = "") {
+async function studyWithVideo(
+  posts: string,
+  media: Record<string, string>,
+  platform = "",
+  extra: Record<string, string> = {},
+) {
   const id = randomUUID().slice(0, 8);
   const { teamId, password } = await setUpTeam(database.db, {
     teamName: `lab-${id}`,
@@ -72,6 +79,7 @@ ${platform}
 `,
     "actors.csv": "username,name\nann,Ann\n",
     "posts.csv": posts,
+    ...extra,
   };
   for (const [name, text] of Object.entries(files)) {
     writeFileSync(path.join(dir, name), text);
@@ -339,5 +347,136 @@ platform:
     expect(JSON.stringify(imported)).toContain(
       'The video \\"ad.mp4\\" for the ad \\"coffee\\" can\'t be used',
     );
+  });
+});
+
+describe("a beat that waits for watching (ADR 100)", () => {
+  const beats = `
+beats:
+  - id: after-three
+    when: { participant: watch, post: clip, seconds: 3 }
+    do: { action: comment, actor: bob, on: trigger, text: Three seconds in }
+  - id: at-the-end
+    when: { participant: watch, finished: true }
+    do: { action: comment, actor: bob, on: trigger, text: You made it to the end }
+`;
+
+  it("happens once the mark is passed, over several spells, and only once", async () => {
+    const { imported, slug } = await studyWithVideo(
+      "id,actor,time,body,video\nclip,ann,-0:10,Watch this,clip.mp4\nother,ann,-0:20,Another,other.mp4\n",
+      { "clip.mp4": path.join(VIDEOS, "h264.mp4"), "other.mp4": path.join(VIDEOS, "silent.mp4") },
+      "",
+      { "beats.yaml": beats, "actors.csv": "username,name\nann,Ann\nbob,Bob\n" },
+    );
+    expect(imported.status).toBe("imported");
+    const entered = await app.request(`/studies/${slug}/enter`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ externalId: randomUUID() }),
+    });
+    const cookie = (entered.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+    const feed = async () =>
+      ((await (await call(cookie, "GET", "/feed")).json()) as FeedResponse).posts;
+    const said = async (body: string) =>
+      (byBody(await feed(), body)?.comments ?? []).map((comment) => comment.body);
+    const clip = byBody(await feed(), "Watch this") as FeedPost;
+    const other = byBody(await feed(), "Another") as FeedPost;
+    const watch = (contentId: string, playedMs: number, ended = 0) =>
+      call(cookie, "POST", "/events", {
+        events: [
+          {
+            clientEventId: randomUUID(),
+            occurredAt: new Date().toISOString(),
+            type: "video.watched",
+            targetContentId: contentId,
+            payload: {
+              playedMs,
+              seconds: 2,
+              furthestSeconds: 2,
+              ended,
+              plays: 1,
+              pauses: 0,
+              seeks: 0,
+              soundOn: false,
+              surface: "feed",
+            },
+          },
+        ],
+      });
+
+    // Two seconds isn't three, and the other video doesn't count toward this one.
+    await watch(clip.id, 2000);
+    await watch(other.id, 5000);
+    expect(await said("Watch this")).toEqual([]);
+    // Another spell takes them past three seconds.
+    await watch(clip.id, 1500);
+    expect(await said("Watch this")).toEqual(["Three seconds in"]);
+    // More watching doesn't say it again. Reaching the end sets off the other beat, on any video.
+    await watch(clip.id, 4000, 1);
+    expect(await said("Watch this")).toEqual(["Three seconds in", "You made it to the end"]);
+  });
+
+  it("is checked when the study is read", async () => {
+    const { imported } = await studyWithVideo(
+      "id,actor,time,body\nwords,ann,-0:10,Only words\n",
+      {},
+      "",
+      {
+        "beats.yaml": `
+beats:
+  - id: b
+    when: { participant: watch, post: words, seconds: 3 }
+    do: { action: like, actor: ann, on: trigger }
+`,
+      },
+    );
+    expect(JSON.stringify(imported)).toContain("but it has no video");
+  });
+});
+
+describe("a lab's room for videos (ADR 100)", () => {
+  it("counts each video once, and refuses one that wouldn't fit", async () => {
+    const { imported, cookie } = await studyWithVideo(
+      "id,actor,time,body\nt,ann,-0:10,Words\n",
+      {},
+    );
+    if (imported.status === "failed") throw new Error("import");
+    const { draftId } = (await (
+      await call(cookie, "POST", `/admin/versions/${imported.studyVersionId}/draft`)
+    ).json()) as { draftId: string };
+    const [draft] = await database.db
+      .select({ studyId: schema.studyDrafts.studyId })
+      .from(schema.studyDrafts)
+      .where(eq(schema.studyDrafts.id, draftId));
+    const [study] = await database.db
+      .select({ teamId: schema.studies.teamId })
+      .from(schema.studies)
+      .where(eq(schema.studies.id, draft?.studyId as string));
+    const teamId = study?.teamId as string;
+    const used = async () =>
+      (
+        await database.db
+          .select({ bytes: schema.teamVideos.bytes })
+          .from(schema.teamVideos)
+          .where(eq(schema.teamVideos.teamId, teamId))
+      ).reduce((total, { bytes }) => total + bytes, 0);
+
+    // No limit: it's counted, and the same video again isn't counted twice.
+    const silent = video("silent.mp4");
+    expect((await upload(cookie, draftId, silent)).status).toBe(200);
+    expect((await upload(cookie, draftId, silent)).status).toBe(200);
+    expect(await used()).toBe(silent.length);
+
+    // With room for only what's there, another is refused, saying why, and isn't counted.
+    await database.db
+      .update(schema.teams)
+      .set({ limits: { videosGb: (silent.length + 100) / 1024 ** 3 } })
+      .where(eq(schema.teams.id, teamId));
+    const refused = await upload(cookie, draftId, video("h264.mp4"));
+    expect(refused.status).toBe(400);
+    expect(((await refused.json()) as { error: string }).error).toContain(
+      "isn't room for this one",
+    );
+    expect(await used()).toBe(silent.length);
   });
 });

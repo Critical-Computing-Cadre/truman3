@@ -56,7 +56,7 @@ export const DEMO_TEAM = {
   // Nothing of the host's to spend on a model, so the cast uses its written lines. An operator can
   // raise it on the Labs page. Anyone on the internet can open a demo, and that would be their bill.
   // And a small room for photos, since anyone can upload one and they're kept a week (ADR 80).
-  limits: { starterBudgetUsd: 0, uploadsGb: 1 },
+  limits: { starterBudgetUsd: 0, uploadsGb: 1, videosGb: 0 },
 };
 
 /** A demo's address, which can't collide with a lab's own study of the same example. */

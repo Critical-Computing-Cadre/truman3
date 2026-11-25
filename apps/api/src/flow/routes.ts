@@ -13,10 +13,11 @@ import {
 import { type Database, recordEvent, schema, type Transaction } from "@truman3/db";
 import { feedSettingsFor } from "@truman3/feed";
 import { deleteParticipant } from "@truman3/study-import";
-import { count, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { deleteCookie } from "hono/cookie";
 import { actionMetaSchema } from "../actions/request.ts";
 import { findVisibleContent } from "../actions/routes.ts";
+import { onParticipantAct } from "../director/director.ts";
 import { mediaUrl } from "../feed/build.ts";
 import { isSealed } from "../lab-keys.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
@@ -229,6 +230,29 @@ const reportedEventSchema = z.discriminatedUnion("type", [
     targetContentId: z.uuid(),
   }),
 ]);
+
+/** How much of a video someone has watched so far, over every spell recorded. */
+async function watchedSoFar(tx: Transaction, context: ParticipantContext, contentId: string) {
+  const rows = await tx
+    .select({ payload: schema.events.payload })
+    .from(schema.events)
+    .where(
+      and(
+        eq(schema.events.worldId, context.worldId),
+        eq(schema.events.participantId, context.participantId),
+        eq(schema.events.type, "video.watched"),
+        eq(schema.events.targetContentId, contentId),
+      ),
+    );
+  let playedMs = 0;
+  let ended = 0;
+  for (const { payload } of rows) {
+    const spell = payload as { playedMs?: number; ended?: number };
+    playedMs += spell.playedMs ?? 0;
+    ended += spell.ended ?? 0;
+  }
+  return { playedMs, ended };
+}
 
 const reportRoute = createRoute({
   method: "post",
@@ -541,11 +565,43 @@ export function createFlowRoutes({
         if (!(await findVisibleContent(db, context, event.targetContentId, now))) {
           continue;
         }
-        const stored = await recordEvent(db, {
-          ...meta,
-          type: event.type,
-          payload: event.payload,
-          targetContentId: event.targetContentId,
+        const { targetContentId } = event;
+        const stored = await db.transaction(async (tx) => {
+          const before =
+            event.type === "video.watched"
+              ? await watchedSoFar(tx, context, targetContentId)
+              : null;
+          const result = await recordEvent(tx, {
+            ...meta,
+            type: event.type,
+            payload: event.payload,
+            targetContentId,
+          });
+          // Beats that wait for watching (ADR 100), in the same step as the record of it.
+          if (result && before && event.type === "video.watched") {
+            const [video] = await tx
+              .select({ authorActorId: schema.content.authorActorId })
+              .from(schema.content)
+              .where(eq(schema.content.id, targetContentId));
+            await onParticipantAct(
+              tx,
+              context,
+              {
+                action: "watch",
+                contentId: targetContentId,
+                ...(video ? { targetActorId: video.authorActorId } : {}),
+                nth: 0,
+                watched: {
+                  beforeMs: before.playedMs,
+                  nowMs: before.playedMs + event.payload.playedMs,
+                  endedBefore: before.ended,
+                  endedNow: before.ended + event.payload.ended,
+                },
+              },
+              now,
+            );
+          }
+          return result;
         });
         recorded += stored ? 1 : 0;
       } else if (event.type === "page.viewed") {

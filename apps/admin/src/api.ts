@@ -125,6 +125,7 @@ export interface TeamLimits {
   runningStudies?: number;
   starterBudgetUsd?: number;
   uploadsGb?: number;
+  videosGb?: number;
 }
 
 /** A lab's own Claude key, by its last characters, and what it's spent (ADR 71). */
@@ -159,6 +160,7 @@ export interface OperatorTeam {
     labAiUsd: number;
     hasOwnKey: boolean;
     uploadBytes: number;
+    videoBytes: number;
   };
 }
 

@@ -176,6 +176,13 @@ function TeamCard({ team }: { team: OperatorTeam }) {
             {team.limits.uploadsGb !== undefined && ` of ${team.limits.uploadsGb} GB`}
           </dd>
         </div>
+        <div>
+          <dt>Videos it uploaded</dt>
+          <dd>
+            {gb(usage.videoBytes)} GB
+            {team.limits.videosGb !== undefined && ` of ${team.limits.videosGb} GB`}
+          </dd>
+        </div>
         <div className="col-span-2">
           <dt>Claude</dt>
           <dd>
@@ -243,11 +250,13 @@ function LimitsForm({
   const [running, setRunning] = useState(shown(team.limits.runningStudies));
   const [starter, setStarter] = useState(shown(team.limits.starterBudgetUsd));
   const [uploads, setUploads] = useState(shown(team.limits.uploadsGb));
+  const [videos, setVideos] = useState(shown(team.limits.videosGb));
   const changed =
     participants !== shown(team.limits.participantsPerMonth) ||
     running !== shown(team.limits.runningStudies) ||
     starter !== shown(team.limits.starterBudgetUsd) ||
-    uploads !== shown(team.limits.uploadsGb);
+    uploads !== shown(team.limits.uploadsGb) ||
+    videos !== shown(team.limits.videosGb);
   const asLimit = (value: string) => (value.trim() === "" ? undefined : Number(value));
 
   return (
@@ -271,6 +280,10 @@ function LimitsForm({
         const room = asLimit(uploads);
         if (room !== undefined) {
           limits.uploadsGb = room;
+        }
+        const videoRoom = asLimit(videos);
+        if (videoRoom !== undefined) {
+          limits.videosGb = videoRoom;
         }
         onSave(limits);
       }}
@@ -318,6 +331,18 @@ function LimitsForm({
           placeholder="No limit"
           value={uploads}
           onChange={(event) => setUploads(event.target.value)}
+          className="w-36 rounded border border-stone-300 px-2 py-1"
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        Videos it uploads (GB)
+        <input
+          type="number"
+          min={0}
+          step="any"
+          placeholder="No limit"
+          value={videos}
+          onChange={(event) => setVideos(event.target.value)}
           className="w-36 rounded border border-stone-300 px-2 py-1"
         />
       </label>

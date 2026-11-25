@@ -45,14 +45,15 @@ beats:
 
 Give exactly one `when`:
 
-| `when`                                        | Happens                                                                   |
-| --------------------------------------------- | ------------------------------------------------------------------------- |
-| `{ time: "0:03" }`                            | Three minutes after the participant starts                                |
-| `{ participant: post }`                       | When they post. Also `comment`, `like`, `follow`, `repost`, and `message` |
-| `{ participant: comment, nth: 0 }`            | Only on their first comment. `nth` counts from 0                          |
-| `{ participant: comment, on: maya }`          | Only when it's on something Maya wrote                                    |
-| `{ participant: comment, under: jake-mocks }` | Only on what the beat `jake-mocks` made, or anywhere under it             |
-| `{ beat: jake-mocks }`                        | After that beat happens                                                   |
+| `when`                                          | Happens                                                                                        |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `{ time: "0:03" }`                              | Three minutes after the participant starts                                                     |
+| `{ participant: post }`                         | When they post. Also `comment`, `like`, `follow`, `repost`, and `message`                      |
+| `{ participant: comment, nth: 0 }`              | Only on their first comment. `nth` counts from 0                                               |
+| `{ participant: comment, on: maya }`            | Only when it's on something Maya wrote                                                         |
+| `{ participant: comment, under: jake-mocks }`   | Only on what the beat `jake-mocks` made, or anywhere under it                                  |
+| `{ participant: watch, post: w2, seconds: 10 }` | When they've watched 10 seconds of that video. See [below](#waiting-for-a-video-to-be-watched) |
+| `{ beat: jake-mocks }`                          | After that beat happens                                                                        |
 
 ## What happens
 
@@ -162,6 +163,25 @@ Beats are logic, and logic has paths you didn't think of. Before launch, go thro
 ## Words that aren't fixed
 
 The lines in a beat don't have to be written ahead of time. A comment can have `improvise` in place of `text`: an instruction for an AI model that writes the line in that character's voice. A beat can also wait for you to approve its line before it posts. Both are in [A cast that writes for itself](/guide/live-writing).
+
+## Waiting for a video to be watched
+
+A beat can wait for the participant to watch a video:
+
+```yaml
+- id: ask-after-clip
+  when: { participant: watch, post: w2, seconds: 10 }
+  do:
+    action: ask
+    questions:
+      - { id: felt, text: How did that video make you feel?, type: text }
+```
+
+- `post` is the id of one of your posts, here `w2`. Leave it out for any video.
+- `seconds` is how much of it they've watched in all, over one sitting or several. Or use `finished: true` for when it plays to its end.
+- With neither, it happens the first time they watch any of it.
+
+It happens once for each video. Truman hears about watching when a video ends, when it leaves the screen, or when the page closes, so a beat follows within a few seconds of one of those. A mark part way through a long video is noticed when they stop watching, not at that second.
 
 ## Decision points
 

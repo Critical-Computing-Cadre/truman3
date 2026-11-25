@@ -28,14 +28,15 @@ Times are hours:minutes from when the participant starts, as in the sheets. A de
 
 Give exactly one of these:
 
-| `when`                                        | Happens                                                                                             |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `{ time: "0:03" }`                            | At a set time                                                                                       |
-| `{ participant: post }`                       | When the participant posts. Also `comment`, `like`, `follow`, `repost`, and `message`               |
-| `{ participant: comment, nth: 0 }`            | Only on their first comment. `nth` counts from 0                                                    |
-| `{ participant: comment, on: maya }`          | Only when it's on something Maya wrote, or, for `follow` and `message`, following or messaging Maya |
-| `{ participant: comment, under: jake-mocks }` | Only when it's on what the beat `jake-mocks` made, or anywhere under it                             |
-| `{ beat: jake-mocks }`                        | After that beat happens, counting the delay from then                                               |
+| `when`                                              | Happens                                                                                                                                                   |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `{ time: "0:03" }`                                  | At a set time                                                                                                                                             |
+| `{ participant: post }`                             | When the participant posts. Also `comment`, `like`, `follow`, `repost`, and `message`                                                                     |
+| `{ participant: comment, nth: 0 }`                  | Only on their first comment. `nth` counts from 0                                                                                                          |
+| `{ participant: comment, on: maya }`                | Only when it's on something Maya wrote, or, for `follow` and `message`, following or messaging Maya                                                       |
+| `{ participant: watch, post: clip-3, seconds: 10 }` | When they've watched 10 seconds of that post's video in all. `finished: true` waits for its end. Without `post`, any video. Once for each video (ADR 100) |
+| `{ participant: comment, under: jake-mocks }`       | Only when it's on what the beat `jake-mocks` made, or anywhere under it                                                                                   |
+| `{ beat: jake-mocks }`                              | After that beat happens, counting the delay from then                                                                                                     |
 
 ## What happens (`do`)
 

@@ -77,7 +77,7 @@ describe("the demos a server sets up for itself (ADR 78)", () => {
     expect(team?.status).toBe("approved");
     // Anyone can open a demo, so it has none of the host's money to spend on a model.
     // And only a little room for photos (ADR 80).
-    expect(team?.limits).toEqual({ starterBudgetUsd: 0, uploadsGb: 1 });
+    expect(team?.limits).toEqual({ starterBudgetUsd: 0, uploadsGb: 1, videosGb: 0 });
 
     const demo = await study("try-bystander");
     expect(demo?.teamId).toBe(team?.id);
@@ -121,7 +121,7 @@ describe("the demos a server sets up for itself (ADR 78)", () => {
       .set({ limits: { starterBudgetUsd: 3 } })
       .where(eq(schema.teams.slug, DEMO_TEAM.slug));
     await setUp();
-    expect(await limitsNow()).toEqual({ starterBudgetUsd: 3, uploadsGb: 1 });
+    expect(await limitsNow()).toEqual({ starterBudgetUsd: 3, uploadsGb: 1, videosGb: 0 });
 
     await database.db
       .update(schema.teams)

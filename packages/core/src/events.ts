@@ -85,7 +85,7 @@ export const eventPayloadSchemas = {
   /** The raw time on screen. Any minimum or maximum gets applied at analysis, not here. */
   "content.viewed": z.strictObject({ dwellMs: z.number().nonnegative(), surface: z.string() }),
   /**
-   * One spell of watching a post's video, reported when it stops being on screen (ADR 94).
+   * One spell of watching a post's video, reported when it ends or stops being on screen (ADR 94).
    * `playedMs` is time it was actually playing. `furthestSeconds` is how far into it they got.
    * `ended` is how many times it reached its end. `soundOn` is whether its sound was ever on.
    */

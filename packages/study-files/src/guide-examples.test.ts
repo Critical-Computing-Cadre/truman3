@@ -74,7 +74,7 @@ describe("the guide's examples work as written", () => {
 
   it("Making things happen: a question in the moment, added to the scene it follows", () => {
     const scene = example("beats.md", "id: sam-defends");
-    const asking = example("beats.md", "action: ask");
+    const asking = example("beats.md", "id: after-jake");
     // The question waits for a reply under Jake's comment, which the scene makes.
     const together = `${scene}\n${asking.replace(/^beats:\n/, "")}`;
     const withoutItsTests = (dir: string) => {
@@ -82,6 +82,11 @@ describe("the guide's examples work as written", () => {
       rmSync(path.join(dir, "personas.yaml"));
     };
     expect(problemsWith("examples/bystander", "beats.yaml", together, withoutItsTests)).toEqual([]);
+  });
+
+  it("Making things happen: a question after a video, in a study with that video", () => {
+    const asking = example("beats.md", "participant: watch");
+    expect(problemsWith("starters/video-platform", "beats.yaml", `beats:\n${asking}`)).toEqual([]);
   });
 
   it("Making things happen: a wrong name is caught, as the page says it is", () => {
