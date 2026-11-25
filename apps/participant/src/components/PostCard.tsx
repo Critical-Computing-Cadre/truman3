@@ -11,7 +11,7 @@ import {
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { flowQuery, meQuery, post as send, type Written } from "../api.ts";
 import { createDwellTimer } from "../dwell.ts";
-import { rememberOpenedFrom, track } from "../tracking.ts";
+import { flushTracking, rememberOpenedFrom, track } from "../tracking.ts";
 import { AreYouSure } from "./AreYouSure.tsx";
 import { CrosspostDialog } from "./CrosspostDialog.tsx";
 import { QuoteDialog } from "./QuoteDialog.tsx";
@@ -157,12 +157,15 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
     usePlatform().layout === "video" && Boolean(flow.data?.features.following) && detail;
   // Each spell of watching this post's video, if it has one (ADR 94).
   const reportWatching = useCallback(
-    (watching: VideoWatching) =>
+    (watching: VideoWatching) => {
       track({
         type: "video.watched",
         targetContentId: post.id,
         payload: { ...watching, surface },
-      }),
+      });
+      // Sent at once, since a beat may be waiting on it (ADR 100).
+      flushTracking();
+    },
     [post.id, surface],
   );
 

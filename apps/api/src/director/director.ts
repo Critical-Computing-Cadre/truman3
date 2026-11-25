@@ -30,13 +30,33 @@ import { chooseWords, mightWrite, saysSomething, type Writing } from "./wording.
 
 /** Something the participant did that can set a beat off. */
 export interface ParticipantAct {
-  action: "post" | "comment" | "like" | "follow" | "repost" | "message";
+  action: "post" | "comment" | "like" | "follow" | "repost" | "message" | "watch";
   /** What they made, for a post, comment, or message, or what they acted on, for a like or repost. */
   contentId?: string;
   /** Whose content it was, who they followed, or who they messaged. */
   targetActorId?: string;
   /** Their nth of this kind of action, from 0. */
   nth: number;
+  /**
+   * For watch: how much of this video they'd watched before this spell and have now, and how many
+   * times it had reached its end (ADR 100). A beat happens when its mark is passed, so only once.
+   */
+  watched?: { beforeMs: number; nowMs: number; endedBefore: number; endedNow: number };
+}
+
+/** Whether this spell of watching took someone past what a watch beat waits for. */
+export function passedWatchMark(
+  when: { seconds?: number; finished?: true },
+  watched: NonNullable<ParticipantAct["watched"]>,
+) {
+  if (when.finished) {
+    return watched.endedBefore === 0 && watched.endedNow > 0;
+  }
+  // With no mark, any watching at all, the first time.
+  const markMs = (when.seconds ?? 0) * 1000;
+  return markMs === 0
+    ? watched.beforeMs === 0 && watched.nowMs > 0
+    : watched.beforeMs < markMs && watched.nowMs >= markMs;
 }
 
 /** What set a run off, as `beat_runs.trigger` keeps it. */
@@ -245,6 +265,20 @@ export async function onParticipantAct(
   }
   for (const beat of beats) {
     const when = beat.when as Extract<Cue["when"], { participant: string }>;
+    if (when.participant === "watch") {
+      if (!act.watched || !passedWatchMark(when, act.watched)) {
+        continue;
+      }
+      if (when.post) {
+        const [video] = await tx
+          .select({ sourceRef: schema.content.sourceRef })
+          .from(schema.content)
+          .where(eq(schema.content.id, act.contentId ?? ""));
+        if (video?.sourceRef !== when.post) {
+          continue;
+        }
+      }
+    }
     if (when.on) {
       const [actor] = await tx
         .select({ id: schema.actors.id })

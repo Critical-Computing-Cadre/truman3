@@ -252,7 +252,7 @@ describe("a hosted Truman (ADR 70)", () => {
     expect(await json(await send(cookie, "GET", `/admin/teams/${team.id}/usage`))).toEqual({
       status: "approved",
       limits: { runningStudies: 3, participantsPerMonth: 50, uploadsGb: 2 },
-      usage: { participantsLast30Days: 2, runningStudies: 1, uploadBytes: 0 },
+      usage: { participantsLast30Days: 2, runningStudies: 1, uploadBytes: 0, videoBytes: 0 },
       // This Truman gives labs no keys, so there's none, and nothing to list.
       key: { made: false, events: [] },
     });

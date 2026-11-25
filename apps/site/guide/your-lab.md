@@ -49,6 +49,7 @@ An approved lab starts with:
 | New participants in any 30 days | 1,000     |
 | Studies open at once            | 10        |
 | Photos from participants        | 5 GB      |
+| Videos you've uploaded          | 20 GB     |
 | Starter budget for Claude       | $5        |
 
 **New participants** counts people entering any of your lab's studies in the last 30 days. When you reach it, your studies take nobody new until the oldest of those entries is more than 30 days old. People already in a study can always come back. Test participants don't count.
@@ -56,6 +57,8 @@ An approved lab starts with:
 **Studies open at once** counts launched studies. Launching another is refused until you stop one.
 
 **Photos from participants** adds up what participants have uploaded across all your studies. At a few megabytes a photo, 5 GB is a few thousand photos. Once it's reached, a participant who tries to add a photo is told it can't be used, so ask for more before a photo-heavy study gets there. Withdrawing a participant or deleting a study frees what they used. Photos you put in a study yourself don't count.
+
+**Videos you've uploaded** adds up the videos your lab has put on posts and ads in the builder. Each counts once, however many studies use it. A video can be up to 200 MB, so 20 GB is at least a hundred. Once it's reached, another upload is refused, with a message saying so. Ask for more if you need it. Taking a video off a post doesn't free its room yet.
 
 ::: tip Planning something bigger
 Whoever runs hosted Truman can raise any of these for your lab. If you're planning a study that needs more, ask before you recruit.

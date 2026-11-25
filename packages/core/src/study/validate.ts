@@ -1099,6 +1099,29 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       if (when.under) {
         checkBeat(when.under, "waits for something under");
       }
+      if (when.participant === "watch") {
+        const watched = when.post ? study.posts.find(({ ref }) => ref === when.post) : null;
+        if (when.post && !watched) {
+          beatProblem(
+            "error",
+            `${label} waits for "${when.post}" to be watched, which isn't a post.`,
+          );
+        } else if (watched && !watched.video) {
+          beatProblem(
+            "error",
+            `${label} waits for "${when.post}" to be watched, but it has no video.`,
+          );
+        } else if (!when.post && !study.posts.some(({ video }) => video)) {
+          beatProblem("warning", `${label} waits for a video to be watched, but no post has one.`);
+        }
+        const length = watched?.videoDetails?.seconds;
+        if (when.seconds !== undefined && length !== undefined && when.seconds > length) {
+          beatProblem(
+            "warning",
+            `${label} waits for ${when.seconds} seconds of "${when.post}", which is only ${Math.round(length)} seconds long. It can still happen if they watch it again.`,
+          );
+        }
+      }
     }
     if ("beat" in when) {
       checkBeat(when.beat, "comes after", true);

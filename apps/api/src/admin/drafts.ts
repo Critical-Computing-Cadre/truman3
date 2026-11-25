@@ -60,6 +60,7 @@ import { MAX_IMAGE_BYTES, storeStudyImage } from "../actions/images.ts";
 import { storeStudyVideo } from "../actions/videos.ts";
 import { type FeedActor, type FeedContent, mediaUrl } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
+import { recordTeamVideo, whyNoRoomForVideo } from "./hosting.ts";
 import { previewContent } from "./preview.ts";
 import { startScenarioRun } from "./scenarios.ts";
 import { researcherFromRequest } from "./session.ts";
@@ -1260,10 +1261,21 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
     if (!body) {
       return c.json({ error: "There's no video." }, 400);
     }
+    // Within the lab's room for videos (ADR 100), checked before any of it is taken in.
+    const { studyId } = editing.loaded.draft;
+    const noRoom = Number.isFinite(length) ? await whyNoRoomForVideo(db, studyId, length) : null;
+    if (noRoom) {
+      return c.json({ error: noRoom }, 400);
+    }
     const stored = await storeStudyVideo(storage, body, length);
     if (!stored.ok) {
       return c.json({ error: `That video can't be used. ${stored.reason}` }, 400);
     }
+    await recordTeamVideo(db, studyId, {
+      key: stored.key,
+      bytes: length,
+      researcherId: editing.researcher.id,
+    });
     return c.json(
       { video: { key: stored.key, ...stored.info }, url: mediaUrl(stored.key, mediaPublicUrl) },
       200,

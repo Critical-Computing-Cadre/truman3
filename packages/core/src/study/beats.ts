@@ -31,6 +31,8 @@ export const PARTICIPANT_ACTIONS = [
   "follow",
   "repost",
   "message",
+  // Watching a post's video (ADR 100). Once for each video, when they've watched enough of it.
+  "watch",
 ] as const;
 
 export const idSchema = z
@@ -57,6 +59,12 @@ const triggerSchema = z
     on: z.string().min(1).optional(),
     /** Only if it's on what a beat made, or anywhere under it, by the beat's id. */
     under: idSchema.optional(),
+    /** For watch: only this one of the study's posts, by its id. Leave out for any video. */
+    post: z.string().min(1).optional(),
+    /** For watch: once they've watched this many seconds of it in all. */
+    seconds: z.number().positive().max(600).optional(),
+    /** For watch: once it's played to its end. */
+    finished: z.literal(true).optional(),
     /** When another beat happens. */
     beat: idSchema.optional(),
   })
@@ -74,6 +82,21 @@ const triggerSchema = z
     ) {
       ctx.addIssue({ code: "custom", message: "nth, on, and under only go with participant." });
     }
+    if (
+      when.participant !== "watch" &&
+      (when.post !== undefined || when.seconds !== undefined || when.finished !== undefined)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "post, seconds, and finished only go with participant: watch.",
+      });
+    }
+    if (when.seconds !== undefined && when.finished !== undefined) {
+      ctx.addIssue({ code: "custom", message: "Give seconds or finished, not both." });
+    }
+    if (when.participant === "watch" && (when.nth !== undefined || when.under !== undefined)) {
+      ctx.addIssue({ code: "custom", message: "nth and under don't go with watch. Use post." });
+    }
   })
   .transform(
     (
@@ -85,6 +108,9 @@ const triggerSchema = z
           nth?: number;
           on?: string;
           under?: string;
+          post?: string;
+          seconds?: number;
+          finished?: true;
         }
       | { beat: string } => {
       if (when.time !== undefined) {
@@ -93,12 +119,15 @@ const triggerSchema = z
       if (when.beat !== undefined) {
         return { beat: when.beat };
       }
-      const { participant, nth, on, under } = when;
+      const { participant, nth, on, under, post, seconds, finished } = when;
       return {
         participant: participant as (typeof PARTICIPANT_ACTIONS)[number],
         ...(nth === undefined ? {} : { nth }),
         ...(on === undefined ? {} : { on }),
         ...(under === undefined ? {} : { under }),
+        ...(post === undefined ? {} : { post }),
+        ...(seconds === undefined ? {} : { seconds }),
+        ...(finished === undefined ? {} : { finished }),
       };
     },
   );

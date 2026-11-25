@@ -224,13 +224,25 @@ export function PostVideo({
         "ended",
         () => {
           meter.ended();
+          // Sent as it ends, so a beat waiting for the end can happen then (ADR 100).
+          send();
           ended.current?.();
         },
       ],
       ["timeupdate", () => meter.at(element.currentTime)],
       // A looping video seeks back to its start by itself, which is once through, not a seek. One
       // that plays by itself has no controls, so the viewer can't seek it.
-      ["seeked", () => (element.loop ? meter.looped() : meter.sought())],
+      [
+        "seeked",
+        () => {
+          if (element.loop) {
+            meter.looped();
+            send();
+          } else {
+            meter.sought();
+          }
+        },
+      ],
       ["volumechange", () => meter.sound(!element.muted && element.volume > 0)],
     ];
     meter.sound(!element.muted && element.volume > 0);

@@ -1022,6 +1022,26 @@ export const agentRuns = pgTable(
 );
 
 /**
+ * A video a lab's researcher uploaded in the builder, and its size, to count toward the lab's limit
+ * (ADR 100). The file itself is stored once by its contents, whoever uploads it, so each lab that
+ * uploads it gets a row of its own.
+ */
+export const teamVideos = pgTable(
+  "team_videos",
+  {
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    /** Its key in storage, such as media/<checksum>.mp4. */
+    key: text().notNull(),
+    bytes: bigint({ mode: "number" }).notNull(),
+    uploadedBy: uuid("uploaded_by").references(() => researchers.id, { onDelete: "set null" }),
+    uploadedAt: time("uploaded_at").notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.teamId, table.key] })],
+);
+
+/**
  * A community drafted by a model for a researcher to review, from the builder's Community page:
  * what they asked for, how far it's got, and what it cost. What it wrote is ordinary draft posts and
  * comments, each with this run's id in its provenance. See ADR 99.

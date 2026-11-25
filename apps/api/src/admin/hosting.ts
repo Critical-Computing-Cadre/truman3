@@ -130,6 +130,62 @@ export async function uploadBytesByTeam(db: Database | Transaction): Promise<Map
   );
 }
 
+/** How much every team's researchers have uploaded as videos, in bytes, by team (ADR 100). */
+export async function videoBytesByTeam(db: Database | Transaction): Promise<Map<string, number>> {
+  const rows = await db
+    .select({ teamId: schema.teamVideos.teamId, bytes: sum(schema.teamVideos.bytes) })
+    .from(schema.teamVideos)
+    .groupBy(schema.teamVideos.teamId);
+  return new Map(rows.map(({ teamId, bytes }) => [teamId, Number(bytes ?? 0)]));
+}
+
+/**
+ * Whether a study's lab has room for a video of this size (ADR 100), and if not, what to say. A
+ * team with no limit always does.
+ */
+export async function whyNoRoomForVideo(
+  db: Database | Transaction,
+  studyId: string,
+  bytes: number,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ teamId: schema.teams.id, limits: schema.teams.limits })
+    .from(schema.studies)
+    .innerJoin(schema.teams, eq(schema.teams.id, schema.studies.teamId))
+    .where(eq(schema.studies.id, studyId));
+  const videosGb = row ? teamLimitsSchema.parse(row.limits).videosGb : undefined;
+  if (!row || videosGb === undefined) {
+    return null;
+  }
+  const used = (await videoBytesByTeam(db)).get(row.teamId) ?? 0;
+  return used + bytes <= videosGb * GB
+    ? null
+    : `Your lab has used ${(used / GB).toFixed(1)} GB of its ${videosGb} GB for videos, so there isn't room for this one. Whoever runs this Truman can raise the limit.`;
+}
+
+/** Notes that a lab uploaded a video, once for each video. */
+export async function recordTeamVideo(
+  db: Database | Transaction,
+  studyId: string,
+  video: { key: string; bytes: number; researcherId: string },
+) {
+  const [study] = await db
+    .select({ teamId: schema.studies.teamId })
+    .from(schema.studies)
+    .where(eq(schema.studies.id, studyId));
+  if (study?.teamId) {
+    await db
+      .insert(schema.teamVideos)
+      .values({
+        teamId: study.teamId,
+        key: video.key,
+        bytes: video.bytes,
+        uploadedBy: video.researcherId,
+      })
+      .onConflictDoNothing();
+  }
+}
+
 /**
  * Whether a participant's lab has room for one more photo of this size (ADR 80). A team with no
  * limit always does. What's counted is what participants uploaded and hasn't been deleted.
@@ -164,6 +220,7 @@ function limitsText({
   participantsPerMonth,
   starterBudgetUsd,
   uploadsGb,
+  videosGb,
 }: TeamLimits) {
   const parts = [
     runningStudies === undefined ? null : `${runningStudies} studies open at once`,
@@ -171,6 +228,7 @@ function limitsText({
       ? null
       : `${participantsPerMonth.toLocaleString("en-US")} new participants in any 30 days`,
     uploadsGb === undefined ? null : `${uploadsGb} GB of photos from participants`,
+    videosGb === undefined ? null : `${videosGb} GB of your own videos`,
   ].filter((part) => part !== null);
   return [
     parts.length > 0 ? `Your lab can have ${parts.join(", and ")}.` : "",
@@ -274,6 +332,8 @@ const operatorTeamSchema = z.object({
     hasOwnKey: z.boolean(),
     /** How much its participants' uploaded photos take up, in bytes (ADR 80). */
     uploadBytes: z.number(),
+    /** How much the videos its researchers uploaded take up, in bytes (ADR 100). */
+    videoBytes: z.number(),
   }),
 });
 
@@ -296,6 +356,8 @@ const teamUsageRoute = createRoute({
               runningStudies: z.number(),
               /** What its participants' uploaded photos take up, in bytes. */
               uploadBytes: z.number(),
+              /** What the videos its researchers uploaded take up, in bytes. */
+              videoBytes: z.number(),
             }),
             /** Its own key (ADR 82), and each time anyone but this server used or changed it. */
             key: z.object({
@@ -416,6 +478,7 @@ async function operatorTeams(db: Database, now: Date, onlyTeamId?: string) {
   const spent = (teamId: string, paidBy: string) =>
     Number(spending.find((row) => row.teamId === teamId && row.paidBy === paidBy)?.total ?? 0);
   const uploaded = await uploadBytesByTeam(db);
+  const videos = await videoBytesByTeam(db);
   const participants = await participantCounts();
   const recent = await participantCounts(new Date(now.getTime() - 30 * DAY_MS));
   const owners = await db
@@ -456,6 +519,7 @@ async function operatorTeams(db: Database, now: Date, onlyTeamId?: string) {
         labAiUsd: spent(team.id, "lab"),
         hasOwnKey: team.anthropicKeyEncrypted !== null,
         uploadBytes: uploaded.get(team.id) ?? 0,
+        videoBytes: videos.get(team.id) ?? 0,
       },
     }));
 }
@@ -605,6 +669,7 @@ export function createHostingRoutes({
           participantsLast30Days: recent?.n ?? 0,
           runningStudies: running?.n ?? 0,
           uploadBytes: (await uploadBytesByTeam(db)).get(teamId) ?? 0,
+          videoBytes: (await videoBytesByTeam(db)).get(teamId) ?? 0,
         },
         key: await keyRecord(db, teamId),
       },
