@@ -52,6 +52,24 @@ export function createMediaRoutes({
     return Boolean(row);
   }
 
+  // A study's captions (ADR 101). They're part of what a study shows everyone, like its pictures,
+  // so there's nobody to check. Only a stored captions file can be asked for.
+  app.get("/captions/:file", async (c) => {
+    const file = c.req.param("file");
+    const stream = /^[0-9a-f]{64}\.vtt$/.test(file) ? await storage.get(`media/${file}`) : null;
+    if (!stream) {
+      return c.json({ error: "Not found." }, 404);
+    }
+    return new Response(stream, {
+      headers: {
+        "content-type": "text/vtt; charset=utf-8",
+        "x-content-type-options": "nosniff",
+        // Named by its contents, so it never changes.
+        "cache-control": "public, max-age=31536000, immutable",
+      },
+    });
+  });
+
   app.get("/media/*", async (c) => {
     const notFound = () => c.json({ error: "Not found." }, 404);
     const match = UPLOAD_PATH.exec(c.req.path.replace(/^.*?\/media\//, ""));

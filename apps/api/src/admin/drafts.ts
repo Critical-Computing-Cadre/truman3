@@ -57,7 +57,7 @@ import {
 import { feedSettingsFor } from "@truman3/feed";
 import { eq } from "drizzle-orm";
 import { MAX_IMAGE_BYTES, storeStudyImage } from "../actions/images.ts";
-import { storeStudyVideo } from "../actions/videos.ts";
+import { MAX_CAPTIONS_BYTES, storeCaptions, storeStudyVideo } from "../actions/videos.ts";
 import { type FeedActor, type FeedContent, mediaUrl } from "../feed/build.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { recordTeamVideo, whyNoRoomForVideo } from "./hosting.ts";
@@ -315,6 +315,7 @@ const fieldsSchema = z.strictObject({
     .object({
       key: z.string().max(2000),
       poster: z.string().regex(STORED_IMAGE).optional(),
+      captions: z.string().max(2000).optional(),
       ...videoDetailsSchema.shape,
     })
     .nullable()
@@ -439,6 +440,27 @@ const videoUploadRoute = createRoute({
       },
     },
     400: errorResponse("It isn't a usable video"),
+    ...commonErrors,
+  },
+});
+
+const captionsUploadRoute = createRoute({
+  method: "post",
+  path: "/admin/drafts/{draftId}/captions",
+  summary: "Upload captions for a video in this draft, as a WebVTT file",
+  request: {
+    params: draftParams,
+    body: {
+      required: true,
+      content: { "text/vtt": { schema: z.any().openapi({ type: "string" }) } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Stored. Set it as a post's video's captions to use it",
+      content: { "application/json": { schema: z.object({ captions: z.string() }) } },
+    },
+    400: errorResponse("It isn't a usable captions file"),
     ...commonErrors,
   },
 });
@@ -1181,6 +1203,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
         quotes: number;
         ad: string | null;
         hasVideo: boolean;
+        video: Record<string, unknown> | null;
         preroll: "always" | "never" | null;
         views: number;
         likedById: string | null;
@@ -1215,6 +1238,7 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
           quotes: data.quotes ?? 0,
           ad: data.ad ?? null,
           hasVideo: Boolean(data.video),
+          video: data.video ?? null,
           preroll: data.preroll ?? null,
           views: data.views ?? 0,
           likedById: data.likedById ?? null,
@@ -1247,6 +1271,24 @@ export function createDraftRoutes({ db, storage, mediaPublicUrl }: ParticipantRo
       );
     }
     return c.json({ picture, url: mediaUrl(picture, mediaPublicUrl) }, 200);
+  });
+
+  app.openapi(captionsUploadRoute, async (c) => {
+    const { draftId } = c.req.valid("param");
+    const editing = await forEditing(c, draftId);
+    if ("failure" in editing) {
+      const [body, status] = editing.failure;
+      return c.json(body, status);
+    }
+    // Refused by its stated size before it's read, then by what actually arrived.
+    if (Number(c.req.header("content-length") ?? 0) > MAX_CAPTIONS_BYTES) {
+      return c.json({ error: "Those captions can't be used. Captions can be up to 1 MB." }, 400);
+    }
+    const stored = await storeCaptions(storage, new Uint8Array(await c.req.arrayBuffer()));
+    if (!stored.ok) {
+      return c.json({ error: `Those captions can't be used. ${stored.reason}` }, 400);
+    }
+    return c.json({ captions: stored.key }, 200);
   });
 
   app.openapi(videoUploadRoute, async (c) => {

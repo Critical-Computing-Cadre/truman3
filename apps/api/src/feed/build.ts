@@ -164,16 +164,26 @@ export function mediaUrl(key: string, publicUrl: string): string {
     : `${publicUrl.replace(/\/$/, "")}/${key}`;
 }
 
+/**
+ * Captions come through the API, at the page's own address. A browser only loads a video's captions
+ * from the same place as the page, and media can be served from somewhere else (ADR 101).
+ */
+export function captionsUrl(key: string, publicUrl: string): string {
+  const stored = /^media\/([0-9a-f]{64}\.vtt)$/.exec(key);
+  return stored ? `/api/captions/${stored[1]}` : mediaUrl(key, publicUrl);
+}
+
 /** An attachment as the browser gets it: its address, and for a video, its poster and details. */
 export function feedAttachment(attachment: Attachment, publicUrl: string): FeedAttachment {
   if (attachment.type === "image") {
     return { type: "image", url: mediaUrl(attachment.key, publicUrl) };
   }
-  const { key, poster, type: _type, ...details } = attachment;
+  const { key, poster, captions, type: _type, ...details } = attachment;
   return {
     type: "video",
     url: mediaUrl(key, publicUrl),
     ...(poster ? { posterUrl: mediaUrl(poster, publicUrl) } : {}),
+    ...(captions ? { captionsUrl: captionsUrl(captions, publicUrl) } : {}),
     ...details,
   };
 }

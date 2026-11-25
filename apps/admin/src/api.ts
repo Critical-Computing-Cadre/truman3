@@ -501,6 +501,8 @@ export interface DraftItemDetails {
   quotes: number;
   ad: string | null;
   hasVideo: boolean;
+  /** The post's video, as stored, to change one part of it, such as its captions. */
+  video: { key: string; captions?: string; [more: string]: unknown } | null;
   preroll: "always" | "never" | null;
   views: number;
   likedById: string | null;

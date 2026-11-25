@@ -6,6 +6,7 @@ import type { Storage } from "@truman3/storage";
 import { and, eq, ne } from "drizzle-orm";
 import { zipSync } from "fflate";
 import { detectImageType, MAX_IMAGE_BYTES } from "../actions/images.ts";
+import { isWebVtt, MAX_CAPTIONS_BYTES } from "../actions/videos.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { realClock } from "../participants/session.ts";
 import { loadVersion } from "./preview.ts";
@@ -114,6 +115,16 @@ async function storePictures(
       if (read.ok && !videoLimitProblem(read.info, bytes.length)) {
         if (!(await storage.exists(key))) {
           await storage.put(key, bytes, "video/mp4");
+        }
+        stored.add(key);
+      }
+      continue;
+    }
+    // Captions have to be captions, as when they're uploaded (ADR 101).
+    if (key.endsWith(".vtt")) {
+      if (bytes.length <= MAX_CAPTIONS_BYTES && isWebVtt(bytes)) {
+        if (!(await storage.exists(key))) {
+          await storage.put(key, bytes, "text/vtt; charset=utf-8");
         }
         stored.add(key);
       }

@@ -572,6 +572,8 @@ const CLOSED: EditProblem = {
 export const STORED_IMAGE = /^media\/[0-9a-f]{64}\.(jpg|png|gif|webp)$/;
 /** Only videos uploaded through the app, which were checked as they were stored (ADR 94). */
 export const STORED_VIDEO = /^media\/[0-9a-f]{64}\.mp4$/;
+/** Only captions uploaded through the app, which were checked as they were stored (ADR 101). */
+export const STORED_CAPTIONS = /^media\/[0-9a-f]{64}\.vtt$/;
 
 /** A saved post's files, as a draft holds them: its video, or its pictures. */
 function videoOrPictures(attachments: Attachment[]) {
@@ -826,13 +828,17 @@ export async function createItem(
     ) {
       return { problem: "invalid" as const, message: "That picture isn't stored here." };
     }
-    const video = fields.video as { key?: unknown; poster?: unknown } | undefined;
+    const video = fields.video as
+      | { key?: unknown; poster?: unknown; captions?: unknown }
+      | undefined;
     if (
       video &&
       (typeof video.key !== "string" ||
         !STORED_VIDEO.test(video.key) ||
         (video.poster !== undefined &&
-          (typeof video.poster !== "string" || !STORED_IMAGE.test(video.poster))))
+          (typeof video.poster !== "string" || !STORED_IMAGE.test(video.poster))) ||
+        (video.captions !== undefined &&
+          (typeof video.captions !== "string" || !STORED_CAPTIONS.test(video.captions))))
     ) {
       return { problem: "invalid" as const, message: "That video isn't stored here." };
     }
@@ -953,13 +959,19 @@ export async function updateItem(
       }
     }
     if (changes.video && typeof changes.video === "object") {
-      const current = (item.data as { video?: { key: string; poster?: string } }).video;
-      const { key, poster } = changes.video as { key?: unknown; poster?: unknown };
+      const current = (item.data as { video?: { key: string; poster?: string; captions?: string } })
+        .video;
+      const { key, poster, captions } = changes.video as {
+        key?: unknown;
+        poster?: unknown;
+        captions?: unknown;
+      };
       const known = (value: unknown, pattern: RegExp, had: string | undefined) =>
         typeof value === "string" && (pattern.test(value) || value === had);
       if (
         !known(key, STORED_VIDEO, current?.key) ||
-        (poster !== undefined && !known(poster, STORED_IMAGE, current?.poster))
+        (poster !== undefined && !known(poster, STORED_IMAGE, current?.poster)) ||
+        (captions !== undefined && !known(captions, STORED_CAPTIONS, current?.captions))
       ) {
         return { problem: "invalid" as const, message: "That video isn't stored here." };
       }

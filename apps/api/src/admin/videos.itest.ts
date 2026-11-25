@@ -81,10 +81,10 @@ ${platform}
     "posts.csv": posts,
     ...extra,
   };
+  mkdirSync(path.join(dir, "media/posts"), { recursive: true });
   for (const [name, text] of Object.entries(files)) {
     writeFileSync(path.join(dir, name), text);
   }
-  mkdirSync(path.join(dir, "media/posts"), { recursive: true });
   for (const [name, from] of Object.entries(media)) {
     copyFileSync(from, path.join(dir, "media/posts", name));
   }
@@ -478,5 +478,73 @@ describe("a lab's room for videos (ADR 100)", () => {
       "isn't room for this one",
     );
     expect(await used()).toBe(silent.length);
+  });
+});
+
+describe("captions (ADR 101)", () => {
+  const VTT = "WEBVTT\n\n00:00.000 --> 00:01.500\nHello from the captions.\n";
+
+  it("come with a study's folder, and are served from the page's own address", async () => {
+    const { imported, slug } = await studyWithVideo(
+      "id,actor,time,body,video,captions\nclip,ann,-0:10,Watch this,clip.mp4,clip.vtt\n",
+      { "clip.mp4": path.join(VIDEOS, "silent.mp4") },
+      "",
+      { "media/posts/clip.vtt": VTT },
+    );
+    expect(imported.status).toBe("imported");
+    const [attachment] = byBody(await feedOf(slug), "Watch this")?.attachments ?? [];
+    const url = (attachment as { captionsUrl?: string }).captionsUrl as string;
+    expect(url).toMatch(/^\/api\/captions\/[0-9a-f]{64}\.vtt$/);
+    const served = await app.request(url.replace(/^\/api/, ""));
+    expect(served.status).toBe(200);
+    expect(served.headers.get("content-type")).toBe("text/vtt; charset=utf-8");
+    expect(await served.text()).toBe(VTT);
+    // Nothing else can be asked for there.
+    expect((await app.request(`/captions/${"0".repeat(64)}.vtt`)).status).toBe(404);
+    expect((await app.request("/captions/..%2Fsecrets.vtt")).status).toBe(404);
+  });
+
+  it("are added to a video in the builder, and anything that isn't WebVTT is refused", async () => {
+    const { imported, cookie } = await studyWithVideo(
+      "id,actor,time,body,video\nclip,ann,-0:10,Watch this,clip.mp4\n",
+      { "clip.mp4": path.join(VIDEOS, "silent.mp4") },
+    );
+    if (imported.status === "failed") throw new Error("import");
+    const { draftId } = (await (
+      await call(cookie, "POST", `/admin/versions/${imported.studyVersionId}/draft`)
+    ).json()) as { draftId: string };
+    const send = (cookieFor: string, body: string) =>
+      app.request(`/admin/drafts/${draftId}/captions`, {
+        method: "POST",
+        headers: { "content-type": "text/vtt", cookie: cookieFor },
+        body,
+      });
+    const srt = await send(cookie, "1\n00:00:00,000 --> 00:00:01,500\nHello\n");
+    expect(srt.status).toBe(400);
+    expect(((await srt.json()) as { error: string }).error).toContain("isn't a WebVTT");
+    expect((await send("", VTT)).status).toBe(401);
+
+    const { captions } = (await (await send(cookie, VTT)).json()) as { captions: string };
+    expect(captions).toMatch(/^media\/[0-9a-f]{64}\.vtt$/);
+    const preview = async () =>
+      (await (
+        await call(cookie, "GET", `/admin/drafts/${draftId}/preview?condition=a&elapsedMs=0`)
+      ).json()) as FeedResponse & { items: Record<string, { video?: { key: string } }> };
+    const before = await preview();
+    const post = byBody(before.posts, "Watch this") as FeedPost;
+    const video = before.items[post.id]?.video as { key: string };
+    const patched = await call(cookie, "PATCH", `/admin/drafts/${draftId}/items/${post.id}`, {
+      changes: { video: { ...video, captions } },
+    });
+    expect(patched.status).toBe(200);
+    expect(byBody((await preview()).posts, "Watch this")?.attachments[0]).toMatchObject({
+      type: "video",
+      captionsUrl: `/api/captions/${captions.replace("media/", "")}`,
+    });
+    // Captions that weren't uploaded here are refused.
+    const made = await call(cookie, "PATCH", `/admin/drafts/${draftId}/items/${post.id}`, {
+      changes: { video: { ...video, captions: "media/elsewhere.vtt" } },
+    });
+    expect(made.status).toBe(400);
   });
 });
