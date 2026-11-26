@@ -46,6 +46,7 @@ export function postItemData(
     video,
     poster,
     videoDetails,
+    captions,
     ...post
   }: Post,
   ids: ItemIds,
@@ -63,7 +64,16 @@ export function postItemData(
   const crosspostOfId = posted(crosspostOf);
   return {
     ...post,
-    ...(video ? { video: { key: video, ...(poster ? { poster } : {}), ...videoDetails } } : {}),
+    ...(video
+      ? {
+          video: {
+            key: video,
+            ...(poster ? { poster } : {}),
+            ...(captions ? { captions } : {}),
+            ...videoDetails,
+          },
+        }
+      : {}),
     actorId: ids.actors.get(actor) as string,
     ...(spaceId ? { spaceId } : {}),
     ...(repostOfId ? { repostOfId } : {}),

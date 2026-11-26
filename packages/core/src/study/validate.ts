@@ -635,6 +635,19 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
         post.source,
       );
     }
+    if (post.captions && !post.video) {
+      warning(`${label} has captions but no video, so they won't show.`, post.source);
+    }
+    if (
+      post.captions &&
+      !post.captions.toLowerCase().endsWith(".vtt") &&
+      !/^https?:/.test(post.captions)
+    ) {
+      error(
+        `${label}'s captions "${post.captions}" aren't a WebVTT file. Captions have to be .vtt files.`,
+        post.source,
+      );
+    }
     if (post.poster && !post.video) {
       warning(`${label} has a poster but no video, so the poster won't show.`, post.source);
     }

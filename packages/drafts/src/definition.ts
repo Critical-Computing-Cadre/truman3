@@ -95,7 +95,12 @@ export function draftToDefinition(
     }
   }
   for (const { item, data } of posts) {
-    for (const picture of [...(data.pictures ?? []), data.video?.key, data.video?.poster]) {
+    for (const picture of [
+      ...(data.pictures ?? []),
+      data.video?.key,
+      data.video?.poster,
+      data.video?.captions,
+    ]) {
       if (picture) {
         mediaKeys.set(path.join(MEDIA_FOLDERS.posts, picture), picture);
       }
@@ -174,6 +179,7 @@ export function draftToDefinition(
           ? {
               video: video.key,
               ...(video.poster ? { poster: video.poster } : {}),
+              ...(video.captions ? { captions: video.captions } : {}),
               videoDetails: {
                 ...(video.seconds !== undefined ? { seconds: video.seconds } : {}),
                 ...(video.width !== undefined ? { width: video.width } : {}),

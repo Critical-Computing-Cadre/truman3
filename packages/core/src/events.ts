@@ -112,6 +112,8 @@ export const eventPayloadSchemas = {
     pauses: z.number().int().nonnegative(),
     seeks: z.number().int().nonnegative(),
     soundOn: z.boolean(),
+    /** Whether captions were showing when it was reported, for a video that has them (ADR 101). */
+    captionsOn: z.boolean().optional(),
     surface: z.string(),
   }),
   "actor.followed": empty,

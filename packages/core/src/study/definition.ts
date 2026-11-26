@@ -432,6 +432,8 @@ export const postDefinitionSchema = z.object({
   video: z.string().min(1).optional(),
   /** The picture shown before its video plays, in media/posts. */
   poster: z.string().min(1).optional(),
+  /** Its video's captions, a WebVTT (.vtt) file in media/posts (ADR 101). */
+  captions: z.string().min(1).optional(),
   /** What the video file says about itself. Filled in as it's stored, not written by hand. */
   videoDetails: videoDetailsSchema.optional(),
   /** Whether this video always or never has a pre-roll ad, whatever the study's `every` (ADR 97). */

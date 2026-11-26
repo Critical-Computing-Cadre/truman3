@@ -65,7 +65,12 @@ export const itemDataSchemas = {
     pictures: z.array(z.string()).max(MAX_ATTACHMENTS).optional(),
     /** Its video, stored, in place of pictures (ADR 94). */
     video: z
-      .strictObject({ key: z.string(), poster: z.string().optional(), ...videoDetailsSchema.shape })
+      .strictObject({
+        key: z.string(),
+        poster: z.string().optional(),
+        captions: z.string().optional(),
+        ...videoDetailsSchema.shape,
+      })
       .optional(),
     actorId: z.uuid(),
     /** The one space it belongs to. */

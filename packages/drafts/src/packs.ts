@@ -184,6 +184,11 @@ export function packContents(
       ...(post.poster
         ? { poster: mediaKeys.get(path.join(MEDIA_FOLDERS.posts, post.poster)) ?? post.poster }
         : {}),
+      ...(post.captions
+        ? {
+            captions: mediaKeys.get(path.join(MEDIA_FOLDERS.posts, post.captions)) ?? post.captions,
+          }
+        : {}),
     })),
     comments: comments.map(withoutSource),
     reactions: reactions.map(withoutSource),

@@ -765,6 +765,81 @@ function ItemDetails({
   );
 }
 
+/**
+ * A video's captions (ADR 101): a WebVTT file, which participants can turn on and off. It's checked
+ * as it's stored, and anything else is refused with the reason.
+ */
+function CaptionsField({
+  video,
+  change,
+}: {
+  video: NonNullable<DraftItemDetails["video"]>;
+  change: (changes: object) => void;
+}) {
+  const { draftId } = useParams({ strict: false }) as { draftId: string };
+  const [problem, setProblem] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const add = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+    setProblem(null);
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/admin/drafts/${draftId}/captions`, {
+        method: "POST",
+        headers: { "content-type": "text/vtt" },
+        body: file,
+      });
+      const body = (await response.json()) as { captions?: string; error?: string };
+      if (!response.ok || !body.captions) {
+        setProblem(body.error ?? "That didn't work. Try again.");
+        return;
+      }
+      change({ video: { ...video, captions: body.captions } });
+    } catch {
+      setProblem("That didn't work. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span>Captions</span>
+      <label className="cursor-pointer underline">
+        {busy ? "Adding..." : video.captions ? "Replace captions" : "Add captions (.vtt)"}
+        <input
+          type="file"
+          accept=".vtt,text/vtt"
+          aria-label={video.captions ? "Replace captions" : "Add captions"}
+          className="sr-only"
+          onChange={(event) => {
+            add(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+        />
+      </label>
+      {video.captions && (
+        <button
+          type="button"
+          className="underline"
+          onClick={() => {
+            const { captions: _, ...rest } = video;
+            change({ video: rest });
+          }}
+        >
+          Remove captions
+        </button>
+      )}
+      {problem && (
+        <span role="alert" className="w-full text-rose-800">
+          {problem}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** What features add to a post, for the ones on in at least one condition. */
 function PostExtras({
   itemId,
@@ -943,6 +1018,7 @@ function PostExtras({
           />
         </label>
       )}
+      {details.video && <CaptionsField video={details.video} change={change} />}
       {details.hasVideo && info.conditions.some(({ layout }) => layout === "video") && (
         <label className="flex items-center gap-2">
           Pre-roll ad

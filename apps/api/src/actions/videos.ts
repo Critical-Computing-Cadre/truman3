@@ -3,6 +3,36 @@ import { Readable, Transform } from "node:stream";
 import { MAX_VIDEO_BYTES, readVideoInfo, type VideoInfo, videoLimitProblem } from "@truman3/core";
 import type { Storage } from "@truman3/storage";
 
+export const MAX_CAPTIONS_BYTES = 1024 * 1024;
+
+/** Whether this is a WebVTT file: text that starts with WEBVTT, as every one does. */
+export function isWebVtt(bytes: Uint8Array) {
+  const start = new TextDecoder().decode(bytes.subarray(0, 12)).replace(/^\uFEFF/, "");
+  return /^WEBVTT(\s|$)/.test(start);
+}
+
+/** Stores a video's captions under the checksum of their contents, or says why not (ADR 101). */
+export async function storeCaptions(
+  storage: Storage,
+  bytes: Uint8Array,
+): Promise<{ ok: true; key: string } | { ok: false; reason: string }> {
+  if (bytes.length === 0 || bytes.length > MAX_CAPTIONS_BYTES) {
+    return { ok: false, reason: "Captions can be up to 1 MB." };
+  }
+  if (!isWebVtt(bytes)) {
+    return {
+      ok: false,
+      reason:
+        "It isn't a WebVTT (.vtt) file. Most caption tools can export one. SRT files need converting.",
+    };
+  }
+  const key = `media/${createHash("sha256").update(bytes).digest("hex")}.vtt`;
+  if (!(await storage.exists(key))) {
+    await storage.put(key, bytes, "text/vtt; charset=utf-8");
+  }
+  return { ok: true, key };
+}
+
 /** Where a video waits while it's checked. Never served: CloudFront reads only media/. */
 const INCOMING = "incoming/";
 

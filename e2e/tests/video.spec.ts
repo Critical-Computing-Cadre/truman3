@@ -61,6 +61,20 @@ test("a researcher puts a video on a post, and a participant watches it", async 
   const video = post.locator("video");
   await expect(video).toBeVisible();
   await expect(post.getByRole("button", { name: "Remove video" })).toBeAttached();
+  // Captions: a file that isn't WebVTT is refused, and a WebVTT file is added (ADR 101).
+  await post.getByText("Details").first().click();
+  await post.getByLabel("Add captions").setInputFiles({
+    name: "clip.srt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("1\n00:00:00,000 --> 00:00:01,500\nNot WebVTT\n"),
+  });
+  await expect(post.getByRole("alert")).toContainText("isn't a WebVTT");
+  await post.getByLabel("Add captions").setInputFiles({
+    name: "clip.vtt",
+    mimeType: "text/vtt",
+    buffer: Buffer.from("WEBVTT\n\n00:00.000 --> 00:02.000\nA sun crosses the sky.\n"),
+  });
+  await expect(post.getByRole("button", { name: "Remove captions" })).toBeVisible();
   await post.screenshot({ path: testInfo.outputPath("builder.png") });
 
   await page.getByRole("button", { name: "Save as new version" }).click();
@@ -85,6 +99,17 @@ test("a researcher puts a video on a post, and a participant watches it", async 
   const shown = participant.locator("video").first();
   await shown.scrollIntoViewIfNeeded();
   await expect(shown).toHaveAttribute("src", /\/media\/[0-9a-f]{64}\.mp4$/);
+  // Its captions load from the page's own address, and show unless they're turned off.
+  await expect
+    .poll(() =>
+      shown.evaluate((element: HTMLVideoElement) => {
+        const [track] = element.textTracks;
+        return track
+          ? `${track.mode}: ${track.cues?.[0] ? (track.cues[0] as VTTCue).text : ""}`
+          : "";
+      }),
+    )
+    .toBe("showing: A sun crosses the sky.");
   const played = await shown.evaluate(async (element: HTMLVideoElement) => {
     element.muted = true;
     try {
@@ -125,6 +150,7 @@ test("a researcher puts a video on a post, and a participant watches it", async 
               playedMs: expect.any(Number),
               seconds: expect.closeTo(2, 0),
               soundOn: false,
+              captionsOn: true,
               surface: "feed",
             }),
           ]

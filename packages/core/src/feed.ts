@@ -189,6 +189,8 @@ export const attachmentSchema = z.discriminatedUnion("type", [
     key: z.string(),
     /** The picture shown before it plays. Without one, the browser shows its first frame. */
     poster: z.string().optional(),
+    /** Its captions, a WebVTT file (ADR 101). */
+    captions: z.string().optional(),
     ...videoDetailsSchema.shape,
   }),
 ]);
@@ -200,6 +202,7 @@ export const feedAttachmentSchema = z.discriminatedUnion("type", [
     type: z.literal("video"),
     url: z.string(),
     posterUrl: z.string().optional(),
+    captionsUrl: z.string().optional(),
     ...videoDetailsSchema.shape,
   }),
 ]);

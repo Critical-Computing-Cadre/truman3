@@ -20,6 +20,8 @@ export interface VideoWatching {
   pauses: number;
   seeks: number;
   soundOn: boolean;
+  /** Whether captions were showing, for a video that has them. */
+  captionsOn?: boolean;
 }
 
 /**
@@ -120,8 +122,10 @@ const PLAYS_AT = 0.6;
 interface VideoSound {
   on: boolean;
   started: boolean;
+  /** Whether captions show, on videos that have them. On until they turn them off (ADR 101). */
+  captions: boolean;
 }
-let sound: VideoSound = { on: false, started: true };
+let sound: VideoSound = { on: false, started: true, captions: true };
 const soundListeners = new Set<() => void>();
 const setSound = (next: Partial<VideoSound>) => {
   sound = { ...sound, ...next };
@@ -144,6 +148,7 @@ export function useVideoSound() {
   return {
     ...state,
     setOn: (on: boolean) => setSound({ on }),
+    setCaptions: (captions: boolean) => setSound({ captions }),
     /** The tap a study asked for before the first video. Sound is on from then. */
     start: () => setSound({ started: true, on: true }),
     /** For a study that asks for a tap first. Nothing plays until there's been one. */
@@ -204,7 +209,12 @@ export function PostVideo({
     const send = () => {
       const taken = meter.take();
       if (taken && report.current) {
-        report.current({ ...taken, seconds: element.duration || taken.seconds });
+        const [captions] = element.textTracks;
+        report.current({
+          ...taken,
+          seconds: element.duration || taken.seconds,
+          ...(captions ? { captionsOn: captions.mode === "showing" } : {}),
+        });
       }
     };
     // Pauses the browser makes itself, at the end or when it's scrolled away, aren't the viewer's.
@@ -325,10 +335,14 @@ export function PostVideo({
       return;
     }
     element.muted = !shared.on;
+    const [captions] = element.textTracks;
+    if (captions) {
+      captions.mode = shared.captions ? "showing" : "hidden";
+    }
     if (shared.started && onScreen.current && !viewerPaused.current && element.paused) {
       element.play().catch(() => {});
     }
-  }, [autoplay, shared.on, shared.started]);
+  }, [autoplay, shared.on, shared.started, shared.captions]);
 
   if (!autoplay) {
     const shape = video.width && video.height ? `${video.width} / ${video.height}` : "16 / 9";
@@ -344,7 +358,11 @@ export function PostVideo({
         aria-label="Video"
         style={{ aspectRatio: watch ? "16 / 9" : shape }}
         className={`w-full bg-[#000] object-contain ${watch ? "max-h-[75vh] sm:rounded-xl" : "max-h-[80vh]"}`}
-      />
+      >
+        {video.captionsUrl && (
+          <track kind="captions" src={video.captionsUrl} srcLang="en" label="Captions" default />
+        )}
+      </video>
     );
   }
 
@@ -385,7 +403,11 @@ export function PostVideo({
           // A tall video fills the screen, as on these apps. A wide one is shown whole.
           (video.height ?? 0) > (video.width ?? 0) ? "object-cover" : "object-contain"
         }`}
-      />
+      >
+        {video.captionsUrl && (
+          <track kind="captions" src={video.captionsUrl} srcLang="en" label="Captions" default />
+        )}
+      </video>
       <button
         type="button"
         aria-label={pausedByViewer ? "Play" : "Pause"}
@@ -398,6 +420,18 @@ export function PostVideo({
           </svg>
         )}
       </button>
+      {video.captionsUrl && (
+        <button
+          type="button"
+          onClick={() => shared.setCaptions(!shared.captions)}
+          aria-pressed={shared.captions}
+          className={`absolute top-28 left-3 rounded-full px-3 py-1.5 text-sm font-semibold ${
+            shared.captions ? "bg-[#fff] text-[#000]" : "bg-[#000]/55 text-[#fff]"
+          }`}
+        >
+          Captions
+        </button>
+      )}
       {video.hasSound !== false && (
         <button
           type="button"

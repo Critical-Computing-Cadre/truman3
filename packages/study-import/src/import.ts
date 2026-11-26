@@ -31,6 +31,7 @@ const CONTENT_TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
   ".mp4": "video/mp4",
+  ".vtt": "text/vtt; charset=utf-8",
 };
 
 export type ImportResult =
@@ -126,7 +127,7 @@ export async function storeMedia(
     }
   }
   for (const post of study.posts) {
-    for (const picture of [...post.pictures, post.video, post.poster]) {
+    for (const picture of [...post.pictures, post.video, post.poster, post.captions]) {
       if (picture) {
         files.set(path.join(MEDIA_FOLDERS.posts, picture), picture);
       }
@@ -313,6 +314,7 @@ function attachmentsOf(
         type: "video",
         key: keyOf(post.video),
         ...(post.poster ? { poster: keyOf(post.poster) } : {}),
+        ...(post.captions ? { captions: keyOf(post.captions) } : {}),
         ...post.videoDetails,
       },
     ];

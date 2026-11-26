@@ -71,6 +71,7 @@ export const POSTS: CsvSpec = {
     "picture",
     "video",
     "poster",
+    "captions",
     "preroll",
     "space",
     "link",
@@ -512,6 +513,7 @@ export function readStudyTables(
         .filter(Boolean),
       ...optional("video", cells.video),
       ...optional("poster", cells.poster),
+      ...optional("captions", cells.captions),
       ...optional("preroll", cells.preroll),
       ...optional("space", cells.space),
       ...optional("link", cells.link),
@@ -844,7 +846,7 @@ export function readStudyTables(
       file: string,
       name: string | undefined,
       from?: CsvRowSource,
-      kind: "image" | "video" = "image",
+      kind: "image" | "video" | "captions file" = "image",
     ) => {
       if (name && !source.has(path.join(file, name))) {
         issues.push({
@@ -872,6 +874,7 @@ export function readStudyTables(
       }
       checkMedia(MEDIA_FOLDERS.posts, post.video, post.source, "video");
       checkMedia(MEDIA_FOLDERS.posts, post.poster, post.source);
+      checkMedia(MEDIA_FOLDERS.posts, post.captions, post.source, "captions file");
     }
     for (const ad of settings.platform.prerolls?.ads ?? []) {
       if (!/^https?:/.test(ad.video)) {
