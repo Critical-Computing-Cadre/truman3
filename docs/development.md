@@ -71,7 +71,7 @@ A choice someone might later question gets a short record in [`docs/adr`](adr): 
 - **New dependencies have to be at least two weeks old** when they're added, so a package published and pulled within days never gets in.
 - **Install scripts are off,** since they can run anything (`pnpm-workspace.yaml`).
 - **Added when something needs them,** not in advance.
-- **Updates are proposed by Dependabot,** once a week, as a few grouped pull requests: for the workspace, the phone app, the container's base image, the images local development uses, and the workflows' actions ([`dependabot.yml`](../.github/dependabot.yml)). It waits two weeks after an update comes out, the same rule. A fix for a known vulnerability doesn't wait.
+- **Updates are proposed by Dependabot,** once a week, as a few grouped pull requests: for the workspace, the phone app, the container's base image, the images local development uses, and the workflows' actions ([`dependabot.yml`](../.github/dependabot.yml)). It waits two weeks after an update comes out, the same rule. A fix for a known vulnerability doesn't wait. It doesn't propose major versions, such as Node 24 to 26: those are a person's decision, changed everywhere at once with the whole test suite on them.
 - **Actions and the base image are pinned.** A workflow names each action by its commit, and the Dockerfile names Node's image by its digest, so a tag that's moved can't change what runs.
 
 ## Releases

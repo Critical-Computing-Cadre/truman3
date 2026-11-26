@@ -1,6 +1,7 @@
 # Dependabot proposes updates as pull requests, once a week, grouped so there are a few to read and
 # not dozens. An update has to have been out for two weeks first, the same rule as for a new
 # dependency (docs/development.md, "Dependencies"). A fix for a known vulnerability doesn't wait.
+# It doesn't propose major versions: Node 24 to 26, say. Those are changed by hand, everywhere at once.
 version: 2
 updates:
   # The workspace: every app and package except the phone app.
@@ -11,6 +12,10 @@ updates:
       day: monday
     cooldown:
       default-days: 14
+    # A major version is a person's decision, made with the whole test suite on it.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -24,6 +29,10 @@ updates:
       day: monday
     cooldown:
       default-days: 14
+    # A major version is a person's decision, made with the whole test suite on it.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 3
     groups:
       minor-and-patch:
@@ -37,6 +46,10 @@ updates:
       day: monday
     cooldown:
       default-days: 14
+    # A major version is a person's decision, made with the whole test suite on it.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   # The images local development and the container check use.
   - package-ecosystem: docker-compose
@@ -46,6 +59,10 @@ updates:
       day: monday
     cooldown:
       default-days: 14
+    # A major version is a person's decision, made with the whole test suite on it.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   # The actions the workflows use, which are pinned to a commit.
   - package-ecosystem: github-actions
@@ -55,6 +72,10 @@ updates:
       day: monday
     cooldown:
       default-days: 14
+    # A major version is a person's decision, made with the whole test suite on it.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       actions:
         patterns: ["*"]
