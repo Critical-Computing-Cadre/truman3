@@ -19,7 +19,7 @@ services:
 
   # S3-compatible file storage, standing in for AWS S3 during development.
   storage:
-    image: chrislusf/seaweedfs:4.51
+    image: chrislusf/seaweedfs:4.53
     command: server -dir=/data -s3 -s3.port=8333
     ports:
       - "127.0.0.1:8333:8333"
