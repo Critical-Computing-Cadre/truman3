@@ -38,7 +38,7 @@ From the first release on, commits need a sign-off, which says you wrote the cha
 git commit -s
 ```
 
-That puts a `Signed-off-by` line with your name and email at the end of the commit message. There's no separate agreement to sign. Commits from before the first release don't have it.
+That puts a `Signed-off-by` line with your name and email at the end of the commit message. There's no separate agreement to sign. A check on every pull request refuses a commit without it, and tells you how to add it. Commits from before the first release don't have it.
 
 ## Using AI tools
 

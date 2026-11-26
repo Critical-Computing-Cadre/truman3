@@ -5,7 +5,7 @@
 set -eu
 
 PORT="${TRUMAN_CHECK_PORT:-3220}"
-compose() { docker compose --file compose.production.yaml "$@"; }
+compose() { docker compose --file compose.container-check.yaml "$@"; }
 
 finish() {
   status=$?

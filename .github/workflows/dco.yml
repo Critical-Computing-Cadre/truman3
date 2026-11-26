@@ -1,0 +1,28 @@
+name: DCO
+
+# Every commit in a pull request needs a sign-off, which `git commit -s` adds. CONTRIBUTING.md,
+# "Sign your work", says what it means. This runs on every pull request, including ones that only
+# change docs.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dco-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sign-off:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Every commit, to see which ones the pull request adds.
+          fetch-depth: 0
+          persist-credentials: false
+      - run: sh scripts/check-sign-off.sh "origin/$BASE" "$HEAD"
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.event.pull_request.head.sha }}

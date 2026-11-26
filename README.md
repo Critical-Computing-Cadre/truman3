@@ -87,6 +87,8 @@ If you use Truman 3, please cite the software, using [CITATION.cff](CITATION.cff
 
 > DiFranzo, D., & Bazarova, N. N. (2018). The Truman Platform: Social media simulation for experimental research. Workshop paper, ICWSM '18.
 
+Truman 3 is the next version of Truman, not a separate platform, so `CITATION.cff` also lists the versions it follows: Truman, Truman 2.0, and Truman Agents. If your work builds on one of those, please cite it too.
+
 ## Security
 
 Please report security problems privately, to security@truman-research.org. See [SECURITY.md](SECURITY.md).
