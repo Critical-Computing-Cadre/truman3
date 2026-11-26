@@ -9,6 +9,10 @@ Please report security problems privately, and not in a public issue. An issue i
 
 What to include, and what to take care with while you're looking, are at <https://truman-research.org/security>. The same address is in [`/.well-known/security.txt`](https://truman-research.org/.well-known/security.txt).
 
+## How the repository is kept
+
+Dependencies are installed from lockfiles, with install scripts off. Workflow actions and the container's base image are pinned. Code scanning, secret scanning, and Dependabot run on the repository, and each release lists its dependencies in an attached SBOM. [docs/development.md](docs/development.md) has the detail.
+
 ## Supported versions
 
 | Version                                          | Supported                            |

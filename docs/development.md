@@ -45,6 +45,10 @@ Two more workflows run beside it:
 
 - [`dco.yml`](../.github/workflows/dco.yml) checks that every commit in a pull request is signed off ([CONTRIBUTING.md](../CONTRIBUTING.md), "Sign your work"). It runs on documentation changes too.
 - [`scorecard.yml`](../.github/workflows/scorecard.yml) runs [OpenSSF Scorecard](https://scorecard.dev) on each merge and once a week. It grades how the repository is run, such as pinned dependencies and token permissions, and publishes the score.
+- [`codeql.yml`](../.github/workflows/codeql.yml) is GitHub's code scanning. It reads the TypeScript and the workflows for known kinds of security mistake, on every pull request, each merge, and once a week.
+- [`release.yml`](../.github/workflows/release.yml) attaches a list of dependencies to each release. See [Releases](#releases).
+
+Every workflow starts with no permissions, or read-only ones, and a job asks for what it needs.
 
 ## Deploys
 
@@ -67,6 +71,8 @@ A choice someone might later question gets a short record in [`docs/adr`](adr): 
 - **New dependencies have to be at least two weeks old** when they're added, so a package published and pulled within days never gets in.
 - **Install scripts are off,** since they can run anything (`pnpm-workspace.yaml`).
 - **Added when something needs them,** not in advance.
+- **Updates are proposed by Dependabot,** once a week, as a few grouped pull requests: for the workspace, the phone app, the container's base image, the images local development uses, and the workflows' actions ([`dependabot.yml`](../.github/dependabot.yml)). It waits two weeks after an update comes out, the same rule. A fix for a known vulnerability doesn't wait.
+- **Actions and the base image are pinned.** A workflow names each action by its commit, and the Dockerfile names Node's image by its digest, so a tag that's moved can't change what runs.
 
 ## Releases
 
@@ -74,13 +80,14 @@ Hosted Truman runs `main`, a merge at a time, after approval. Tagged releases ar
 
 - **A release is a tag on `main`,** with notes in [CHANGELOG.md](../CHANGELOG.md) and on GitHub Releases.
 - **[FEATURES.md](../FEATURES.md) is updated with it,** so the list of what Truman does is dated to a release.
+- **Each release has a software bill of materials (SBOM) attached:** every dependency and its version, in CycloneDX format, one file for the workspace and one for the phone app. They're read from the lockfiles when the release is published.
 - **Saved studies outlive releases.** A study version records the layout and feature versions it was built with, and a launched layout is never changed, so a study replicated later looks as it did.
 
 ## Security
 
 - **Problems are reported privately** ([SECURITY.md](../SECURITY.md)).
 - **GitHub's secret scanning and push protection are on** for the repository, and so is private vulnerability reporting.
-- **The actions in new workflows are pinned to a commit,** not a tag that can be moved.
+- **Code scanning** (CodeQL) and **Dependabot alerts** are on, and findings show under the repository's Security tab.
 - **Secrets never go in the repository.** Local settings are in `.env`, which isn't committed, and hosted Truman's are in AWS Secrets Manager.
 
 ## Who does the work
