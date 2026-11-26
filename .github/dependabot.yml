@@ -1,0 +1,60 @@
+# Dependabot proposes updates as pull requests, once a week, grouped so there are a few to read and
+# not dozens. An update has to have been out for two weeks first, the same rule as for a new
+# dependency (docs/development.md, "Dependencies"). A fix for a known vulnerability doesn't wait.
+version: 2
+updates:
+  # The workspace: every app and package except the phone app.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # The phone app is its own npm project (ADR 66).
+  - package-ecosystem: npm
+    directory: /apps/mobile
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # The API's base image, in the Dockerfile.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+
+  # The images local development and the container check use.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+
+  # The actions the workflows use, which are pinned to a commit.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    groups:
+      actions:
+        patterns: ["*"]

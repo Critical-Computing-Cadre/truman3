@@ -50,6 +50,7 @@ Everything since the repository started on 2026-11-01. Truman 3 is a new codebas
 - Hosted Truman: labs apply and are approved, with limits, a key for each lab, and each lab's own Claude key.
 - Participants' photos served only to people in their world, and scanned before they're stored.
 - A security contact, policy, and `security.txt`.
+- Code scanning, pinned workflow actions, Dependabot, and a list of dependencies (SBOM) attached to each release.
 - Deploys from GitHub: staging on every merge, production on a person's approval.
 
 ### For developers and agents

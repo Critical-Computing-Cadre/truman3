@@ -1,0 +1,45 @@
+name: Release
+
+# When a release is published, this lists everything it depends on and attaches the lists to it: a
+# software bill of materials (SBOM), in CycloneDX format. One is for the workspace, and one for the
+# phone app, which is its own npm project (ADR 66). Both are read from the lockfiles, so nothing is
+# installed or run.
+#
+# It can also be run by hand for a release that already exists.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release's tag, such as v3.0.0-beta.1
+        required: true
+
+permissions: {}
+
+jobs:
+  sbom:
+    runs-on: ubuntu-latest
+    permissions:
+      # To attach files to the release.
+      contents: write
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: List the workspace's dependencies
+        run: pnpm sbom --sbom-format cyclonedx --sbom-type application --lockfile-only --out "truman3-$TAG.cdx.json"
+      - name: List the phone app's dependencies
+        working-directory: apps/mobile
+        run: npm sbom --sbom-format cyclonedx --package-lock-only > "../../truman3-mobile-$TAG.cdx.json"
+      - name: Attach them to the release
+        run: gh release upload "$TAG" "truman3-$TAG.cdx.json" "truman3-mobile-$TAG.cdx.json" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
