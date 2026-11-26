@@ -1,0 +1,32 @@
+# How to cite Truman 3. GitHub's "Cite this repository" button reads this file.
+cff-version: 1.2.0
+message: "If you use Truman 3, please cite the software, and the paper that introduced Truman."
+type: software
+title: "Truman 3"
+abstract: >-
+  A social media simulation platform for research. A research team builds a realistic social media
+  site with its own posts, people, and rules, brings participants into it, varies what they see by
+  experimental condition, and records what they were shown and what they did.
+authors:
+  - family-names: DiFranzo
+    given-names: Dominic
+    affiliation: Lehigh University
+repository-code: "https://github.com/Critical-Computing-Cadre/truman3"
+url: "https://truman-research.org"
+license: MIT
+keywords:
+  - social media simulation
+  - research software
+  - online experiments
+  - computational social science
+  - LLM agents
+preferred-citation:
+  type: conference-paper
+  title: "The Truman Platform: Social Media Simulation for Experimental Research"
+  authors:
+    - family-names: DiFranzo
+      given-names: Dominic
+    - family-names: Bazarova
+      given-names: Natalie N.
+  year: 2018
+  collection-title: "ICWSM '18 workshop paper"

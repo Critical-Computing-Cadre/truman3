@@ -1,6 +1,13 @@
 {
   "name": "truman3",
   "private": true,
+  "description": "A social media simulation platform for research",
+  "license": "MIT",
+  "homepage": "https://truman-research.org",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Critical-Computing-Cadre/truman3.git"
+  },
   "type": "module",
   "packageManager": "pnpm@12.16.1",
   "engines": {
