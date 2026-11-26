@@ -251,3 +251,59 @@ describe("drafting a community", () => {
     ).toBe(400);
   });
 });
+
+describe("persona cards, as a form", () => {
+  it("are saved into beats.yaml for someone in the cast, and read back", async () => {
+    const { id, cookie, draftId } = await draft();
+    const cards = async () =>
+      (await (await call(app, cookie, "GET", `/admin/drafts/${draftId}/persona-cards`)).json()) as {
+        cards: Record<string, { voice?: string; relationships?: Record<string, string> }>;
+        problem: string | null;
+      };
+    const [someone, another] = (
+      await database.db
+        .select({ data: schema.draftItems.data })
+        .from(schema.draftItems)
+        .where(and(eq(schema.draftItems.draftId, draftId), eq(schema.draftItems.kind, "actor")))
+    ).map(({ data }) => (data as { username: string }).username) as [string, string];
+    const save = (who: string, username: string, card: object) =>
+      call(app, who, "PUT", `/admin/drafts/${draftId}/persona-cards/${username}`, card);
+    const card = {
+      voice: "Short and dry.",
+      relationships: { [another]: "Old friends", participant: "Curious about them" },
+      redLines: ["Never gives medical advice"],
+    };
+    expect((await save(cookie, someone, card)).status).toBe(200);
+    expect((await cards()).cards[someone]).toMatchObject({
+      voice: "Short and dry.",
+      relationships: { [another]: "Old friends", participant: "Curious about them" },
+    });
+    expect((await cards()).problem).toBeNull();
+    // The model writing a community is told.
+    await call(app, cookie, "POST", `/admin/drafts/${draftId}/community`, {
+      ...ask,
+      daysBefore: 0,
+      daysDuring: 1,
+    });
+    await finished(cookie, draftId);
+    expect(asked.at(-1)?.system).toContain("How they write: Short and dry.");
+
+    // Emptied, it's gone. Nobody outside the cast has one, or is felt about.
+    expect((await save(cookie, someone, { redLines: [] })).status).toBe(200);
+    expect((await cards()).cards[someone]).toBeUndefined();
+    expect((await save(cookie, "nobody-here", card)).status).toBe(404);
+    expect(
+      (await save(cookie, someone, { relationships: { stranger: "?" }, redLines: [] })).status,
+    ).toBe(400);
+    expect((await save("", someone, card)).status).toBe(401);
+    const email = `cards-${id}@example.edu`;
+    const added = await addResearcherToTeam(database.db, {
+      teamSlug: `lab-${id}`,
+      email,
+      name: "Viewer",
+      role: "viewer",
+    });
+    const viewer = await signIn(email, added.password as string);
+    expect((await save(viewer, someone, card)).status).toBe(403);
+  });
+});

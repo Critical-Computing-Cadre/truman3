@@ -18,6 +18,7 @@ import { createLibraryRoutes } from "./admin/library.ts";
 import { createLiveCommunityRoutes } from "./admin/live-community.ts";
 import { createMonitorRoutes } from "./admin/monitor.ts";
 import { createPackRoutes } from "./admin/packs.ts";
+import { createPersonaCardRoutes } from "./admin/persona-cards.ts";
 import { createProlificRoutes } from "./admin/prolific.ts";
 import { createRecruitingRoutes } from "./admin/recruiting.ts";
 import { createRehearseRoutes } from "./admin/rehearse.ts";
@@ -153,6 +154,7 @@ export function createApp({
   app.route("/", createRecruitingRoutes(participantDependencies));
   app.route("/", createCommunityRoutes(participantDependencies));
   app.route("/", createLiveCommunityRoutes(participantDependencies));
+  app.route("/", createPersonaCardRoutes(participantDependencies));
   app.route("/", createReminderRoutes(participantDependencies));
   app.route("/", createBundleRoutes(participantDependencies));
   app.route("/", createLibraryRoutes(participantDependencies));

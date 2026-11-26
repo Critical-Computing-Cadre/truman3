@@ -105,3 +105,46 @@ test("a researcher turns on a live community, and watches it on the Monitor page
   await expect(card.getByRole("status")).toContainText("Nothing more is being written.");
   await card.screenshot({ path: testInfo.outputPath("monitor.png") });
 });
+
+// Persona cards as a form on the Cast page, kept in beats.yaml.
+test("a researcher fills in someone's persona card on the Cast page", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+  await page.goto(`http://localhost:${ADMIN_PORT}`);
+  await page.getByLabel("Email").fill(otherLabEmail as string);
+  await page.getByLabel("Password").fill(otherLabPassword as string);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("link", { name: "New study" }).click();
+  await page.getByLabel("Title").fill(`Cards ${Date.now() % 1_000_000}`);
+  await page.getByRole("radio", { name: /Sample content/ }).check();
+  await page.getByRole("radio", { name: /^Uniform/ }).check();
+  await page.getByRole("button", { name: "Start the study" }).click();
+  await page.getByRole("link", { name: "Cast", exact: true }).click();
+
+  const person = page.getByRole("listitem", { name: "Maya Reyes" });
+  await person.getByText("Persona card").click();
+  await expect(person.getByText("(empty)")).toBeVisible();
+  await person.getByLabel("How they write").fill("Short sentences, no emoji.");
+  await person.getByLabel("Add someone Maya Reyes has feelings about").selectOption({
+    label: "Whoever takes part",
+  });
+  await person.getByLabel("How Maya Reyes feels about participant").fill("Curious about them.");
+  await person.getByLabel(/What they never say/).fill("Never gives medical advice.");
+  await person.getByRole("button", { name: "Save Maya Reyes's card" }).click();
+  await expect(person.getByRole("status")).toHaveText("Saved");
+  await expect(person.getByText("(filled in)")).toBeVisible();
+  await person.screenshot({ path: testInfo.outputPath("card.png") });
+
+  // It's in beats.yaml, where the model reads it, and comes back after a reload.
+  await page.getByRole("link", { name: "Beats", exact: true }).click();
+  await expect(page.getByRole("textbox").first()).toHaveValue(/voice: Short sentences, no emoji\./);
+  await page.getByRole("link", { name: "Cast", exact: true }).click();
+  await page.reload();
+  const again = page.getByRole("listitem", { name: "Maya Reyes" });
+  await again.getByText("Persona card").click();
+  await expect(again.getByLabel("How they write")).toHaveValue("Short sentences, no emoji.");
+  await expect(again.getByLabel("How Maya Reyes feels about participant")).toHaveValue(
+    "Curious about them.",
+  );
+});

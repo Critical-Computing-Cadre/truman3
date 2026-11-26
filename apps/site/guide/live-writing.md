@@ -59,7 +59,7 @@ live:
 - `redLines` are things no character in this study may write.
 - `stray` decides what happens when no rehearsed line fits. `choose`, the default, lets the model write its own. `never` keeps it to the rehearsed lines. `always` ignores them.
 
-To tell the model who each character is, write persona cards. They go under `cast:` on the same page, and everything in a card is optional.
+To tell the model who each character is, write persona cards. On the **Cast** page, open **Persona card** under a person, fill in what you want, and press **Save**. Everything in a card is optional. Cards are kept under `cast:` in `beats.yaml`, so you can also write them there:
 
 ```yaml
 cast:

@@ -3,6 +3,7 @@ import { useParams } from "@tanstack/react-router";
 import { Avatar } from "@truman3/ui";
 import { useRef, useState } from "react";
 import { type DraftInfo, get } from "../api.ts";
+import { type Persona, PersonaCard } from "../components/PersonaCard.tsx";
 import { SavedCheckbox } from "../components/SavedCheckbox.tsx";
 import { type DraftEdits, SaveStatus, useDraftEdits, useDraftPresence } from "./DraftPage.tsx";
 
@@ -145,7 +146,17 @@ function Person({
   bannerOn,
   flairSpaces,
   edits,
+  draftId,
+  card,
+  others,
+  cardsProblem,
 }: {
+  draftId: string;
+  /** Their persona card, and who else is in the cast, for it. */
+  card: Persona | undefined;
+  others: { username: string; name: string }[];
+  /** Why cards can't be edited here, if beats.yaml can't be read. */
+  cardsProblem: string | null;
   actor: DraftInfo["actors"][number];
   /** The study's conditions. With more than one, someone can have a picture in each. */
   conditions: string[];
@@ -176,256 +187,268 @@ function Person({
   };
 
   return (
-    <li aria-label={actor.name} className="card flex flex-wrap gap-3 p-3 sm:flex-nowrap">
-      <div className="flex flex-col items-center gap-1">
-        <Avatar seed={actor.username} url={actor.pictureUrl} size="h-16 w-16" />
-        {canEdit && (
-          <>
-            <button
-              type="button"
-              onClick={() => file.current?.click()}
-              className="text-xs underline"
-            >
-              {edits.setActorPicture.isPending &&
-              edits.setActorPicture.variables?.itemId === actor.id
-                ? "Saving..."
-                : "Change"}
-            </button>
-            <input
-              ref={file}
-              aria-label={`Picture of ${actor.name}`}
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={(event) => {
-                const chosen = event.target.files?.[0];
-                if (chosen) {
-                  setProblem(null);
-                  edits.setActorPicture.mutate(
-                    { itemId: actor.id, file: chosen },
-                    { onError: (error) => setProblem(error.message) },
-                  );
-                }
-              }}
-            />
-          </>
-        )}
-      </div>
-      <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
-        {bannerOn && (
-          <div className="flex items-center gap-3 sm:col-span-2">
-            {actor.bannerUrl ? (
-              <img
-                src={actor.bannerUrl}
-                alt=""
-                data-testid="cast-banner"
-                className="h-12 w-40 rounded object-cover"
+    <li aria-label={actor.name} className="card space-y-2 p-3">
+      <div className="flex flex-wrap gap-3 sm:flex-nowrap">
+        <div className="flex flex-col items-center gap-1">
+          <Avatar seed={actor.username} url={actor.pictureUrl} size="h-16 w-16" />
+          {canEdit && (
+            <>
+              <button
+                type="button"
+                onClick={() => file.current?.click()}
+                className="text-xs underline"
+              >
+                {edits.setActorPicture.isPending &&
+                edits.setActorPicture.variables?.itemId === actor.id
+                  ? "Saving..."
+                  : "Change"}
+              </button>
+              <input
+                ref={file}
+                aria-label={`Picture of ${actor.name}`}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(event) => {
+                  const chosen = event.target.files?.[0];
+                  if (chosen) {
+                    setProblem(null);
+                    edits.setActorPicture.mutate(
+                      { itemId: actor.id, file: chosen },
+                      { onError: (error) => setProblem(error.message) },
+                    );
+                  }
+                }}
               />
-            ) : (
-              <span className="flex h-12 w-40 items-center justify-center rounded bg-stone-100 text-xs text-stone-500">
-                No banner
-              </span>
-            )}
-            {canEdit && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => bannerFile.current?.click()}
-                  className="text-xs underline"
-                >
-                  {actor.bannerUrl ? "Change banner" : "Add a banner"}
-                </button>
-                {actor.bannerUrl && (
+            </>
+          )}
+        </div>
+        <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
+          {bannerOn && (
+            <div className="flex items-center gap-3 sm:col-span-2">
+              {actor.bannerUrl ? (
+                <img
+                  src={actor.bannerUrl}
+                  alt=""
+                  data-testid="cast-banner"
+                  className="h-12 w-40 rounded object-cover"
+                />
+              ) : (
+                <span className="flex h-12 w-40 items-center justify-center rounded bg-stone-100 text-xs text-stone-500">
+                  No banner
+                </span>
+              )}
+              {canEdit && (
+                <>
                   <button
                     type="button"
-                    onClick={() => save({ banner: null })}
+                    onClick={() => bannerFile.current?.click()}
                     className="text-xs underline"
                   >
-                    Remove banner
+                    {actor.bannerUrl ? "Change banner" : "Add a banner"}
                   </button>
-                )}
-                <input
-                  ref={bannerFile}
-                  aria-label={`Banner of ${actor.name}`}
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={(event) => {
-                    const chosen = event.target.files?.[0];
-                    if (chosen) {
-                      setProblem(null);
-                      edits.setActorPicture.mutate(
-                        { itemId: actor.id, file: chosen, field: "banner" },
-                        { onError: (error) => setProblem(error.message) },
-                      );
-                    }
-                  }}
-                />
-              </>
-            )}
+                  {actor.bannerUrl && (
+                    <button
+                      type="button"
+                      onClick={() => save({ banner: null })}
+                      className="text-xs underline"
+                    >
+                      Remove banner
+                    </button>
+                  )}
+                  <input
+                    ref={bannerFile}
+                    aria-label={`Banner of ${actor.name}`}
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(event) => {
+                      const chosen = event.target.files?.[0];
+                      if (chosen) {
+                        setProblem(null);
+                        edits.setActorPicture.mutate(
+                          { itemId: actor.id, file: chosen, field: "banner" },
+                          { onError: (error) => setProblem(error.message) },
+                        );
+                      }
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          )}
+          {conditions.length > 1 && (
+            <ConditionPictures
+              actor={actor}
+              conditions={conditions}
+              canEdit={canEdit}
+              edits={edits}
+              onProblem={setProblem}
+            />
+          )}
+          <CastField
+            label="Name"
+            required
+            value={actor.name}
+            canEdit={canEdit}
+            onSave={(name) => save({ name })}
+          />
+          <CastField
+            label="Username"
+            required
+            value={actor.username}
+            canEdit={canEdit}
+            onSave={(username) => save({ username })}
+          />
+          <CastField
+            label="Location"
+            value={actor.location}
+            canEdit={canEdit}
+            onSave={(location) => save({ location })}
+          />
+          <CastField
+            label="Bio"
+            multiline
+            value={actor.bio}
+            canEdit={canEdit}
+            onSave={(bio) => save({ bio })}
+          />
+          {karmaOn && (
+            <CastField
+              label="Karma"
+              value={String(actor.karma)}
+              canEdit={canEdit}
+              onSave={(text) => {
+                const karma = Number(text);
+                if (Number.isInteger(karma)) {
+                  save({ karma });
+                } else {
+                  setProblem("Karma has to be a whole number.");
+                }
+              }}
+            />
+          )}
+          {followCountsOn && (
+            <>
+              <CastField
+                label="Followers"
+                value={String(actor.followers)}
+                canEdit={canEdit}
+                onSave={(text) => {
+                  const followers = Number(text);
+                  if (Number.isInteger(followers) && followers >= 0) {
+                    save({ followers });
+                  } else {
+                    setProblem("Followers has to be a whole number.");
+                  }
+                }}
+              />
+              <CastField
+                label="Following"
+                value={String(actor.following)}
+                canEdit={canEdit}
+                onSave={(text) => {
+                  const following = Number(text);
+                  if (Number.isInteger(following) && following >= 0) {
+                    save({ following });
+                  } else {
+                    setProblem("Following has to be a whole number.");
+                  }
+                }}
+              />
+            </>
+          )}
+          {badgesOn && (
+            <CastField
+              label="Badge (a label you write)"
+              value={actor.badge}
+              canEdit={canEdit}
+              onSave={(badge) => save({ badge: badge || null })}
+            />
+          )}
+          {whoToFollowOn && (
+            <SavedCheckbox
+              checked={actor.suggested}
+              disabled={!canEdit}
+              className="flex items-center gap-2 text-sm"
+              onChange={(suggested) => save({ suggested })}
+            >
+              Suggest following them
+            </SavedCheckbox>
+          )}
+          {followingOn && (
+            <SavedCheckbox
+              checked={actor.startsFollowed !== false}
+              disabled={!canEdit}
+              className="flex items-center gap-2 text-sm"
+              onChange={(startsFollowed) => save({ startsFollowed })}
+            >
+              Participants start out following them
+            </SavedCheckbox>
+          )}
+          {flairSpaces.map((space) => (
+            <label key={space.id} className={labelClass}>
+              Flair in {space.name}
+              <select
+                className={input}
+                disabled={!canEdit}
+                value={actor.spaceFlair[space.id] ?? ""}
+                onChange={(event) => {
+                  const { [space.id]: _, ...others } = actor.spaceFlair;
+                  save({
+                    spaceFlair: event.target.value
+                      ? { ...others, [space.id]: event.target.value }
+                      : others,
+                  });
+                }}
+              >
+                <option value="">None</option>
+                {space.userFlair.map(({ text }) => (
+                  <option key={text} value={text}>
+                    {text}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+          <SavedCheckbox
+            className="flex items-center gap-2 text-xs font-medium text-stone-600"
+            disabled={!canEdit}
+            checked={actor.moderator}
+            onChange={(moderator) => save({ moderator })}
+          >
+            Show a moderator tag on their name
+          </SavedCheckbox>
+          {problem && (
+            <p role="alert" className="text-sm text-rose-700 sm:col-span-2">
+              {problem}
+            </p>
+          )}
+        </div>
+        {canEdit && (
+          <div className="flex flex-col items-end gap-1 text-xs text-stone-500">
+            <button
+              type="button"
+              disabled={actor.usedBy > 0}
+              title={actor.usedBy > 0 ? "They still have posts or comments." : undefined}
+              onClick={() => edits.remove.mutate(actor.id)}
+              className="btn btn-sm text-stone-900"
+            >
+              Remove
+            </button>
+            {actor.usedBy > 0 && <span>{actor.usedBy} items</span>}
           </div>
         )}
-        {conditions.length > 1 && (
-          <ConditionPictures
-            actor={actor}
-            conditions={conditions}
-            canEdit={canEdit}
-            edits={edits}
-            onProblem={setProblem}
-          />
-        )}
-        <CastField
-          label="Name"
-          required
-          value={actor.name}
-          canEdit={canEdit}
-          onSave={(name) => save({ name })}
-        />
-        <CastField
-          label="Username"
-          required
-          value={actor.username}
-          canEdit={canEdit}
-          onSave={(username) => save({ username })}
-        />
-        <CastField
-          label="Location"
-          value={actor.location}
-          canEdit={canEdit}
-          onSave={(location) => save({ location })}
-        />
-        <CastField
-          label="Bio"
-          multiline
-          value={actor.bio}
-          canEdit={canEdit}
-          onSave={(bio) => save({ bio })}
-        />
-        {karmaOn && (
-          <CastField
-            label="Karma"
-            value={String(actor.karma)}
-            canEdit={canEdit}
-            onSave={(text) => {
-              const karma = Number(text);
-              if (Number.isInteger(karma)) {
-                save({ karma });
-              } else {
-                setProblem("Karma has to be a whole number.");
-              }
-            }}
-          />
-        )}
-        {followCountsOn && (
-          <>
-            <CastField
-              label="Followers"
-              value={String(actor.followers)}
-              canEdit={canEdit}
-              onSave={(text) => {
-                const followers = Number(text);
-                if (Number.isInteger(followers) && followers >= 0) {
-                  save({ followers });
-                } else {
-                  setProblem("Followers has to be a whole number.");
-                }
-              }}
-            />
-            <CastField
-              label="Following"
-              value={String(actor.following)}
-              canEdit={canEdit}
-              onSave={(text) => {
-                const following = Number(text);
-                if (Number.isInteger(following) && following >= 0) {
-                  save({ following });
-                } else {
-                  setProblem("Following has to be a whole number.");
-                }
-              }}
-            />
-          </>
-        )}
-        {badgesOn && (
-          <CastField
-            label="Badge (a label you write)"
-            value={actor.badge}
-            canEdit={canEdit}
-            onSave={(badge) => save({ badge: badge || null })}
-          />
-        )}
-        {whoToFollowOn && (
-          <SavedCheckbox
-            checked={actor.suggested}
-            disabled={!canEdit}
-            className="flex items-center gap-2 text-sm"
-            onChange={(suggested) => save({ suggested })}
-          >
-            Suggest following them
-          </SavedCheckbox>
-        )}
-        {followingOn && (
-          <SavedCheckbox
-            checked={actor.startsFollowed !== false}
-            disabled={!canEdit}
-            className="flex items-center gap-2 text-sm"
-            onChange={(startsFollowed) => save({ startsFollowed })}
-          >
-            Participants start out following them
-          </SavedCheckbox>
-        )}
-        {flairSpaces.map((space) => (
-          <label key={space.id} className={labelClass}>
-            Flair in {space.name}
-            <select
-              className={input}
-              disabled={!canEdit}
-              value={actor.spaceFlair[space.id] ?? ""}
-              onChange={(event) => {
-                const { [space.id]: _, ...others } = actor.spaceFlair;
-                save({
-                  spaceFlair: event.target.value
-                    ? { ...others, [space.id]: event.target.value }
-                    : others,
-                });
-              }}
-            >
-              <option value="">None</option>
-              {space.userFlair.map(({ text }) => (
-                <option key={text} value={text}>
-                  {text}
-                </option>
-              ))}
-            </select>
-          </label>
-        ))}
-        <SavedCheckbox
-          className="flex items-center gap-2 text-xs font-medium text-stone-600"
-          disabled={!canEdit}
-          checked={actor.moderator}
-          onChange={(moderator) => save({ moderator })}
-        >
-          Show a moderator tag on their name
-        </SavedCheckbox>
-        {problem && (
-          <p role="alert" className="text-sm text-rose-700 sm:col-span-2">
-            {problem}
-          </p>
-        )}
       </div>
-      {canEdit && (
-        <div className="flex flex-col items-end gap-1 text-xs text-stone-500">
-          <button
-            type="button"
-            disabled={actor.usedBy > 0}
-            title={actor.usedBy > 0 ? "They still have posts or comments." : undefined}
-            onClick={() => edits.remove.mutate(actor.id)}
-            className="btn btn-sm text-stone-900"
-          >
-            Remove
-          </button>
-          {actor.usedBy > 0 && <span>{actor.usedBy} items</span>}
-        </div>
+      {cardsProblem === null && (
+        <PersonaCard
+          draftId={draftId}
+          username={actor.username}
+          name={actor.name}
+          card={card}
+          others={others}
+          canEdit={canEdit}
+        />
       )}
     </li>
   );
@@ -437,6 +460,13 @@ export function CastPage() {
   const info = useQuery({
     queryKey: ["draft", draftId, "info"],
     queryFn: () => get<DraftInfo>(`/admin/drafts/${draftId}`),
+  });
+  const cards = useQuery({
+    queryKey: ["draft", draftId, "persona-cards"],
+    queryFn: () =>
+      get<{ cards: Record<string, Persona>; problem: string | null }>(
+        `/admin/drafts/${draftId}/persona-cards`,
+      ),
   });
   const edits = useDraftEdits(draftId);
   const others = useDraftPresence(draftId, null);
@@ -476,8 +506,14 @@ export function CastPage() {
       </div>
       <p className="text-sm text-stone-500">
         The people participants see in the feed. Anyone without a picture gets one made from their
-        username.
+        username. A persona card says who someone is when a model writes for them: in live writing,
+        rehearsed lines, and the community.
       </p>
+      {cards.data?.problem && (
+        <p role="status" className="rounded bg-amber-50 p-2 text-sm text-amber-900">
+          Persona cards can't be edited here for now. {cards.data.problem}
+        </p>
+      )}
       {others.length > 0 && (
         <p className="text-xs" data-testid="also-here">
           <span className="rounded bg-sky-100 px-2 py-0.5 text-sky-900">
@@ -510,6 +546,12 @@ export function CastPage() {
                 : []
             }
             key={actor.id}
+            draftId={draftId}
+            card={cards.data?.cards[actor.username]}
+            cardsProblem={cards.data ? cards.data.problem : "loading"}
+            others={actors
+              .filter(({ id }) => id !== actor.id)
+              .map(({ username, name }) => ({ username, name }))}
             actor={actor}
             conditions={info.data.conditions.map(({ key }) => key)}
             canEdit={canEdit}
