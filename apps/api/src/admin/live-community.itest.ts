@@ -23,10 +23,14 @@ const dirs: string[] = [];
 const DAY = 24 * 60 * 60 * 1000;
 let now = new Date();
 
+/** Every day's prompt, to see what the model was told. */
+const asked: string[] = [];
+
 /** The stand-in, except that the second post on the first day there says something refused. */
 const writer: Writer = {
   ...standInWriter(),
   async community(request) {
+    asked.push(request.prompt);
     const day = await standInWriter().community(request);
     if (request.prompt.startsWith("Day 1,") && day.posts[1]) {
       day.posts[1].body = "Something unsafe.";
@@ -132,6 +136,7 @@ interface State {
   on: boolean;
   hold: boolean;
   spentUsd: number;
+  own: { capUsd: number; participants: number; days: number; spentUsd: number } | null;
   whyNot: string | null;
   days: {
     id: string;
@@ -139,6 +144,8 @@ interface State {
     day: number;
     status: string;
     dropped: number;
+    participant: string | null;
+    answers: { actor: string; body: string }[];
     posts: { index: number; removed: boolean; body: string; replies: { body: string }[] }[];
   }[];
 }
@@ -372,6 +379,127 @@ describe("a live community", () => {
   });
 });
 
+describe("a community of each participant's own (ADR 103)", () => {
+  /** Posts as a participant. */
+  const say = async (cookie: string, body: string) => {
+    const form = new FormData();
+    form.set("clientEventId", randomUUID());
+    form.set("occurredAt", now.toISOString());
+    form.set("body", body);
+    const made = await app.request("/posts", { method: "POST", headers: { cookie }, body: form });
+    expect(made.status).toBe(200);
+  };
+  /** Waits until this many days of participants' own are written. */
+  async function ownDays(cookie: string, studyId: string, count: number) {
+    for (let tries = 0; tries < 100; tries++) {
+      const state = await stateOf(cookie, studyId);
+      const theirs = state.days.filter(({ participant }) => participant);
+      if (theirs.length >= count && theirs.every(({ status }) => status !== "writing")) {
+        return { state, theirs };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error(`It never got to ${count} days of their own.`);
+  }
+
+  it("is their condition's up to their first day, then written for them, and answers what they post", async () => {
+    const { cookie, studyId, slug, versionId, launch } = await study("  own: true\n");
+    await launch();
+    await written(cookie, studyId, 2);
+    const one = await join(slug);
+    expect(await one.feed()).toContain("A stand-in post by ann, on day -1.");
+    await say(one.cookie, "My bike has a flat again");
+    // On their first day nothing is written for them, and the shared one stops at that day.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(days(await stateOf(cookie, studyId))).toEqual(["all -1 published", "all 0 published"]);
+
+    // They come back the next day: that day is written for them, told what they posted.
+    now = new Date(now.getTime() + DAY + 60 * 60 * 1000);
+    await one.feed();
+    const { state, theirs } = await ownDays(cookie, studyId, 1);
+    expect(theirs).toMatchObject([{ day: 1, status: "published", condition: "" }]);
+    expect(theirs[0]?.answers).toEqual([
+      { actor: "ann", body: "A stand-in answer to the participant." },
+    ]);
+    expect(state.own).toMatchObject({ capUsd: 0.5, participants: 1, days: 1 });
+    expect(state.days.filter(({ participant }) => !participant)).toHaveLength(2);
+    const prompt = asked.at(-1) ?? "";
+    expect(prompt).toContain("0. My bike has a flat again");
+    expect(prompt).toContain("A stand-in post by ann, on day 1.");
+    expect(await one.feed()).toContain("A stand-in post by ann, on day 2.");
+
+    // The answer is a reply under their own post, and they're told about it.
+    const [theirPost] = await database.db
+      .select({ id: schema.content.id, worldId: schema.content.worldId })
+      .from(schema.content)
+      .where(eq(schema.content.body, "My bike has a flat again"));
+    const [answer] = await database.db
+      .select()
+      .from(schema.content)
+      .where(
+        and(
+          eq(schema.content.studyVersionId, versionId),
+          eq(schema.content.sourceRef, "live-own-d1-a0"),
+        ),
+      );
+    expect(answer).toMatchObject({ parentId: theirPost?.id, kind: "comment" });
+    const told = await database.db
+      .select({ type: schema.notifications.type })
+      .from(schema.notifications)
+      .where(eq(schema.notifications.replyContentId, answer?.id as string));
+    expect(told).toEqual([{ type: "reply" }]);
+
+    // The next day carries on, and doesn't answer the same post twice.
+    now = new Date(now.getTime() + DAY);
+    await one.feed();
+    await ownDays(cookie, studyId, 2);
+    expect(asked.at(-1)).toContain("They haven't posted anything new.");
+    expect(asked.at(-1)).toContain("- My bike has a flat again");
+
+    // Someone else's is their own: nothing of the first person's reaches them.
+    const two = await join(slug);
+    now = new Date(now.getTime() + DAY + 60 * 60 * 1000);
+    await two.feed();
+    const both = await ownDays(cookie, studyId, 3);
+    expect(both.state.own?.participants).toBe(2);
+    expect(asked.at(-1)).not.toContain("My bike has a flat");
+    // What was written for them reaches them the next time they load.
+    await two.feed();
+    const rows = await database.db
+      .select({ worldId: schema.content.worldId })
+      .from(schema.content)
+      .where(
+        and(
+          eq(schema.content.studyVersionId, versionId),
+          eq(schema.content.sourceRef, "live-own-d1-p0"),
+        ),
+      );
+    expect(new Set(rows.map(({ worldId }) => worldId)).size).toBe(2);
+  });
+
+  it("stops for a participant at what one participant's can cost", async () => {
+    // A day costs six cents here.
+    const { cookie, studyId, slug, launch } = await study("  own: true\n  capUsd: 0.05\n");
+    await launch();
+    await written(cookie, studyId, 2);
+    const one = await join(slug);
+    await one.feed();
+    now = new Date(now.getTime() + DAY + 60 * 60 * 1000);
+    await one.feed();
+    await ownDays(cookie, studyId, 1);
+    now = new Date(now.getTime() + DAY);
+    await one.feed();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect((await ownDays(cookie, studyId, 1)).theirs).toHaveLength(1);
+    // Someone else still gets theirs.
+    const two = await join(slug);
+    await two.feed();
+    now = new Date(now.getTime() + DAY + 60 * 60 * 1000);
+    await two.feed();
+    expect((await ownDays(cookie, studyId, 2)).state.own?.participants).toBe(2);
+  });
+});
+
 describe("setting a live community in the builder", () => {
   it("saves it into beats.yaml, leaving the rest as it was", async () => {
     const { cookie, versionId } = await study("");
@@ -388,6 +516,8 @@ describe("setting a live community in the builder", () => {
     const community = {
       live: true,
       hold: true,
+      own: true,
+      capUsd: 1,
       about: "A forum for people who fix old bicycles, and argue about tires.",
       topics: ["tires"],
       postsPerDay: 4,
@@ -402,7 +532,13 @@ describe("setting a live community in the builder", () => {
     expect((await save(cookie, { ...community, daysDuring: 0 })).status).toBe(400);
     expect((await save(cookie, { ...community, about: "Short" })).status).toBe(400);
     expect((await save(cookie, community)).status).toBe(200);
-    expect((await got()).live).toMatchObject({ hold: true, daysDuring: 5, cast: ["ann", "bo"] });
+    expect((await got()).live).toMatchObject({
+      hold: true,
+      own: true,
+      capUsd: 1,
+      daysDuring: 5,
+      cast: ["ann", "bo"],
+    });
     const text = (await loadDraft(database.db, draftId))?.pages["beats.yaml"] ?? "";
     expect(text).toContain("beats: []");
     expect(text).toContain("about: A forum for people who fix old bicycles");

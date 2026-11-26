@@ -1253,6 +1253,12 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
         }
       }
     }
+    if (community.own && community.daysDuring < 2) {
+      beatProblem(
+        "warning",
+        "Each participant's own community starts on their second day, so with one day there's none.",
+      );
+    }
     if (settings.worlds) {
       beatProblem(
         "warning",

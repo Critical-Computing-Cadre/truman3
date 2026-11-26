@@ -1,7 +1,7 @@
 import { featuresFor, type LiveCommunity, type StudySettings, TEMPLATES } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { ALWAYS_OFF_LIMITS, type Writer } from "@truman3/writer";
-import { and, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte } from "drizzle-orm";
 import { whyNoModel, writerFor } from "../ai.ts";
 import { scriptFor } from "../director/director.ts";
 import { spentOn } from "../director/wording.ts";
@@ -9,6 +9,8 @@ import {
   communitySystem,
   dayPrompt,
   earlierLine,
+  type ParticipantPosts,
+  type WrittenAnswer,
   type WrittenPost,
   writeCheckedDay,
 } from "./write.ts";
@@ -28,6 +30,17 @@ const RETRY_MS = 10 * MINUTE;
 /** Which community a condition gets: its own, or the one everyone shares, which is "". */
 export const communityOf = (community: LiveCommunity, conditionKey: string) =>
   community.conditions.mode === "each" ? conditionKey : "";
+
+/** The key of one participant's own community (ADR 103). */
+export const ownKey = (worldId: string) => `world:${worldId}`;
+
+/** Which community to write: one for a condition, or one participant's own. */
+export interface Scope {
+  /** A condition's key, "" for every condition, or a world's own key. */
+  key: string;
+  /** For a participant's own: their world, who they are in it, and the community it grows from. */
+  own?: { worldId: string; actorId: string; condition: string };
+}
 
 /** How far each community is known to be written, so most loads ask the database nothing. */
 const settled = new Map<string, number>();
@@ -74,8 +87,8 @@ export async function whyNotWriting(
 }
 
 /** The reference a post has in every world it's copied into. */
-export const postRef = (day: Pick<DayRow, "condition" | "day">, index: number) =>
-  `live-${day.condition || "all"}-d${day.day}-p${index}`;
+export const postRef = (day: Pick<DayRow, "condition" | "worldId" | "day">, index: number) =>
+  `live-${day.worldId ? "own" : day.condition || "all"}-d${day.day}-p${index}`;
 
 /**
  * Lets participants see a day. Only a day that's being written or held can be published, and only
@@ -106,8 +119,8 @@ export async function publishDay(db: Database, dayId: string, decidedBy?: string
  */
 async function bringIntoWorld(
   db: Database,
-  context: { studyVersionId: string; worldId: string; worldStartedAt: Date },
-  condition: string,
+  context: { studyVersionId: string; worldId: string; actorId: string; worldStartedAt: Date },
+  keys: string[],
   reached: number,
 ) {
   const due = await db
@@ -123,7 +136,7 @@ async function bringIntoWorld(
     .where(
       and(
         eq(schema.communityDays.studyVersionId, context.studyVersionId),
-        eq(schema.communityDays.condition, condition),
+        inArray(schema.communityDays.condition, keys),
         eq(schema.communityDays.status, "published"),
         lte(schema.communityDays.day, reached),
         isNull(schema.communityDayWorlds.dayId),
@@ -204,15 +217,99 @@ async function bringIntoWorld(
           replyIds.push(comment?.id);
         }
       }
+      // In their own community, what the cast says under the participant's own posts.
+      const answers = day.answers as WrittenAnswer[];
+      const theirs =
+        answers.length > 0
+          ? await tx
+              .select({ id: schema.content.id })
+              .from(schema.content)
+              .where(
+                and(
+                  eq(schema.content.worldId, context.worldId),
+                  eq(schema.content.authorActorId, context.actorId),
+                  isNull(schema.content.withdrawnAt),
+                  inArray(
+                    schema.content.id,
+                    answers.map(({ to }) => to),
+                  ),
+                ),
+              )
+          : [];
+      const stillThere = new Set(theirs.map(({ id }) => id));
+      for (const [index, answer] of answers.entries()) {
+        const replier = idOf.get(answer.actor);
+        if (!replier || !stillThere.has(answer.to)) {
+          continue;
+        }
+        const at = new Date(start + answer.minute * MINUTE);
+        const [comment] = await tx
+          .insert(schema.content)
+          .values({
+            studyVersionId: context.studyVersionId,
+            worldId: context.worldId,
+            authorActorId: replier,
+            parentId: answer.to,
+            kind: "comment",
+            body: answer.body,
+            visibleAt: at,
+            provenance,
+            sourceRef: `live-own-d${day.day}-a${index}`,
+          })
+          .returning({ id: schema.content.id });
+        await tx.insert(schema.notifications).values({
+          worldId: context.worldId,
+          recipientActorId: context.actorId,
+          actorId: replier,
+          type: "reply",
+          targetContentId: answer.to,
+          replyContentId: comment?.id ?? null,
+          dueAt: at,
+        });
+      }
     });
   }
+}
+
+/** What a participant has posted lately, and which of it the cast hasn't answered. */
+async function postsBy(
+  db: Database,
+  own: NonNullable<Scope["own"]>,
+  days: readonly DayRow[],
+): Promise<ParticipantPosts> {
+  const [actor] = await db
+    .select({ username: schema.actors.username })
+    .from(schema.actors)
+    .where(eq(schema.actors.id, own.actorId));
+  const posts = await db
+    .select({ id: schema.content.id, body: schema.content.body })
+    .from(schema.content)
+    .where(
+      and(
+        eq(schema.content.worldId, own.worldId),
+        eq(schema.content.authorActorId, own.actorId),
+        eq(schema.content.kind, "post"),
+        isNull(schema.content.withdrawnAt),
+      ),
+    )
+    .orderBy(desc(schema.content.createdAt))
+    .limit(10);
+  const answered = new Set(
+    days.flatMap(({ answers }) => (answers as WrittenAnswer[]).map(({ to }) => to)),
+  );
+  const said = posts.reverse().filter(({ body }) => body.trim());
+  return {
+    username: actor?.username ?? "participant",
+    unanswered: said.filter(({ id }) => !answered.has(id)),
+    answered: said.filter(({ id }) => answered.has(id)).map(({ body }) => body),
+  };
 }
 
 async function writeDays(
   db: Database,
   writer: Writer | null | undefined,
   studyVersionId: string,
-  condition: string,
+  scope: Scope,
   upTo: number,
 ) {
   const script = await scriptFor(db, studyVersionId);
@@ -220,8 +317,13 @@ async function writeDays(
   if (!community?.live) {
     return;
   }
-  const key = `${studyVersionId}:${condition}`;
+  const { own } = scope;
+  // The condition whose community this is, or grows from.
+  const condition = own ? own.condition : scope.key;
+  const key = `${studyVersionId}:${scope.key}`;
   const last = Math.min(upTo, community.daysDuring - 1);
+  // A participant's own starts on their second day. Before that it's their condition's.
+  const first = own ? 1 : -community.daysBefore;
   for (;;) {
     const rows = await db
       .select()
@@ -229,14 +331,14 @@ async function writeDays(
       .where(
         and(
           eq(schema.communityDays.studyVersionId, studyVersionId),
-          eq(schema.communityDays.condition, condition),
+          eq(schema.communityDays.condition, scope.key),
         ),
       );
     const byDay = new Map(rows.map((row) => [row.day, row]));
     // Days are written in order, since each carries on from the last.
     let next: number | undefined;
     let again: DayRow | undefined;
-    for (let day = -community.daysBefore; day <= last; day++) {
+    for (let day = first; day <= last; day++) {
       const row = byDay.get(day);
       if (!row) {
         next = day;
@@ -259,6 +361,10 @@ async function writeDays(
     if ((await whyNotWriting(db, writer, studyVersionId)) !== null) {
       return;
     }
+    // One participant's community can only cost so much.
+    if (own && rows.reduce((total, row) => total + row.costUsd, 0) >= community.capUsd) {
+      return;
+    }
     const version = await versionOf(db, studyVersionId);
     const model = await writerFor(writer, { studyVersionId });
     if (!version || !model) {
@@ -279,7 +385,13 @@ async function writeDays(
           .returning()
       : await db
           .insert(schema.communityDays)
-          .values({ studyVersionId, condition, day: next, status: "writing" })
+          .values({
+            studyVersionId,
+            condition: scope.key,
+            day: next,
+            status: "writing",
+            ...(own ? { worldId: own.worldId } : {}),
+          })
           .onConflictDoNothing()
           .returning();
     if (!mine) {
@@ -308,12 +420,27 @@ async function writeDays(
       );
       const maxLength = settings.platform.maxPostLength ?? 1000;
       const limits = [...ALWAYS_OFF_LIMITS, ...script.live.redLines, ...community.neverSay];
-      const earlier = rows
+      // Their own carries on from their condition's, which they saw up to their first day.
+      const before = own
+        ? await db
+            .select()
+            .from(schema.communityDays)
+            .where(
+              and(
+                eq(schema.communityDays.studyVersionId, studyVersionId),
+                eq(schema.communityDays.condition, condition),
+                eq(schema.communityDays.status, "published"),
+                lte(schema.communityDays.day, 0),
+              ),
+            )
+        : [];
+      const earlier = [...before, ...rows]
         .filter(({ day, status }) => day < next && (status === "published" || status === "held"))
         .sort((a, b) => a.day - b.day)
         .flatMap(({ written }) =>
           [...(written as WrittenPost[])].sort((a, b) => a.minute - b.minute).map(earlierLine),
         );
+      const theirs = own ? await postsBy(db, own, rows) : undefined;
       const written = await writeCheckedDay(model, {
         modelName: script.live.model,
         system: communitySystem({
@@ -329,16 +456,18 @@ async function writeDays(
           titles,
           limits,
         }),
-        prompt: dayPrompt(community, next, earlier),
+        prompt: dayPrompt(community, next, earlier, theirs),
         cast: cast.map(({ username }) => username),
         maxLength,
         titles,
         limits,
+        answerable: theirs?.unanswered.map(({ id }) => id) ?? [],
       });
       const [day] = await db
         .update(schema.communityDays)
         .set({
           written: written.posts,
+          answers: written.answers,
           dropped: written.dropped,
           model: written.model,
           costUsd: written.costUsd,
@@ -371,10 +500,10 @@ export function writeCommunityThrough(
   db: Database,
   writer: Writer | null | undefined,
   studyVersionId: string,
-  condition: string,
+  scope: Scope,
   upTo: number,
 ): Promise<void> {
-  const key = `${studyVersionId}:${condition}`;
+  const key = `${studyVersionId}:${scope.key}`;
   if ((settled.get(key) ?? Number.NEGATIVE_INFINITY) >= upTo) {
     return Promise.resolve();
   }
@@ -382,7 +511,7 @@ export function writeCommunityThrough(
   if (already) {
     return already;
   }
-  const work = writeDays(db, writer, studyVersionId, condition, upTo)
+  const work = writeDays(db, writer, studyVersionId, scope, upTo)
     .catch((error) => console.error("A live community couldn't be written:", error))
     .finally(() => working.delete(key));
   working.set(key, work);
@@ -399,6 +528,7 @@ export async function keepCommunityAhead(
   context: {
     studyVersionId: string;
     worldId: string;
+    actorId: string;
     conditionKey: string;
     worldStartedAt: Date;
     worldMode: "solo" | "shared";
@@ -413,16 +543,34 @@ export async function keepCommunityAhead(
   if (!script.community?.live) {
     return;
   }
-  const condition = communityOf(script.community, context.conditionKey);
+  const community = script.community;
+  const condition = communityOf(community, context.conditionKey);
   const day = Math.max(0, Math.floor((now.getTime() - context.worldStartedAt.getTime()) / DAY));
-  await bringIntoWorld(db, context, condition, day);
-  void writeCommunityThrough(
-    db,
-    writer,
-    context.studyVersionId,
-    condition,
-    Math.min(day + 1, script.community.daysDuring - 1),
-  );
+  if (!community.own) {
+    await bringIntoWorld(db, context, [condition], day);
+    void writeCommunityThrough(
+      db,
+      writer,
+      context.studyVersionId,
+      { key: condition },
+      Math.min(day + 1, community.daysDuring - 1),
+    );
+    return;
+  }
+  // Their own community (ADR 103): their condition's up to their first day, then one written for
+  // them as they come back each day, so it can take in what they've posted.
+  const key = ownKey(context.worldId);
+  await bringIntoWorld(db, context, [condition, key], day);
+  void writeCommunityThrough(db, writer, context.studyVersionId, { key: condition }, 0);
+  if (day >= 1) {
+    void writeCommunityThrough(
+      db,
+      writer,
+      context.studyVersionId,
+      { key, own: { worldId: context.worldId, actorId: context.actorId, condition } },
+      day,
+    );
+  }
 }
 
 /** Called at launch: the days before anyone arrives, and their first day, for every community. */
@@ -441,6 +589,6 @@ export async function startCommunity(
       ? version.settings.conditions.arms.map(({ key }) => key)
       : [""];
   for (const condition of conditions) {
-    await writeCommunityThrough(db, writer, studyVersionId, condition, 0);
+    await writeCommunityThrough(db, writer, studyVersionId, { key: condition }, 0);
   }
 }

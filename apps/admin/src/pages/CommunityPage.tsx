@@ -18,6 +18,8 @@ interface Run {
 interface Live {
   live: boolean;
   hold: boolean;
+  own: boolean;
+  capUsd: number;
   about: string;
   topics: string[];
   postsPerDay: number;
@@ -71,6 +73,8 @@ export function CommunityPage() {
   const [perCondition, setPerCondition] = useState<Record<string, string>>({});
   const [mode, setMode] = useState<"ahead" | "live">("ahead");
   const [hold, setHold] = useState(false);
+  const [own, setOwn] = useState(false);
+  const [capUsd, setCapUsd] = useState(0.5);
   // A live community that's already saved fills in the form.
   const saved = state.data?.live ?? null;
   const allActors = info.data?.actors;
@@ -95,6 +99,8 @@ export function CommunityPage() {
     setEach(saved.conditions.mode === "each");
     setPerCondition(saved.conditions.mode === "each" ? saved.conditions.about : {});
     setHold(saved.hold);
+    setOwn(saved.own);
+    setCapUsd(saved.capUsd);
     setMode(saved.live ? "live" : "ahead");
   }, [saved, allActors]);
 
@@ -122,7 +128,13 @@ export function CommunityPage() {
   });
   const saveLive = useMutation({
     mutationFn: (live: boolean) =>
-      send("PUT", `/admin/drafts/${draftId}/community/live`, { ...brief(), live, hold }),
+      send("PUT", `/admin/drafts/${draftId}/community/live`, {
+        ...brief(),
+        live,
+        hold,
+        own,
+        capUsd,
+      }),
     onSuccess: refresh,
   });
   const remove = useMutation({
@@ -156,6 +168,8 @@ export function CommunityPage() {
             {saved.daysBefore > 0 &&
               `for ${saved.daysBefore} ${saved.daysBefore === 1 ? "day" : "days"} before participants arrive and `}
             for {saved.daysDuring} {saved.daysDuring === 1 ? "day" : "days"} while they're there.{" "}
+            {saved.own &&
+              "From their second day, each participant's is their own, and the cast can answer what they post. "}
             {saved.hold
               ? "Each day waits on the Monitor page for you to approve it."
               : "Nobody reads it before participants do."}
@@ -358,6 +372,35 @@ export function CommunityPage() {
             </label>
             {mode === "live" && (
               <div className="ml-6 space-y-2">
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={own}
+                    onChange={(event) => setOwn(event.target.checked)}
+                  />
+                  <span>
+                    Give each participant a community of their own, from their second day. It's
+                    written as they come back each day, and the model is told what they've posted,
+                    so the cast can answer them. Two people in a condition then see different posts,
+                    so use it when that's what the study is about. What they post is sent to the
+                    model.
+                  </span>
+                </label>
+                {own && (
+                  <label className={`${field} max-w-xs`}>
+                    The most one participant's community can cost, in dollars
+                    <input
+                      type="number"
+                      min={0.05}
+                      max={100}
+                      step={0.05}
+                      value={capUsd}
+                      onChange={(event) => setCapUsd(Number(event.target.value))}
+                      className={input}
+                    />
+                  </label>
+                )}
                 <label className="flex items-start gap-2 text-sm">
                   <input
                     type="checkbox"

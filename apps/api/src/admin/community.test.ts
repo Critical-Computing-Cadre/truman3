@@ -5,6 +5,8 @@ import { withCommunity } from "./community.ts";
 const community = {
   live: true,
   hold: false,
+  own: false,
+  capUsd: 0.5,
   about: "Neighbors in a small town, swapping news and recipes.",
   topics: ["road work"],
   postsPerDay: 4,

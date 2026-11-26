@@ -1084,13 +1084,20 @@ export const communityDays = pgTable(
     studyVersionId: uuid("study_version_id")
       .notNull()
       .references(() => studyVersions.id, { onDelete: "cascade" }),
-    /** The condition it's for. Empty means every condition. */
+    /**
+     * Which community it's a day of: a condition's key, or empty for every condition. For one
+     * participant's own (ADR 103) it's "world:" and their world's ID, and `worldId` is set.
+     */
     condition: text().notNull().default(""),
+    /** Whose own community it is. It goes with their world if they withdraw. */
+    worldId: uuid("world_id").references(() => worlds.id, { onDelete: "cascade" }),
     /** The day, from the participant's arrival: 0 is their first, and -1 the day before. */
     day: integer().notNull(),
     /** Held waits for a researcher. Skipped was turned down, and is never shown. */
     status: text({ enum: ["writing", "held", "published", "skipped", "error"] }).notNull(),
     written: jsonb().notNull().default([]),
+    /** In a participant's own community, what the cast says under the participant's posts. */
+    answers: jsonb().notNull().default([]),
     /** Lines the check left out. */
     dropped: integer().notNull().default(0),
     model: text().notNull().default(""),
@@ -1104,7 +1111,10 @@ export const communityDays = pgTable(
     /** Posts a researcher took back out, by their place in `written`. */
     removed: integer().array().notNull().default(sql`'{}'`),
   },
-  (table) => [unique().on(table.studyVersionId, table.condition, table.day)],
+  (table) => [
+    unique().on(table.studyVersionId, table.condition, table.day),
+    index("community_days_world").on(table.worldId),
+  ],
 );
 
 /**
