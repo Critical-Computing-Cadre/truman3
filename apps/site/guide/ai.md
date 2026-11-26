@@ -34,7 +34,7 @@ Press **Draft the community**, and the model writes it a day at a time, each day
 
 With more than one condition, choose **The same community in every condition**, or **A different community for each condition**, saying what's different in each, such as one friendly and one hostile.
 
-Nothing reaches a participant until you save a version, so a person has read every line, and everyone in a condition sees the same community. Each person's persona card, on the **Beats** page, shapes how they write. What it costs is shown, and counted against your lab's budget. In your data, each post and reply's provenance says it was generated.
+Nothing reaches a participant until you save a version, so a person has read every line, and everyone in a condition sees the same community. Each person's persona card, on the **Cast** page, shapes how they write. What it costs is shown, and counted against your lab's budget. In your data, each post and reply's provenance says it was generated.
 
 The moments that matter, and anything that reacts to the participant, are still beats.
 
@@ -78,7 +78,7 @@ Personas are for reading how a study feels. For checking its logic, random simul
 Each run has a budget, $2 unless you change it, and stops when it's spent. See [Testing a study](/guide/testing).
 
 ::: info Personas and persona cards are different things
-The persona cards under `cast:` on the Beats page say who your cast members are. The personas on the Personas page are made-up participants.
+The persona cards on the Cast page say who your cast members are. The personas on the Personas page are made-up participants.
 :::
 
 ## As a helper while you build

@@ -20,6 +20,7 @@ export {
   type Measure,
   PARTICIPANT_ACTIONS,
   type Persona,
+  personaSchema,
   scaleEnds,
 } from "./beats.ts";
 export { hasPlaceholderConsent, STARTING_CONSENT } from "./consent.ts";

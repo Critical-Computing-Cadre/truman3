@@ -285,7 +285,7 @@ export function CommunityPage() {
           <fieldset className="space-y-1">
             <legend className="text-sm font-medium">Who takes part</legend>
             <p className="text-sm text-stone-600">
-              Persona cards in beats.yaml shape how each person writes.
+              Each person's persona card, on the Cast page, shapes how they write.
             </p>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               {actors.map(({ username, name }) => (
