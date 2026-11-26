@@ -1,0 +1,1 @@
+ALTER TABLE "community_days" ADD COLUMN "answers" jsonb DEFAULT '[]'::jsonb NOT NULL;

@@ -4,6 +4,7 @@ import { get, post, send } from "../api.ts";
 interface Day {
   id: string;
   condition: string;
+  participant: string | null;
   day: number;
   status: "writing" | "held" | "published" | "skipped" | "error";
   dropped: number;
@@ -18,11 +19,13 @@ interface Day {
     minute: number;
     replies: { actor: string; body: string }[];
   }[];
+  answers: { actor: string; body: string }[];
 }
 
 interface Community {
   on: boolean;
   hold: boolean;
+  own: { capUsd: number; participants: number; days: number; spentUsd: number } | null;
   daysBefore: number;
   daysDuring: number;
   budgetUsd: number;
@@ -86,6 +89,16 @@ export function CommunityCard({ studyId, canEdit }: { studyId: string; canEdit: 
           It has spent ${community.spentUsd.toFixed(2)} of the study's ${community.budgetUsd} budget
           for writing.
         </p>
+        {community.own && (
+          <p className="text-sm text-stone-600">
+            From their second day, each participant's community is their own, written as they come
+            back, and told what they've posted. So far {community.own.participants}{" "}
+            {community.own.participants === 1 ? "participant has" : "participants have"} one, over{" "}
+            {community.own.days} {community.own.days === 1 ? "day" : "days"}, for $
+            {community.own.spentUsd.toFixed(2)}. Each can cost up to ${community.own.capUsd}. The
+            latest are listed here.
+          </p>
+        )}
       </div>
       {community.whyNot && (
         <p role="status" className="rounded bg-amber-50 p-2 text-sm text-amber-900">
@@ -116,6 +129,7 @@ export function CommunityCard({ studyId, canEdit }: { studyId: string; canEdit: 
                   <span className="font-medium">
                     {dayName(day.day)}
                     {day.condition && ` in “${day.condition}”`}
+                    {day.participant && ` for participant …${day.participant}`}
                   </span>
                   : {STATUS[day.status]}
                   {day.status !== "writing" &&
@@ -159,6 +173,20 @@ export function CommunityCard({ studyId, canEdit }: { studyId: string; canEdit: 
                       )}
                     </div>
                   ))}
+                  {day.answers.length > 0 && (
+                    <div className="rounded bg-stone-50 p-2 text-sm">
+                      <p className="font-medium">Under the participant's own posts</p>
+                      {day.answers.map((answer, a) => (
+                        <p
+                          // biome-ignore lint/suspicious/noArrayIndexKey: answers never reorder
+                          key={a}
+                          className="mt-1 border-l-2 border-stone-300 pl-2 whitespace-pre-wrap"
+                        >
+                          <span className="font-medium">@{answer.actor}</span> {answer.body}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   {canEdit && day.status === "held" && (
                     <div className="flex flex-wrap gap-2">
                       <button

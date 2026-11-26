@@ -70,10 +70,14 @@ test("a researcher turns on a live community, and watches it on the Monitor page
   await expect(page.getByText(/without anyone reading it\s+first/)).toBeVisible();
   await page.getByRole("checkbox", { name: /Hold each day/ }).check();
   await expect(page.getByText(/without anyone reading it\s+first/)).toBeHidden();
+  // Each participant's own community, with what one can cost.
+  await page.getByRole("checkbox", { name: /a community of their own/ }).check();
+  await page.getByLabel(/The most one participant's community can cost/).fill("0.75");
   await page.getByRole("button", { name: "Turn on the live community" }).click();
   const on = page.getByRole("region", { name: "Live community" });
   await expect(on).toContainText("for 3 days while they're there");
   await expect(on).toContainText("waits on the Monitor page");
+  await expect(on).toContainText("each participant's is their own");
   await page.screenshot({ path: testInfo.outputPath("live.png"), fullPage: true });
 
   // It's kept: the page comes back as it was left.
@@ -81,6 +85,9 @@ test("a researcher turns on a live community, and watches it on the Monitor page
   await expect(page.getByRole("radio", { name: /While the study runs/ })).toBeChecked();
   await expect(page.getByLabel("Days while they're there")).toHaveValue("3");
   await expect(page.getByRole("checkbox", { name: /Hold each day/ })).toBeChecked();
+  await expect(page.getByLabel(/The most one participant's community can cost/)).toHaveValue(
+    "0.75",
+  );
 
   await page.getByRole("link", { name: "Feed", exact: true }).click();
   await page.getByRole("button", { name: "Save as new version" }).click();
@@ -94,6 +101,7 @@ test("a researcher turns on a live community, and watches it on the Monitor page
   await study.getByRole("link", { name: "Monitor and download" }).click();
   const card = page.getByRole("region", { name: "Live community" });
   await expect(card).toContainText("Each day waits here for you");
+  await expect(card).toContainText("Each can cost up to $0.75");
   await expect(card.getByRole("status")).toContainText("Nothing more is being written.");
   await card.screenshot({ path: testInfo.outputPath("monitor.png") });
 });

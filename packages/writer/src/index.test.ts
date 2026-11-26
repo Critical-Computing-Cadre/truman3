@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { cleanLine, costOf, lineFromChoice, standInWriter, withoutStrayBrace } from "./index.ts";
+import {
+  cleanAnswers,
+  cleanLine,
+  costOf,
+  lineFromChoice,
+  standInWriter,
+  withoutStrayBrace,
+} from "./index.ts";
 
 describe("a persona's text", () => {
   it("loses a closing brace the model left inside the string", () => {
@@ -58,5 +65,30 @@ describe("the writer", () => {
     expect(await choose("Something else", true)).toMatchObject({ choice: null, text: "A new one" });
     expect(await choose("Something else", false)).toMatchObject({ choice: 0 });
     expect((await writer.rehearse({ ...request, prompt: "p", count: 3 })).lines).toHaveLength(3);
+  });
+});
+
+describe("answers to a participant's posts", () => {
+  it("are kept to the cast, and to posts that were listed", () => {
+    const answer = (to: number, actor: string, body = "Have you tried a new tube?") => ({
+      to,
+      actor,
+      body,
+      minute: 2000,
+    });
+    expect(
+      cleanAnswers(
+        [
+          answer(0, "ann"),
+          answer(3, "ann"),
+          answer(-1, "ann"),
+          answer(1, "zed"),
+          answer(1, "bo", " "),
+        ],
+        ["ann", "bo"],
+        500,
+        2,
+      ),
+    ).toEqual([{ to: 0, actor: "ann", body: "Have you tried a new tube?", minute: 1439 }]);
   });
 });

@@ -63,6 +63,21 @@ export interface CommunityRequest {
   /** Who may post, by username. Anything by anyone else is left out. */
   cast: string[];
   maxLength: number;
+  /**
+   * How many of the participant's own posts the prompt lists, numbered from 0, for the cast to
+   * answer (ADR 103). Leave out when it lists none.
+   */
+  answering?: number;
+}
+
+/** Something someone in the cast says under one of the participant's own posts. */
+export interface CommunityAnswer {
+  /** Which of the participant's posts, by its number in the prompt. */
+  to: number;
+  actor: string;
+  body: string;
+  /** Minutes into the day, from 0 to 1439. */
+  minute: number;
 }
 
 export interface CommunityReply {
@@ -86,6 +101,8 @@ export interface CommunityPost {
 
 export interface CommunityDay {
   posts: CommunityPost[];
+  /** Empty unless the request listed posts to answer. */
+  answers: CommunityAnswer[];
   model: string;
   costUsd: number;
 }
@@ -264,10 +281,37 @@ const communitySchema = z.object({
       ),
     }),
   ),
+  answers: z.array(
+    z.object({
+      to: z.number().int(),
+      actor: z.string(),
+      body: z.string(),
+      minute: z.number().int(),
+    }),
+  ),
 });
 const verdictsSchema = z.object({
   verdicts: z.array(z.object({ line: z.number().int(), allowed: z.boolean(), reason: z.string() })),
 });
+
+/** Keeps answers to the participant's posts to the cast, and to posts that were listed. */
+export function cleanAnswers(
+  answers: z.infer<typeof communitySchema>["answers"],
+  cast: readonly string[],
+  maxLength: number,
+  answering: number,
+): CommunityAnswer[] {
+  return answers
+    .filter(
+      ({ to, actor, body }) => to >= 0 && to < answering && cast.includes(actor) && body.trim(),
+    )
+    .map(({ to, actor, body, minute }) => ({
+      to,
+      actor,
+      body: cleanLine(body, maxLength),
+      minute: Math.min(1439, Math.max(0, minute)),
+    }));
+}
 
 const CHECK_ALL_SYSTEM = `You check lines written for characters in a social media research simulation, before a researcher reviews them. The study decides what happens, and some studies deliberately include rudeness or conflict, so don't block a line for being unkind or wrong. Block a line only if it crosses one of the limits you're given. Give a verdict for every line, by its number.`;
 
@@ -421,7 +465,7 @@ export function anthropicWriter(apiKey: string): Writer {
       }
       return { ...picked, model: response.model, costUsd };
     },
-    async community({ model, system, prompt, cast, maxLength }) {
+    async community({ model, system, prompt, cast, maxLength, answering = 0 }) {
       const response = await client.beta.messages.parse({
         model,
         max_tokens: 32000,
@@ -436,6 +480,7 @@ export function anthropicWriter(apiKey: string): Writer {
       }
       return {
         posts: cleanCommunity(response.parsed_output.posts, cast, maxLength),
+        answers: cleanAnswers(response.parsed_output.answers, cast, maxLength, answering),
         model: response.model,
         costUsd: costOf(response.model, response.usage.input_tokens, response.usage.output_tokens),
       };
@@ -662,6 +707,17 @@ export function standInWriter(
             },
           ],
         })),
+        // One answer to the participant's first post, when there's one to answer.
+        answers: request.answering
+          ? [
+              {
+                to: 0,
+                actor: first as string,
+                body: "A stand-in answer to the participant.",
+                minute: 30,
+              },
+            ]
+          : [],
         model: "stand-in",
         costUsd: 0.05,
       };

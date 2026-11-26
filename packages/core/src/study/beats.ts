@@ -485,6 +485,14 @@ export const liveCommunitySchema = communityBriefSchema.extend({
   live: z.boolean().default(false),
   /** Whether each day waits for a researcher to approve it before anyone can see it. */
   hold: z.boolean().default(false),
+  /**
+   * Whether each participant gets a community of their own from their second day on (ADR 103). The
+   * model is told what they've posted, and the cast can answer them. Up to their first day it's the
+   * one for their condition, since nothing can be written for someone who hasn't arrived.
+   */
+  own: z.boolean().default(false),
+  /** The most one participant's own community can cost, in US dollars. */
+  capUsd: z.number().positive().max(100).default(0.5),
 });
 
 export const beatsFileSchema = z.strictObject({

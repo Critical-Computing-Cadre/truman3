@@ -55,6 +55,20 @@ In your data, a live community's posts are in each participant's world, with `pr
 
 It isn't written for [shared worlds](/guide/shared-worlds) yet, and a preview of a draft doesn't show it.
 
+### Each participant's own community
+
+Tick **Give each participant a community of their own** and, from their second day, each participant's community is written for them alone.
+
+- **Up to their first day it's their condition's,** the same as everyone's, since nothing can be written for someone who hasn't arrived.
+- **After that, each day is written when they come back that day.** The model is told what they've posted, so people in the cast can pick it up, and reply under their posts. They get a notification for a reply, as for any other.
+- **Two people in a condition now see different posts.** That's the point of it, and it's what you give up. Use it when the study is about a community that responds to someone, and say in your methods that it varied. Every post is in your data, for each participant.
+- **It costs for every participant, every day they come back.** Set the most one participant's community can cost, 50 cents unless you change it. At that point theirs goes quiet. The study's budget still holds over everything.
+- **Their posts are sent to the model,** as with live writing.
+
+The Monitor page says how many participants have one and what it's cost, and lists the latest days, and any held for approval. With hundreds of participants, holding every day for each of them is a lot of reading.
+
+A reply that has to come at once, or at a set moment, is still a beat.
+
 ## As participants
 
 Before you pay real people, you can have a model play a few. You describe each persona in a sentence or two on the **Personas** page, save a version, and run them from **Simulate** on the **Studies** page. Afterwards you read a transcript for each one: what they saw, what they did, and why, in their words.

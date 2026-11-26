@@ -1,9 +1,9 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { roleOnStudy } from "@truman3/accounts";
 import { schema } from "@truman3/db";
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { postRef, publishDay, whyNotWriting } from "../community/live.ts";
-import type { WrittenPost } from "../community/write.ts";
+import type { WrittenAnswer, WrittenPost } from "../community/write.ts";
 import { scriptFor } from "../director/director.ts";
 import { spentOn } from "../director/wording.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
@@ -11,6 +11,9 @@ import { researcherFromRequest } from "./session.ts";
 
 // Watching a live community as it's written (ADR 102): what's been written for each day, approving
 // or skipping a day that's held, and taking a post back out.
+
+/** How many days of participants' own communities the Monitor page lists, besides those held. */
+const OWN_DAYS_SHOWN = 30;
 
 const errorBody = { "application/json": { schema: z.object({ error: z.string() }) } };
 const params = z.object({ studyId: z.uuid() });
@@ -29,6 +32,15 @@ const postSchema = z.object({
 const stateSchema = z.object({
   on: z.boolean(),
   hold: z.boolean(),
+  /** With each participant's own community: how many have one, and what those have cost. */
+  own: z
+    .object({
+      capUsd: z.number(),
+      participants: z.number(),
+      days: z.number(),
+      spentUsd: z.number(),
+    })
+    .nullable(),
   daysBefore: z.number(),
   daysDuring: z.number(),
   budgetUsd: z.number(),
@@ -39,12 +51,16 @@ const stateSchema = z.object({
     z.object({
       id: z.string(),
       condition: z.string(),
+      /** For a day of one participant's own community, a short name for whose. */
+      participant: z.string().nullable(),
       day: z.number(),
       status: z.enum(["writing", "held", "published", "skipped", "error"]),
       dropped: z.number(),
       costUsd: z.number(),
       error: z.string().nullable(),
       posts: z.array(postSchema),
+      /** What the cast says under the participant's own posts, that day. */
+      answers: z.array(z.object({ actor: z.string(), body: z.string() })),
     }),
   ),
 });
@@ -144,6 +160,7 @@ export function createLiveCommunityRoutes({ db, writer }: ParticipantRouteDepend
         {
           on: false,
           hold: false,
+          own: null,
           daysBefore: 0,
           daysDuring: 0,
           budgetUsd: 0,
@@ -154,15 +171,33 @@ export function createLiveCommunityRoutes({ db, writer }: ParticipantRouteDepend
         200,
       );
     }
-    const days = await db
+    const all = await db
       .select()
       .from(schema.communityDays)
       .where(eq(schema.communityDays.studyVersionId, versionId))
-      .orderBy(desc(schema.communityDays.day), asc(schema.communityDays.condition));
+      .orderBy(desc(schema.communityDays.startedAt));
+    // Every day of the communities people share. Of participants' own, there can be hundreds, so
+    // the ones waiting for someone, and the latest.
+    const theirs = all.filter(({ worldId }) => worldId);
+    const days = [
+      ...all
+        .filter(({ worldId }) => !worldId)
+        .sort((a, b) => b.day - a.day || a.condition.localeCompare(b.condition)),
+      ...theirs.filter(({ status }) => status === "held"),
+      ...theirs.filter(({ status }) => status !== "held").slice(0, OWN_DAYS_SHOWN),
+    ];
     return c.json(
       {
         on: true,
         hold: community.hold,
+        own: community.own
+          ? {
+              capUsd: community.capUsd,
+              participants: new Set(theirs.map(({ worldId }) => worldId)).size,
+              days: theirs.length,
+              spentUsd: theirs.reduce((total, { costUsd }) => total + costUsd, 0),
+            }
+          : null,
         daysBefore: community.daysBefore,
         daysDuring: community.daysDuring,
         budgetUsd: script?.live.budgetUsd ?? 0,
@@ -170,7 +205,8 @@ export function createLiveCommunityRoutes({ db, writer }: ParticipantRouteDepend
         whyNot: await whyNotWriting(db, writer, versionId),
         days: days.map((day) => ({
           id: day.id,
-          condition: day.condition,
+          condition: day.worldId ? "" : day.condition,
+          participant: day.worldId ? day.worldId.slice(-6) : null,
           day: day.day,
           status: day.status,
           dropped: day.dropped,
@@ -185,6 +221,7 @@ export function createLiveCommunityRoutes({ db, writer }: ParticipantRouteDepend
             minute: post.minute,
             replies: post.replies.map(({ actor, body }) => ({ actor, body })),
           })),
+          answers: (day.answers as WrittenAnswer[]).map(({ actor, body }) => ({ actor, body })),
         })),
       },
       200,

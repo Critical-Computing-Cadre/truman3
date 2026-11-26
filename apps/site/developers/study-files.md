@@ -111,6 +111,8 @@ community:
   cast: [] # everyone
   neverSay: []
   conditions: { mode: same } # or { mode: each, about: { calm: ..., heated: ... } }
+  own: false # true gives each participant their own from their second day (ADR 103)
+  capUsd: 0.5 # the most one participant's own community can cost
 ```
 
 It spends from `live.budgetUsd`, and stops with the study's pause switch.

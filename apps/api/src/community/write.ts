@@ -24,6 +24,25 @@ export interface WrittenPost {
   replies: WrittenReply[];
 }
 
+/** Something someone in the cast says under one of the participant's own posts (ADR 103). */
+export interface WrittenAnswer {
+  /** The participant's post, by its content ID. */
+  to: string;
+  actor: string;
+  body: string;
+  /** Minutes into the day, from 0 to 1439. */
+  minute: number;
+}
+
+/** What a participant has posted, for the model writing their own community. */
+export interface ParticipantPosts {
+  username: string;
+  /** Posts nobody in the cast has answered yet, which can be answered today. */
+  unanswered: { id: string; body: string }[];
+  /** The rest, for what they've been talking about. */
+  answered: string[];
+}
+
 export interface CastMember {
   username: string;
   name: string;
@@ -89,11 +108,23 @@ export function dayPrompt(
   brief: Pick<CommunityBrief, "postsPerDay" | "repliesPerPost">,
   day: number,
   earlier: readonly string[],
+  participant?: ParticipantPosts,
 ) {
+  const theirs = participant
+    ? [
+        `This community is this one participant's own. They're a real person taking part in the study, and they post as @${participant.username}. Only write for the cast, never for them. People in the cast may mention them by name where it's natural, and shouldn't crowd them.`,
+        participant.answered.length > 0 &&
+          `What they've posted before:\n${participant.answered.map((body) => `- ${body.slice(0, 300)}`).join("\n")}`,
+        participant.unanswered.length > 0
+          ? `Their posts nobody has answered yet, by number:\n${participant.unanswered.map(({ body }, index) => `${index}. ${body.slice(0, 500)}`).join("\n")}\nIn "answers", have one or two people in the cast reply to some of these, as they would to anyone in the community: "to" is the post's number, and "minute" is minutes into this day. Not every post needs an answer.`
+          : `They haven't posted anything new. Leave "answers" empty.`,
+      ]
+    : [`Leave "answers" empty.`];
   return [
     `Day ${day + 1 > 0 ? day + 1 : day}${day < 0 ? `, ${-day} ${day === -1 ? "day" : "days"} before the participant arrives` : day === 0 ? ", the day the participant arrives" : ", while the participant is there"}.`,
     earlier.length > 0 &&
       `What's been posted so far, most recent last:\n${earlier.slice(-40).join("\n")}`,
+    ...theirs,
     `Write about ${brief.postsPerDay} posts for this day, spread through it, by different people. Give each up to ${brief.repliesPerPost} replies from others, some answering each other. Carry on from what's come before where it makes sense. Each post's minute is minutes into the day, from 0 to 1439, and each reply's minutesAfter is how long after the post it came. Give each post a believable number of likes.`,
   ]
     .filter(Boolean)
@@ -118,7 +149,10 @@ export async function writeCheckedDay(
     maxLength,
     titles,
     limits,
+    answerable = [],
   }: {
+    /** The participant's posts the prompt lists for answering, in the order it numbers them. */
+    answerable?: readonly string[];
     modelName: string;
     system: string;
     prompt: string;
@@ -134,11 +168,15 @@ export async function writeCheckedDay(
     prompt,
     cast: [...cast],
     maxLength,
+    ...(answerable.length > 0 ? { answering: answerable.length } : {}),
   });
-  const lines = written.posts.flatMap((post) => [
-    `${post.title} ${post.body}`.trim(),
-    ...post.replies.map(({ body }) => body),
-  ]);
+  const lines = [
+    ...written.posts.flatMap((post) => [
+      `${post.title} ${post.body}`.trim(),
+      ...post.replies.map(({ body }) => body),
+    ]),
+    ...written.answers.map(({ body }) => body),
+  ];
   const checked = await model.checkAll(lines, limits, modelName);
   const posts: WrittenPost[] = [];
   let dropped = 0;
@@ -187,5 +225,22 @@ export async function writeCheckedDay(
       replies,
     });
   }
-  return { posts, dropped, costUsd: written.costUsd + checked.costUsd, model: written.model };
+  const answers: WrittenAnswer[] = [];
+  for (const answer of written.answers) {
+    const ok = checked.results[at]?.allowed ?? false;
+    at += 1;
+    const to = answerable[answer.to];
+    if (!ok || !to || !cast.includes(answer.actor)) {
+      dropped += 1;
+      continue;
+    }
+    answers.push({ to, actor: answer.actor, body: answer.body, minute: answer.minute });
+  }
+  return {
+    posts,
+    answers,
+    dropped,
+    costUsd: written.costUsd + checked.costUsd,
+    model: written.model,
+  };
 }
