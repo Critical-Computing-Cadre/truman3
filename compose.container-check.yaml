@@ -20,7 +20,7 @@ services:
       retries: 30
 
   storage:
-    image: chrislusf/seaweedfs:4.51
+    image: chrislusf/seaweedfs:4.53
     command: server -dir=/data -s3 -s3.port=8333
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8333/status"]
