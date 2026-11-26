@@ -10,3 +10,15 @@ packages:
 # binary works, and the binary comes as a regular dependency, so it isn't needed.
 allowBuilds:
   esbuild: false
+
+# Versions forced on dependencies of dependencies, each to get a security fix its parent hasn't
+# picked up. Take one out when the parent asks for a fixed version itself.
+overrides:
+  # The MCP SDK brings its own Hono. This keeps it on the one the API uses.
+  hono: 4.13.18
+  "@hono/node-server": 2.1.8
+  # VitePress 1 asks for Vite 5, which has advisories against its dev server.
+  "vitepress>vite": 6.4.6
+  "@vitejs/plugin-vue>vite": 6.4.6
+  # drizzle-kit's loader asks for an esbuild from 2023.
+  "@esbuild-kit/core-utils>esbuild": 0.25.12
