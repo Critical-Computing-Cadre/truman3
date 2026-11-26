@@ -41,6 +41,11 @@ A few things about how the tests are written:
 
 A merge into `main` runs `checks` again on the merged code. Changes to documentation alone skip CI.
 
+Two more workflows run beside it:
+
+- [`dco.yml`](../.github/workflows/dco.yml) checks that every commit in a pull request is signed off ([CONTRIBUTING.md](../CONTRIBUTING.md), "Sign your work"). It runs on documentation changes too.
+- [`scorecard.yml`](../.github/workflows/scorecard.yml) runs [OpenSSF Scorecard](https://scorecard.dev) on each merge and once a week. It grades how the repository is run, such as pinned dependencies and token permissions, and publishes the score.
+
 ## Deploys
 
 [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml), described in [ADR 88](adr/0088-deploys-from-github.md) and [cloud.md](cloud.md):
@@ -74,7 +79,8 @@ Hosted Truman runs `main`, a merge at a time, after approval. Tagged releases ar
 ## Security
 
 - **Problems are reported privately** ([SECURITY.md](../SECURITY.md)).
-- **GitHub's secret scanning and push protection are on** for the repository.
+- **GitHub's secret scanning and push protection are on** for the repository, and so is private vulnerability reporting.
+- **The actions in new workflows are pinned to a commit,** not a tag that can be moved.
 - **Secrets never go in the repository.** Local settings are in `.env`, which isn't committed, and hosted Truman's are in AWS Secrets Manager.
 
 ## Who does the work

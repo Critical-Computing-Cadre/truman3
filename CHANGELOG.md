@@ -2,7 +2,9 @@
 
 What's changed in Truman 3, newest first. Each release's notes are also on [GitHub Releases](https://github.com/Critical-Computing-Cadre/truman3/releases). What Truman 3 does today, in full, is in [FEATURES.md](FEATURES.md).
 
-## Unreleased: the first tagged release
+## 3.0.0-beta.1 (2026-11-26)
+
+The first tagged release. It's a beta: friends of the project are trying it, and no study has been run on it for real yet.
 
 Everything since the repository started on 2026-11-01. Truman 3 is a new codebase, so there's nothing to upgrade from.
 

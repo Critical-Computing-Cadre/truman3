@@ -2,7 +2,10 @@
 
 ## Reporting a problem
 
-Please report security problems privately, to **security@truman-research.org**, and not in a public issue. An issue is public the moment it's filed.
+Please report security problems privately, and not in a public issue. An issue is public the moment it's filed. There are two ways:
+
+- Email **security@truman-research.org**.
+- Or use GitHub's private reporting: [Report a vulnerability](https://github.com/Critical-Computing-Cadre/truman3/security/advisories/new), under the repository's Security tab.
 
 What to include, and what to take care with while you're looking, are at <https://truman-research.org/security>. The same address is in [`/.well-known/security.txt`](https://truman-research.org/.well-known/security.txt).
 

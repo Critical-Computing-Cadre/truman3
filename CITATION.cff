@@ -3,6 +3,8 @@ cff-version: 1.2.0
 message: "If you use Truman 3, please cite the software, and the paper that introduced Truman."
 type: software
 title: "Truman 3"
+version: "3.0.0-beta.1"
+date-released: "2026-11-26"
 abstract: >-
   A social media simulation platform for research. A research team builds a realistic social media
   site with its own posts, people, and rules, brings participants into it, varies what they see by
@@ -30,3 +32,25 @@ preferred-citation:
       given-names: Natalie N.
   year: 2018
   collection-title: "ICWSM '18 workshop paper"
+# The versions of Truman that Truman 3 follows. None of their code is in it.
+references:
+  - type: software
+    title: "The Truman Platform"
+    authors:
+      - family-names: DiFranzo
+        given-names: Dominic
+    year: 2017
+    repository-code: "https://github.com/cornellsml/truman"
+    license: MIT
+  - type: software
+    title: "Truman 2.0"
+    authors:
+      - name: "Cornell Social Media Lab"
+    repository-code: "https://github.com/cornellsocialmedialab/truman_2023"
+  - type: software
+    title: "Truman Agents"
+    authors:
+      - family-names: Yang
+        given-names: Qian
+      - name: "Cornell Design & AI Group"
+    repository-code: "https://github.com/Cornell-Design-AI-Group/TrumanAgents"
