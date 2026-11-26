@@ -1402,7 +1402,7 @@ const FILE_DOCS: Record<string, [string, string][]> = {
     ["origin", "scripted, from the study definition, or world, created during the study"],
     [
       "provenance",
-      "For scripted content, who wrote it: file, researcher, pack, or generated, and whether it was later edited",
+      "Who wrote it, for scripted content: file, researcher, pack, or generated, and whether it was later edited. A live community's posts are world content marked generated, and one post has the same source_ref for every participant",
     ],
     [
       "participant_id",

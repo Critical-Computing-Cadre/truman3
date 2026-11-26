@@ -1,12 +1,28 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { roleOnStudy } from "@truman3/accounts";
-import { BEATS_FILE, featuresFor, type Persona, TEMPLATES } from "@truman3/core";
+import {
+  BEATS_FILE,
+  communityBriefSchema,
+  featuresFor,
+  type LiveCommunity,
+  liveCommunitySchema,
+  TEMPLATES,
+} from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
-import { type ActorData, createItem, deleteItem, loadDraft } from "@truman3/drafts";
+import {
+  type ActorData,
+  createItem,
+  deleteItem,
+  loadDraft,
+  pageSection,
+  saveSection,
+} from "@truman3/drafts";
 import { parseBeats } from "@truman3/study-files";
 import { ALWAYS_OFF_LIMITS, NothingWritten, type Writer } from "@truman3/writer";
 import { and, desc, eq } from "drizzle-orm";
+import { parseDocument } from "yaml";
 import { whyNoModel, writerFor } from "../ai.ts";
+import { communitySystem, dayPrompt, earlierLine, writeCheckedDay } from "../community/write.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { researcherFromRequest } from "./session.ts";
 
@@ -15,30 +31,7 @@ const STALE_MS = 20 * 60 * 1000;
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 
-const requestSchema = z.strictObject({
-  /** What the community is, and what it's like. */
-  about: z.string().trim().min(20).max(3000),
-  topics: z.array(z.string().trim().min(1).max(200)).max(20).default([]),
-  postsPerDay: z.number().int().min(1).max(30),
-  /** The most replies a post gets. */
-  repliesPerPost: z.number().int().min(0).max(10),
-  /** Days of history before a participant arrives. */
-  daysBefore: z.number().int().min(0).max(14),
-  /** Days while they're there. */
-  daysDuring: z.number().int().min(0).max(30),
-  /** Who takes part, by username. Empty means everyone in the cast. */
-  cast: z.array(z.string()).default([]),
-  /** What must never be said, beyond Truman's own limits. */
-  neverSay: z.array(z.string().trim().min(1).max(300)).max(20).default([]),
-  /** One community for every condition, or each condition its own, with what makes it different. */
-  conditions: z.discriminatedUnion("mode", [
-    z.strictObject({ mode: z.literal("same") }),
-    z.strictObject({
-      mode: z.literal("each"),
-      about: z.record(z.string(), z.string().trim().max(2000)),
-    }),
-  ]),
-});
+const requestSchema = communityBriefSchema;
 type CommunityRequest = z.infer<typeof requestSchema>;
 
 interface Progress {
@@ -79,7 +72,16 @@ const stateRoute = createRoute({
   responses: {
     200: {
       description: "The latest run, or null if there's been none",
-      content: { "application/json": { schema: z.object({ run: runSchema.nullable() }) } },
+      content: {
+        "application/json": {
+          schema: z.object({
+            run: runSchema.nullable(),
+            /** The community written while the study runs, as beats.yaml has it (ADR 102). */
+            live: liveCommunitySchema.nullable(),
+            liveBudgetUsd: z.number(),
+          }),
+        },
+      },
     },
     401: { description: "Not signed in", content: errorBody },
     404: { description: "No such draft", content: errorBody },
@@ -107,6 +109,34 @@ const startRoute = createRoute({
   },
 });
 
+const liveRoute = createRoute({
+  method: "put",
+  path: "/admin/drafts/{draftId}/community/live",
+  summary: "Set the community that's written while the study runs, in beats.yaml",
+  request: {
+    params,
+    body: { required: true, content: { "application/json": { schema: liveCommunitySchema } } },
+  },
+  responses: {
+    200: {
+      description: "Saved",
+      content: { "application/json": { schema: z.object({ revision: z.number() }) } },
+    },
+    400: { description: "Something about it", content: errorBody },
+    401: { description: "Not signed in", content: errorBody },
+    403: { description: "Viewers can't", content: errorBody },
+    404: { description: "No such draft", content: errorBody },
+    409: { description: "The draft is saved, or beats.yaml can't be read", content: errorBody },
+  },
+});
+
+/** beats.yaml with its `community` set, and everything else, comments included, as it was. */
+export function withCommunity(text: string, community: LiveCommunity): string {
+  const document = parseDocument(text.trim() ? text : "beats: []\n");
+  document.set("community", document.createNode(community));
+  return document.toString({ lineWidth: 0 });
+}
+
 const removeRoute = createRoute({
   method: "delete",
   path: "/admin/drafts/{draftId}/community/{runId}",
@@ -122,22 +152,6 @@ const removeRoute = createRoute({
     404: { description: "No such run", content: errorBody },
   },
 });
-
-function personaLines(username: string, name: string, bio: string, persona?: Persona) {
-  return [
-    `- ${name} (@${username})${bio ? `: ${bio}` : ""}`,
-    persona?.about && `  About them: ${persona.about}`,
-    persona?.voice && `  How they write: ${persona.voice}`,
-    persona?.values && `  What they care about: ${persona.values}`,
-    persona?.goals && `  What they want: ${persona.goals}`,
-    persona?.relationships &&
-      Object.keys(persona.relationships).length > 0 &&
-      `  How they feel about others: ${Object.entries(persona.relationships)
-        .filter(([who]) => who !== "participant")
-        .map(([who, feeling]) => `@${who}: ${feeling}`)
-        .join("; ")}`,
-  ].filter(Boolean) as string[];
-}
 
 /**
  * Writes a community a day at a time, in the background, as ordinary draft posts and comments.
@@ -210,63 +224,31 @@ async function draftCommunity({
       const titles = (target.conditions.length > 0 ? target.conditions : arms).some(
         (key) => featuresFor(settings, key).titles,
       );
-      const system = [
-        `You write a whole online community for a social media research study: posts, and replies between the people in it. It's on a site like this: ${template.about}`,
-        `The community: ${request.about}`,
-        target.about && `In this version of it: ${target.about}`,
-        request.topics.length > 0 &&
-          `What people here talk about, roughly in order of how often:\n${request.topics.map((topic) => `- ${topic}`).join("\n")}`,
-        `The people in it. Only they may post or reply, by their username:\n${cast
-          .flatMap(({ username, name, bio }) =>
-            personaLines(username, name, bio ?? "", script.cast[username]),
-          )
-          .join("\n")}`,
-        `Write the way people really write on a site like this: some short, some longer, casual, with their own habits. People have their own interests, agree and disagree, and answer each other by name sometimes. Not everyone posts every day. Keep each post and reply under ${maxLength} characters.${titles ? " Every post has a short title." : " Leave titles empty."}`,
-        `Never write any of these:\n${limits.map((limit) => `- ${limit}`).join("\n")}`,
-      ]
-        .filter(Boolean)
-        .join("\n\n");
+      const system = communitySystem({
+        site: template.about,
+        brief: request,
+        inThisVersion: target.about,
+        cast: cast.map(({ username, name, bio }) => ({ username, name, bio: bio ?? "" })),
+        personas: script.cast,
+        maxLength,
+        titles,
+        limits,
+      });
       const earlier: string[] = [];
 
       for (const day of days) {
-        const prompt = [
-          `Day ${day + 1 > 0 ? day + 1 : day}${day < 0 ? `, ${-day} ${day === -1 ? "day" : "days"} before the participant arrives` : day === 0 ? ", the day the participant arrives" : ", while the participant is there"}.`,
-          earlier.length > 0 &&
-            `What's been posted so far, most recent last:\n${earlier.slice(-40).join("\n")}`,
-          `Write about ${request.postsPerDay} posts for this day, spread through it, by different people. Give each up to ${request.repliesPerPost} replies from others, some answering each other. Carry on from what's come before where it makes sense. Each post's minute is minutes into the day, from 0 to 1439, and each reply's minutesAfter is how long after the post it came. Give each post a believable number of likes.`,
-        ]
-          .filter(Boolean)
-          .join("\n\n");
-        const written = await model.community({
-          model: script.live.model,
+        const written = await writeCheckedDay(model, {
+          modelName: script.live.model,
           system,
-          prompt,
+          prompt: dayPrompt(request, day, earlier),
           cast: cast.map(({ username }) => username),
           maxLength,
+          titles,
+          limits,
         });
         costUsd += written.costUsd;
-
-        // Check everything written today in one go, and leave out what fails.
-        const lines = written.posts.flatMap((post) => [
-          `${post.title} ${post.body}`.trim(),
-          ...post.replies.map(({ body }) => body),
-        ]);
-        const checked = await model.checkAll(lines, limits, script.live.model);
-        costUsd += checked.costUsd;
-        let at = 0;
+        progress.dropped += written.dropped;
         for (const [index, post] of written.posts.entries()) {
-          const ok = checked.results[at]?.allowed ?? false;
-          at += 1;
-          const replyOk = post.replies.map(() => {
-            const allowed = checked.results[at]?.allowed ?? false;
-            at += 1;
-            return allowed;
-          });
-          const author = byUsername.get(post.actor);
-          if (!ok || !author) {
-            progress.dropped += 1 + post.replies.length;
-            continue;
-          }
           const timeMs = day * DAY + post.minute * MINUTE;
           const made = await createItem(
             db,
@@ -276,8 +258,8 @@ async function draftCommunity({
             {
               ref: `community-${short}-${target.conditions[0] ?? "all"}-d${day}-p${index}`,
               body: post.body,
-              ...(titles && post.title ? { title: post.title } : {}),
-              actorId: author.id,
+              ...(post.title ? { title: post.title } : {}),
+              actorId: byUsername.get(post.actor)?.id,
               timeMs,
               likes: post.likes,
               conditions: target.conditions,
@@ -289,41 +271,31 @@ async function draftCommunity({
             continue;
           }
           progress.posts += 1;
-          earlier.push(
-            `@${post.actor}: ${titles && post.title ? `${post.title}: ` : ""}${post.body.slice(0, 200)}`,
-          );
+          earlier.push(earlierLine(post));
           const replyIds: (string | null)[] = [];
           for (const [r, reply] of post.replies.entries()) {
-            const replier = byUsername.get(reply.actor);
             const parent = reply.replyTo === null ? null : replyIds[reply.replyTo];
-            // A reply to one that was left out is left out too.
-            if (
-              !replyOk[r] ||
-              !replier ||
-              parent === undefined ||
-              (reply.replyTo !== null && !parent)
-            ) {
-              progress.dropped += 1;
-              replyIds.push(null);
-              continue;
-            }
-            const comment = await createItem(
-              db,
-              draftId,
-              researcherId,
-              "comment",
-              {
-                ref: `community-${short}-${target.conditions[0] ?? "all"}-d${day}-p${index}-r${r}`,
-                body: reply.body,
-                actorId: replier.id,
-                postId: made.id,
-                ...(parent ? { replyToId: parent } : {}),
-                timeMs: timeMs + reply.minutesAfter * MINUTE,
-                likes: 0,
-                conditions: target.conditions,
-              },
-              provenance,
-            );
+            // A reply to one that couldn't be added isn't added either.
+            const comment =
+              reply.replyTo !== null && !parent
+                ? { problem: "invalid" as const }
+                : await createItem(
+                    db,
+                    draftId,
+                    researcherId,
+                    "comment",
+                    {
+                      ref: `community-${short}-${target.conditions[0] ?? "all"}-d${day}-p${index}-r${r}`,
+                      body: reply.body,
+                      actorId: byUsername.get(reply.actor)?.id,
+                      postId: made.id,
+                      ...(parent ? { replyToId: parent } : {}),
+                      timeMs: timeMs + reply.minutesAfter * MINUTE,
+                      likes: 0,
+                      conditions: target.conditions,
+                    },
+                    provenance,
+                  );
             if ("problem" in comment) {
               progress.dropped += 1;
               replyIds.push(null);
@@ -381,8 +353,11 @@ export function createCommunityRoutes({ db, writer }: ParticipantRouteDependenci
       return c.json(body, status);
     }
     const run = await latest(draftId);
+    const script = parseBeats(checked.loaded.pages[BEATS_FILE] ?? "");
     return c.json(
       {
+        live: script.community ?? null,
+        liveBudgetUsd: script.live.budgetUsd,
         run: run
           ? {
               id: run.id,
@@ -457,6 +432,35 @@ export function createCommunityRoutes({ db, writer }: ParticipantRouteDependenci
       request,
     });
     return c.json({ id: run.id }, 202);
+  });
+
+  app.openapi(liveRoute, async (c) => {
+    const { draftId } = c.req.valid("param");
+    const checked = await access(c, draftId);
+    if ("failure" in checked) {
+      const [body, status] = checked.failure;
+      return c.json(body, status);
+    }
+    if (checked.role === "viewer") {
+      return c.json({ error: "You can only view this study." }, 403);
+    }
+    const community = c.req.valid("json");
+    if (community.live && community.daysDuring < 1) {
+      return c.json({ error: "Choose at least one day while participants are there." }, 400);
+    }
+    const text = checked.loaded.pages[BEATS_FILE] ?? "";
+    if (parseBeats(text).issues.length > 0) {
+      return c.json({ error: "beats.yaml has problems. Fix those on the Beats page first." }, 409);
+    }
+    const saved = await saveSection(db, draftId, checked.researcher.id, {
+      section: pageSection(BEATS_FILE),
+      value: withCommunity(text, community),
+      baseRevision: checked.loaded.sections.get(pageSection(BEATS_FILE))?.revision ?? 0,
+    });
+    if ("problem" in saved) {
+      return c.json({ error: saved.message }, saved.problem === "not-found" ? 404 : 409);
+    }
+    return c.json({ revision: saved.revision }, 200);
   });
 
   app.openapi(removeRoute, async (c) => {

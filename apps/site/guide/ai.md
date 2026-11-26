@@ -38,6 +38,23 @@ Nothing reaches a participant until you save a version, so a person has read eve
 
 The moments that matter, and anything that reacts to the participant, are still beats.
 
+## A community written while the study runs
+
+The same page can leave the writing until the study is running. Under **When it's written**, choose **While the study runs**, and press **Turn on the live community**. Nothing is written in the draft. Once you save a version and launch it:
+
+- **At launch,** the model writes the days before participants arrive, and their first day.
+- **After that it stays a day ahead** of whoever is furthest along. When the first participant in a condition reaches day 2, day 3 is written.
+- **Everyone in a condition sees the same community.** Each post is timed from a participant's own arrival, so someone who joins a week later sees the same posts at the same point in their study. The comparison between conditions is kept.
+- **It stops** after the number of days you gave, when the study's budget for live writing (`live.budgetUsd` in `beats.yaml`) is used up, or when live writing is paused on the **Monitor and download** page. The community goes quiet, and what's already written stays.
+
+**Nobody reads it first, unless you say so.** Every line is checked by a second call against your limits and Truman's, and what fails is left out. That's a model checking a model. Tick **Hold each day until someone on the team approves it**, and each day waits on the Monitor page for **Approve this day** or **Skip it**. A participant who reaches a day that isn't approved sees nothing from it, so someone has to keep up.
+
+Either way, the **Live community** card on the Monitor page shows every day as it's written, a day before anyone sees it. **Take out** removes a post and its replies, for everyone who has it and everyone still to reach it.
+
+In your data, a live community's posts are in each participant's world, with `provenance` of `generated`. The same post has the same `source_ref` for every participant, such as `live-all-d2-p0`: the community for all conditions, day 3, first post.
+
+It isn't written for [shared worlds](/guide/shared-worlds) yet, and a preview of a draft doesn't show it.
+
 ## As participants
 
 Before you pay real people, you can have a model play a few. You describe each persona in a sentence or two on the **Personas** page, save a version, and run them from **Simulate** on the **Studies** page. Afterwards you read a transcript for each one: what they saw, what they did, and why, in their words.

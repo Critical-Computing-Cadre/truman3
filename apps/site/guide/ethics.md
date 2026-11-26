@@ -62,6 +62,8 @@ By default you write every word ahead of time. If you turn on live writing, an A
 
 **What's left to you.** Tell your board that some content is machine-written, and that what a participant writes is sent to the model so it can reply. Read what your cast says before launch, using rehearsed lines and persona runs. Say so in the debriefing.
 
+**A live community is different.** With the community written while the study runs, and days not held for approval, participants read text that no person has read. Say so to your board, with what stands in for a reader: the check on every line, your own limits, the day's notice on the Monitor page, and the pause switch. Holding each day for approval puts a person back in.
+
 ## Shared worlds
 
 Usually each participant is alone with the cast, and nothing they write is seen by another person. In a shared world, real participants see and message each other. Real people can be unkind, and you didn't write what they say. See [Several real people together](/guide/shared-worlds).

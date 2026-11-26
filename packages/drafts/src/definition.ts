@@ -149,7 +149,16 @@ export function draftToDefinition(
     beats,
     scenarios: tests?.scenarios ?? [],
     ...(cast?.personas ? { personas: cast.personas } : {}),
-    ...(read ? { christof: { live: read.live, cast: read.cast, decide: read.decide } } : {}),
+    ...(read
+      ? {
+          christof: {
+            live: read.live,
+            cast: read.cast,
+            decide: read.decide,
+            ...(read.community ? { community: read.community } : {}),
+          },
+        }
+      : {}),
     actors: actors.map(({ data: { spaceFlair, ...actor } }) => {
       // A space that's been removed takes what people showed in it with it.
       const flair = Object.entries(spaceFlair ?? {}).flatMap(([spaceId, text]) => {

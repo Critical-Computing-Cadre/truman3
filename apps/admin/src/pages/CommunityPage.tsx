@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type DraftInfo, get, post, send } from "../api.ts";
 
 interface Run {
@@ -14,6 +14,21 @@ interface Run {
   finishedAt: string | null;
 }
 
+/** The community written while the study runs, as beats.yaml has it (ADR 102). */
+interface Live {
+  live: boolean;
+  hold: boolean;
+  about: string;
+  topics: string[];
+  postsPerDay: number;
+  repliesPerPost: number;
+  daysBefore: number;
+  daysDuring: number;
+  cast: string[];
+  neverSay: string[];
+  conditions: { mode: "same" } | { mode: "each"; about: Record<string, string> };
+}
+
 const field = "flex flex-col gap-1 text-sm font-medium";
 const input = "rounded border border-stone-300 px-2 py-1.5 font-normal";
 const lines = (text: string) =>
@@ -23,9 +38,10 @@ const lines = (text: string) =>
     .filter(Boolean);
 
 /**
- * Drafting a community ahead (ADR 99): the researcher describes it, a model writes it a day at a
- * time, and it lands in the draft as posts and replies to read and change before saving a version.
- * Nothing a model writes reaches a participant unread.
+ * A community by the cast, written by a model from the researcher's description. Drafted ahead
+ * (ADR 99), it lands in the draft as posts and replies to read and change before saving a version.
+ * Live (ADR 102), it's written while the study runs, a day ahead, and nobody reads it first unless
+ * each day is held for approval.
  */
 export function CommunityPage() {
   const { draftId } = useParams({ from: "/drafts/$draftId/community" });
@@ -36,7 +52,10 @@ export function CommunityPage() {
   });
   const state = useQuery({
     queryKey: ["draft", draftId, "community"],
-    queryFn: () => get<{ run: Run | null }>(`/admin/drafts/${draftId}/community`),
+    queryFn: () =>
+      get<{ run: Run | null; live: Live | null; liveBudgetUsd: number }>(
+        `/admin/drafts/${draftId}/community`,
+      ),
     // Every two seconds while one's being written.
     refetchInterval: (query) => (query.state.data?.run?.status === "running" ? 2000 : false),
   });
@@ -50,23 +69,60 @@ export function CommunityPage() {
   const [left, setLeft] = useState<string[]>([]);
   const [each, setEach] = useState(false);
   const [perCondition, setPerCondition] = useState<Record<string, string>>({});
+  const [mode, setMode] = useState<"ahead" | "live">("ahead");
+  const [hold, setHold] = useState(false);
+  // A live community that's already saved fills in the form.
+  const saved = state.data?.live ?? null;
+  const allActors = info.data?.actors;
+  useEffect(() => {
+    if (!saved || !allActors) {
+      return;
+    }
+    setAbout(saved.about);
+    setTopics(saved.topics.join("\n"));
+    setPostsPerDay(saved.postsPerDay);
+    setRepliesPerPost(saved.repliesPerPost);
+    setDaysBefore(saved.daysBefore);
+    setDaysDuring(saved.daysDuring);
+    setNeverSay(saved.neverSay.join("\n"));
+    setLeft(
+      saved.cast.length === 0
+        ? []
+        : allActors
+            .map(({ username }) => username)
+            .filter((username) => !saved.cast.includes(username)),
+    );
+    setEach(saved.conditions.mode === "each");
+    setPerCondition(saved.conditions.mode === "each" ? saved.conditions.about : {});
+    setHold(saved.hold);
+    setMode(saved.live ? "live" : "ahead");
+  }, [saved, allActors]);
 
   const refresh = () => client.invalidateQueries({ queryKey: ["draft", draftId] });
+  const brief = () => ({
+    about,
+    topics: lines(topics),
+    postsPerDay,
+    repliesPerPost,
+    daysBefore,
+    daysDuring,
+    // Everyone is an empty list, so people added to the cast later take part too.
+    cast:
+      left.length === 0
+        ? []
+        : (info.data?.actors ?? [])
+            .map(({ username }) => username)
+            .filter((username) => !left.includes(username)),
+    neverSay: lines(neverSay),
+    conditions: each ? { mode: "each", about: perCondition } : { mode: "same" },
+  });
   const start = useMutation({
-    mutationFn: () =>
-      post(`/admin/drafts/${draftId}/community`, {
-        about,
-        topics: lines(topics),
-        postsPerDay,
-        repliesPerPost,
-        daysBefore,
-        daysDuring,
-        cast: (info.data?.actors ?? [])
-          .map(({ username }) => username)
-          .filter((username) => !left.includes(username)),
-        neverSay: lines(neverSay),
-        conditions: each ? { mode: "each", about: perCondition } : { mode: "same" },
-      }),
+    mutationFn: () => post(`/admin/drafts/${draftId}/community`, brief()),
+    onSuccess: refresh,
+  });
+  const saveLive = useMutation({
+    mutationFn: (live: boolean) =>
+      send("PUT", `/admin/drafts/${draftId}/community/live`, { ...brief(), live, hold }),
     onSuccess: refresh,
   });
   const remove = useMutation({
@@ -86,11 +142,36 @@ export function CommunityPage() {
         <h1 className="text-2xl font-semibold">Community</h1>
         <p className="text-stone-600">
           Describe the community, and a model writes days of posts and replies by your cast, before
-          participants arrive and while they're there. It all lands in this draft as ordinary posts,
-          marked as generated, for you to read and change before you save a version. The moments
-          that matter stay as beats.
+          participants arrive and while they're there. It can be drafted now, for you to read and
+          change before you save a version, or written while the study runs. The moments that matter
+          stay as beats.
         </p>
       </div>
+
+      {saved?.live && (
+        <section aria-label="Live community" className="card space-y-2 p-4">
+          <p className="font-semibold">A live community is on in this draft</p>
+          <p className="text-sm text-stone-700">
+            When this is saved as a version and launched, the community below is written{" "}
+            {saved.daysBefore > 0 &&
+              `for ${saved.daysBefore} ${saved.daysBefore === 1 ? "day" : "days"} before participants arrive and `}
+            for {saved.daysDuring} {saved.daysDuring === 1 ? "day" : "days"} while they're there.{" "}
+            {saved.hold
+              ? "Each day waits on the Monitor page for you to approve it."
+              : "Nobody reads it before participants do."}
+          </p>
+          {canEdit && (
+            <button
+              type="button"
+              disabled={saveLive.isPending}
+              onClick={() => saveLive.mutate(false)}
+              className="btn btn-danger-quiet"
+            >
+              Turn it off
+            </button>
+          )}
+        </section>
+      )}
 
       {run && (
         <section aria-label="Latest draft" className="card space-y-2 p-4">
@@ -137,7 +218,11 @@ export function CommunityPage() {
           className="card space-y-4 p-4"
           onSubmit={(event) => {
             event.preventDefault();
-            start.mutate();
+            if (mode === "live") {
+              saveLive.mutate(true);
+            } else {
+              start.mutate();
+            }
           }}
         >
           <label className={field}>
@@ -243,23 +328,87 @@ export function CommunityPage() {
                 ))}
             </fieldset>
           )}
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">When it's written</legend>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="radio"
+                className="mt-1"
+                checked={mode === "ahead"}
+                onChange={() => setMode("ahead")}
+              />
+              <span>
+                <span className="font-medium">Now, for you to read.</span> It lands in this draft as
+                ordinary posts, and is the same for every participant. Nothing a model wrote reaches
+                anyone unread.
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="radio"
+                className="mt-1"
+                checked={mode === "live"}
+                onChange={() => setMode("live")}
+              />
+              <span>
+                <span className="font-medium">While the study runs.</span> Each day is written the
+                day before the first participant reaches it. Everyone in a condition still sees the
+                same posts at the same point in their own study.
+              </span>
+            </label>
+            {mode === "live" && (
+              <div className="ml-6 space-y-2">
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={hold}
+                    onChange={(event) => setHold(event.target.checked)}
+                  />
+                  <span>
+                    Hold each day until someone on the team approves it, on the Monitor page.
+                    Participants who get to a day that isn't approved see nothing from it.
+                  </span>
+                </label>
+                {!hold && (
+                  <p className="rounded bg-amber-50 p-2 text-sm text-amber-900">
+                    Without that, participants see what the model wrote without anyone reading it
+                    first. Every line is still checked by a second call against your limits and
+                    Truman's, and you can take posts out on the Monitor page.
+                  </p>
+                )}
+              </div>
+            )}
+          </fieldset>
           <p className="text-sm text-stone-600">
             Each day is two calls to the study's model: one to write it, and one to check every line
-            against your limits and Truman's. What it costs is counted against your lab's budget, as
-            rehearsing is.
+            against your limits and Truman's.{" "}
+            {mode === "live"
+              ? `A live community spends from the study's budget for live writing, which is $${state.data?.liveBudgetUsd ?? 5} (live.budgetUsd in beats.yaml), and stops when that's used up or live writing is paused.`
+              : "What it costs is counted against your lab's budget, as rehearsing is."}
           </p>
-          {start.error && (
+          {(mode === "live" ? saveLive.error : start.error) && (
             <p role="alert" className="text-sm text-rose-800">
-              {start.error.message}
+              {(mode === "live" ? saveLive.error : start.error)?.message}
             </p>
           )}
-          <button
-            type="submit"
-            disabled={running || start.isPending || about.trim().length < 20}
-            className="btn btn-primary"
-          >
-            {running ? "Drafting..." : "Draft the community"}
-          </button>
+          {mode === "live" ? (
+            <button
+              type="submit"
+              disabled={saveLive.isPending || about.trim().length < 20 || daysDuring < 1}
+              className="btn btn-primary"
+            >
+              {saved?.live ? "Save the live community" : "Turn on the live community"}
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={running || start.isPending || about.trim().length < 20}
+              className="btn btn-primary"
+            >
+              {running ? "Drafting..." : "Draft the community"}
+            </button>
+          )}
         </form>
       )}
     </main>
