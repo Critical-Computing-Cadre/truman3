@@ -102,6 +102,8 @@ export const eventPayloadSchemas = {
     completed: z.boolean(),
     visited: z.boolean(),
     soundOn: z.boolean(),
+    /** Whether captions were showing when it was reported, for an ad that has them. */
+    captionsOn: z.boolean().optional(),
   }),
   "video.watched": z.strictObject({
     playedMs: z.number().nonnegative(),

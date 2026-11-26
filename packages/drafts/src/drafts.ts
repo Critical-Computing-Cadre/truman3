@@ -1148,16 +1148,21 @@ export async function saveSection(
       }
       // A pre-roll ad's video has to be one uploaded here, or one it already had (ADR 97).
       const had = new Set(
-        (was.prerolls?.ads ?? []).flatMap(({ video, poster }) => [video, poster ?? ""]),
+        (was.prerolls?.ads ?? []).flatMap(({ video, poster, captions }) => [
+          video,
+          poster ?? "",
+          captions ?? "",
+        ]),
       );
       for (const ad of now.prerolls?.ads ?? []) {
         if (
           (!STORED_VIDEO.test(ad.video) && !had.has(ad.video)) ||
-          (ad.poster !== undefined && !STORED_IMAGE.test(ad.poster) && !had.has(ad.poster))
+          (ad.poster !== undefined && !STORED_IMAGE.test(ad.poster) && !had.has(ad.poster)) ||
+          (ad.captions !== undefined && !STORED_CAPTIONS.test(ad.captions) && !had.has(ad.captions))
         ) {
           return {
             problem: "invalid" as const,
-            message: `The ad "${ad.id}" has a video that isn't stored here.`,
+            message: `The ad "${ad.id}" has a video or captions that aren't stored here.`,
           };
         }
       }

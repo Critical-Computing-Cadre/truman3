@@ -270,7 +270,7 @@ platform:
     every: 2
     skipAfter: 5
     ads:
-      - { id: coffee, video: ad.mp4, advertiser: Hollowbean Coffee, link: "https://example.com/c" }
+      - { id: coffee, video: ad.mp4, captions: ad.vtt, advertiser: Hollowbean Coffee, link: "https://example.com/c" }
       - { id: phone, video: ad.mp4, advertiser: Zephyr Talk, label: Sponsored }
 `;
 
@@ -279,6 +279,7 @@ platform:
       "id,actor,time,title,body,video,preroll\nclip,ann,-0:10,A clip,Watch this,clip.mp4,always\n",
       { "clip.mp4": path.join(VIDEOS, "silent.mp4"), "ad.mp4": path.join(VIDEOS, "h264.mp4") },
       platform,
+      { "media/posts/ad.vtt": "WEBVTT\n\n00:00.000 --> 00:02.000\nSlow mornings.\n" },
     );
     expect(imported.status).toBe("imported");
     const entered = await app.request(`/studies/${slug}/enter`, {
@@ -302,12 +303,19 @@ platform:
           id: "coffee",
           url: expect.stringMatching(/^http:\/\/media\.test\/media\/[0-9a-f]{64}\.mp4$/),
           posterUrl: null,
+          // Its captions come from the page's own address, as a video's do (ADR 101).
+          captionsUrl: expect.stringMatching(/^\/api\/captions\/[0-9a-f]{64}\.vtt$/),
           advertiser: "Hollowbean Coffee",
           label: "Ad",
           link: "https://example.com/c",
           seconds: expect.closeTo(2, 1),
         },
-        expect.objectContaining({ id: "phone", label: "Sponsored", link: null }),
+        expect.objectContaining({
+          id: "phone",
+          label: "Sponsored",
+          link: null,
+          captionsUrl: null,
+        }),
       ],
     });
     // The video says it always has one.
@@ -343,10 +351,21 @@ platform:
       "id,actor,time,body\nt,ann,-0:10,Words\n",
       { "ad.mp4": path.join(VIDEOS, "hevc.mp4") },
       platform,
+      { "media/posts/ad.vtt": "WEBVTT\n\n00:00.000 --> 00:02.000\nSlow mornings.\n" },
     );
     expect(JSON.stringify(imported)).toContain(
       'The video \\"ad.mp4\\" for the ad \\"coffee\\" can\'t be used',
     );
+  });
+
+  it("refuse an ad whose captions file is missing", async () => {
+    const { imported } = await studyWithVideo(
+      "id,actor,time,body\nt,ann,-0:10,Words\n",
+      { "ad.mp4": path.join(VIDEOS, "h264.mp4") },
+      platform,
+    );
+    expect(imported.status).toBe("failed");
+    expect(JSON.stringify(imported)).toContain("ad.vtt");
   });
 });
 

@@ -157,6 +157,8 @@ export const prerollAdSchema = z.strictObject({
   video: z.string().min(1),
   /** The picture shown before it plays. */
   poster: z.string().min(1).optional(),
+  /** Its captions, a WebVTT (.vtt) file in media/posts, or a stored key (ADR 101). */
+  captions: z.string().min(1).optional(),
   /** Who it says it's from. */
   advertiser: z.string().min(1).max(60),
   /** What marks it as an ad. "Ad" unless a study says. */

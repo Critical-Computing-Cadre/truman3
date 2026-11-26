@@ -52,7 +52,7 @@ A video has to be:
 
 If it isn't, Truman says what's wrong. On most kinds of site, participants press play to start a video, and it stops when they scroll past it. On Short video, videos play by themselves, one at a time. See [Kinds of site](/guide/kinds-of-site#short-video). Your data has how long each person watched each video, how far they got, and whether they turned the sound on. See `video.watched` in the codebook.
 
-**Captions.** Open a video post's **Details** and press **Add captions (.vtt)**. Captions are a WebVTT file, which most caption tools and video editors can export. An SRT file needs converting first. Participants see them unless they turn them off, with the player's own captions button, or the **Captions** button on Short video. Your data says whether captions were showing each time someone watched (`captionsOn` in `video.watched`). Pre-roll ads don't have captions yet.
+**Captions.** Open a video post's **Details** and press **Add captions (.vtt)**. Captions are a WebVTT file, which most caption tools and video editors can export. An SRT file needs converting first. Participants see them unless they turn them off, with the player's own captions button, or the **Captions** button on Short video. Your data says whether captions were showing each time someone watched (`captionsOn` in `video.watched`). A pre-roll ad can have captions too: **Add captions (.vtt)** under the ad in **Settings**. An ad has no controls, so it shows a **Captions on** button of its own, and `preroll.watched` has `captionsOn`.
 
 Videos can't come in through a spreadsheet zip, since they're too big. Add the post there, then drop the video on it here.
 

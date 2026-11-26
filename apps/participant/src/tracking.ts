@@ -24,6 +24,7 @@ type ReportedEvent =
         completed: boolean;
         visited: boolean;
         soundOn: boolean;
+        captionsOn?: boolean;
       };
     }
   | {

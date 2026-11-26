@@ -117,6 +117,17 @@ test("a participant opens a video from the grid, subscribes, comments, and autop
     "https://example.com/hollowbean",
   );
   await expect(ad.getByRole("button", { name: /Skip in/ })).toBeDisabled();
+  // The ad has captions, which show, and a button to turn them off, since it has no controls.
+  const track = () =>
+    ad.locator("video").evaluate((element: HTMLVideoElement) => {
+      const [captions] = element.textTracks;
+      return captions ? `${captions.mode}, ${captions.cues?.length ?? 0} cues` : "none";
+    });
+  await expect.poll(track).toBe("showing, 2 cues");
+  await ad.getByRole("button", { name: "Captions on" }).click();
+  await expect.poll(track).toBe("hidden, 2 cues");
+  await ad.getByRole("button", { name: "Captions off" }).click();
+  await expect.poll(track).toBe("showing, 2 cues");
   await participant.screenshot({ path: testInfo.outputPath("ad.png") });
   await ad.getByRole("button", { name: "Skip ad ›" }).click({ timeout: 10_000 });
   // Then the video itself.
@@ -165,6 +176,7 @@ test("a participant opens a video from the grid, subscribes, comments, and autop
       ad: "coffee",
       completed: false,
       visited: false,
+      captionsOn: true,
       skippedAt: expect.any(Number),
     }),
   ]);

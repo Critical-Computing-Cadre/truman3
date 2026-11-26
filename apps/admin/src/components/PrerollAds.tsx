@@ -31,6 +31,29 @@ export function PrerollAds({
   const setAd = (index: number, ad: Ad) =>
     update({ ads: prerolls.ads.map((item, i) => (i === index ? ad : item)) });
 
+  /** Stores a WebVTT file, checked as it goes in, and puts it on the ad (ADR 101). */
+  const addCaptions = async (index: number, ad: Ad, file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+    setProblem(null);
+    try {
+      const response = await fetch(`/api/admin/drafts/${draftId}/captions`, {
+        method: "POST",
+        headers: { "content-type": "text/vtt" },
+        body: file,
+      });
+      const body = (await response.json()) as { captions?: string; error?: string };
+      if (!response.ok || !body.captions) {
+        setProblem(body.error ?? "That didn't work. Try again.");
+        return;
+      }
+      setAd(index, { ...ad, captions: body.captions });
+    } catch {
+      setProblem("That didn't work. Try again.");
+    }
+  };
+
   const add = async (file: File | undefined) => {
     if (!file) {
       return;
@@ -170,6 +193,34 @@ export function PrerollAds({
                 ))}
               </p>
             )}
+            <p className="flex flex-wrap items-center gap-3 text-sm">
+              Captions
+              <label className="cursor-pointer underline">
+                {ad.captions ? "Replace captions" : "Add captions (.vtt)"}
+                <input
+                  type="file"
+                  accept=".vtt,text/vtt"
+                  aria-label={`${ad.captions ? "Replace" : "Add"} captions for ${ad.id}`}
+                  className="sr-only"
+                  onChange={(event) => {
+                    addCaptions(index, ad, event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+              {ad.captions && (
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => {
+                    const { captions: _, ...rest } = ad;
+                    setAd(index, rest);
+                  }}
+                >
+                  Remove captions
+                </button>
+              )}
+            </p>
             <button
               type="button"
               onClick={() => update({ ads: prerolls.ads.filter((_, i) => i !== index) })}

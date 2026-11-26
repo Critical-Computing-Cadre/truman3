@@ -22,6 +22,6 @@ ADR 94 left captions out: a study that needed them had to burn them into the vid
 
 ## Consequences
 
-- **Pre-roll ads don't have captions yet.**
+- **Pre-roll ads didn't have captions at first.** They do now: an ad in `platform.prerolls.ads` takes `captions` the same way, the builder's ad settings have **Add captions**, and since an ad has no controls it shows a **Captions on** button that sets the same choice as on videos. `preroll.watched` has `captionsOn`.
 - **The captions' language is marked as English** for the browser, whatever it is. It doesn't change what's shown.
 - **How captions look is the browser's,** and differs a little between them.
