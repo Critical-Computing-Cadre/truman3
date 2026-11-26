@@ -1,11 +1,13 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { createWatchMeter } from "./video.tsx";
+import { createWatchMeter, useVideoSound } from "./video.tsx";
 
 /** An ad to play before a video, as the participant app gets it (ADR 97). */
 export interface PrerollAd {
   id: string;
   url: string;
   posterUrl: string | null;
+  /** Its captions, from the page's own address (ADR 101). */
+  captionsUrl?: string | null;
   advertiser: string;
   label: string;
   link: string | null;
@@ -19,6 +21,8 @@ export interface PrerollReport {
   completed: boolean;
   visited: boolean;
   soundOn: boolean;
+  /** Whether captions were showing, for an ad that has them. */
+  captionsOn?: boolean;
 }
 
 export interface Preroll {
@@ -75,6 +79,7 @@ export function PrerollPlayer() {
         completed,
         visited: state.current.visited,
         soundOn: taken?.soundOn ?? !element.muted,
+        ...(element.textTracks[0] ? { captionsOn: element.textTracks[0].mode === "showing" } : {}),
       });
     };
     const listeners: [string, () => void][] = [
@@ -125,6 +130,17 @@ export function PrerollPlayer() {
     };
   }, [preroll]);
 
+  // Captions follow the participant's choice for every video, since an ad has no controls.
+  const shared = useVideoSound();
+  const captionsUrl = preroll?.ad.captionsUrl;
+  useEffect(() => {
+    const element = ref.current;
+    const [track] = element?.textTracks ?? [];
+    if (track && captionsUrl) {
+      track.mode = shared.captions ? "showing" : "hidden";
+    }
+  }, [shared.captions, captionsUrl]);
+
   if (!preroll) {
     return null;
   }
@@ -135,7 +151,7 @@ export function PrerollPlayer() {
       aria-label={`${ad.label} from ${ad.advertiser}`}
       className="relative aspect-video max-h-[75vh] w-full overflow-hidden bg-[#000] sm:rounded-xl"
     >
-      {/* biome-ignore lint/a11y/useMediaCaption: researchers' videos have no captions yet (ADR 94) */}
+      {/* biome-ignore lint/a11y/useMediaCaption: an ad has captions when the study gave them */}
       <video
         ref={ref}
         src={ad.url}
@@ -144,7 +160,21 @@ export function PrerollPlayer() {
         preload="auto"
         aria-label="Ad"
         className="h-full w-full object-contain"
-      />
+      >
+        {ad.captionsUrl && (
+          <track kind="captions" src={ad.captionsUrl} srcLang="en" label="Captions" default />
+        )}
+      </video>
+      {ad.captionsUrl && (
+        <button
+          type="button"
+          onClick={() => shared.setCaptions(!shared.captions)}
+          aria-pressed={shared.captions}
+          className="absolute top-3 right-3 rounded bg-[#000]/60 px-2 py-1 text-xs font-semibold text-[#fff]"
+        >
+          Captions {shared.captions ? "on" : "off"}
+        </button>
+      )}
       <p className="absolute top-3 left-3 rounded bg-[#000]/60 px-2 py-1 text-xs font-semibold text-[#fff]">
         <span className="mr-1 rounded-sm bg-[#facc15] px-1 text-[#000]">{ad.label}</span>
         {length > 0 && clock(length - at)}

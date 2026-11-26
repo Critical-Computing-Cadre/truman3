@@ -886,6 +886,7 @@ export function readStudyTables(
         checkMedia(MEDIA_FOLDERS.posts, ad.video, undefined, "video");
       }
       checkMedia(MEDIA_FOLDERS.posts, ad.poster);
+      checkMedia(MEDIA_FOLDERS.posts, ad.captions, undefined, "captions file");
     }
     for (const story of stories) {
       checkMedia(MEDIA_FOLDERS.posts, story.picture, story.source);

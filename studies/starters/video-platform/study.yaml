@@ -23,6 +23,7 @@ platform:
       - id: coffee
         video: ad-coffee.mp4
         poster: ad-coffee.jpg
+        captions: ad-coffee.vtt
         advertiser: Hollowbean Coffee
         label: Ad
         link: https://example.com/hollowbean

@@ -23,6 +23,6 @@ Each `.jpg` beside a video is its poster, a frame six seconds in.
 
 The two pre-roll ads, `ad-coffee.mp4` and `ad-phone.mp4`, aren't NASA's. They're drawn by
 `scripts/starter-ads.swift`, for made-up advertisers, and the script's comment says how each was made.
-Their posters are frames four seconds in.
+Their posters are frames four seconds in. `ad-coffee.vtt` is the coffee ad's captions, written by hand.
 
 The faces in `media/actors` are the same ones the Photo sample uses.

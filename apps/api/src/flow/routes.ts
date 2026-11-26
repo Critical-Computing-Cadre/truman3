@@ -18,7 +18,7 @@ import { deleteCookie } from "hono/cookie";
 import { actionMetaSchema } from "../actions/request.ts";
 import { findVisibleContent } from "../actions/routes.ts";
 import { onParticipantAct } from "../director/director.ts";
-import { mediaUrl } from "../feed/build.ts";
+import { captionsUrl, mediaUrl } from "../feed/build.ts";
 import { isSealed } from "../lab-keys.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import {
@@ -72,6 +72,7 @@ const flowStateSchema = z.object({
           id: z.string(),
           url: z.string(),
           posterUrl: z.string().nullable(),
+          captionsUrl: z.string().nullable(),
           advertiser: z.string(),
           label: z.string(),
           link: z.string().nullable(),
@@ -442,6 +443,7 @@ export function createFlowRoutes({
                   id: ad.id,
                   url: mediaUrl(ad.video, mediaPublicUrl),
                   posterUrl: ad.poster ? mediaUrl(ad.poster, mediaPublicUrl) : null,
+                  captionsUrl: ad.captions ? captionsUrl(ad.captions, mediaPublicUrl) : null,
                   advertiser: ad.advertiser,
                   label: ad.label,
                   link: ad.link ?? null,

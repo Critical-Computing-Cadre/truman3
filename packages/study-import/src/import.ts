@@ -138,7 +138,7 @@ export async function storeMedia(
   }
   // Pre-roll ads' videos live with posts' (ADR 97).
   for (const ad of study.settings.platform.prerolls?.ads ?? []) {
-    for (const name of [ad.video, ad.poster]) {
+    for (const name of [ad.video, ad.poster, ad.captions]) {
       if (name && !/^https?:/.test(name)) {
         files.set(path.join(MEDIA_FOLDERS.posts, name), name);
       }
@@ -238,10 +238,14 @@ export async function describeVideos(
           const poster = ad.poster
             ? (mediaKeys.get(path.join(MEDIA_FOLDERS.posts, ad.poster)) ?? ad.poster)
             : undefined;
+          const captions = ad.captions
+            ? (mediaKeys.get(path.join(MEDIA_FOLDERS.posts, ad.captions)) ?? ad.captions)
+            : undefined;
           return {
             ...ad,
             video: key,
             ...(poster ? { poster } : {}),
+            ...(captions ? { captions } : {}),
             ...(details ? { videoDetails: details } : {}),
           };
         }),
