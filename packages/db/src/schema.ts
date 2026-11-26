@@ -1072,6 +1072,61 @@ export const communityRuns = pgTable(
 );
 
 /**
+ * A day of a live community (ADR 102): written while the study runs, for one condition, or for all
+ * of them when `condition` is empty. The row is made as writing starts, so only one server writes
+ * a day. `written` keeps what the model wrote and the check allowed, whether or not it's been
+ * published as content yet.
+ */
+export const communityDays = pgTable(
+  "community_days",
+  {
+    id: id(),
+    studyVersionId: uuid("study_version_id")
+      .notNull()
+      .references(() => studyVersions.id, { onDelete: "cascade" }),
+    /** The condition it's for. Empty means every condition. */
+    condition: text().notNull().default(""),
+    /** The day, from the participant's arrival: 0 is their first, and -1 the day before. */
+    day: integer().notNull(),
+    /** Held waits for a researcher. Skipped was turned down, and is never shown. */
+    status: text({ enum: ["writing", "held", "published", "skipped", "error"] }).notNull(),
+    written: jsonb().notNull().default([]),
+    /** Lines the check left out. */
+    dropped: integer().notNull().default(0),
+    model: text().notNull().default(""),
+    costUsd: numeric("cost_usd", { mode: "number" }).notNull().default(0),
+    error: text(),
+    /** Who approved or skipped a held day. */
+    decidedBy: uuid("decided_by").references(() => researchers.id),
+    startedAt: time("started_at").notNull().defaultNow(),
+    finishedAt: time("finished_at"),
+    publishedAt: time("published_at"),
+    /** Posts a researcher took back out, by their place in `written`. */
+    removed: integer().array().notNull().default(sql`'{}'`),
+  },
+  (table) => [unique().on(table.studyVersionId, table.condition, table.day)],
+);
+
+/**
+ * Which days of a live community have been put into which worlds. A saved version never changes,
+ * so a day's posts are copied into each participant's world as they reach it, and this is what
+ * stops them being copied twice.
+ */
+export const communityDayWorlds = pgTable(
+  "community_day_worlds",
+  {
+    dayId: uuid("day_id")
+      .notNull()
+      .references(() => communityDays.id, { onDelete: "cascade" }),
+    worldId: uuid("world_id")
+      .notNull()
+      .references(() => worlds.id, { onDelete: "cascade" }),
+    at: time("at").notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.dayId, table.worldId] })],
+);
+
+/**
  * Each time Christof, the director, considers a beat in a participant's world: what set it off,
  * when it's due, and then whether it happened and why not. It's the decision trace for beats, and
  * goes with the world on withdrawal. A beat waits as `pending` until it's due, and is decided then,

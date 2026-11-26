@@ -42,3 +42,58 @@ test("a researcher describes a community to draft", async ({ page }, testInfo) =
   await draft.click();
   await expect(page.getByRole("alert")).toContainText("no Claude key");
 });
+
+// A live community (ADR 102). With no Claude key nothing is written, and the Monitor page says so;
+// the writing is tested with a stand-in model in live-community.itest.ts.
+test("a researcher turns on a live community, and watches it on the Monitor page", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Runs once.");
+  const title = `Live town ${Date.now() % 1_000_000}`;
+  await page.goto(`http://localhost:${ADMIN_PORT}`);
+  await page.getByLabel("Email").fill(otherLabEmail as string);
+  await page.getByLabel("Password").fill(otherLabPassword as string);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("link", { name: "New study" }).click();
+  await page.getByLabel("Title").fill(title);
+  await page.getByRole("radio", { name: /Sample content/ }).check();
+  await page.getByRole("radio", { name: /^Uniform/ }).check();
+  await page.getByRole("button", { name: "Start the study" }).click();
+  await page.getByRole("link", { name: "Community" }).click();
+
+  await page
+    .getByLabel("What is this community, and what's it like?")
+    .fill("Neighbors in a small town, swapping news and recipes. Mostly friendly.");
+  await page.getByLabel("Days while they're there").fill("3");
+  await page.getByRole("radio", { name: /While the study runs/ }).check();
+  // Unread AI text is said plainly, until each day is held for approval.
+  await expect(page.getByText(/without anyone reading it\s+first/)).toBeVisible();
+  await page.getByRole("checkbox", { name: /Hold each day/ }).check();
+  await expect(page.getByText(/without anyone reading it\s+first/)).toBeHidden();
+  await page.getByRole("button", { name: "Turn on the live community" }).click();
+  const on = page.getByRole("region", { name: "Live community" });
+  await expect(on).toContainText("for 3 days while they're there");
+  await expect(on).toContainText("waits on the Monitor page");
+  await page.screenshot({ path: testInfo.outputPath("live.png"), fullPage: true });
+
+  // It's kept: the page comes back as it was left.
+  await page.reload();
+  await expect(page.getByRole("radio", { name: /While the study runs/ })).toBeChecked();
+  await expect(page.getByLabel("Days while they're there")).toHaveValue("3");
+  await expect(page.getByRole("checkbox", { name: /Hold each day/ })).toBeChecked();
+
+  await page.getByRole("link", { name: "Feed", exact: true }).click();
+  await page.getByRole("button", { name: "Save as new version" }).click();
+  await page.getByRole("button", { name: "Save version" }).click();
+  const study = page.getByRole("listitem").filter({ hasText: title }).first();
+  await study.getByRole("button", { name: "Launch", exact: true }).click();
+  const launching = page.getByRole("dialog", { name: /Launch version/ });
+  await launching.getByLabel(/only a test/).check();
+  await launching.getByRole("button", { name: "Launch it" }).click();
+  await expect(study.getByText("Open to participants")).toBeVisible();
+  await study.getByRole("link", { name: "Monitor and download" }).click();
+  const card = page.getByRole("region", { name: "Live community" });
+  await expect(card).toContainText("Each day waits here for you");
+  await expect(card.getByRole("status")).toContainText("Nothing more is being written.");
+  await card.screenshot({ path: testInfo.outputPath("monitor.png") });
+});

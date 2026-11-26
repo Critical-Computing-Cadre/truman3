@@ -445,7 +445,50 @@ export const decisionSchema = z.strictObject({
   groups: z.array(groupSchema).min(1, "Give at least one group."),
 });
 
+/**
+ * A community: who the cast is to each other, what they talk about, and how busy it is. A model
+ * writes it as posts and replies, a day at a time (ADR 99).
+ */
+export const communityBriefSchema = z.strictObject({
+  /** What the community is, and what it's like. */
+  about: z.string().trim().min(20).max(3000),
+  topics: z.array(z.string().trim().min(1).max(200)).max(20).default([]),
+  postsPerDay: z.number().int().min(1).max(30),
+  /** The most replies a post gets. */
+  repliesPerPost: z.number().int().min(0).max(10),
+  /** Days of history before a participant arrives. */
+  daysBefore: z.number().int().min(0).max(14),
+  /** Days while they're there. */
+  daysDuring: z.number().int().min(0).max(30),
+  /** Who takes part, by username. Empty means everyone in the cast. */
+  cast: z.array(z.string()).default([]),
+  /** What must never be said, beyond Truman's own limits. */
+  neverSay: z.array(z.string().trim().min(1).max(300)).max(20).default([]),
+  /** One community for every condition, or each condition its own, with what makes it different. */
+  conditions: z
+    .discriminatedUnion("mode", [
+      z.strictObject({ mode: z.literal("same") }),
+      z.strictObject({
+        mode: z.literal("each"),
+        about: z.record(z.string(), z.string().trim().max(2000)).default({}),
+      }),
+    ])
+    .default({ mode: "same" }),
+});
+
+/**
+ * A community that's written while the study runs, a day ahead of whoever is furthest along, the
+ * same for everyone in a condition (ADR 102). Nobody reads it first unless `hold` is on. It spends
+ * from the study's `live.budgetUsd`, and stops with the study's pause switch.
+ */
+export const liveCommunitySchema = communityBriefSchema.extend({
+  live: z.boolean().default(false),
+  /** Whether each day waits for a researcher to approve it before anyone can see it. */
+  hold: z.boolean().default(false),
+});
+
 export const beatsFileSchema = z.strictObject({
+  community: liveCommunitySchema.optional(),
   live: liveWritingSchema.default({
     enabled: false,
     budgetUsd: 5,
@@ -465,6 +508,8 @@ export const beatsFileSchema = z.strictObject({
 
 export type Persona = z.output<typeof personaSchema>;
 export type LiveWriting = z.output<typeof liveWritingSchema>;
+export type CommunityBrief = z.output<typeof communityBriefSchema>;
+export type LiveCommunity = z.output<typeof liveCommunitySchema>;
 export type BeatsFile = z.output<typeof beatsFileSchema>;
 export type DecisionDefinition = z.output<typeof decisionSchema>;
 export type Measure = z.output<typeof measureSchema>;

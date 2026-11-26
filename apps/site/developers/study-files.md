@@ -96,6 +96,25 @@ id,postID,actor,time,body,likes
 k1,c1,lina_k,-75:40,the red ones on the left are from the stand by the bakery right? so good,2
 ```
 
+`beats.yaml` can also ask for a community that's written while the study runs (ADR 102). The Community page in the builder writes this for you:
+
+```yaml
+community:
+  live: true
+  hold: false # true makes each day wait for a researcher's approval
+  about: Neighbors in a small town, swapping news and recipes.
+  topics: [the farmers market, road work]
+  postsPerDay: 6
+  repliesPerPost: 3
+  daysBefore: 2
+  daysDuring: 7
+  cast: [] # everyone
+  neverSay: []
+  conditions: { mode: same } # or { mode: each, about: { calm: ..., heated: ... } }
+```
+
+It spends from `live.budgetUsd`, and stops with the study's pause switch.
+
 Beats look a little different, since they describe something happening. This one is from `studies/examples/bystander/beats.yaml`:
 
 ```yaml

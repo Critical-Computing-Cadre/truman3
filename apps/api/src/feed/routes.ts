@@ -16,6 +16,7 @@ import { type Database, recordEvent, schema } from "@truman3/db";
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { actionMetaSchema } from "../actions/request.ts";
 import { participantEvent } from "../actions/routes.ts";
+import { keepCommunityAhead } from "../community/live.ts";
 import { catchUp } from "../director/director.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import {
@@ -269,6 +270,8 @@ export function createFeedRoutes({
     // What Christof has made happen by now shows in this feed. Loads that arrive while one for the
     // same world is catching up share it.
     await catchUp(db, context, { writer, now: clock(), join: true });
+    // A live community is kept a day ahead of them, without holding up this feed (ADR 102).
+    await keepCommunityAhead(db, writer, context, clock());
 
     const { visit, surface, space: spaceKey, post, tag, place, username } = c.req.valid("query");
     const on = (feature: FeatureKey) => featureOn(context.settings, context.conditionKey, feature);

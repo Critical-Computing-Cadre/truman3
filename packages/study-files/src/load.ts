@@ -814,12 +814,17 @@ export function readStudyTables(
   // into what Christof uses. Adding sheets to a draft leaves them alone.
   const beatsText = only ? null : source.read(BEATS_FILE);
   let beats: BeatDefinition[] = [];
-  let christof: Pick<BeatsFile, "live" | "cast" | "decide"> | undefined;
+  let christof: Pick<BeatsFile, "live" | "cast" | "decide" | "community"> | undefined;
   if (beatsText !== null) {
     pages[BEATS_FILE] = beatsText;
     const read = parseBeats(beatsText);
     beats = read.beats;
-    christof = { live: read.live, cast: read.cast, decide: read.decide };
+    christof = {
+      live: read.live,
+      cast: read.cast,
+      decide: read.decide,
+      ...(read.community ? { community: read.community } : {}),
+    };
     issues.push(...read.issues);
   }
   // Scenario tests are kept the same way, so they're frozen with the version they test.

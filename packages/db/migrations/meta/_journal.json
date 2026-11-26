@@ -498,6 +498,20 @@
       "when": 1795580338792,
       "tag": "0070_team_videos",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1795655623346,
+      "tag": "0071_community_days",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1795655991035,
+      "tag": "0072_community_worlds",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { BeatDefinition, BeatsFile, Persona } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { ALWAYS_OFF_LIMITS, NothingWritten, type Writer } from "@truman3/writer";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql, sum } from "drizzle-orm";
 import { writerFor } from "../ai.ts";
 import type { ParticipantContext } from "../participants/session.ts";
 
@@ -80,7 +80,21 @@ export async function spentOn(db: Database, studyVersionId: string) {
         sql`(select ${schema.studyVersions.studyId} from ${schema.studyVersions} where ${schema.studyVersions.id} = ${studyVersionId})`,
       ),
     );
-  return Number(row?.spent ?? 0);
+  // A live community spends from the same budget (ADR 102).
+  const [community] = await db
+    .select({ spent: sum(schema.communityDays.costUsd) })
+    .from(schema.communityDays)
+    .innerJoin(
+      schema.studyVersions,
+      eq(schema.studyVersions.id, schema.communityDays.studyVersionId),
+    )
+    .where(
+      eq(
+        schema.studyVersions.studyId,
+        sql`(select ${schema.studyVersions.studyId} from ${schema.studyVersions} where ${schema.studyVersions.id} = ${studyVersionId})`,
+      ),
+    );
+  return Number(row?.spent ?? 0) + Number(community?.spent ?? 0);
 }
 
 /** The study's kill switches. */

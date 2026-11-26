@@ -67,7 +67,7 @@ type Trigger =
 
 type Db = Database | Transaction;
 
-type Script = Pick<BeatsFile, "beats" | "live" | "cast" | "decide">;
+type Script = Pick<BeatsFile, "beats" | "live" | "cast" | "decide" | "community">;
 
 /**
  * Anything Christof schedules: a beat, or a decision point, which is reached the same way but
@@ -101,8 +101,8 @@ export function scriptFor(db: Db, studyVersionId: string): Promise<Script> {
       .where(eq(schema.studyVersions.id, studyVersionId));
     const text = (version?.pages as Record<string, string> | undefined)?.[BEATS_FILE];
     // A version is checked before it's saved, so a file that can't be read here never ran anyway.
-    const { beats, live, cast, decide } = parseBeats(text ?? "");
-    return { beats, live, cast, decide };
+    const { beats, live, cast, decide, community } = parseBeats(text ?? "");
+    return { beats, live, cast, decide, community };
   })();
   scripts.set(studyVersionId, loading);
   loading.catch(() => scripts.delete(studyVersionId));

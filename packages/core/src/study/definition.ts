@@ -697,7 +697,9 @@ export const studyDefinitionSchema = z.object({
   personas: z.custom<PersonasFile>((value) => typeof value === "object").optional(),
   /** The rest of beats.yaml: live writing, persona cards, and decision points. */
   christof: z
-    .custom<Pick<BeatsFile, "live" | "cast" | "decide">>((value) => typeof value === "object")
+    .custom<Pick<BeatsFile, "live" | "cast" | "decide" | "community">>(
+      (value) => typeof value === "object",
+    )
     .optional(),
 });
 

@@ -15,6 +15,7 @@ import { createDraftRoutes } from "./admin/drafts.ts";
 import { createHostingRoutes } from "./admin/hosting.ts";
 import { createLaunchRoutes } from "./admin/launch.ts";
 import { createLibraryRoutes } from "./admin/library.ts";
+import { createLiveCommunityRoutes } from "./admin/live-community.ts";
 import { createMonitorRoutes } from "./admin/monitor.ts";
 import { createPackRoutes } from "./admin/packs.ts";
 import { createProlificRoutes } from "./admin/prolific.ts";
@@ -151,6 +152,7 @@ export function createApp({
   app.route("/", createProlificRoutes(participantDependencies));
   app.route("/", createRecruitingRoutes(participantDependencies));
   app.route("/", createCommunityRoutes(participantDependencies));
+  app.route("/", createLiveCommunityRoutes(participantDependencies));
   app.route("/", createReminderRoutes(participantDependencies));
   app.route("/", createBundleRoutes(participantDependencies));
   app.route("/", createLibraryRoutes(participantDependencies));

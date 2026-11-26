@@ -1225,6 +1225,41 @@ export function validateStudy(study: StudyDefinition): StudyIssue[] {
       }
     }
   }
+  // A community written while the study runs (ADR 102).
+  const community = christof?.community;
+  if (community?.live) {
+    for (const username of community.cast) {
+      if (!usernames.has(username)) {
+        beatProblem(
+          "error",
+          `The live community includes "${username}", who isn't in the list of actors.`,
+        );
+      }
+    }
+    if ((community.cast.length > 0 ? community.cast.length : usernames.size) < 2) {
+      beatProblem("error", "A live community needs at least two people in the cast.");
+    }
+    if (community.daysDuring < 1) {
+      beatProblem("error", "A live community needs at least one day while participants are there.");
+    }
+    if (community.conditions.mode === "each") {
+      const arms = new Set(settings.conditions.arms.map(({ key }) => key));
+      for (const key of Object.keys(community.conditions.about)) {
+        if (!arms.has(key)) {
+          beatProblem(
+            "warning",
+            `The live community says what's different in "${key}", which isn't one of the conditions.`,
+          );
+        }
+      }
+    }
+    if (settings.worlds) {
+      beatProblem(
+        "warning",
+        "The live community isn't written for shared worlds yet, so participants there won't see it.",
+      );
+    }
+  }
   // With rehearsed lines, live writing off is a way to run a study: one is drawn for each world.
   const improvised = study.beats.filter(
     (beat) => "improvise" in beat.do && beat.do.improvise && !beat.do.lines?.length,

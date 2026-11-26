@@ -4,6 +4,7 @@ import { schema } from "@truman3/db";
 import { launchVersion, stopNewParticipants } from "@truman3/study-import";
 import { eq } from "drizzle-orm";
 import { setCookie } from "hono/cookie";
+import { startCommunity } from "../community/live.ts";
 import { startPilot } from "../participants/enter.ts";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
 import { hashSessionToken, realClock, SESSION_COOKIE } from "../participants/session.ts";
@@ -98,6 +99,7 @@ export function createLaunchRoutes({
   db,
   labKeys,
   secureCookies,
+  writer,
   clock = realClock,
 }: ParticipantRouteDependencies) {
   const app = new OpenAPIHono();
@@ -154,6 +156,10 @@ export function createLaunchRoutes({
       }
     }
     const result = await launchVersion(db, studyId, versionId, researcher.email);
+    if (result.status === "launched") {
+      // A live community starts being written now, in the background (ADR 102).
+      void startCommunity(db, writer, versionId);
+    }
     return result.status === "launched"
       ? c.json({ version: result.version }, 200)
       : c.json(notAvailable, 404);
