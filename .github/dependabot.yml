@@ -21,22 +21,15 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
 
-  # The phone app is its own npm project (ADR 66).
+  # The phone app is its own npm project (ADR 66). Expo decides which versions of its packages go
+  # together, so this proposes security fixes only: a limit of 0 turns version updates off and
+  # leaves those on. apps/mobile/README.md, "Updating its packages", says how to update the rest.
   - package-ecosystem: npm
     directory: /apps/mobile
     schedule:
       interval: weekly
       day: monday
-    cooldown:
-      default-days: 14
-    # A major version is a person's decision, made with the whole test suite on it.
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
-    open-pull-requests-limit: 3
-    groups:
-      minor-and-patch:
-        update-types: [minor, patch]
+    open-pull-requests-limit: 0
 
   # The API's base image, in the Dockerfile.
   - package-ecosystem: docker

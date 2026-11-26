@@ -26,28 +26,67 @@ Push notifications need a real build (below), since Expo Go can't receive them f
 
 ## Settings
 
-Set when it's built, with environment variables:
+Read when the app is built:
 
-|                   |                                                                                 |
-| ----------------- | ------------------------------------------------------------------------------- |
-| `TRUMAN_SITE_URL` | The participant site it opens, like `https://truman.example.edu`                |
-| `TRUMAN_APP_NAME` | Its name on the home screen. Choose something neutral; the default is "Commons" |
-| `TRUMAN_APP_SLUG` | A short name, used in links like `commons://join/bystander`                     |
-| `TRUMAN_APP_ID`   | Its ID in the stores, like `edu.youruniversity.commons`                         |
-| `EAS_PROJECT_ID`  | The Expo project, for push notifications. `eas init` prints it                  |
+|                        |                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| `TRUMAN_SITE_URL`      | The participant site it opens, like `https://truman.example.edu`                   |
+| `TRUMAN_APP_NAME`      | Its name on the home screen. Choose something neutral; the default is "Commons"    |
+| `TRUMAN_APP_SLUG`      | A short name, used in links like `commons://join/bystander`                        |
+| `TRUMAN_APP_ID`        | Its ID in the stores, like `edu.youruniversity.commons`. It can't be changed later |
+| `EAS_PROJECT_ID`       | The Expo project, for push notifications. `eas init` prints it                     |
+| `GOOGLE_SERVICES_JSON` | The path to Firebase's `google-services.json`, for push on Android                 |
 
-The icon goes in `assets/icon.png` (1024×1024), added to `app.config.ts` as `icon`.
+Trying it with Expo Go, they're environment variables in your terminal, as above. For a build they have to be saved in the Expo project, since the build runs on Expo's computers and doesn't see your terminal. See below.
+
+The default icon is two speech bubbles: `assets/icon.png` (1024×1024, no transparency) and `assets/adaptive-icon.png` (Android's, the drawing alone on a transparent square). Replace both for your own.
 
 ## Building it for testers
 
-Once the lab's Apple and Google developer accounts exist (see the vault note `Mobile app design`):
+You need an Apple Developer account, a Google Play developer account, and a free Expo account. Each step that signs in is yours to do: nothing here needs anyone else to have your passwords.
 
-1. `npx eas-cli login`, with the lab's Expo account, and `npx eas-cli init` once.
-2. `TRUMAN_SITE_URL=… npx eas-cli build --profile testers --platform all`
-3. `npx eas-cli submit --profile testers --platform all`. It asks you to sign in to Apple and Google, and uploads to TestFlight and Google Play's closed testing.
-4. Invite participants from TestFlight and Play Console.
+**Once:**
 
-TestFlight builds last 90 days, so a long study may need a new one.
+1. **Sign in to Expo and make the project.**
+
+   ```
+   cd apps/mobile
+   npm install --global eas-cli
+   eas login
+   TRUMAN_APP_SLUG=yourname eas init
+   ```
+
+   `eas init` prints a project ID.
+
+2. **Save the settings in the Expo project,** one command for each row of the table above except the last:
+
+   ```
+   eas env:set --environment production --visibility plaintext --name TRUMAN_SITE_URL --value https://your-truman-site
+   ```
+
+   `EAS_PROJECT_ID` is the ID from step 1. The same values go in the `preview` environment if you use the `preview` profile.
+
+3. **Make the app in each store,** with the same ID as `TRUMAN_APP_ID`: in App Store Connect under Apps, and in Google Play Console under Create app.
+
+4. **For push on Android, make a Firebase project** (free) at console.firebase.google.com and add an Android app to it with the same ID. Two files come from it:
+   - `google-services.json`. On expo.dev, in the project's environment variables, add it as a **file** named `GOOGLE_SERVICES_JSON`.
+   - A service account key, from Firebase's Settings, Service accounts, Generate new private key. On expo.dev, under Credentials, Service credentials, add it as the **FCM V1 service account key**.
+
+   Skip this and the app still builds. Push then works on iPhones only.
+
+5. **Let Expo upload to Google Play:** it needs a Google service account key of its own, added on expo.dev under Credentials, Android. Expo's guide to making one is at docs.expo.dev/submit/android.
+
+**Each build:**
+
+1. `eas build --profile testers --platform all`. The first time, it offers to make the signing keys and keep them in your Expo account. Say yes.
+2. `eas submit --profile testers --platform all`. It asks you to sign in to Apple, and uploads to TestFlight and to Google Play's internal testing track.
+3. Invite people: in App Store Connect under TestFlight, and in Play Console under Testing. To reach people outside your own team, TestFlight needs an external group, which Apple reviews once, and Play needs the build promoted from internal to closed testing.
+
+Both stores ask for a link to a privacy policy before outside testers can join. TestFlight builds last 90 days, so a long study may need a new one.
+
+## Updating its packages
+
+Expo decides which versions of React, React Native, and its own packages go together. After changing any of them, run `npx expo install --check`, and `npx expo install --fix` to put them back in step. That's why Dependabot only proposes security fixes here.
 
 ## How it talks to the site
 
