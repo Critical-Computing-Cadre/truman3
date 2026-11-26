@@ -1,5 +1,7 @@
 # Truman 3
 
+[![DOI](https://zenodo.org/badge/1441943190.svg)](https://doi.org/10.5281/zenodo.24551519)
+
 Truman is a social media simulation platform for research. A research team builds a realistic social media site, with its own posts, people, and rules, and brings participants into it. Everything a participant sees is under the team's control, everything they do is recorded, and what they see can differ by experimental condition. So questions about social media can be studied with experiments, without needing a company's cooperation or its data.
 
 Truman 3 is the current release of Truman. It's for researchers who study online behavior: in communication, psychology, human-computer interaction, information science, and related fields.
@@ -84,6 +86,10 @@ Truman 3 is a new codebase, written at Lehigh University. It carries over what t
 ## How to cite
 
 If you use Truman 3, please cite the software, using [CITATION.cff](CITATION.cff) (GitHub's "Cite this repository" button reads it), and the paper that introduced Truman:
+
+> DiFranzo, D. (2026). Truman 3 [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.24551519
+
+That DOI always points to the newest release. Each release has a DOI of its own on [Zenodo](https://doi.org/10.5281/zenodo.24551519), for citing the exact version a study ran on. Version 3.0.0-beta.1 is [10.5281/zenodo.24551520](https://doi.org/10.5281/zenodo.24551520).
 
 > DiFranzo, D., & Bazarova, N. N. (2018). The Truman Platform: Social media simulation for experimental research. Workshop paper, ICWSM '18.
 

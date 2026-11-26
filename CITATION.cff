@@ -16,6 +16,16 @@ authors:
 repository-code: "https://github.com/Critical-Computing-Cadre/truman3"
 url: "https://truman-research.org"
 license: MIT
+# Zenodo archives each release. The first DOI always points to the newest release, and the second
+# to this one exactly.
+doi: 10.5281/zenodo.24551519
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.24551519
+    description: "All versions of Truman 3. It resolves to the newest release."
+  - type: doi
+    value: 10.5281/zenodo.24551520
+    description: "Version 3.0.0-beta.1"
 keywords:
   - social media simulation
   - research software
