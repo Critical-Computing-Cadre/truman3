@@ -35,9 +35,26 @@ Read when the app is built:
 | `TRUMAN_APP_SLUG`      | A short name, used in links like `commons://join/bystander`                        |
 | `TRUMAN_APP_ID`        | Its ID in the stores, like `edu.youruniversity.commons`. It can't be changed later |
 | `EAS_PROJECT_ID`       | The Expo project, for push notifications. `eas init` prints it                     |
+| `TRUMAN_APP_OWNER`     | The Expo account the project is in, if it's an organization and not your own       |
 | `GOOGLE_SERVICES_JSON` | The path to Firebase's `google-services.json`, for push on Android                 |
 
-Trying it with Expo Go, they're environment variables in your terminal, as above. For a build they have to be saved in the Expo project, since the build runs on Expo's computers and doesn't see your terminal. See below.
+They're read from two places:
+
+- **`app.local.json`, on your computer.** A file beside `app.config.ts` that isn't committed, like this:
+
+  ```json
+  {
+    "TRUMAN_APP_OWNER": "your-lab",
+    "EAS_PROJECT_ID": "the ID eas init printed",
+    "TRUMAN_APP_NAME": "Commons",
+    "TRUMAN_APP_SLUG": "commons",
+    "TRUMAN_APP_ID": "edu.youruniversity.commons",
+    "TRUMAN_SITE_URL": "https://your-truman-site"
+  }
+  ```
+
+  The `eas` commands read it to know which Expo project this is. An environment variable in your terminal wins over it, which is how the Expo Go steps above work.
+- **The Expo project's environment variables,** for a build, since the build runs on Expo's computers and doesn't see your files. See below.
 
 The default icon is two speech bubbles: `assets/icon.png` (1024×1024, no transparency) and `assets/adaptive-icon.png` (Android's, the drawing alone on a transparent square). Replace both for your own.
 
@@ -53,18 +70,18 @@ You need an Apple Developer account, a Google Play developer account, and a free
    cd apps/mobile
    npm install --global eas-cli
    eas login
-   TRUMAN_APP_SLUG=yourname eas init
+   eas init
    ```
 
-   `eas init` prints a project ID.
+   `eas init` prints a project ID, and says it can't write it to `app.config.ts`. That's expected: put it in `app.local.json` (above), with the rest of the settings. If the project should be in an organization's account, add `--account your-lab` to `eas init`.
 
-2. **Save the settings in the Expo project,** one command for each row of the table above except the last:
+2. **Save the same settings in the Expo project,** one command for each, except `GOOGLE_SERVICES_JSON`:
 
    ```
    eas env:set --environment production --visibility plaintext --name TRUMAN_SITE_URL --value https://your-truman-site
    ```
 
-   `EAS_PROJECT_ID` is the ID from step 1. The same values go in the `preview` environment if you use the `preview` profile.
+   The same values go in the `preview` environment if you use the `preview` profile. `eas env:list production` shows what's there.
 
 3. **Make the app in each store,** with the same ID as `TRUMAN_APP_ID`: in App Store Connect under Apps, and in Google Play Console under Create app.
 

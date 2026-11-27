@@ -4,3 +4,5 @@ dist/
 # Made by `expo prebuild`; the app is built from app.config.ts instead.
 ios/
 android/
+# This computer's settings for the app: which Expo project, its name and ID. See README.md.
+app.local.json
