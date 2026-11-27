@@ -105,6 +105,13 @@ Both stores ask for a link to a privacy policy before outside testers can join. 
 
 Expo decides which versions of React, React Native, and its own packages go together. After changing any of them, run `npx expo install --check`, and `npx expo install --fix` to put them back in step. That's why Dependabot only proposes security fixes here.
 
+## How someone joins a study in it
+
+- **They tap a link made for the app,** like `commons://join/bystander?PROLIFIC_PID=…`, and the app opens at that study.
+- **Or they open the app and paste their link.** Someone who isn't in a study sees "Join a study" and a box for the link they were given. Any form of it works: the study's web link, the app's kind, or the part from `/join/` on. It only ever goes to a join page on the app's own site.
+
+A study's ordinary web link, tapped on a phone, opens in the browser and not the app.
+
 ## How it talks to the site
 
 The app never handles who someone is: the site keeps its own session, and the app tells the site what only the app knows, with a `truman-app` event on the page. `apps/participant/src/app-bridge.ts` listens, and sends it to the API:
