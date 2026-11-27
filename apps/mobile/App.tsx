@@ -4,8 +4,10 @@ import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, BackHandler, Platform, SafeAreaView, StyleSheet } from "react-native";
+import { AppState, BackHandler, Platform, StyleSheet, View } from "react-native";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
+import { REPORT_BARS } from "./bars.ts";
 
 /**
  * Truman's app: a native shell around the participant site (ADR 66). It gives the site a place on
@@ -41,6 +43,22 @@ const BEFORE_LOAD = `
   window.trumanAppQueue = window.trumanAppQueue || [];
   true;
 `;
+
+type Color = [number, number, number];
+const WHITE: Color = [255, 255, 255];
+
+/** A color the site reported, or null if it isn't one. */
+function colorFrom(value: unknown): Color | null {
+  return Array.isArray(value) &&
+    value.length === 3 &&
+    value.every((part) => typeof part === "number" && part >= 0 && part <= 255)
+    ? (value as Color)
+    : null;
+}
+
+const css = ([red, green, blue]: Color) => `rgb(${red}, ${green}, ${blue})`;
+/** Whether a color is light enough to need dark writing over it. */
+const isLight = ([red, green, blue]: Color) => red * 0.299 + green * 0.587 + blue * 0.114 > 150;
 
 /** Hands a message to the site, or leaves it waiting if the site hasn't started listening. */
 const deliver = (message: AppMessage) => `
@@ -100,7 +118,19 @@ async function pushToken(): Promise<{ granted: boolean; token: string | null }> 
   return { granted: true, token: data };
 }
 
+/** The app, inside what tells it how much room the phone's own bars take. */
 export function App() {
+  return (
+    <SafeAreaProvider>
+      <Shell />
+    </SafeAreaProvider>
+  );
+}
+
+function Shell() {
+  // How far the phone's bars reach in from the top and bottom. The site is kept clear of both.
+  const insets = useSafeAreaInsets();
+  const [bars, setBars] = useState<{ top: Color; bottom: Color }>({ top: WHITE, bottom: WHITE });
   // The package's types default to props of `undefined`, which leaves none, so this says `object`.
   const web = useRef<WebView<object>>(null);
   const [start, setStart] = useState<string | null>(null);
@@ -197,12 +227,32 @@ export function App() {
     }
   }, [send]);
 
+  // The site says what color it is at its edges (REPORT_BARS).
+  const onMessage = useCallback((event: { nativeEvent: { data: string } }) => {
+    try {
+      const message = JSON.parse(event.nativeEvent.data) as {
+        type?: string;
+        top?: unknown;
+        bottom?: unknown;
+      };
+      const top = colorFrom(message.top);
+      const bottom = colorFrom(message.bottom);
+      if (message.type === "bars" && top && bottom) {
+        setBars({ top, bottom });
+      }
+    } catch {
+      // Not one of ours.
+    }
+  }, []);
+
   if (!start) {
     return null;
   }
   return (
-    <SafeAreaView style={styles.page}>
-      <StatusBar style="auto" />
+    <View style={styles.page}>
+      {/* Dark writing in the phone's top bar over a light site, and light over a dark one. */}
+      <StatusBar style={isLight(bars.top) ? "dark" : "light"} />
+      <View style={{ height: insets.top, backgroundColor: css(bars.top) }} />
       <WebView<object>
         ref={web}
         source={{ uri: start }}
@@ -211,6 +261,8 @@ export function App() {
         sharedCookiesEnabled
         thirdPartyCookiesEnabled={false}
         injectedJavaScriptBeforeContentLoaded={BEFORE_LOAD}
+        injectedJavaScript={REPORT_BARS}
+        onMessage={onMessage}
         onLoadEnd={onLoadEnd}
         onNavigationStateChange={(state: { canGoBack: boolean }) => setCanGoBack(state.canGoBack)}
         allowsBackForwardNavigationGestures
@@ -219,7 +271,8 @@ export function App() {
         allowsInlineMediaPlayback
         setSupportMultipleWindows={false}
       />
-    </SafeAreaView>
+      <View style={{ height: insets.bottom, backgroundColor: css(bars.bottom) }} />
+    </View>
   );
 }
 
