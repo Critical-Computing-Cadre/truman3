@@ -6,6 +6,7 @@ import { startAppBridge } from "../app-bridge.ts";
 import { ProfileForm } from "../components/ProfileForm.tsx";
 import { Shell, useSkin } from "../components/Shell.tsx";
 import { startTracking } from "../tracking.ts";
+import { AppJoin, insideApp } from "./AppJoin.tsx";
 import { Message } from "./Message.tsx";
 
 function ConsentStep({
@@ -216,6 +217,10 @@ export function FlowGate() {
     return <Message title="Thank you!" body="You're all done. You can close this page." />;
   }
   if (flow.error instanceof ApiError && flow.error.status === 401) {
+    // In the app there's no address bar to put a link in, so it asks for one.
+    if (insideApp()) {
+      return <AppJoin />;
+    }
     return (
       <Message
         title="You're not signed in."

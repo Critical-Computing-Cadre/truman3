@@ -304,6 +304,29 @@ test("someone without a link is asked for their ID, and a wrong link goes nowher
   await expect(page.getByRole("button", { name: "I agree" })).toBeVisible();
 });
 
+test("in the app, someone who isn't in a study pastes their link to join", async ({
+  page,
+}, testInfo) => {
+  // The app says it's there before the site loads (ADR 66).
+  await page.addInitScript(() => {
+    (window as { trumanApp?: object }).trumanApp = { platform: "android" };
+  });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Join a study" })).toBeVisible();
+
+  await page.getByLabel("Your link").fill("not a link");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("alert")).toContainText("doesn't look like a study's link");
+
+  // A whole link from somewhere else still only goes to the join page on this site.
+  const id = unique("PASTED", testInfo);
+  await page
+    .getByLabel("Your link")
+    .fill(`https://truman.example.edu/join/eatsnap?PROLIFIC_PID=${id}`);
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("button", { name: "I agree" })).toBeVisible();
+});
+
 test("declining consent ends things for good, after confirming", async ({ page }, testInfo) => {
   const externalId = unique("DECLINE", testInfo);
   await page.goto(joinLink(externalId));
