@@ -62,7 +62,12 @@ function pageFor(url: string | null): string | null {
   if (url.startsWith(SITE_URL)) {
     return url;
   }
-  const { path, queryParams } = Linking.parse(url);
+  const { scheme, hostname, path: rest, queryParams } = Linking.parse(url);
+  // In the app's own links the first word comes back as the "host": commons://join/bystander is
+  // host "join", path "bystander". In Expo Go the host is the computer serving the app, and the
+  // page is all in the path.
+  const own = scheme !== null && !["exp", "exps", "http", "https"].includes(scheme);
+  const path = [own ? hostname : null, rest].filter(Boolean).join("/");
   if (!path) {
     return null;
   }
