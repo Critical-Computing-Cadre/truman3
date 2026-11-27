@@ -101,6 +101,18 @@ You need an Apple Developer account, a Google Play developer account, and a free
 
 Both stores ask for a link to a privacy policy before outside testers can join. TestFlight builds last 90 days, so a long study may need a new one.
 
+## Trying it without a phone
+
+On a Mac with Xcode, a build for the iPhone simulator needs no Apple account:
+
+1. `eas build --profile simulator --platform ios`. It reads the `preview` settings.
+2. Download the build from its page on expo.dev and unpack it. Start a simulator from Xcode (Open Developer Tool, Simulator), and drag the `.app` onto it.
+3. To join a study, open its link in the simulator's Safari with the app's own scheme, like `commons://join/<study>?PROLIFIC_PID=…`, and choose Open.
+
+Push notifications don't arrive in a simulator.
+
+For an Android phone, `eas build --profile preview --platform android` makes a file to install straight from the build's page, with no store involved.
+
 ## Updating its packages
 
 Expo decides which versions of React, React Native, and its own packages go together. After changing any of them, run `npx expo install --check`, and `npx expo install --fix` to put them back in step. That's why Dependabot only proposes security fixes here.
