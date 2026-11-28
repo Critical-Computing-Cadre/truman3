@@ -1,9 +1,13 @@
 name: Release
 
-# When a release is published, this lists everything it depends on and attaches the lists to it: a
-# software bill of materials (SBOM), in CycloneDX format. One is for the workspace, and one for the
-# phone app, which is its own npm project (ADR 66). Both are read from the lockfiles, so nothing is
-# installed or run.
+# When a release is published, this does two things.
+#
+# It lists everything the release depends on and attaches the lists to it: a software bill of
+# materials (SBOM), in CycloneDX format. One is for the workspace, and one for the phone app, which
+# is its own npm project (ADR 66). Both are read from the lockfiles, so nothing is installed or run.
+#
+# And it builds the API's container from the release's tag, publishes it to GitHub's registry, and
+# signs a statement of where it was built and from what (ADR 109).
 #
 # It can also be run by hand for a release that already exists.
 on:
@@ -16,6 +20,10 @@ on:
         required: true
 
 permissions: {}
+
+env:
+  # Where the API's container is published. A registry's names are lower case.
+  IMAGE: ghcr.io/critical-computing-cadre/truman3
 
 jobs:
   sbom:
@@ -43,3 +51,84 @@ jobs:
         run: gh release upload "$TAG" "truman3-$TAG.cdx.json" "truman3-mobile-$TAG.cdx.json" --clobber
         env:
           GH_TOKEN: ${{ github.token }}
+
+  # The API's container, built once for each kind of processor, on a machine of that kind. Hosted
+  # Truman runs on ARM, and a lab's own server may be either.
+  image-build:
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      # To publish to GitHub's registry.
+      packages: write
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          persist-credentials: false
+      - name: Sign in to the registry
+        run: echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GH_TOKEN: ${{ github.token }}
+      # The labels tell the registry which repository the image belongs to. --provenance=false keeps
+      # Docker from adding its own unsigned note about the build, so what's pushed is the image alone.
+      - name: Build the image
+        run: |
+          docker build --provenance=false \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.version=$TAG" \
+            --label "org.opencontainers.image.licenses=MIT" \
+            --label "org.opencontainers.image.description=The Truman 3 API, and the command that updates its database" \
+            --tag "$IMAGE:$TAG-$ARCH" .
+      - name: Publish it
+        run: docker push "$IMAGE:$TAG-$ARCH"
+
+  # Joins the two under the release's tag, so `docker pull` gets the right one for the machine, then
+  # signs a statement that this workflow built it from this repository at this tag.
+  image:
+    needs: image-build
+    runs-on: ubuntu-latest
+    permissions:
+      # To attach the signed statement to the release.
+      contents: write
+      packages: write
+      # To prove to the signing service which workflow is asking, and to store the statement.
+      id-token: write
+      attestations: write
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Sign in to the registry
+        run: echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Join the two images under the release's tag
+        id: join
+        run: |
+          docker buildx imagetools create --tag "$IMAGE:$TAG" "$IMAGE:$TAG-amd64" "$IMAGE:$TAG-arm64"
+          digest="$(docker buildx imagetools inspect "$IMAGE:$TAG" --format '{{json .Manifest}}' | jq --raw-output .digest)"
+          echo "$IMAGE:$TAG is $digest"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Sign a statement of where it was built
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.join.outputs.digest }}
+          push-to-registry: true
+      - name: Attach the statement to the release
+        run: |
+          cp "$BUNDLE" "truman3-image-$TAG.intoto.jsonl"
+          gh release upload "$TAG" "truman3-image-$TAG.intoto.jsonl" --clobber --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}

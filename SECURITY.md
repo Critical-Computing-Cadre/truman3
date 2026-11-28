@@ -11,7 +11,7 @@ What to include, and what to take care with while you're looking, are at <https:
 
 ## How the repository is kept
 
-Dependencies are installed from lockfiles, with install scripts off. Workflow actions and the container's base image are pinned. Code scanning, secret scanning, and Dependabot run on the repository, and each release lists its dependencies in an attached SBOM. [docs/development.md](docs/development.md) has the detail.
+Dependencies are installed from lockfiles, with install scripts off. Workflow actions and the container's base image are pinned. Code scanning, secret scanning, and Dependabot run on the repository, and each release lists its dependencies in an attached SBOM. A release's container image comes with a signed statement of where it was built. [docs/development.md](docs/development.md) has the detail.
 
 ## Supported versions
 

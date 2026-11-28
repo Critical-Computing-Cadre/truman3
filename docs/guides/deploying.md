@@ -20,6 +20,8 @@ What it takes to run Truman 3 somewhere other than your laptop. [ADR 19](../adr/
 
 Updating the database is safe to repeat, since each migration runs once. Don't run two at the same time.
 
+A release's API image is also published, so you don't have to build it: `docker pull ghcr.io/critical-computing-cadre/truman3:<tag>`, for x86 and ARM. It comes with a signed statement of where it was built, which [development.md](../development.md#releases) shows how to check. The two apps are always built from a checkout.
+
 ## Where the admin app goes
 
 One build works for all of these. You choose by where you send `/admin/*`, in your DNS and whatever serves the apps.
