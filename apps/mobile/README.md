@@ -129,7 +129,7 @@ A study's ordinary web link, tapped on a phone, opens in the browser and not the
 The app never handles who someone is: the site keeps its own session, and the app tells the site what only the app knows, with a `truman-app` event on the page. `apps/participant/src/app-bridge.ts` listens, and sends it to the API:
 - the push token, to `POST /me/push`
 - `app.opened` and `app.closed`, with how long it was open
-- `push.permission`, whether they allowed notifications
+- `push.permission`, whether they allowed notifications, with the phone's reason if it couldn't set them up
 - `push.opened`, when they open the app from one
 
 The API sends push notifications every 30 seconds for what's newly due (`apps/api/src/push.ts`), through Expo's push service.

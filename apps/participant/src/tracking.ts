@@ -45,7 +45,7 @@ type ReportedEvent =
   // From Truman's app, around this site (ADR 66).
   | { type: "app.opened"; payload: { platform: "ios" | "android" } }
   | { type: "app.closed"; payload: { secondsOpen: number } }
-  | { type: "push.permission"; payload: { granted: boolean } }
+  | { type: "push.permission"; payload: { granted: boolean; reason?: string } }
   | { type: "push.opened"; payload: { kind: "notification" | "message" } };
 
 let openedFrom = "direct";

@@ -141,8 +141,14 @@ export const eventPayloadSchemas = {
   "app.opened": z.strictObject({ platform: z.enum(["ios", "android"]) }),
   /** The app went to the background, after this long in front. */
   "app.closed": z.strictObject({ secondsOpen: z.number().nonnegative() }),
-  /** Whether they allowed push notifications, when the app asked. */
-  "push.permission": z.strictObject({ granted: z.boolean() }),
+  /**
+   * Whether they allowed push notifications, when the app asked. `reason` is there when the phone
+   * couldn't set them up, in its own words: a build without its Firebase file, say.
+   */
+  "push.permission": z.strictObject({
+    granted: z.boolean(),
+    reason: z.string().max(200).optional(),
+  }),
   /** A push notification was sent to their phone: for a notification, or a direct message. */
   "push.sent": z.strictObject({ kind: z.enum(["notification", "message"]), about: z.string() }),
   /** They opened the app from a push notification. */

@@ -9,7 +9,7 @@ import { track } from "./tracking.ts";
  */
 export type AppMessage =
   | { type: "push-token"; token: string; platform: "ios" | "android" }
-  | { type: "push-permission"; granted: boolean }
+  | { type: "push-permission"; granted: boolean; reason?: string }
   | { type: "opened"; platform: "ios" | "android" }
   | { type: "closed"; secondsOpen: number }
   | { type: "push-opened"; kind: "notification" | "message" };
@@ -23,7 +23,13 @@ export function handleAppMessage(message: AppMessage) {
       post("/me/push", { token: message.token, platform: message.platform }).catch(() => {});
       return;
     case "push-permission":
-      track({ type: "push.permission", payload: { granted: message.granted } });
+      track({
+        type: "push.permission",
+        payload: {
+          granted: message.granted,
+          ...(message.reason ? { reason: message.reason.slice(0, 200) } : {}),
+        },
+      });
       return;
     case "opened":
       track({ type: "app.opened", payload: { platform: message.platform } });

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { APP_EVENT, startAppBridge } from "./app-bridge.ts";
+import { flushTracking } from "./tracking.ts";
 
 /** The app talks to this site through window events (ADR 66). */
 describe("the app bridge", () => {
@@ -28,5 +29,20 @@ describe("the app bridge", () => {
       }),
     );
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("records why the phone couldn't set up push, when the app says", async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ recorded: 1 })));
+    vi.stubGlobal("fetch", fetch);
+    startAppBridge();
+    window.dispatchEvent(
+      new CustomEvent(APP_EVENT, {
+        detail: { type: "push-permission", granted: true, reason: "No Firebase app" },
+      }),
+    );
+    flushTracking();
+    const calls = fetch.mock.calls as unknown as [string, RequestInit][];
+    const sent = calls.map(([, init]) => init.body as string);
+    expect(sent.join("")).toContain('"reason":"No Firebase app"');
   });
 });
