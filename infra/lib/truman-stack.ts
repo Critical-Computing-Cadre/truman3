@@ -91,13 +91,50 @@ export interface TrumanStackProps extends StackProps {
 
 /** One deployment of Truman. See docs/guides/deploying.md and ADR 23. */
 /** The CloudFront router, with the stage's participant domains written in (ADR 74). */
-export function routerCode(participantHosts: string[]) {
+export function routerCode(participantHosts: string[], app?: Stage["app"]) {
   const code = readFileSync(path.join(import.meta.dirname, "app-router.js"), "utf8");
-  const line = "var PARTICIPANT_HOSTS = [];";
-  if (!code.includes(line)) {
-    throw new Error(`app-router.js has to have the line ${line}`);
+  const hosts = "var PARTICIPANT_HOSTS = [];";
+  const files = /var APP_LINK_FILES = \{[^}]*\};/;
+  if (!code.includes(hosts) || !files.test(code)) {
+    throw new Error(`app-router.js has to have the line ${hosts}, and one for APP_LINK_FILES`);
   }
-  return code.replace(line, `var PARTICIPANT_HOSTS = ${JSON.stringify(participantHosts)};`);
+  return code
+    .replace(hosts, `var PARTICIPANT_HOSTS = ${JSON.stringify(participantHosts)};`)
+    .replace(files, `var APP_LINK_FILES = ${JSON.stringify(appLinkFiles(app))};`);
+}
+
+/** The only links that open the app: a study's join link. Everything else stays in the browser. */
+export const APP_LINK_PATH = "/join/";
+
+/**
+ * What a phone fetches to check that a web address really is the app's, so a join link opens the
+ * app where it's installed (ADR 108). Android's file names the app and who signed it. Apple's
+ * names the app and which paths are its.
+ */
+export function appLinkFiles(app: Stage["app"]): Record<string, string | null> {
+  const android = app?.android
+    ? JSON.stringify([
+        {
+          relation: ["delegate_permission/common.handle_all_urls"],
+          target: {
+            namespace: "android_app",
+            package_name: app.android.package,
+            sha256_cert_fingerprints: app.android.certificates,
+          },
+        },
+      ])
+    : null;
+  const apple = app?.apple
+    ? JSON.stringify({
+        applinks: {
+          details: [{ appIDs: app.apple.appIds, components: [{ "/": `${APP_LINK_PATH}*` }] }],
+        },
+      })
+    : null;
+  return {
+    "/.well-known/assetlinks.json": android,
+    "/.well-known/apple-app-site-association": apple,
+  };
 }
 
 export class TrumanStack extends Stack {
@@ -268,7 +305,10 @@ export class TrumanStack extends Stack {
       functionName: `${prefix}-app-router`,
       runtime: cloudfront.FunctionRuntime.JS_2_0,
       code: cloudfront.FunctionCode.fromInline(
-        routerCode((stage.participantDomains ?? []).map(({ name }) => name)),
+        routerCode(
+          (stage.participantDomains ?? []).map(({ name }) => name),
+          stage.app,
+        ),
       ),
     });
     const mediaBehavior: cloudfront.BehaviorOptions = {

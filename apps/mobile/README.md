@@ -31,6 +31,7 @@ Read when the app is built:
 |                        |                                                                                    |
 | ---------------------- | ---------------------------------------------------------------------------------- |
 | `TRUMAN_SITE_URL`      | The participant site it opens, like `https://truman.example.edu`                   |
+| `TRUMAN_LINK_HOSTS`    | Other addresses whose join links open the app, separated by commas. Optional       |
 | `TRUMAN_APP_NAME`      | Its name on the home screen. Choose something neutral; the default is "Commons"    |
 | `TRUMAN_APP_SLUG`      | A short name, used in links like `commons://join/bystander`                        |
 | `TRUMAN_APP_ID`        | Its ID in the stores, like `edu.youruniversity.commons`. It can't be changed later |
@@ -122,7 +123,20 @@ Expo decides which versions of React, React Native, and its own packages go toge
 - **They tap a link made for the app,** like `commons://join/bystander?PROLIFIC_PID=…`, and the app opens at that study.
 - **Or they open the app and paste their link.** Someone who isn't in a study sees "Join a study" and a box for the link they were given. Any form of it works: the study's web link, the app's kind, or the part from `/join/` on. It only ever goes to a join page on the app's own site.
 
-A study's ordinary web link, tapped on a phone, opens in the browser and not the app.
+- **Or they tap the study's ordinary web link,** once the site has said the app is its own (below). Until then, a web link opens in the browser and not the app.
+
+### Web links that open the app
+
+A study's join link, like `https://truman.example.edu/join/bystander?…`, can open the app for anyone who has it installed (ADR 108). Only join links do. Two things have to agree:
+
+1. **The app names the addresses.** It's built to claim join links at `TRUMAN_SITE_URL`, when that's an https address, and at any others in `TRUMAN_LINK_HOSTS`, separated by commas, for a Truman whose studies run at several domains.
+2. **Each address names the app,** or phones ignore the claim. That's the stage's `app` setting in `infra/lib/stages.ts`:
+   - `android.package` is `TRUMAN_APP_ID`. `android.certificates` is the SHA-256 fingerprint of the key the app is signed with: run `eas credentials --platform android` and copy "SHA256 Fingerprint". If the app is in the Play Store, add Google's as well, from Play Console under App integrity, since Google signs what people download.
+   - `apple.appIds` is your Apple team's ID, a dot, and `TRUMAN_APP_ID`. The team ID is at developer.apple.com under Membership.
+
+   None of these is a secret: the site serves them to anyone who asks, at `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association`.
+
+Phones check when the app is installed or updated, so deploy the site's half first, then install a new build. To see whether it worked on Android: Settings, Apps, the app, "Open by default" lists the addresses as verified.
 
 ## How it talks to the site
 

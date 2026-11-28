@@ -7,7 +7,7 @@ import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { STAGES, type Stage } from "./stages.ts";
-import { EDGE_LOG_FIELDS, routerCode, TrumanStack } from "./truman-stack.ts";
+import { appLinkFiles, EDGE_LOG_FIELDS, routerCode, TrumanStack } from "./truman-stack.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const staging = STAGES.staging as Stage;
@@ -270,6 +270,72 @@ describe("what the edge does", () => {
     expect(api?.Environment?.find(({ Name }) => Name === "PARTICIPANT_APP_URL")?.Value).toBe(
       "https://one.example.org",
     );
+  });
+});
+
+describe("the files that let a join link open the phone app (ADR 108)", () => {
+  const app = {
+    android: { package: "edu.example.commons", certificates: ["AA:BB:CC"] as [string] },
+    apple: { appIds: ["A1B2C3D4E5.edu.example.commons"] as [string] },
+  };
+  type Answer = {
+    uri?: string;
+    statusCode?: number;
+    headers?: Record<string, { value: string }>;
+    body?: { encoding: string; data: string };
+  };
+  const ask = (uri: string, stageApp?: typeof app | { android: typeof app.android }) => {
+    const context = vm.createContext({});
+    vm.runInContext(routerCode(["study.test"], stageApp), context);
+    return (context as { handler: (event: unknown) => Answer }).handler({
+      request: { uri, headers: { host: { value: "study.test" } } },
+    });
+  };
+
+  it("answers Android with the app and who signed it", () => {
+    const answer = ask("/.well-known/assetlinks.json", app);
+    expect(answer.statusCode).toBe(200);
+    expect(answer.headers?.["content-type"]?.value).toBe("application/json");
+    expect(JSON.parse(answer.body?.data ?? "")).toEqual([
+      {
+        relation: ["delegate_permission/common.handle_all_urls"],
+        target: {
+          namespace: "android_app",
+          package_name: "edu.example.commons",
+          sha256_cert_fingerprints: ["AA:BB:CC"],
+        },
+      },
+    ]);
+  });
+
+  it("answers Apple with the app, and only a study's join links", () => {
+    const answer = ask("/.well-known/apple-app-site-association", app);
+    expect(JSON.parse(answer.body?.data ?? "")).toEqual({
+      applinks: {
+        details: [{ appIDs: ["A1B2C3D4E5.edu.example.commons"], components: [{ "/": "/join/*" }] }],
+      },
+    });
+  });
+
+  it("says no plainly where a stage names no app, or only the other kind of phone", () => {
+    // Never the app's page, which is what any other unknown path gets.
+    expect(ask("/.well-known/assetlinks.json")).toEqual({
+      statusCode: 404,
+      statusDescription: "Not Found",
+    });
+    expect(
+      ask("/.well-known/apple-app-site-association", { android: app.android }).statusCode,
+    ).toBe(404);
+    expect(ask("/.well-known/anything-else", app).statusCode).toBe(404);
+    expect(ask("/join/eatsnap", app).uri).toBe("/index.html");
+  });
+
+  it("is what the stack gives the router", () => {
+    expect(Object.keys(appLinkFiles(undefined))).toEqual([
+      "/.well-known/assetlinks.json",
+      "/.well-known/apple-app-site-association",
+    ]);
+    expect(Object.values(appLinkFiles(undefined))).toEqual([null, null]);
   });
 });
 

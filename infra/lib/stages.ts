@@ -77,6 +77,28 @@ export interface Stage {
    */
   participantDomains?: { name: string; hostedZoneId: string; default?: boolean }[];
   /**
+   * The phone app that a study's join link opens, where someone has it installed (ADR 108). The
+   * stage's addresses then answer the two questions phones ask before handing a link to an app.
+   * None of this is secret: it's all served to anyone who asks. Leave it out, or either half, and
+   * join links open in the browser as before.
+   */
+  app?: {
+    android?: {
+      /** The app's ID, like "edu.example.commons". TRUMAN_APP_ID when it was built. */
+      package: string;
+      /**
+       * The SHA-256 fingerprint of each key the app is signed with, as colon-separated hex:
+       * the one Expo holds (`eas credentials`), and Google's own if it's in the Play Store
+       * (Play Console, App integrity).
+       */
+      certificates: [string, ...string[]];
+    };
+    apple?: {
+      /** The Apple team's ID, a dot, and the app's ID, like "A1B2C3D4E5.edu.example.commons". */
+      appIds: [string, ...string[]];
+    };
+  };
+  /**
    * The public site, apps/site, at its own addresses (ADR 75). The first name is the site's
    * address. A name starting with "www." is sent to the same name without it.
    */

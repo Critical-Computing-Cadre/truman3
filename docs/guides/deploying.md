@@ -195,6 +195,10 @@ Until the domain is verified, sending fails quietly: the request goes on, and th
 
 The site in `apps/site` is deployed with a stage that has `site` ([ADR 75](../adr/0075-the-public-site.md)). `pnpm build` builds it with everything else, and the deploy copies it to its bucket. Try it locally with `pnpm --filter @truman3/site dev`, at http://localhost:5182.
 
+### Join links that open the phone app
+
+A stage's `app` setting in `infra/lib/stages.ts` names the phone app that a study's join link should open for people who have it (ADR 108). With it, every address the stage answers at serves `/.well-known/assetlinks.json` for Android and `/.well-known/apple-app-site-association` for iPhones, from `app-router.js`. Without it, both answer "not found" and links open in the browser. What to put in it, and the app's half, is in `apps/mobile/README.md` under "Web links that open the app".
+
 ### Participant domains
 
 A study can run at a domain that doesn't say "research", such as eatsnap.love ([ADR 74](../adr/0074-participant-domains.md)). To offer one on a stage:
