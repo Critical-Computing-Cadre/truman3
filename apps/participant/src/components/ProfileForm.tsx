@@ -1,31 +1,13 @@
 import { useMutation } from "@tanstack/react-query";
 import { Avatar } from "@truman3/ui";
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useState } from "react";
+import { ChosenPicture } from "./ChosenPicture.tsx";
 
 export interface ProfileFields {
   username: string;
   name: string;
   location: string;
   bio: string;
-}
-
-/** A picture they've just chosen, to show before it's saved. */
-function usePreview(file: File | null) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!file) {
-      setUrl(null);
-      return;
-    }
-    const made = URL.createObjectURL(file);
-    // Only ever the address of a picture held in this browser, which is what the browser makes
-    // here. Checked so that nothing else could reach a picture's address by this way.
-    if (made.startsWith("blob:")) {
-      setUrl(made);
-    }
-    return () => URL.revokeObjectURL(made);
-  }, [file]);
-  return url;
 }
 
 /** Looks like a button, and opens the phone's or computer's own way of choosing a picture. */
@@ -54,8 +36,6 @@ export function ProfileForm({
   const [fields, setFields] = useState(initial);
   const [picture, setPicture] = useState<File | null>(null);
   const [banner, setBanner] = useState<File | null>(null);
-  const picturePreview = usePreview(picture);
-  const bannerPreview = usePreview(banner);
 
   const saving = useMutation({
     mutationFn: () =>
@@ -118,12 +98,14 @@ export function ProfileForm({
           Optional. If you skip it, one is made for you.
         </span>
         <span className="mt-1 flex items-center gap-4">
-          {(pictureUrl || picturePreview) && (
-            <Avatar
-              seed={pictureUrl?.seed ?? fields.username}
-              url={picturePreview ?? pictureUrl?.url ?? null}
-              size="h-16 w-16"
+          {picture ? (
+            <ChosenPicture
+              file={picture}
+              label="The picture you chose"
+              className="h-16 w-16 rounded-full object-cover"
             />
+          ) : (
+            pictureUrl && <Avatar seed={pictureUrl.seed} url={pictureUrl.url} size="h-16 w-16" />
           )}
           <span className={CHOOSE}>
             {picture || pictureUrl?.url ? "Change photo" : "Choose a photo"}
@@ -142,12 +124,16 @@ export function ProfileForm({
           <span className="text-sm font-normal text-stone-500">
             Optional. A wide picture across the top of your profile.
           </span>
-          {(bannerPreview ?? bannerUrl.url) && (
-            <img
-              src={bannerPreview ?? bannerUrl.url ?? ""}
-              alt=""
+          {banner ? (
+            <ChosenPicture
+              file={banner}
+              label="The banner you chose"
               className="h-20 w-full rounded object-cover"
             />
+          ) : (
+            bannerUrl.url && (
+              <img src={bannerUrl.url} alt="" className="h-20 w-full rounded object-cover" />
+            )
           )}
           <span className={`${CHOOSE} mt-1 self-start`}>
             {banner || bannerUrl.url ? "Change banner" : "Choose a banner"}
