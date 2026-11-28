@@ -78,7 +78,7 @@ To connect a study to Prolific and a survey, see [docs/guides/connecting-prolifi
 Truman has been in use since 2017, and Truman 3 is its third generation.
 
 - **Truman** ([cornellsml/truman](https://github.com/cornellsml/truman), 2017) was created by Dominic DiFranzo at the Cornell Social Media Lab, with Natalie Bazarova, and support from NSF IIS-1405634. It was built on [Hackathon Starter](https://github.com/sahat/hackathon-starter) by Sahat Yalkabov.
-- **Truman 2.0** ([cornellsocialmedialab/truman_2023](https://github.com/cornellsocialmedialab/truman_2023)) is the Cornell Social Media Lab's maintained version, which labs have copied for their own studies.
+- **Truman 2.0** ([cornellsocialmedialab/truman_2023](https://github.com/cornellsocialmedialab/truman_2023)) is the Cornell Social Media Lab's maintained version, which labs have copied for their own studies. [Coming from Truman 2.0](docs/guides/coming-from-truman-2.md) says how to bring a study over.
 - **[Truman Agents](https://github.com/Cornell-Design-AI-Group/TrumanAgents)**, by Qian Yang and the Cornell Design & AI Group, added language-model agents to Truman. Truman 3's cast that acts builds on its ideas.
 
 Truman 3 is a new codebase, written at Lehigh University. It carries over what those versions learned, and none of their code. The people and studies behind Truman are on the [About page](https://truman-research.org/about).

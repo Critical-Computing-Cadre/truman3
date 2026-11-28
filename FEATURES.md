@@ -221,13 +221,13 @@ A moderator's decisions are things a study scripts and varies by condition, so m
 
 ## For agents and developers
 
-| Feature                                                                                | Status     | ADR    |
-| -------------------------------------------------------------------------------------- | ---------- | ------ |
-| An HTTP API described with OpenAPI, which is the only path that changes study state    | Production | 3      |
-| Access tokens for a researcher's own tools and agents, limited in what they can reach  | Production | 64     |
-| An MCP server, so an AI agent can build, test, and monitor a study                     | Production | 64     |
-| A command line: validate, test, simulate, import, launch, export, bundle, and withdraw | Production | 5      |
-| Run your own with Docker, or on AWS from the CDK code in `infra`                       | Production | 19, 23 |
+| Feature                                                                                         | Status     | ADR    |
+| ----------------------------------------------------------------------------------------------- | ---------- | ------ |
+| An HTTP API described with OpenAPI, which is the only path that changes study state             | Production | 3      |
+| Access tokens for a researcher's own tools and agents, limited in what they can reach           | Production | 64     |
+| An MCP server, so an AI agent can build, test, and monitor a study                              | Production | 64     |
+| A command line: validate, test, simulate, import, launch, convert, export, bundle, and withdraw | Production | 5      |
+| Run your own with Docker, or on AWS from the CDK code in `infra`                                | Production | 19, 23 |
 
 ## The phone app
 
@@ -252,4 +252,4 @@ It isn't in the App Store or on Google Play yet. Until it is, participants use a
 
 ## Not built
 
-So that nobody goes looking: there's no live-stream kind of site, no built-in questionnaires (studies link out to a survey tool), and no converter from Truman 2 studies.
+So that nobody goes looking: there's no live-stream kind of site, no built-in questionnaires (studies link out to a survey tool), and nothing that moves an older Truman's participants or code changes over. `pnpm study convert` starts a study from an older Truman's files ([Coming from Truman 2.0](docs/guides/coming-from-truman-2.md)).
