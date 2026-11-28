@@ -112,7 +112,7 @@ A study folder has:
 - `beats.yaml`, `scenarios.yaml`, and `personas.yaml`, if the study uses Christof
 - `media/`, for pictures
 
-`pnpm study validate <folder>` checks one. `pnpm study convert` turns an older Truman study into one.
+`pnpm study validate <folder>` checks one. `pnpm study convert` turns an older Truman study into one ([Coming from Truman 2.0](guides/coming-from-truman-2.md)).
 
 ### Drafts, frozen versions, and launching
 
