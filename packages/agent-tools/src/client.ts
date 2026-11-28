@@ -29,7 +29,7 @@ export function trumanClient({
   token: string;
   fetch?: Fetch;
 }): TrumanClient {
-  const root = baseUrl.replace(/\/+$/, "");
+  const root = withoutTrailingSlashes(baseUrl);
   return {
     async call<T>(method: string, path: string, body?: unknown): Promise<T> {
       if (!path.startsWith("/admin/")) {
@@ -63,4 +63,16 @@ export function trumanClient({
       return json as T;
     },
   };
+}
+
+/**
+ * An address without the slashes at its end. It walks back from the end once. The pattern /\/+$/
+ * does the same job, but on a long run of slashes in the middle it starts again from each one.
+ */
+function withoutTrailingSlashes(address: string): string {
+  let end = address.length;
+  while (end > 0 && address.charAt(end - 1) === "/") {
+    end -= 1;
+  }
+  return address.slice(0, end);
 }

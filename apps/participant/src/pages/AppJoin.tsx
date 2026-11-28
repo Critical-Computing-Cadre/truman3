@@ -1,3 +1,4 @@
+import { useRouter } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { joinPathFrom } from "../join-link.ts";
 
@@ -14,6 +15,7 @@ export function insideApp(): boolean {
 export function AppJoin() {
   const [link, setLink] = useState("");
   const [wrong, setWrong] = useState(false);
+  const router = useRouter();
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -22,7 +24,8 @@ export function AppJoin() {
       setWrong(true);
       return;
     }
-    window.location.assign(path);
+    // Through the app's own router, to the join page. Only ever a path joinPathFrom made.
+    router.history.push(path);
   };
 
   return (

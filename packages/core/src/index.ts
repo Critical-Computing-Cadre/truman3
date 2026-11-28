@@ -108,6 +108,7 @@ export {
   teamApplicationSchema,
   teamLimitsSchema,
 } from "./teams.ts";
+export { withoutTrailing } from "./trailing.ts";
 export {
   MAX_VIDEO_BYTES,
   MAX_VIDEO_SECONDS,
