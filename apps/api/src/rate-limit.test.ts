@@ -22,4 +22,14 @@ describe("createRateLimiter", () => {
     expect(allow("b", 1000)).toBe(false);
     expect(allow("b", 1900)).toBe(true);
   });
+
+  it("refuses new keys when it's full, and takes them again once old ones have run out", () => {
+    const allow = createRateLimiter({ max: 1, windowMs: 1000 });
+    for (let key = 0; key < 10_000; key += 1) {
+      expect(allow(`made-up-${key}`, 0)).toBe(true);
+    }
+    // Full: someone new is refused, which is why callers keep made-up keys out (admin/routes.ts).
+    expect(allow("someone-new", 500)).toBe(false);
+    expect(allow("someone-new", 1000)).toBe(true);
+  });
 });

@@ -91,20 +91,37 @@ describe("signing in", () => {
     expect(await wrong.json()).toEqual(await unknown.json());
   });
 
-  it("is limited when there are too many attempts, including across different emails", async () => {
+  it("is limited when one email is tried too often", async () => {
     const { email, password } = await team();
-    const seen: string[] = [];
+    const limited = makeApp({ allowLoginAttempt: () => false });
+
+    expect((await login(email, password, limited)).status).toBe(429);
+  });
+
+  it("is limited for a whole address, without counting the emails it goes on to try", async () => {
+    const { email, password } = await team();
+    const emailsCounted: string[] = [];
+    let fromAddress = 0;
     const limited = makeApp({
+      // Two tries a minute from one address, whoever they're for.
+      allowLoginFromAddress: () => {
+        fromAddress += 1;
+        return fromAddress <= 2;
+      },
       allowLoginAttempt: (key) => {
-        seen.push(key);
-        return seen.filter((each) => each === key).length <= 2;
+        emailsCounted.push(key);
+        return true;
       },
     });
 
     expect((await login("one@example.edu", "wrong", limited)).status).toBe(401);
     expect((await login("two@example.edu", "wrong", limited)).status).toBe(401);
-    // A third email from the same address hits the per-address limit.
+    // A third from the same address is refused, even with the right password.
     expect((await login(email, password, limited)).status).toBe(429);
+    expect((await login("four@example.edu", "wrong", limited)).status).toBe(429);
+    // What's refused for its address never reaches the per-email count. Otherwise one address could
+    // fill it with made-up emails, and nobody new could sign in.
+    expect(emailsCounted).toEqual(["203.0.113.1:one@example.edu", "203.0.113.1:two@example.edu"]);
   });
 
   it("ends with signing out, and that session stops working", async () => {
