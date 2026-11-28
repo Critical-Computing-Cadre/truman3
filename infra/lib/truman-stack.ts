@@ -372,6 +372,7 @@ export class TrumanStack extends Stack {
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         // Its cache key leaves out the query, so a recruitment ID in a link never reaches S3.
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
         functionAssociations: [
           { eventType: cloudfront.FunctionEventType.VIEWER_REQUEST, function: router },
         ],
@@ -383,6 +384,7 @@ export class TrumanStack extends Stack {
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+          responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
           // So the admin API doesn't answer on participant domains (ADR 74).
           functionAssociations: [
             { eventType: cloudfront.FunctionEventType.VIEWER_REQUEST, function: router },

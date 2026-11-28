@@ -49,7 +49,7 @@ import {
   participantFromRequest,
   realClock,
 } from "../participants/session.ts";
-import { MAX_IMAGE_BYTES, storeUploadedImage } from "./images.ts";
+import { discardUploadedImages, MAX_IMAGE_BYTES, storeUploadedImage } from "./images.ts";
 import { conversationWith, listConversations, personOf } from "./messages.ts";
 import {
   applyAutoRule,
@@ -2012,9 +2012,11 @@ export function createActionRoutes({
     const afterRule = reactionsAfterRule(rules.act, now);
 
     const attachments: Attachment[] = [];
+    const uploadedKeys: string[] = [];
     for (const image of images) {
       const key = await storeUploadedImage({ db, storage, scanner, labKeys }, context, image);
       if (!key) {
+        await discardUploadedImages({ db, storage }, uploadedKeys);
         return c.json(
           {
             error: `That photo can't be used. Use a JPEG, PNG, GIF, or WebP under ${MAX_IMAGE_BYTES / 1024 / 1024} MB.`,
@@ -2022,6 +2024,7 @@ export function createActionRoutes({
           400,
         );
       }
+      uploadedKeys.push(key);
       attachments.push({ type: "image", key });
     }
 
@@ -2099,6 +2102,7 @@ export function createActionRoutes({
       });
       return c.json({ id }, 200);
     } catch (error) {
+      await discardUploadedImages({ db, storage }, uploadedKeys);
       if (error instanceof RepeatedAction) {
         const earlier = await findRepeat(db, context.worldId, form.clientEventId);
         return c.json({ id: earlier?.contentId as string }, 200);
@@ -2481,42 +2485,54 @@ export function createActionRoutes({
         400,
       );
     }
-    const id = await db.transaction(async (tx) => {
-      const nth = await countOwnContent(tx, context, "story");
-      const [created] = await tx
-        .insert(schema.content)
-        .values({
-          studyVersionId: context.studyVersionId,
-          worldId: context.worldId,
-          authorActorId: context.actorId,
-          kind: "story",
-          body: form.caption.trim(),
-          attachments: [{ type: "image", key }],
-          closeFriends,
-          visibleAt: now,
-        })
-        .returning({ id: schema.content.id });
-      const storyId = created?.id as string;
-      await recordEvent(tx, {
-        ...participantEvent(context, form.occurredAt, form.clientEventId),
-        type: "content.created",
-        payload: {
-          kind: "story",
-          ...(isOff(context, "closeFriends") ? {} : { audience: form.audience }),
-        },
-        targetContentId: storyId,
+    try {
+      const id = await db.transaction(async (tx) => {
+        const nth = await countOwnContent(tx, context, "story");
+        const [created] = await tx
+          .insert(schema.content)
+          .values({
+            studyVersionId: context.studyVersionId,
+            worldId: context.worldId,
+            authorActorId: context.actorId,
+            kind: "story",
+            body: form.caption.trim(),
+            attachments: [{ type: "image", key }],
+            closeFriends,
+            visibleAt: now,
+          })
+          .returning({ id: schema.content.id });
+        const storyId = created?.id as string;
+        const recorded = await recordEvent(tx, {
+          ...participantEvent(context, form.occurredAt, form.clientEventId),
+          type: "content.created",
+          payload: {
+            kind: "story",
+            ...(isOff(context, "closeFriends") ? {} : { audience: form.audience }),
+          },
+          targetContentId: storyId,
+        });
+        if (!recorded) {
+          throw new RepeatedAction();
+        }
+        await scheduleReactions(tx, context, {
+          on: "story",
+          nth,
+          contentId: storyId,
+          replyUnderId: storyId,
+          spaceId: null,
+          now,
+        });
+        return storyId;
       });
-      await scheduleReactions(tx, context, {
-        on: "story",
-        nth,
-        contentId: storyId,
-        replyUnderId: storyId,
-        spaceId: null,
-        now,
-      });
-      return storyId;
-    });
-    return c.json({ id }, 200);
+      return c.json({ id }, 200);
+    } catch (error) {
+      await discardUploadedImages({ db, storage }, [key]);
+      if (error instanceof RepeatedAction) {
+        const earlier = await findRepeat(db, context.worldId, form.clientEventId);
+        return c.json({ id: earlier?.contentId as string }, 200);
+      }
+      throw error;
+    }
   });
 
   app.openapi(storyViewedRoute, async (c) => {
@@ -3024,12 +3040,8 @@ export function createActionRoutes({
     }
     const form = c.req.valid("form");
 
-    const stored = async (file: File | undefined) =>
-      file ? await storeUploadedImage({ db, storage, scanner, labKeys }, context, file) : undefined;
-    const picture = await stored(form.picture);
-    const banner = await stored(form.banner);
-    if (picture === null || banner === null) {
-      return c.json({ error: "That photo can't be used." }, 400);
+    if (await findRepeat(db, context.worldId, form.clientEventId)) {
+      return c.json({ ok: true as const }, 200);
     }
 
     if (form.username) {
@@ -3037,6 +3049,24 @@ export function createActionRoutes({
       if (taken && taken.id !== context.actorId) {
         return c.json({ error: "That username is taken." }, 409);
       }
+    }
+
+    const uploadedKeys: string[] = [];
+    const stored = async (file: File | undefined) => {
+      if (!file) {
+        return undefined;
+      }
+      const key = await storeUploadedImage({ db, storage, scanner, labKeys }, context, file);
+      if (key) {
+        uploadedKeys.push(key);
+      }
+      return key;
+    };
+    const picture = await stored(form.picture);
+    const banner = picture === null ? undefined : await stored(form.banner);
+    if (picture === null || banner === null) {
+      await discardUploadedImages({ db, storage }, uploadedKeys);
+      return c.json({ error: "That photo can't be used." }, 400);
     }
 
     const [actor] = await db
@@ -3058,24 +3088,34 @@ export function createActionRoutes({
     };
     const newUsername = form.username && form.username !== actor?.username ? form.username : null;
 
-    await db.transaction(async (tx) => {
-      const recorded = await recordEvent(tx, {
-        ...participantEvent(context, form.occurredAt, form.clientEventId),
-        type: "profile.updated",
-        payload: {
-          fields: [...Object.keys(changes), ...(newUsername ? ["username"] : [])],
-        },
+    let applied = false;
+    try {
+      await db.transaction(async (tx) => {
+        const recorded = await recordEvent(tx, {
+          ...participantEvent(context, form.occurredAt, form.clientEventId),
+          type: "profile.updated",
+          payload: {
+            fields: [...Object.keys(changes), ...(newUsername ? ["username"] : [])],
+          },
+        });
+        if (recorded) {
+          await tx
+            .update(schema.actors)
+            .set({
+              profile: { ...(actor?.profile as ProfileFields), ...changes },
+              ...(newUsername ? { username: newUsername } : {}),
+            })
+            .where(eq(schema.actors.id, context.actorId));
+          applied = true;
+        }
       });
-      if (recorded) {
-        await tx
-          .update(schema.actors)
-          .set({
-            profile: { ...(actor?.profile as ProfileFields), ...changes },
-            ...(newUsername ? { username: newUsername } : {}),
-          })
-          .where(eq(schema.actors.id, context.actorId));
-      }
-    });
+    } catch (error) {
+      await discardUploadedImages({ db, storage }, uploadedKeys);
+      throw error;
+    }
+    if (!applied) {
+      await discardUploadedImages({ db, storage }, uploadedKeys);
+    }
     return c.json({ ok: true as const }, 200);
   });
 

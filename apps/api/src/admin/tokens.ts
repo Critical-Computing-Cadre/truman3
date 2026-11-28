@@ -31,7 +31,9 @@ const FOR_PEOPLE_ONLY: { methods: string[]; path: RegExp }[] = [
   { methods: ["DELETE"], path: /^\/admin\/studies\/[^/]+$/ },
   { methods: ["POST", "GET"], path: /^\/admin\/studies\/[^/]+\/withdraw$/ },
   { methods: ["GET", "POST"], path: /^\/admin\/studies\/[^/]+\/(export|photos)$/ },
+  { methods: ["GET", "POST"], path: /^\/admin\/studies\/[^/]+\/uploads(\/.*)?$/ },
   { methods: ["GET", "POST"], path: /^\/admin\/studies\/[^/]+\/live(\/.*)?$/ },
+  { methods: ["GET", "POST", "DELETE"], path: /^\/admin\/studies\/[^/]+\/community(\/.*)?$/ },
   { methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], path: /^\/admin\/prolific(\/.*)?$/ },
   {
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],

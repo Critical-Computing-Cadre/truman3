@@ -167,6 +167,7 @@ describe("what can be reached from outside", () => {
     const config = edge?.Properties.DistributionConfig;
     for (const behavior of [config.DefaultCacheBehavior, ...config.CacheBehaviors]) {
       expect(behavior.ViewerProtocolPolicy).toBe("redirect-to-https");
+      expect(behavior.ResponseHeadersPolicyId).toBe("67f7725c-6f97-4210-82d7-5512b31e9d03");
     }
   });
 });

@@ -91,10 +91,19 @@ describe("signing in", () => {
     expect(await wrong.json()).toEqual(await unknown.json());
   });
 
-  it("is limited when there are too many attempts", async () => {
+  it("is limited when there are too many attempts, including across different emails", async () => {
     const { email, password } = await team();
-    const limited = makeApp({ allowLoginAttempt: () => false });
+    const seen: string[] = [];
+    const limited = makeApp({
+      allowLoginAttempt: (key) => {
+        seen.push(key);
+        return seen.filter((each) => each === key).length <= 2;
+      },
+    });
 
+    expect((await login("one@example.edu", "wrong", limited)).status).toBe(401);
+    expect((await login("two@example.edu", "wrong", limited)).status).toBe(401);
+    // A third email from the same address hits the per-address limit.
     expect((await login(email, password, limited)).status).toBe(429);
   });
 

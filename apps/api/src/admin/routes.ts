@@ -260,9 +260,11 @@ export function createAdminRoutes({
   app.openapi(loginRoute, async (c) => {
     const { email, password } = c.req.valid("json");
 
+    const address = getClientIp(c) ?? "unknown";
     if (
       allowLoginAttempt &&
-      !allowLoginAttempt(`${getClientIp(c) ?? "unknown"}:${email.toLowerCase()}`)
+      (!allowLoginAttempt(`${address}:${email.toLowerCase()}`) ||
+        !allowLoginAttempt(`login:${address}`))
     ) {
       return c.json({ error: "Too many attempts. Please wait a minute and try again." }, 429);
     }

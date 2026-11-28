@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { type Database, schema } from "@truman3/db";
 import type { Storage } from "@truman3/storage";
+import { inArray } from "drizzle-orm";
 import { teamHasRoomFor } from "../admin/hosting.ts";
 import type { LabKeys } from "../lab-keys.ts";
 import type { PhotoScanner } from "../scanning.ts";
@@ -93,6 +94,23 @@ export async function storeUploadedImage(
     needsReview: doubtful,
   });
   return key;
+}
+
+/**
+ * Removes images stored for a request that didn't finish, so they aren't left behind in storage or
+ * counted against the lab's room for photos.
+ */
+export async function discardUploadedImages(
+  { db, storage }: { db: Database; storage: Storage },
+  keys: readonly string[],
+) {
+  if (keys.length === 0) {
+    return;
+  }
+  await db.delete(schema.uploads).where(inArray(schema.uploads.key, [...keys]));
+  for (const key of keys) {
+    await storage.delete(key).catch(() => {});
+  }
 }
 
 /**

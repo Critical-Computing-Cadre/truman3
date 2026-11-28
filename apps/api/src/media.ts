@@ -100,7 +100,8 @@ export function createMediaRoutes({
     }
     if (!allowed) {
       const researcher = await researcherFromRequest(c, db);
-      allowed = researcher ? await teamCanSee(researcher.id, worldId) : false;
+      // People in the admin app, not an agent with a token (ADR 64).
+      allowed = researcher && !researcher.token ? await teamCanSee(researcher.id, worldId) : false;
     }
     if (!allowed) {
       return notFound();
