@@ -348,6 +348,11 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
                 {children}
               </Link>
             ),
+            settings: (className, children) => (
+              <Link to="/settings" className={className}>
+                {children}
+              </Link>
+            ),
           }
         : {}),
       ...(flow.site.hasRules

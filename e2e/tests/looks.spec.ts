@@ -92,3 +92,29 @@ test("On a phone, the bars slide away going down, and a post is written on a who
     page.locator("article").filter({ hasText: "Written from the round button" }).first(),
   ).toBeVisible();
 });
+
+test("A settings page lists the study's real pages, and what's only for show", async ({ page }) => {
+  await page.goto(`${app}/join/short-posts-e2e?PROLIFIC_PID=SETTINGS-${Date.now()}`);
+  await expect(page.getByRole("tablist", { name: "Feeds" })).toBeVisible();
+
+  // A cog on their own profile opens it (ADR 105).
+  await page.getByRole("link", { name: "Profile", exact: true }).click();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  const real = page.getByRole("list", { name: "Your settings" });
+  await expect(real.getByRole("link", { name: "Edit profile" })).toBeVisible();
+
+  // What a real app would also have says it isn't available, as the rest of what's for show does.
+  const more = page.getByRole("list", { name: "More settings" });
+  await more.getByRole("button", { name: "Appearance" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Appearance isn't available right now. Please try again later.",
+  );
+
+  // A real line opens its page, and the arrow at the top comes back.
+  await real.getByRole("link", { name: "Edit profile" }).click();
+  await expect(page.getByRole("heading", { name: "Edit your profile" })).toBeVisible();
+  await expect(page.getByText("Choose a photo")).toBeVisible();
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+});

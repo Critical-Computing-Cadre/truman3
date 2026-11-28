@@ -141,7 +141,11 @@ export function PhotoProfileHeader(props: ProfileHeaderProps) {
             <h1 className="text-xl">{username}</h1>
             <div className="flex flex-wrap gap-2">{actions}</div>
           </div>
-          <Counts counts={counts} className="flex flex-wrap gap-4 text-sm sm:gap-8" />
+          {/* On a phone each count is a number over its word, as on these apps. */}
+          <Counts
+            counts={counts}
+            className="flex flex-wrap gap-4 text-sm max-sm:justify-between max-sm:text-center max-sm:[&>span]:flex max-sm:[&>span]:flex-col max-sm:[&_strong]:text-base sm:gap-8"
+          />
         </div>
       </div>
       <div className="mt-3 space-y-1 text-sm">

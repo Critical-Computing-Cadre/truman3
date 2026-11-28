@@ -52,4 +52,5 @@ export {
   usePlatform,
 } from "./platform.tsx";
 export type { FeedPostViewProps, PostActions } from "./post-props.ts";
+export { SettingsList, type SettingsRow } from "./SettingsList.tsx";
 export { shortTime } from "./time.ts";

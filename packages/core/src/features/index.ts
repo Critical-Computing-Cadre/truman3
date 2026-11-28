@@ -13,6 +13,7 @@ export {
   type DecorTarget,
   MAX_DECOR_ADDED,
   MAX_DECOR_LABEL,
+  SETTINGS_DECOR,
 } from "./decor.ts";
 export {
   DEFAULT_TEMPLATE,

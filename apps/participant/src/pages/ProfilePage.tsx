@@ -241,9 +241,31 @@ export function ProfilePage() {
         }
         actions={
           actor.isViewer ? (
-            <Link to="/account" className={button}>
-              Edit profile
-            </Link>
+            <>
+              <Link to="/account" className={button}>
+                Edit profile
+              </Link>
+              <Link to="/settings" aria-label="Settings" title="Settings" className={button}>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5"
+                >
+                  {/* A cog: a ring with a hub, and eight teeth around it. */}
+                  <circle cx="12" cy="12" r="2.5" />
+                  <circle cx="12" cy="12" r="6.5" />
+                  <path
+                    strokeWidth="2.6"
+                    d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4"
+                  />
+                </svg>
+              </Link>
+            </>
           ) : (
             <>
               {following && (
