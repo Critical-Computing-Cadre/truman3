@@ -18,6 +18,8 @@ import { REPORT_BARS } from "./bars.ts";
  */
 
 const SITE_URL: string = (Constants.expoConfig?.extra?.siteUrl as string) ?? "";
+/** The web addresses whose join links open the app (ADR 108). */
+const LINK_HOSTS: string[] = (Constants.expoConfig?.extra?.linkHosts as string[]) ?? [];
 const PLATFORM = Platform.OS === "ios" ? "ios" : "android";
 
 /** Shows a push notification even when the app is open, as other apps do. */
@@ -81,6 +83,10 @@ function pageFor(url: string | null): string | null {
     return url;
   }
   const { scheme, hostname, path: rest, queryParams } = Linking.parse(url);
+  // A study's own web link, at another of this Truman's addresses, opens as it is.
+  if (scheme === "https" && hostname && LINK_HOSTS.includes(hostname.toLowerCase())) {
+    return rest?.startsWith("join/") ? url : null;
+  }
   // In the app's own links the first word comes back as the "host": commons://join/bystander is
   // host "join", path "bystander". In Expo Go the host is the computer serving the app, and the
   // page is all in the path.

@@ -77,6 +77,28 @@ export interface Stage {
    */
   participantDomains?: { name: string; hostedZoneId: string; default?: boolean }[];
   /**
+   * The phone app that a study's join link opens, where someone has it installed (ADR 108). The
+   * stage's addresses then answer the two questions phones ask before handing a link to an app.
+   * None of this is secret: it's all served to anyone who asks. Leave it out, or either half, and
+   * join links open in the browser as before.
+   */
+  app?: {
+    android?: {
+      /** The app's ID, like "edu.example.commons". TRUMAN_APP_ID when it was built. */
+      package: string;
+      /**
+       * The SHA-256 fingerprint of each key the app is signed with, as colon-separated hex:
+       * the one Expo holds (`eas credentials`), and Google's own if it's in the Play Store
+       * (Play Console, App integrity).
+       */
+      certificates: [string, ...string[]];
+    };
+    apple?: {
+      /** The Apple team's ID, a dot, and the app's ID, like "A1B2C3D4E5.edu.example.commons". */
+      appIds: [string, ...string[]];
+    };
+  };
+  /**
    * The public site, apps/site, at its own addresses (ADR 75). The first name is the site's
    * address. A name starting with "www." is sent to the same name without it.
    */
@@ -98,6 +120,21 @@ const REPOSITORY = {
   repositoryId: 1441943190,
 };
 
+/**
+ * The phone app, Commons, that join links open (ADR 108). The fingerprint is of the key Expo signs
+ * it with. When it's in the Play Store, Google's goes here too. Staging names it as well, so the
+ * files can be checked there before production, though the app only claims production's address.
+ */
+const COMMONS_APP: NonNullable<Stage["app"]> = {
+  android: {
+    package: "com.clikbrite.commons",
+    certificates: [
+      "E4:C6:C8:AC:6B:7D:9F:5A:76:72:48:7C:C1:2D:D5:C9:04:6F:80:B2:43:E4:C2:17:A5:7D:B0:EF:9E:4A:77:42",
+    ],
+  },
+  apple: { appIds: ["2SY7CXG88J.com.clikbrite.commons"] },
+};
+
 export const STAGES: Record<string, Stage> = {
   // No real participants. Everything here can be deleted.
   staging: {
@@ -115,6 +152,7 @@ export const STAGES: Record<string, Stage> = {
     // So applying and approving can be tried here before production.
     hosted: true,
     deployFrom: REPOSITORY,
+    app: COMMONS_APP,
     // Its own subdomain, so production can have truman-research.org itself.
     mail: {
       domain: "staging.truman-research.org",
@@ -142,6 +180,7 @@ export const STAGES: Record<string, Stage> = {
     anthropicKeySecret: "truman3-production/anthropic-api-key",
     hosted: true,
     deployFrom: REPOSITORY,
+    app: COMMONS_APP,
     mail: {
       domain: "truman-research.org",
       from: "Truman <no-reply@truman-research.org>",

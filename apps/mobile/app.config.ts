@@ -29,6 +29,22 @@ const id = setting("TRUMAN_APP_ID") ?? "edu.example.commons";
 const owner = setting("TRUMAN_APP_OWNER");
 const projectId = setting("EAS_PROJECT_ID");
 const googleServices = setting("GOOGLE_SERVICES_JSON");
+const siteUrl = setting("TRUMAN_SITE_URL") ?? "http://localhost:5180";
+
+/**
+ * The web addresses whose join links open the app (ADR 108): the site's own, and any others in
+ * TRUMAN_LINK_HOSTS, separated by commas, for a Truman whose studies run at several domains. Only
+ * for a site served over https. Each address also has to say the app is its own, which is the
+ * stage's `app` setting in infra/lib/stages.ts. Until it does, links open in the browser.
+ */
+const siteHost = /^https:\/\/([^/:]+)/.exec(siteUrl)?.[1];
+const linkHosts = [
+  ...new Set(
+    [siteHost, ...(setting("TRUMAN_LINK_HOSTS") ?? "").split(",")]
+      .map((host) => host?.trim().toLowerCase())
+      .filter((host): host is string => Boolean(host)),
+  ),
+].filter(() => siteHost !== undefined);
 
 const config: ExpoConfig = {
   name,
@@ -48,6 +64,9 @@ const config: ExpoConfig = {
     // The app only uses the encryption the phone provides (HTTPS), which is exempt. Saying so here
     // saves Apple asking with every upload.
     config: { usesNonExemptEncryption: false },
+    ...(linkHosts.length > 0
+      ? { associatedDomains: linkHosts.map((host) => `applinks:${host}`) }
+      : {}),
   },
   android: {
     package: id,
@@ -55,11 +74,27 @@ const config: ExpoConfig = {
     // Push notifications on Android go through Firebase, which needs this file from the lab's
     // Firebase project. Without it the app builds, and push works on iPhones only. See README.md.
     ...(googleServices ? { googleServicesFile: googleServices } : {}),
+    // A study's join link at one of these addresses opens the app, once Android has checked with
+    // the address that the app is its own.
+    ...(linkHosts.length > 0
+      ? {
+          intentFilters: [
+            {
+              action: "VIEW",
+              autoVerify: true,
+              data: linkHosts.map((host) => ({ scheme: "https", host, pathPrefix: "/join/" })),
+              category: ["BROWSABLE", "DEFAULT"],
+            },
+          ],
+        }
+      : {}),
   },
   plugins: ["expo-notifications"],
   extra: {
     /** The participant site, like https://truman.example.edu. */
-    siteUrl: setting("TRUMAN_SITE_URL") ?? "http://localhost:5180",
+    siteUrl,
+    /** The addresses whose join links open the app, for the app to know one when it's handed one. */
+    linkHosts,
     eas: projectId ? { projectId } : undefined,
   },
 };

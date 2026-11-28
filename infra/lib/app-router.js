@@ -10,6 +10,14 @@
 // The stack writes the stage's participant domains here when it's built.
 var PARTICIPANT_HOSTS = [];
 
+// The two files that let a study's join link open the phone app (ADR 108), each as the text to
+// send, or null where the stage names no app. Android asks for the first and iPhones the second,
+// at these exact addresses. The stack writes them here when it's built.
+var APP_LINK_FILES = {
+  "/.well-known/assetlinks.json": null,
+  "/.well-known/apple-app-site-association": null,
+};
+
 function notFound() {
   return { statusCode: 404, statusDescription: "Not Found" };
 }
@@ -21,7 +29,24 @@ function handler(event) {
   var headers = request.headers || {};
   var host = headers.host ? headers.host.value : "";
   var forParticipants = PARTICIPANT_HOSTS.indexOf(host) !== -1;
+  var file = APP_LINK_FILES[uri];
 
+  if (uri.startsWith("/.well-known/")) {
+    // Never the app's page, which is what any other path gets: a phone asking whether a link is
+    // the app's has to get the file or a plain no.
+    if (!file) {
+      return notFound();
+    }
+    return {
+      statusCode: 200,
+      statusDescription: "OK",
+      headers: {
+        "content-type": { value: "application/json" },
+        "cache-control": { value: "public, max-age=3600" },
+      },
+      body: { encoding: "text", data: file },
+    };
+  }
   if (uri.startsWith("/api/")) {
     if (forParticipants && (uri === "/api/admin" || uri.startsWith("/api/admin/"))) {
       return notFound();
