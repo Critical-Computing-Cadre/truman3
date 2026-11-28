@@ -248,6 +248,7 @@ export function createAdminRoutes({
   secureCookies,
   getClientIp,
   allowLoginAttempt,
+  allowLoginFromAddress,
   participantAppUrl = "http://localhost:5180",
   participantDomains = [],
   participantDomainDefault,
@@ -260,9 +261,12 @@ export function createAdminRoutes({
   app.openapi(loginRoute, async (c) => {
     const { email, password } = c.req.valid("json");
 
+    const address = getClientIp(c) ?? "unknown";
+    // The address first. One that's over its limit stops here, so the emails it makes up are never
+    // counted, and can't fill the limiter and shut out everyone else (rate-limit.ts).
     if (
-      allowLoginAttempt &&
-      !allowLoginAttempt(`${getClientIp(c) ?? "unknown"}:${email.toLowerCase()}`)
+      (allowLoginFromAddress && !allowLoginFromAddress(address)) ||
+      (allowLoginAttempt && !allowLoginAttempt(`${address}:${email.toLowerCase()}`))
     ) {
       return c.json({ error: "Too many attempts. Please wait a minute and try again." }, 429);
     }

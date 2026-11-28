@@ -262,6 +262,67 @@ describe("stories", () => {
       .where(and(eq(schema.content.studyVersionId, versionId), eq(schema.content.kind, "story")));
     expect(stored.filter(({ worldId }) => worldId === null)).toHaveLength(7);
   });
+
+  it("ignores a repeated story upload and leaves no extra photo behind on failed uploads", async () => {
+    const { slug, versionId } = await study();
+    const cookie = await join(slug);
+    const sharedMeta = meta();
+    const sendStory = () => {
+      const form = new FormData();
+      for (const [key, value] of Object.entries({ ...sharedMeta, caption: "Once" })) {
+        form.set(key, value);
+      }
+      form.set("image", new File([PNG], "once.png", { type: "image/png" }));
+      return app.request("/stories", { method: "POST", headers: { cookie }, body: form });
+    };
+
+    const [first, second] = await Promise.all([sendStory(), sendStory()]);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    const firstBody = (await first.json()) as { id: string };
+    const secondBody = (await second.json()) as { id: string };
+    expect(secondBody.id).toBe(firstBody.id);
+
+    const participantStories = await database.db
+      .select()
+      .from(schema.content)
+      .where(and(eq(schema.content.studyVersionId, versionId), eq(schema.content.kind, "story")));
+    expect(participantStories.filter(({ worldId }) => worldId !== null)).toHaveLength(1);
+
+    const beforeUploads = await database.db.select().from(schema.uploads);
+    // Profile update with a taken username shouldn't store the picture.
+    const takenForm = new FormData();
+    for (const [key, value] of Object.entries({ ...meta(), username: "ann" })) {
+      takenForm.set(key, value);
+    }
+    takenForm.set("picture", new File([PNG], "me.png", { type: "image/png" }));
+    const taken = await app.request("/me/profile", {
+      method: "POST",
+      headers: { cookie },
+      body: takenForm,
+    });
+    expect(taken.status).toBe(409);
+
+    // Multi-photo post where the second photo is invalid cleans up the first.
+    const badPost = new FormData();
+    for (const [key, value] of Object.entries({ ...meta(), body: "Two photos" })) {
+      badPost.set(key, value);
+    }
+    badPost.append("image", new File([PNG], "good.png", { type: "image/png" }));
+    badPost.append(
+      "image",
+      new File([new Uint8Array([1, 2, 3])], "bad.txt", { type: "text/plain" }),
+    );
+    const rejected = await app.request("/posts", {
+      method: "POST",
+      headers: { cookie },
+      body: badPost,
+    });
+    expect(rejected.status).toBe(400);
+
+    const afterUploads = await database.db.select().from(schema.uploads);
+    expect(afterUploads).toHaveLength(beforeUploads.length);
+  });
 });
 
 describe("liked by", () => {

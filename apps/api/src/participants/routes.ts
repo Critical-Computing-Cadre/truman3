@@ -180,6 +180,12 @@ export interface ParticipantRouteDependencies {
   allowEntryAttempt?: (ipAddress: string) => boolean;
   /** Decides whether a researcher's login can be tried right now. Leave out for no limit. */
   allowLoginAttempt?: (key: string) => boolean;
+  /**
+   * Decides whether anyone at an address may try a researcher's login right now, whoever they say
+   * they are. Asked before `allowLoginAttempt`, so an address that's over stops there. Its limit is
+   * higher, since a class or a lab can share one address. Leave out for no limit.
+   */
+  allowLoginFromAddress?: (ipAddress: string) => boolean;
   /** The participant app's public address, shown to researchers as the study link. */
   participantAppUrl?: string;
   /** Domains a study can run at instead, so the address doesn't say "research" (ADR 74). */

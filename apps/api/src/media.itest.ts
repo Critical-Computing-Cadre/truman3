@@ -133,10 +133,22 @@ describe("what participants upload", () => {
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
-  it("goes to the team that owns the study", async () => {
+  it("goes to the team that owns the study, and not to an agent's token", async () => {
     const { slug, researcher } = await lab();
     const url = await uploadPicture((await join(slug)).cookie);
     expect((await fetchAs(researcher, url)).status).toBe(200);
+
+    const { token } = (await (
+      await app.request("/admin/tokens", {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: researcher },
+        body: JSON.stringify({ name: "Agent" }),
+      })
+    ).json()) as { token: string };
+    const asAgent = await app.request(url, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(asAgent.status).toBe(404);
   });
 
   it("gives the same answer to everyone else, whether or not the file exists", async () => {

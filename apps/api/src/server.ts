@@ -40,6 +40,11 @@ const scanner =
 await storage.ensureBucket();
 /** Generous, since many participants can share one address on a campus network. */
 const ENTRY_ATTEMPTS_PER_MINUTE = 120;
+/**
+ * How many times more often one address can try researchers' logins than one address can try one
+ * email. A class, a workshop, or a whole lab can sign in from the same address at once.
+ */
+const LOGINS_PER_ADDRESS_MULTIPLE = 6;
 
 // Each lab's own key, for what ties its data to real people (ADR 82).
 const labKeys =
@@ -78,6 +83,10 @@ const app = createApp({
   live,
   allowEntryAttempt: createRateLimiter({ max: ENTRY_ATTEMPTS_PER_MINUTE, windowMs: 60_000 }),
   allowLoginAttempt: createRateLimiter({ max: env.LOGIN_ATTEMPTS_PER_MINUTE, windowMs: 60_000 }),
+  allowLoginFromAddress: createRateLimiter({
+    max: env.LOGIN_ATTEMPTS_PER_MINUTE * LOGINS_PER_ADDRESS_MULTIPLE,
+    windowMs: 60_000,
+  }),
   pingDatabase: database.ping,
   logFullErrors,
   db: database.db,
