@@ -163,8 +163,14 @@ describe("push notifications", () => {
         { ...meta(), type: "app.opened", payload: { platform: "android" } },
         { ...meta(), type: "push.permission", payload: { granted: false } },
         { ...meta(), type: "app.closed", payload: { secondsOpen: 42 } },
+        // They said yes, and the phone still couldn't set push up. The reason is kept.
+        {
+          ...meta(),
+          type: "push.permission",
+          payload: { granted: true, reason: "Default FirebaseApp is not initialized" },
+        },
       ],
     });
-    expect(await reported.json()).toEqual({ recorded: 3 });
+    expect(await reported.json()).toEqual({ recorded: 4 });
   });
 });

@@ -32,7 +32,7 @@ Notifications.setNotificationHandler({
 
 type AppMessage =
   | { type: "push-token"; token: string; platform: "ios" | "android" }
-  | { type: "push-permission"; granted: boolean }
+  | { type: "push-permission"; granted: boolean; reason?: string }
   | { type: "opened"; platform: "ios" | "android" }
   | { type: "closed"; secondsOpen: number }
   | { type: "push-opened"; kind: "notification" | "message" };
@@ -97,26 +97,46 @@ function pageFor(url: string | null): string | null {
   return `${SITE_URL}/${path}${query ? `?${query}` : ""}`;
 }
 
-/** Asks for permission, and finds where to send this phone's push notifications. */
-async function pushToken(): Promise<{ granted: boolean; token: string | null }> {
+/**
+ * Asks for permission, and finds where to send this phone's push notifications. When that can't be
+ * done, `reason` says why, in the phone's own words, so a lab can tell a person who said no from a
+ * build that's missing its Firebase file.
+ */
+async function pushToken(): Promise<{ granted: boolean; token: string | null; reason?: string }> {
   if (!Device.isDevice) {
-    return { granted: false, token: null };
+    return { granted: false, token: null, reason: "Not a real phone." };
   }
-  const existing = await Notifications.getPermissionsAsync();
-  const asked = existing.granted ? existing : await Notifications.requestPermissionsAsync();
-  if (!asked.granted) {
-    return { granted: false, token: null };
+  try {
+    // Android only asks "Allow notifications?" once the app has a channel to put them in, so this
+    // comes before asking. Asked first, nothing appears and the answer is always no.
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "Notifications",
+        importance: Notifications.AndroidImportance.DEFAULT,
+      });
+    }
+    const existing = await Notifications.getPermissionsAsync();
+    const asked = existing.granted ? existing : await Notifications.requestPermissionsAsync();
+    if (!asked.granted) {
+      return { granted: false, token: null };
+    }
+  } catch (error) {
+    return { granted: false, token: null, reason: why(error) };
   }
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "Notifications",
-      importance: Notifications.AndroidImportance.DEFAULT,
-    });
+  try {
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+    const { data } = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : {});
+    return { granted: true, token: data };
+  } catch (error) {
+    // They said yes, but the phone couldn't register. On Android that's most often a build without
+    // google-services.json (README.md).
+    return { granted: true, token: null, reason: why(error) };
   }
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
-  const { data } = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : {});
-  return { granted: true, token: data };
 }
+
+/** An error as a short line of text. */
+const why = (error: unknown) =>
+  (error instanceof Error ? error.message : String(error)).slice(0, 200);
 
 /** The app, inside what tells it how much room the phone's own bars take. */
 export function App() {
@@ -218,8 +238,8 @@ function Shell() {
       send({ type: "opened", platform: PLATFORM });
     }
     if (token.current === null) {
-      const { granted, token: found } = await pushToken();
-      send({ type: "push-permission", granted });
+      const { granted, token: found, reason } = await pushToken();
+      send({ type: "push-permission", granted, ...(reason ? { reason } : {}) });
       token.current = found ?? "";
     }
     if (token.current) {

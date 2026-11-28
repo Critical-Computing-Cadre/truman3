@@ -22,7 +22,7 @@ Dominic wants participants to use a real phone app for their study, so it feels 
 - **The app never handles who someone is.** The site keeps its session. The app tells the page what only it knows, with `truman-app` events, and the page's bridge (`apps/participant/src/app-bridge.ts`) sends them to the API:
   - **The push token** goes to `POST /me/push`, and is kept on the session. So it's deleted when someone withdraws, as their sessions are.
   - **`app.opened` and `app.closed`** are recorded, with how long it was open: new data, only an app has it.
-  - **`push.permission`** records whether they allowed notifications, and **`push.opened`** records when they open the app from one.
+  - **`push.permission`** records whether they allowed notifications (with the phone's reason when it couldn't set them up), and **`push.opened`** records when they open the app from one.
 - **A `push` feature,** off in every template, as with other new features (ADR 61). A study turns it on.
 - **Push notifications are sent every 30 seconds** by the API (`apps/api/src/push.ts`).
   - Nothing else in Truman runs between a participant's visits, since what's due is worked out when they load something. For each participant with push on, the loop catches up their world as if they'd checked in, so what the cast does while the app is closed happens on time.
