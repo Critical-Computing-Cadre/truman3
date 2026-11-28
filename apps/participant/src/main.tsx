@@ -22,6 +22,7 @@ import { PilotPage } from "./pages/PilotPage.tsx";
 import { PostPage } from "./pages/PostPage.tsx";
 import { ProfilePage } from "./pages/ProfilePage.tsx";
 import { RulesPage, SitePage } from "./pages/RulesPage.tsx";
+import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { SpacePage, SpacesPage } from "./pages/SpacesPage.tsx";
 import { track } from "./tracking.ts";
 
@@ -163,12 +164,19 @@ const editProfileRoute = createRoute({
   component: EditProfilePage,
 });
 
+const settingsRoute = createRoute({
+  getParentRoute: () => gateRoute,
+  path: "/settings",
+  component: SettingsPage,
+});
+
 const router = createRouter({
   routeTree: rootRoute.addChildren([
     joinRoute,
     pilotRoute,
     gateRoute.addChildren([
       feedRoute,
+      settingsRoute,
       spacesRoute,
       spaceRoute,
       postRoute,

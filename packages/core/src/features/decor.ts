@@ -9,6 +9,7 @@ export type DecorTarget =
   | "explore"
   | "saved"
   | "account"
+  | "settings"
   | "rules"
   | "terms"
   | "privacy";
@@ -18,7 +19,14 @@ export interface DecorItem {
   /** What it's called on the page. */
   label: string;
   /** Where on the page it is, for a researcher choosing which to keep. */
-  where: "Top bar" | "Menu" | "Post box" | "Beside the feed" | "Small print" | "Corner";
+  where:
+    | "Top bar"
+    | "Menu"
+    | "Post box"
+    | "Beside the feed"
+    | "Small print"
+    | "Corner"
+    | "Settings page";
   /** The real page it opens where the study has one. Without one, pressing it says it isn't available. */
   opens?: DecorTarget;
 }
@@ -29,6 +37,7 @@ export const DECOR_TARGETS: Record<DecorTarget, string> = {
   explore: "Opens Explore when the study has trending, who to follow, or an Explore grid",
   saved: "Opens their own page, where saved posts are, when saving is on",
   account: "Opens the page where they edit their profile",
+  settings: "Opens their settings page",
   rules: "Opens the rules page when the study has one",
   terms: "Opens the terms page when the study has one",
   privacy: "Opens the privacy page when the study has one",
@@ -44,6 +53,19 @@ const print = (labels: readonly (string | [string, DecorTarget])[]): DecorItem[]
       ...(opens ? { opens } : {}),
     };
   });
+
+/**
+ * What a real app's settings page has that a study's doesn't, under the lines that open the study's
+ * real pages. The same on every kind of site, in this order (ADR 105).
+ */
+export const SETTINGS_DECOR: readonly DecorItem[] = [
+  { key: "settings-security", label: "Privacy and security", where: "Settings page" },
+  { key: "settings-notifications", label: "Notifications", where: "Settings page" },
+  { key: "settings-appearance", label: "Appearance", where: "Settings page" },
+  { key: "settings-languages", label: "Languages", where: "Settings page" },
+  { key: "settings-accessibility", label: "Accessibility", where: "Settings page" },
+  { key: "settings-help", label: "Help", where: "Settings page" },
+];
 
 /**
  * Everything each layout draws that's only for show (the `decor` feature, ADR 77): what a real site
@@ -67,6 +89,7 @@ export const DECOR_ITEMS: Record<LayoutKey, readonly DecorItem[]> = {
     { key: "feeling", label: "Feeling", where: "Post box" },
     { key: "contacts", label: "Contacts", where: "Beside the feed" },
     { key: "corner", label: "Messaging", where: "Corner" },
+    ...SETTINGS_DECOR,
     ...print([
       ["Privacy", "privacy"],
       ["Terms", "terms"],
@@ -78,9 +101,10 @@ export const DECOR_ITEMS: Record<LayoutKey, readonly DecorItem[]> = {
   ],
   photo: [
     { key: "reels", label: "Reels", where: "Menu" },
-    { key: "more", label: "More", where: "Menu", opens: "account" },
+    { key: "more", label: "More", where: "Menu", opens: "settings" },
     { key: "also", label: "Also from us", where: "Menu" },
     { key: "corner", label: "Messages", where: "Corner" },
+    ...SETTINGS_DECOR,
     ...print([
       "About",
       "Help",
@@ -97,8 +121,9 @@ export const DECOR_ITEMS: Record<LayoutKey, readonly DecorItem[]> = {
     { key: "search", label: "Search box", where: "Beside the feed" },
     { key: "lists", label: "Lists", where: "Menu" },
     { key: "bookmarks", label: "Bookmarks", where: "Menu", opens: "saved" },
-    { key: "settings", label: "Settings", where: "Menu", opens: "account" },
+    { key: "settings", label: "Settings", where: "Menu", opens: "settings" },
     { key: "corner", label: "Chat", where: "Corner" },
+    ...SETTINGS_DECOR,
     ...print([
       "About",
       "Help",
@@ -120,6 +145,7 @@ export const DECOR_ITEMS: Record<LayoutKey, readonly DecorItem[]> = {
     { key: "blog", label: "Blog", where: "Menu" },
     { key: "careers", label: "Careers", where: "Menu" },
     { key: "corner", label: "Chat", where: "Corner" },
+    ...SETTINGS_DECOR,
     ...print([
       ["Rules", "rules"],
       ["Privacy Policy", "privacy"],
@@ -131,7 +157,8 @@ export const DECOR_ITEMS: Record<LayoutKey, readonly DecorItem[]> = {
     { key: "live", label: "LIVE", where: "Top bar" },
     { key: "friends", label: "Friends", where: "Menu", opens: "explore" },
     { key: "shop", label: "Shop", where: "Menu" },
-    { key: "more", label: "More", where: "Menu", opens: "account" },
+    { key: "more", label: "More", where: "Menu", opens: "settings" },
+    ...SETTINGS_DECOR,
     ...print(["Company", "Programs", ["Terms", "terms"], ["Privacy", "privacy"], "Help", "Safety"]),
   ],
   video: [
@@ -140,6 +167,7 @@ export const DECOR_ITEMS: Record<LayoutKey, readonly DecorItem[]> = {
     { key: "subscriptions", label: "Subscriptions", where: "Menu", opens: "explore" },
     { key: "history", label: "History", where: "Menu" },
     { key: "watch-later", label: "Watch later", where: "Menu", opens: "saved" },
+    ...SETTINGS_DECOR,
     ...print([
       "About",
       "Press",

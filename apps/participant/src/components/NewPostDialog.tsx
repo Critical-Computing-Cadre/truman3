@@ -13,9 +13,10 @@ import {
   safeLink,
 } from "@truman3/core";
 import { Avatar, PhotoIcon, useIsPhone, usePlatform } from "@truman3/ui";
-import { type FormEvent, type RefObject, useEffect, useRef, useState } from "react";
+import { type FormEvent, type RefObject, useRef, useState } from "react";
 import { type FlowState, flowQuery, get, meQuery, postForm, type Written } from "../api.ts";
 import { AreYouSure } from "./AreYouSure.tsx";
+import { ChosenPicture } from "./ChosenPicture.tsx";
 
 const COMPOSER = {
   photo: { placeholder: "Add a caption..." },
@@ -121,22 +122,11 @@ export function NewPostDialog({
   const [chosenSpace, setChosenSpace] = useState("");
   const [body, setBody] = useState("");
   const [images, setImages] = useState<File[]>([]);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const image = images[0];
   const { placeholder } = COMPOSER[style];
   const goodLink = link.trim() ? safeLink(link) : null;
   const badLink = link.trim().length > 0 && goodLink === null;
   const fileInput = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!image) {
-      setImageUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(image);
-    setImageUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [image]);
 
   const close = () => dialogRef.current?.close();
   const limit = flow.data?.maxPostLength ?? null;
@@ -220,7 +210,7 @@ export function NewPostDialog({
       fileInput.current.value = "";
     }
   };
-  const pickerWords = imageUrl
+  const pickerWords = image
     ? `Choose ${several ? "different photos" : "a different photo"}`
     : `Add ${several ? "photos" : "a photo"}`;
   const picker = style !== "text" && (
@@ -235,11 +225,11 @@ export function NewPostDialog({
     >
       {inToolbar ? (
         <PhotoIcon className="h-6 w-6" />
-      ) : imageUrl ? (
-        <img
-          src={imageUrl}
-          alt="Your chosen"
-          className={`rounded object-contain ${photoFirst ? "max-h-[85%]" : "max-h-64"}`}
+      ) : image ? (
+        <ChosenPicture
+          file={image}
+          label="Your chosen"
+          className={`max-w-full rounded object-contain ${photoFirst ? "max-h-[85%]" : "max-h-64"}`}
         />
       ) : (
         <PhotoIcon className="h-10 w-10" />
@@ -376,12 +366,12 @@ export function NewPostDialog({
               className={`w-full min-w-0 flex-1 rounded border border-stone-300 px-3 py-2 text-base ${PLAIN} max-sm:min-h-32 max-sm:resize-none max-sm:text-lg`}
             />
           </div>
-          {inToolbar && imageUrl && (
+          {inToolbar && image && (
             <div className="relative self-start">
-              <img
-                src={imageUrl}
-                alt="Your chosen"
-                className="max-h-72 rounded-xl object-contain"
+              <ChosenPicture
+                file={image}
+                label="Your chosen"
+                className="max-h-72 max-w-full rounded-xl object-contain"
               />
               <button
                 type="button"

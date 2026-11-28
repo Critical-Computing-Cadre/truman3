@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { Avatar } from "@truman3/ui";
 import { type FormEvent, type ReactNode, useState } from "react";
+import { ChosenPicture } from "./ChosenPicture.tsx";
 
 export interface ProfileFields {
   username: string;
@@ -8,6 +9,10 @@ export interface ProfileFields {
   location: string;
   bio: string;
 }
+
+/** Looks like a button, and opens the phone's or computer's own way of choosing a picture. */
+const CHOOSE =
+  "cursor-pointer rounded-full bg-stone-200 px-4 py-2 text-sm font-semibold focus-within:outline-2";
 
 /** The form for someone's profile, both when first filling it in and when changing it later. */
 export function ProfileForm({
@@ -92,14 +97,26 @@ export function ProfileForm({
         <span className="text-sm font-normal text-stone-500">
           Optional. If you skip it, one is made for you.
         </span>
-        {pictureUrl && !picture && (
-          <Avatar seed={pictureUrl.seed} url={pictureUrl.url} size="h-16 w-16" />
-        )}
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(event) => setPicture(event.target.files?.[0] ?? null)}
-        />
+        <span className="mt-1 flex items-center gap-4">
+          {picture ? (
+            <ChosenPicture
+              file={picture}
+              label="The picture you chose"
+              className="h-16 w-16 rounded-full object-cover"
+            />
+          ) : (
+            pictureUrl && <Avatar seed={pictureUrl.seed} url={pictureUrl.url} size="h-16 w-16" />
+          )}
+          <span className={CHOOSE}>
+            {picture || pictureUrl?.url ? "Change photo" : "Choose a photo"}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => setPicture(event.target.files?.[0] ?? null)}
+              className="sr-only"
+            />
+          </span>
+        </span>
       </label>
       {bannerUrl && (
         <label className={labelClass}>
@@ -107,14 +124,26 @@ export function ProfileForm({
           <span className="text-sm font-normal text-stone-500">
             Optional. A wide picture across the top of your profile.
           </span>
-          {bannerUrl.url && !banner && (
-            <img src={bannerUrl.url} alt="" className="h-20 w-full rounded object-cover" />
+          {banner ? (
+            <ChosenPicture
+              file={banner}
+              label="The banner you chose"
+              className="h-20 w-full rounded object-cover"
+            />
+          ) : (
+            bannerUrl.url && (
+              <img src={bannerUrl.url} alt="" className="h-20 w-full rounded object-cover" />
+            )
           )}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(event) => setBanner(event.target.files?.[0] ?? null)}
-          />
+          <span className={`${CHOOSE} mt-1 self-start`}>
+            {banner || bannerUrl.url ? "Change banner" : "Choose a banner"}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => setBanner(event.target.files?.[0] ?? null)}
+              className="sr-only"
+            />
+          </span>
         </label>
       )}
       {saving.error && (

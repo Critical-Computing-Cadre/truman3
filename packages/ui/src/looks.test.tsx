@@ -1,11 +1,13 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { DECOR_ITEMS, LAYOUT_KEYS, type LayoutKey, TEMPLATES } from "@truman3/core";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { DECOR_ITEMS, LAYOUT_KEYS, type LayoutKey, SETTINGS_DECOR, TEMPLATES } from "@truman3/core";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BrandName } from "./BrandName.tsx";
 import { CreatePostBar } from "./Composers.tsx";
 import { type Chrome, ChromeProvider, SmallPrint } from "./chrome.tsx";
 import { FeedFrame, PageHeader } from "./PageFrames.tsx";
 import { PlatformProvider } from "./platform.tsx";
+import { SettingsList } from "./SettingsList.tsx";
 
 const features = TEMPLATES.classic.features;
 const chrome: Chrome = {
@@ -167,6 +169,7 @@ describe("what makes each kind of site look like itself", () => {
           <PageHeader renderBrand={() => null} home={link} links={[]} />
           <CreatePostBar seed="ann" pictureUrl={null} showPhoto onOpen={() => {}} />
           <FeedFrame renderProfile={() => null}>posts</FeedFrame>
+          <SettingsList rows={[]} />
         </ChromeProvider>
       </PlatformProvider>,
     );
@@ -181,6 +184,62 @@ describe("what makes each kind of site look like itself", () => {
     expect(container.querySelector('input[type="search"]') !== null).toBe(
       DECOR_ITEMS[layout].some(({ key }) => key === "search"),
     );
+  });
+
+  it("a settings page lists the study's real pages, then what's only for show", () => {
+    const onDecor = vi.fn();
+    const rows = [
+      {
+        key: "profile",
+        label: "Edit profile",
+        render: (className: string, children: ReactNode) => (
+          <a href="/account" className={className}>
+            {children}
+          </a>
+        ),
+      },
+    ];
+    const { unmount } = render(
+      <PlatformProvider platform={inLayout("forum")}>
+        <ChromeProvider value={{ ...chrome, onDecor }}>
+          <SettingsList rows={rows} />
+        </ChromeProvider>
+      </PlatformProvider>,
+    );
+    // Who's signed in is at the top.
+    expect(screen.getByText("@ann")).toBeTruthy();
+    const real = within(screen.getByRole("list", { name: "Your settings" }));
+    expect(real.getByRole("link", { name: "Edit profile" }).getAttribute("href")).toBe("/account");
+    const more = within(screen.getByRole("list", { name: "More settings" }));
+    expect(more.getAllByRole("button").map((button) => button.textContent)).toEqual(
+      SETTINGS_DECOR.map(({ label }) => label),
+    );
+    fireEvent.click(more.getByRole("button", { name: "Appearance" }));
+    expect(onDecor).toHaveBeenCalledWith("settings-appearance", "Appearance");
+    unmount();
+
+    // A study can hide one of them, or everything that's for show.
+    render(
+      <PlatformProvider
+        platform={{ ...inLayout("forum"), decor: { hide: ["settings-help"], add: [] } }}
+      >
+        <ChromeProvider value={chrome}>
+          <SettingsList rows={rows} />
+        </ChromeProvider>
+      </PlatformProvider>,
+    );
+    expect(screen.queryByRole("button", { name: "Help" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Languages" })).toBeTruthy();
+    cleanup();
+    render(
+      <PlatformProvider platform={{ layout: "forum", features: { ...features, decor: false } }}>
+        <ChromeProvider value={chrome}>
+          <SettingsList rows={rows} />
+        </ChromeProvider>
+      </PlatformProvider>,
+    );
+    expect(screen.queryByRole("list", { name: "More settings" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Edit profile" })).toBeTruthy();
   });
 
   // On a phone, some kinds of site start a post from a button in their own bars (ADR 104).
