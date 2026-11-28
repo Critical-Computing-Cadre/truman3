@@ -1,5 +1,6 @@
 import type { LayoutKey } from "@truman3/core";
 import { type ComponentType, Fragment, type ReactNode } from "react";
+import { useBarsThatHide } from "./bars.ts";
 import {
   ClassicFeedFrame,
   ClassicHeader,
@@ -112,7 +113,10 @@ const FRAMES: Record<
 };
 
 export function PageHeader(props: PageHeaderProps) {
-  const { Header } = FRAMES[usePlatform().layout];
+  const { layout } = usePlatform();
+  // One video at a time fills the screen and the page itself never scrolls, so its bars stay.
+  useBarsThatHide(layout !== "short-video");
+  const { Header } = FRAMES[layout];
   return <Header {...props} />;
 }
 

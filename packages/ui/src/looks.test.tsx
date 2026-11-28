@@ -183,6 +183,57 @@ describe("what makes each kind of site look like itself", () => {
     );
   });
 
+  // On a phone, some kinds of site start a post from a button in their own bars (ADR 104).
+  it.each([
+    ["classic", false],
+    ["forum", true],
+    ["short-posts", true],
+    ["photo", true],
+    ["short-video", false],
+    ["video", true],
+  ] as const)("%s: whether its bars have a button to start a post", (layout, has) => {
+    const compose = vi.fn();
+    const link = { key: "home", label: "Home", render: () => <a href="/">Home</a> };
+    const { unmount } = render(
+      <PlatformProvider platform={inLayout(layout)}>
+        <ChromeProvider value={{ ...chrome, go: {}, compose }}>
+          <PageHeader renderBrand={() => null} home={link} links={[]} />
+        </ChromeProvider>
+      </PlatformProvider>,
+    );
+    const button = screen.queryByRole("button", { name: "Compose" });
+    expect(button !== null).toBe(has);
+    if (button) {
+      fireEvent.click(button);
+      expect(compose).toHaveBeenCalledTimes(1);
+    }
+    unmount();
+    // Where they can't post, there's no button anywhere.
+    render(
+      <PlatformProvider platform={inLayout(layout)}>
+        <ChromeProvider value={{ ...chrome, go: {} }}>
+          <PageHeader renderBrand={() => null} home={link} links={[]} />
+        </ChromeProvider>
+      </PlatformProvider>,
+    );
+    expect(screen.queryByRole("button", { name: "Compose" })).toBeNull();
+  });
+
+  it.each(LAYOUT_KEYS)("%s: its bars on a phone are marked, so they can slide away", (layout) => {
+    const link = { key: "home", label: "Home", render: () => <a href="/">Home</a> };
+    const { container } = render(
+      <PlatformProvider platform={inLayout(layout)}>
+        <ChromeProvider value={{ ...chrome, go: {} }}>
+          <PageHeader renderBrand={() => null} home={link} links={[]} />
+        </ChromeProvider>
+      </PlatformProvider>,
+    );
+    // One video at a time never scrolls the page, so that kind keeps its bars.
+    const marked = layout === "short-video" ? 0 : 1;
+    expect(container.querySelectorAll('[data-bar="bottom"]')).toHaveLength(marked);
+    expect(container.querySelectorAll('[data-bar="top"]')).toHaveLength(marked);
+  });
+
   it.each(LAYOUT_KEYS)("%s: the site's name is written out, once", (layout) => {
     render(
       <PlatformProvider platform={inLayout(layout)}>

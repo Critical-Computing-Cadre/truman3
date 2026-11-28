@@ -124,3 +124,24 @@
   --color-stone-100: #1c2025;
   --color-stone-200: #262a30;
 }
+
+/*
+ * On a phone, the bars at the top and bottom slide away while someone scrolls down, and come back
+ * when they scroll up (bars.ts says which). A bar someone has moved into with a keyboard stays.
+ */
+@media (max-width: 767px) {
+  [data-bar] {
+    transition: transform 200ms ease-out;
+  }
+  :root[data-bars="hidden"] [data-bar="top"]:not(:focus-within) {
+    transform: translateY(-100%);
+  }
+  :root[data-bars="hidden"] [data-bar="bottom"]:not(:focus-within) {
+    transform: translateY(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-bar] {
+    transition: none;
+  }
+}

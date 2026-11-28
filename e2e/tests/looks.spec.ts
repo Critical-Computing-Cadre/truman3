@@ -52,3 +52,43 @@ test("Short posts has a banner on profiles, a Media tab, and Mute thread", async
   await expect(tabs.getByRole("tab", { name: "Media" })).toHaveAttribute("aria-selected", "true");
   await shot(page, project, "2-short-profile");
 });
+
+test("On a phone, the bars slide away going down, and a post is written on a whole screen", async ({
+  page,
+}, testInfo) => {
+  const project = testInfo.project.name;
+  test.skip(project !== "phone", "A wide screen keeps its bars, and writes in a window.");
+  await page.goto(`${app}/join/short-posts-e2e?PROLIFIC_PID=BARS-${Date.now()}`);
+  await expect(page.getByRole("tablist", { name: "Feeds" })).toBeVisible();
+
+  // Going down the page, the bars leave the screen. Going up at all, they're back (ADR 104).
+  const tabs = page.getByRole("navigation", { name: "Sections on a phone" });
+  await expect(tabs).toBeInViewport();
+  await page.mouse.wheel(0, 700);
+  await expect(page.locator("html")).toHaveAttribute("data-bars", "hidden");
+  await expect(tabs).not.toBeInViewport();
+  await shot(page, project, "3-bars-away");
+  await page.mouse.wheel(0, -120);
+  await expect(page.locator("html")).not.toHaveAttribute("data-bars", "hidden");
+  await expect(tabs).toBeInViewport();
+
+  // The round button over the posts opens a whole screen to write on, with Post at the top.
+  await page.getByRole("button", { name: "Compose" }).click();
+  const writing = page.getByRole("dialog", { name: "Add a New Post" });
+  await expect(writing.getByRole("button", { name: "Close" })).toHaveText("Cancel");
+  const box = await writing.boundingBox();
+  const screen = page.viewportSize();
+  expect(box?.width).toBe(screen?.width);
+  expect(box?.height).toBe(screen?.height);
+  const send = writing.getByRole("button", { name: "Post", exact: true });
+  await expect(send).toBeDisabled();
+  expect((await send.boundingBox())?.y).toBeLessThan(60);
+  await writing.getByLabel("Write a post").fill("Written from the round button");
+  await shot(page, project, "4-writing");
+  await send.click();
+  await expect(writing).toBeHidden();
+  // It shows in the feed. Someone in this study reposts it too, so it may be there twice.
+  await expect(
+    page.locator("article").filter({ hasText: "Written from the round button" }).first(),
+  ).toBeVisible();
+});

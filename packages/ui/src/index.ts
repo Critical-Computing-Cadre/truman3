@@ -48,6 +48,7 @@ export {
   PlatformProvider,
   skinProps,
   useFeature,
+  useIsPhone,
   usePlatform,
 } from "./platform.tsx";
 export type { FeedPostViewProps, PostActions } from "./post-props.ts";

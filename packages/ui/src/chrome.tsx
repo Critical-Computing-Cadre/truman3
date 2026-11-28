@@ -38,6 +38,8 @@ export interface Chrome {
   go: Partial<Record<DecorTarget, (className: string, children: ReactNode) => ReactNode>>;
   /** Someone pressed something that's only for show, to be recorded. */
   onDecor?: ((key: string, label: string) => void) | undefined;
+  /** Opens the window for writing a post, where they can post. */
+  compose?: (() => void) | undefined;
 }
 
 const ChromeContext = createContext<Chrome | null>(null);
@@ -72,6 +74,22 @@ export function ChromeProvider({ value, children }: { value: Chrome; children: R
         </p>
       </NoticeContext.Provider>
     </ChromeContext.Provider>
+  );
+}
+
+/**
+ * Starts a post from one of the page's own bars, for a kind of site that has a button there on a
+ * phone. It's named "Compose" on all of them, whatever it looks like. Nothing where they can't post.
+ */
+export function ComposeButton({ className, children }: { className: string; children: ReactNode }) {
+  const compose = useContext(ChromeContext)?.compose;
+  if (!compose) {
+    return null;
+  }
+  return (
+    <button type="button" aria-label="Compose" onClick={compose} className={className}>
+      {children}
+    </button>
   );
 }
 
