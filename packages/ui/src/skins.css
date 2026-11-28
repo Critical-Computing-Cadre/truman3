@@ -140,6 +140,16 @@
     transform: translateY(100%);
   }
 }
+/*
+ * On a post's own page on a phone, the box to reply is along the bottom (PostCard), so the
+ * sections that are there on other pages, and a round button to start a post, are left out.
+ */
+@media (max-width: 767px) {
+  :root[data-page="post"] [data-layout]:not([data-layout="short-video"]) [data-bar="bottom"],
+  :root[data-page="post"] [data-on-post="hide"] {
+    display: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   [data-bar] {
     transition: none;

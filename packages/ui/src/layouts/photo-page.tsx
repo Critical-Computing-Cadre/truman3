@@ -193,7 +193,10 @@ export function ShortHeader({ renderBrand, home, links, action }: PageHeaderProp
         {action}
       </header>
       {/* A round button over the posts starts one, and stays put while the bars come and go. */}
-      <ComposeButton className="fixed right-4 bottom-16 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent-fill text-on-accent shadow-lg md:hidden">
+      <ComposeButton
+        onPost="hide"
+        className="fixed right-4 bottom-16 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent-fill text-on-accent shadow-lg md:hidden"
+      >
         <PenIcon className="h-6 w-6" />
       </ComposeButton>
       <nav

@@ -81,13 +81,28 @@ export function ChromeProvider({ value, children }: { value: Chrome; children: R
  * Starts a post from one of the page's own bars, for a kind of site that has a button there on a
  * phone. It's named "Compose" on all of them, whatever it looks like. Nothing where they can't post.
  */
-export function ComposeButton({ className, children }: { className: string; children: ReactNode }) {
+export function ComposeButton({
+  className,
+  children,
+  onPost,
+}: {
+  className: string;
+  children: ReactNode;
+  /** Whether it steps aside on a post's own page on a phone, where the box to reply is. */
+  onPost?: "hide";
+}) {
   const compose = useContext(ChromeContext)?.compose;
   if (!compose) {
     return null;
   }
   return (
-    <button type="button" aria-label="Compose" onClick={compose} className={className}>
+    <button
+      type="button"
+      aria-label="Compose"
+      onClick={compose}
+      className={className}
+      {...(onPost ? { "data-on-post": onPost } : {})}
+    >
       {children}
     </button>
   );
