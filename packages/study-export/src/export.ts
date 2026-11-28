@@ -1510,6 +1510,8 @@ const EVENT_NOTES: Record<string, string> = {
     "They pressed the button on a moderator's warning, which stays on every page until they do. It names what the warning was about, and doesn't say they read it.",
   "space.joined": "They joined a space, so its posts show in their home feed. Names it by key.",
   "space.left": "They left a space, so its posts no longer show in their home feed.",
+  "notifications.filtered":
+    "They pressed a chip above their notifications to see one kind (`filter`: replies, reactions, follows, or moderation), or all of them again.",
   "decor.pressed":
     "They pressed something that's only for show, such as Marketplace or Help. `key` names it, `label` is what it said, and `page` is where they were. All they saw was a note that it isn't available right now.",
   "content.link_opened":

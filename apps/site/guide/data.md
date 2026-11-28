@@ -60,6 +60,7 @@ Whatever your study used is frozen with its version, so you can write your metho
 | `content.viewed`                                     | A post was on their screen, with `dwell_ms` for how long                                                       |
 | `actor.followed`                                     | They followed someone                                                                                          |
 | `flow.step_completed`                                | They finished a step such as consent                                                                           |
+| `notifications.filtered`                             | They pressed a chip above their notifications to see one kind. `filter` says which                             |
 | `decor.pressed`                                      | They pressed something that's only for show, such as Marketplace. `key` and `label` say what, and `page` where |
 
 Three things are worth knowing when you read it:
