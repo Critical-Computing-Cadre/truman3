@@ -458,6 +458,17 @@ describe("timing reports", () => {
     expect(pressed).toMatchObject({ payload });
   });
 
+  it("records narrowing notifications to one kind, and takes only the kinds there are", async () => {
+    const person = await enter(await importStudy());
+    const filtered = { ...meta(), type: "notifications.filtered", payload: { filter: "replies" } };
+    expect(await (await report(person, [filtered])).json()).toEqual({ recorded: 1 });
+    const kept = (await eventsOf(person)).find((event) => event.type === "notifications.filtered");
+    expect(kept).toMatchObject({ payload: { filter: "replies" } });
+
+    const madeUp = { ...meta(), type: "notifications.filtered", payload: { filter: "ads" } };
+    expect((await report(person, [madeUp])).status).toBe(400);
+  });
+
   it("counts a retried report once", async () => {
     const person = await enter(await importStudy());
     const event = { ...meta(), type: "page.viewed", payload: { page: "/feed" } };

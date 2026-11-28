@@ -16,6 +16,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { flowQuery, get, post } from "../api.ts";
 import { CommunityCard } from "../components/Community.tsx";
+import { useNoTabs } from "../components/no-tabs.ts";
 import { PostCard } from "../components/PostCard.tsx";
 import { UpNext } from "../components/UpNext.tsx";
 import { prerollFor } from "../prerolls.ts";
@@ -82,12 +83,7 @@ export function PostPage() {
 
   // On a phone this page has the box to reply along the bottom, where the sections are on other
   // pages. This says which page it is, and skins.css leaves the sections out (ADR 106).
-  useEffect(() => {
-    document.documentElement.dataset.page = "post";
-    return () => {
-      delete document.documentElement.dataset.page;
-    };
-  }, []);
+  useNoTabs("post");
 
   const shown = feed.data?.posts[0];
   // On a video site, Up next is down the side, and the next one follows when this ends (ADR 96).

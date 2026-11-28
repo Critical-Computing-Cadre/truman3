@@ -142,11 +142,13 @@
 }
 /*
  * On a post's own page on a phone, the box to reply is along the bottom (PostCard), so the
- * sections that are there on other pages, and a round button to start a post, are left out.
+ * sections that are there on other pages, and a round button to start a post, are left out. The
+ * same in a conversation, where the box to write a message is, on every kind of site.
  */
 @media (max-width: 767px) {
-  :root[data-page="post"] [data-layout]:not([data-layout="short-video"]) [data-bar="bottom"],
-  :root[data-page="post"] [data-on-post="hide"] {
+  :root[data-page] [data-layout]:not([data-layout="short-video"]) [data-bar="bottom"],
+  :root[data-page] [data-on-post="hide"],
+  :root[data-page="conversation"] [data-tabs] {
     display: none;
   }
 }

@@ -135,6 +135,10 @@ export const eventPayloadSchemas = {
   "actor.reported": z.strictObject({ reason: z.string() }),
   "profile.updated": z.strictObject({ fields: z.array(z.string()) }),
   "notifications.viewed": empty,
+  /** They narrowed their notifications to one kind, or went back to all of them (ADR 107). */
+  "notifications.filtered": z.strictObject({
+    filter: z.enum(["all", "replies", "reactions", "follows", "moderation"]),
+  }),
   /** They opened their conversation with someone in the cast. `targetActorId` is who. */
   "messages.opened": empty,
   /** The app came to the front, on their phone. See ADR 66. */
