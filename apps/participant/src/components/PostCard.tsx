@@ -20,6 +20,13 @@ import { SubscribeButton } from "./SubscribeButton.tsx";
 /** Counts as being looked at once half of it is on screen. */
 const IN_VIEW_THRESHOLD = 0.5;
 
+/**
+ * The box to reply, held to the bottom of a phone's screen on a post's own page. On a wider screen
+ * it takes up no room of its own and what's inside sits where the layout puts it.
+ */
+const PINNED =
+  "max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:m-0 max-md:space-y-1 max-md:border-t max-md:border-stone-200 max-md:bg-white max-md:px-3 max-md:py-2 md:contents";
+
 function useContentDwell(contentId: string, surface: string) {
   const ref = useRef<HTMLElement>(null);
 
@@ -95,6 +102,9 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
   const [crossposting, setCrossposting] = useState(false);
   /** Whether comments are here, or wait on the post's own page. */
   const detail = surface === "post";
+  // One video at a time has its comments on a sheet of their own, so nothing's pinned there.
+  const { layout } = usePlatform();
+  const pinned = detail && layout !== "short-video";
   const pages = flow.data?.features.postPages ?? false;
   const openPost = () => {
     rememberOpenedFrom(surface);
@@ -282,7 +292,9 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
               me.data &&
               (detail || !pages) &&
               (flow.data?.commentBox === "open" || replying || replyTo) && (
-                <>
+                // On a post's own page on a phone, the box to reply stays at the bottom of the
+                // screen, as in apps (ADR 106). Anywhere else it's where the layout puts it.
+                <div data-testid="reply-bar" className={pinned ? PINNED : "contents"}>
                   {replyTo && (
                     <p className="flex justify-between text-xs text-stone-500">
                       <span>Replying to {replyTo.author.name}</span>
@@ -309,7 +321,7 @@ export function PostCard({ post, surface = "feed" }: { post: FeedPost; surface?:
                     sending={comment.isPending}
                     inputRef={inputRef}
                   />
-                </>
+                </div>
               )
             )
           }

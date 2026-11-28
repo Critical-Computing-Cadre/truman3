@@ -80,6 +80,15 @@ export function PostPage() {
     }
   }, [postId]);
 
+  // On a phone this page has the box to reply along the bottom, where the sections are on other
+  // pages. This says which page it is, and skins.css leaves the sections out (ADR 106).
+  useEffect(() => {
+    document.documentElement.dataset.page = "post";
+    return () => {
+      delete document.documentElement.dataset.page;
+    };
+  }, []);
+
   const shown = feed.data?.posts[0];
   // On a video site, Up next is down the side, and the next one follows when this ends (ADR 96).
   const watchPage = usePlatform().layout === "video";
