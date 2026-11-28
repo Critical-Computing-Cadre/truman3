@@ -46,7 +46,7 @@ Two more workflows run beside it:
 - [`dco.yml`](../.github/workflows/dco.yml) checks that every commit in a pull request is signed off ([CONTRIBUTING.md](../CONTRIBUTING.md), "Sign your work"). It runs on documentation changes too.
 - [`scorecard.yml`](../.github/workflows/scorecard.yml) runs [OpenSSF Scorecard](https://scorecard.dev) on each merge and once a week. It grades how the repository is run, such as pinned dependencies and token permissions, and publishes the score.
 - [`codeql.yml`](../.github/workflows/codeql.yml) is GitHub's code scanning. It reads the TypeScript and the workflows for known kinds of security mistake, on every pull request, each merge, and once a week.
-- [`release.yml`](../.github/workflows/release.yml) attaches a list of dependencies to each release. See [Releases](#releases).
+- [`release.yml`](../.github/workflows/release.yml) attaches a list of dependencies to each release, and publishes the API's container with a signed statement of where it was built. See [Releases](#releases).
 
 Every workflow starts with no permissions, or read-only ones, and a job asks for what it needs.
 
@@ -63,7 +63,7 @@ Every workflow starts with no permissions, or read-only ones, and a job asks for
 
 ## Decision records
 
-A choice someone might later question gets a short record in [`docs/adr`](adr): the context, the decision, the alternatives considered, and the consequences. There are 103. They're written with the change that makes the decision, in the same pull request, and they aren't rewritten afterwards: a later change of mind gets a new record that says so.
+A choice someone might later question gets a short record in [`docs/adr`](adr): the context, the decision, the alternatives considered, and the consequences. There are 109. They're written with the change that makes the decision, in the same pull request, and they aren't rewritten afterwards: a later change of mind gets a new record that says so.
 
 ## Dependencies
 
@@ -81,6 +81,7 @@ Hosted Truman runs `main`, a merge at a time, after approval. Tagged releases ar
 - **A release is a tag on `main`,** with notes in [CHANGELOG.md](../CHANGELOG.md) and on GitHub Releases.
 - **[FEATURES.md](../FEATURES.md) is updated with it,** so the list of what Truman does is dated to a release.
 - **Each release has a software bill of materials (SBOM) attached:** every dependency and its version, in CycloneDX format, one file for the workspace and one for the phone app. They're read from the lockfiles when the release is published.
+- **Each release publishes the API's container,** as `ghcr.io/critical-computing-cadre/truman3:<tag>`, for x86 and ARM ([ADR 109](adr/0109-a-published-signed-image.md)). GitHub signs a statement of which repository, workflow, and commit built it, which is SLSA Build Level 2. The statement is attached to the release, and anyone can check an image against it: `gh attestation verify oci://ghcr.io/critical-computing-cadre/truman3:<tag> --repo Critical-Computing-Cadre/truman3`.
 - **Saved studies outlive releases.** A study version records the layout and feature versions it was built with, and a launched layout is never changed, so a study replicated later looks as it did.
 
 ## Security
