@@ -139,7 +139,16 @@ export const ACTS = [
  * of the object inside the string, as in "Salt the water.}", and nobody writes that on purpose.
  */
 export function withoutStrayBrace(text: string): string {
-  return text.includes("{") ? text : text.replace(/\s*\}+\s*$/, "");
+  if (text.includes("{")) {
+    return text;
+  }
+  // The braces at the end, and any space on either side of them. Walked back from the end, where
+  // a pattern would start again from each space in the text.
+  let end = text.trimEnd().length;
+  while (end > 0 && text.charAt(end - 1) === "}") {
+    end -= 1;
+  }
+  return end === text.trimEnd().length ? text : text.slice(0, end).trimEnd();
 }
 
 /** A simulated participant's turn: who they are and what they see, numbered. */

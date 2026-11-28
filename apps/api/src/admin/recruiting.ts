@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { roleOnStudy } from "@truman3/accounts";
-import type { StudySettings } from "@truman3/core";
+import { type StudySettings, withoutTrailing } from "@truman3/core";
 import { schema } from "@truman3/db";
 import { desc, eq } from "drizzle-orm";
 import type { ParticipantRouteDependencies } from "../participants/routes.ts";
@@ -79,11 +79,14 @@ export function createRecruitingRoutes({
     }
     const settings = version.settings as StudySettings;
     const exit = settings.flow.find((step) => step.step === "exit");
-    const base = studyAddress(study.participantDomain, {
-      participantAppUrl,
-      participantDomains,
-      participantDomainDefault,
-    }).replace(/\/+$/, "");
+    const base = withoutTrailing(
+      studyAddress(study.participantDomain, {
+        participantAppUrl,
+        participantDomains,
+        participantDomainDefault,
+      }),
+      "/",
+    );
     return c.json(
       {
         title: settings.title,

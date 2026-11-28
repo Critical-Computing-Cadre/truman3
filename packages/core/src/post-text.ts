@@ -1,3 +1,4 @@
+import { withoutTrailing } from "./trailing.ts";
 export type TextPiece =
   | { type: "text"; text: string }
   | { type: "tag"; text: string; tag: string }
@@ -28,11 +29,11 @@ export function textPieces(
         : // A sentence can end right after a mention, and that full stop isn't part of it.
           {
             type: "mention",
-            text: found.replace(/[.-]+$/, ""),
-            username: found.slice(1).replace(/[.-]+$/, ""),
+            text: withoutTrailing(found, ".-"),
+            username: withoutTrailing(found.slice(1), ".-"),
           },
     );
-    last = start + found.replace(/[.-]+$/, "").length;
+    last = start + withoutTrailing(found, ".-").length;
   }
   if (last < text.length) {
     pieces.push({ type: "text", text: text.slice(last) });

@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { roleOnStudy } from "@truman3/accounts";
-import type { StudySettings } from "@truman3/core";
+import { type StudySettings, withoutTrailing } from "@truman3/core";
 import { schema } from "@truman3/db";
 import {
   createProlificClient,
@@ -58,7 +58,7 @@ export function wordReminder(message: string, link: string, site: string) {
 
 /** Their own link: the study's address with their ID in it, which is all they need to get back. */
 export function wayBackIn(address: string, slug: string, idParam: string, prolificId: string) {
-  return `${address.replace(/\/+$/, "")}/join/${slug}?${idParam}=${encodeURIComponent(prolificId)}`;
+  return `${withoutTrailing(address, "/")}/join/${slug}?${idParam}=${encodeURIComponent(prolificId)}`;
 }
 
 const errorResponse = (description: string) => ({

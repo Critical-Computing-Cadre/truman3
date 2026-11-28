@@ -76,9 +76,21 @@ export function completionUrl(completionCode: string): string {
   return `${COMPLETE_URL}?cc=${encodeURIComponent(completionCode)}`;
 }
 
+/**
+ * An address without the slashes at its end. It walks back from the end once. The pattern /\/+$/
+ * does the same job, but on a long run of slashes in the middle it starts again from each one.
+ */
+function withoutTrailingSlashes(address: string): string {
+  let end = address.length;
+  while (end > 0 && address.charAt(end - 1) === "/") {
+    end -= 1;
+  }
+  return address.slice(0, end);
+}
+
 /** The link Prolific sends people to, with Prolific filling in the placeholders for each person. */
 export function entryUrl(participantAppUrl: string, slug: string, idParam: string): string {
-  const base = participantAppUrl.replace(/\/+$/, "");
+  const base = withoutTrailingSlashes(participantAppUrl);
   return `${base}/join/${slug}?${idParam}={{%PROLIFIC_PID%}}&STUDY_ID={{%STUDY_ID%}}&SESSION_ID={{%SESSION_ID%}}`;
 }
 
@@ -129,7 +141,7 @@ export function createProlificClient({
   apiUrl?: string;
   fetch?: typeof fetch;
 }) {
-  const base = apiUrl.replace(/\/+$/, "");
+  const base = withoutTrailingSlashes(apiUrl);
 
   const request = async <T>(method: string, path: string, body?: object): Promise<T> => {
     const response = await send(`${base}${path}`, {

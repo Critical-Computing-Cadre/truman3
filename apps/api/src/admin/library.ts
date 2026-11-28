@@ -1,5 +1,5 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
-import type { StudySettings } from "@truman3/core";
+import { type StudySettings, withoutTrailing } from "@truman3/core";
 import { type Database, schema } from "@truman3/db";
 import { type Bundle, bundleVersion, loadBundle, readBundle } from "@truman3/drafts";
 import { and, desc, eq, ne, or } from "drizzle-orm";
@@ -327,7 +327,7 @@ export function createLibraryRoutes({
         or(eq(schema.libraryStudies.status, "listed"), eq(schema.libraryStudies.status, "waiting")),
       )
       .orderBy(desc(schema.libraryStudies.publishedAt));
-    const base = mediaPublicUrl.replace(/\/+$/, "");
+    const base = withoutTrailing(mediaPublicUrl, "/");
     return c.json(
       {
         studies: rows
