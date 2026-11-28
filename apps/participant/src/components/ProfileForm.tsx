@@ -18,7 +18,11 @@ function usePreview(file: File | null) {
       return;
     }
     const made = URL.createObjectURL(file);
-    setUrl(made);
+    // Only ever the address of a picture held in this browser, which is what the browser makes
+    // here. Checked so that nothing else could reach a picture's address by this way.
+    if (made.startsWith("blob:")) {
+      setUrl(made);
+    }
     return () => URL.revokeObjectURL(made);
   }, [file]);
   return url;
