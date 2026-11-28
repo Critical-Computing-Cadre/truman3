@@ -76,6 +76,7 @@ export function ShortVideoHeader({ renderBrand, home, links, action }: PageHeade
       </nav>
       <nav
         aria-label="Sections on a phone"
+        data-tabs=""
         className="fixed inset-x-0 bottom-0 z-20 flex h-12 border-t border-[#222] bg-[#000] text-[#fff] md:hidden"
       >
         {tabs.map(({ key, label, render }) => (

@@ -208,6 +208,10 @@ const reportedEventSchema = z.discriminatedUnion("type", [
     payload: eventPayloadSchemas["decor.pressed"],
   }),
   actionMetaSchema.extend({
+    type: z.literal("notifications.filtered"),
+    payload: eventPayloadSchemas["notifications.filtered"],
+  }),
+  actionMetaSchema.extend({
     type: z.literal("session.heartbeat"),
     payload: eventPayloadSchemas["session.heartbeat"],
   }),

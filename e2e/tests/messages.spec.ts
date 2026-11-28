@@ -23,6 +23,8 @@ test("a participant gets a message, and messages someone from their profile", as
   await expect(conversations.getByText("Hey, welcome! Glad you're here.")).toBeVisible();
   await conversations.getByRole("link", { name: /Bob/ }).click();
   await expect(page.getByTestId("messages").getByText("Hey, welcome!")).toBeVisible();
+  // On a phone a conversation has no sections along the bottom, so the count is seen from the list.
+  await page.getByRole("link", { name: "Back to messages" }).click();
   await expect(page.getByRole("link", { name: "Messages, 0 new" }).first()).toBeVisible();
 
   // From Ann's profile, a message, and her answer.

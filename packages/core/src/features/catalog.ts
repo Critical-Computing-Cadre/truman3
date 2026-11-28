@@ -401,7 +401,7 @@ export const FEATURES = {
     name: "Notifications",
     description: "Participants get a page of who has reacted to them.",
     version: 1,
-    events: ["notifications.viewed"],
+    events: ["notifications.viewed", "notifications.filtered"],
   },
   messages: {
     name: "Direct messages",

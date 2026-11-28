@@ -61,6 +61,11 @@ const RESOURCES = [
 export function ForumHeader({ renderBrand, home, links, action }: PageHeaderProps) {
   const chrome = useChrome();
   const tabs = [home, ...links];
+  // On a phone, notifications and messages share one tab, "Inbox", as on these apps, which also
+  // keeps the bar to five. Both pages have a pair of tabs at the top to move between them.
+  const inbox =
+    links.some(({ key }) => key === "notifications") && links.some(({ key }) => key === "messages");
+  const phoneTabs = inbox ? tabs.filter(({ key }) => key !== "messages") : tabs;
   return (
     <>
       <header data-bar="top" className="sticky top-0 z-20 border-b border-stone-200 bg-white">
@@ -88,16 +93,38 @@ export function ForumHeader({ renderBrand, home, links, action }: PageHeaderProp
         data-bar="bottom"
         className="fixed inset-x-0 bottom-0 z-20 flex border-t border-stone-200 bg-white md:hidden"
       >
-        {tabs.map(({ key, render }, index) => (
+        {phoneTabs.map(({ key, render }, index) => (
           <Fragment key={key}>
             <span className="relative flex min-w-0 flex-1 flex-col items-center pt-2 text-stone-600 has-[[aria-current=page]]:text-accent">
               <LinkIcon name={key} className="pointer-events-none h-5 w-5" />
-              {render(
-                "w-full truncate px-1 pt-0.5 pb-1.5 text-center text-[0.65rem] font-medium after:absolute after:inset-0",
+              {inbox && key === "notifications" ? (
+                <>
+                  {/*
+                    The link keeps its own name for a screen reader, and takes the room its word
+                    would. What's written over it is Inbox.
+                  */}
+                  {render("block h-6 w-full text-[0px] after:absolute after:inset-0")}
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 bottom-1.5 truncate px-1 text-center text-[0.65rem] font-medium"
+                  >
+                    Inbox
+                  </span>
+                  {(chrome?.messages?.unread ?? 0) > 0 && (
+                    <span
+                      data-testid="inbox-messages-dot"
+                      className="pointer-events-none absolute top-1.5 left-[calc(50%+0.5rem)] h-2 w-2 rounded-full bg-rose-600"
+                    />
+                  )}
+                </>
+              ) : (
+                render(
+                  "w-full truncate px-1 pt-0.5 pb-1.5 text-center text-[0.65rem] font-medium after:absolute after:inset-0",
+                )
               )}
             </span>
             {/* Starting a post sits in the middle of the tabs, as on these apps. */}
-            {index === Math.ceil(tabs.length / 2) - 1 && (
+            {index === Math.ceil(phoneTabs.length / 2) - 1 && (
               <ComposeButton className="flex min-w-0 flex-1 flex-col items-center pt-2 text-stone-600">
                 <PlusIcon className="h-5 w-5" />
                 <span className="w-full truncate px-1 pt-0.5 pb-1.5 text-center text-[0.65rem] font-medium">

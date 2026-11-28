@@ -4,7 +4,9 @@ import type { ConversationsResponse, ThreadResponse } from "@truman3/core";
 import { Avatar, shortTime } from "@truman3/ui";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { get, post } from "../api.ts";
+import { InboxTabs } from "../components/InboxTabs.tsx";
 import { useListLook } from "../components/list-look.ts";
+import { useNoTabs } from "../components/no-tabs.ts";
 
 /** How often an open conversation checks for a reply. */
 const CHECK_EVERY_MS = 10_000;
@@ -21,6 +23,7 @@ export function MessagesPage() {
 
   return (
     <div className={`mx-auto max-w-xl ${look.frame}`}>
+      <InboxTabs here="messages" />
       <h1 className={look.heading}>Messages</h1>
       {list.data && conversations.length === 0 && (
         <p className="p-6 text-center text-stone-500">
@@ -70,6 +73,8 @@ export function ConversationPage() {
   const client = useQueryClient();
   const [draft, setDraft] = useState("");
   const look = useListLook();
+  // On a phone the box to write in is held to the bottom of the screen (ADR 107).
+  useNoTabs("conversation");
   const bottom = useRef<HTMLDivElement>(null);
   const thread = useQuery({
     queryKey: ["messages", username],
@@ -143,8 +148,13 @@ export function ConversationPage() {
           </li>
         ))}
       </ol>
-      <div ref={bottom} />
-      <form onSubmit={submit} className="flex gap-2 border-t border-stone-200 p-3">
+      {/* Room under the last message for the box, which covers the bottom of a phone's screen. */}
+      <div ref={bottom} className="max-md:scroll-mb-24" />
+      <form
+        onSubmit={submit}
+        data-testid="message-bar"
+        className="flex gap-2 border-t border-stone-200 p-3 max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:bg-white max-md:py-2"
+      >
         <label className="sr-only" htmlFor="message">
           Message {them?.name ?? username}
         </label>
@@ -160,7 +170,7 @@ export function ConversationPage() {
             }
           }}
           placeholder="Write a message"
-          className="min-w-0 flex-1 resize-none rounded-full border border-stone-300 px-4 py-2"
+          className="max-h-32 min-w-0 flex-1 resize-none rounded-3xl border border-stone-300 px-4 py-2 [field-sizing:content]"
         />
         <button
           type="submit"
