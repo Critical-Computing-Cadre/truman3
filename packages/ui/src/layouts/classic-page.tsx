@@ -69,79 +69,90 @@ export function ClassicHeader({ renderBrand, home, links, action }: PageHeaderPr
   const tab =
     "flex h-13 min-w-0 flex-1 items-center justify-center border-b-[3px] border-transparent text-stone-600 hover:bg-stone-100 has-[[aria-current=page]]:border-accent md:h-14 md:w-24 md:flex-none";
   return (
-    <header className="sticky top-0 z-20 bg-white shadow-sm">
-      <nav className="mx-auto flex h-14 max-w-[90rem] items-center gap-2 px-3">
-        <div className="flex min-w-0 items-center gap-2 md:w-80">
-          {renderBrand("flex min-w-0 items-center gap-2 font-semibold")}
-          <SearchBox
-            placeholder={`Search ${chrome?.siteName ?? ""}`}
-            className="hidden min-w-0 flex-1 lg:block"
-            inputClassName="rounded-full bg-stone-100"
-          />
-        </div>
-        {/* Tabs in the middle where there's room. On a phone they're a row of their own, below. */}
-        <div className="hidden flex-1 justify-center md:flex">
-          {tabs.map(({ key, label, render }) => (
-            <span key={key} className={tab} title={label}>
-              {render("flex h-11 w-12 rounded-lg text-[0px]")}
-            </span>
-          ))}
-          {decor &&
-            (["Video", "Marketplace"] as const).map((word) => (
-              <Decor
-                key={word}
-                id={word === "Video" ? "video" : "marketplace-tab"}
-                iconOnly
-                className={`${tab} hidden lg:flex`}
-              >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                  className="h-6 w-6"
+    <>
+      <header data-bar="top" className="sticky top-0 z-20 bg-white shadow-sm">
+        <nav className="mx-auto flex h-14 max-w-[90rem] items-center gap-2 px-3">
+          <div className="flex min-w-0 items-center gap-2 md:w-80">
+            {renderBrand("flex min-w-0 items-center gap-2 font-semibold")}
+            <SearchBox
+              placeholder={`Search ${chrome?.siteName ?? ""}`}
+              className="hidden min-w-0 flex-1 lg:block"
+              inputClassName="rounded-full bg-stone-100"
+            />
+          </div>
+          {/* Tabs in the middle where there's room. On a phone they're a row of their own, below. */}
+          <div className="hidden flex-1 justify-center md:flex">
+            {tabs.map(({ key, label, render }) => (
+              <span key={key} className={tab} title={label}>
+                {render("flex h-11 w-12 rounded-lg text-[0px]")}
+              </span>
+            ))}
+            {decor &&
+              (["Video", "Marketplace"] as const).map((word) => (
+                <Decor
+                  key={word}
+                  id={word === "Video" ? "video" : "marketplace-tab"}
+                  iconOnly
+                  className={`${tab} hidden lg:flex`}
                 >
-                  {word === "Video" ? (
-                    <path d="M3 6h18v12H3zM10 9.5v5l4.5-2.5z" />
-                  ) : (
-                    <path d="M4 4h16l1.5 5a3 3 0 0 1-1.5 2.600V20H4v-8.400A3 3 0 0 1 2.5 9zM9 20v-5h6v5" />
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                    className="h-6 w-6"
+                  >
+                    {word === "Video" ? (
+                      <path d="M3 6h18v12H3zM10 9.5v5l4.5-2.5z" />
+                    ) : (
+                      <path d="M4 4h16l1.5 5a3 3 0 0 1-1.5 2.600V20H4v-8.400A3 3 0 0 1 2.5 9zM9 20v-5h6v5" />
+                    )}
+                  </svg>
+                </Decor>
+              ))}
+          </div>
+          <div className="ml-auto flex items-center justify-end gap-2 md:ml-0 md:w-80">
+            {decor && (
+              <Decor id="menu" iconOnly className={`${ROUND} hidden md:flex`}>
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                  {[4, 12, 20].flatMap((y) =>
+                    [4, 12, 20].map((x) => <circle key={`${x},${y}`} cx={x} cy={y} r="2.3" />),
                   )}
                 </svg>
               </Decor>
+            )}
+            {buttons.map(({ key, label, render }) => (
+              <span
+                key={key}
+                className={`${ROUND} ${key === "profile" ? "" : "hidden md:flex"}`}
+                title={label}
+              >
+                {render("flex h-10 w-12 text-[0px]")}
+              </span>
             ))}
-        </div>
-        <div className="ml-auto flex items-center justify-end gap-2 md:ml-0 md:w-80">
-          {decor && (
-            <Decor id="menu" iconOnly className={`${ROUND} hidden md:flex`}>
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
-                {[4, 12, 20].flatMap((y) =>
-                  [4, 12, 20].map((x) => <circle key={`${x},${y}`} cx={x} cy={y} r="2.3" />),
-                )}
-              </svg>
-            </Decor>
-          )}
-          {buttons.map(({ key, label, render }) => (
-            <span
-              key={key}
-              className={`${ROUND} ${key === "profile" ? "" : "hidden md:flex"}`}
-              title={label}
-            >
-              {render("flex h-10 w-12 text-[0px]")}
-            </span>
-          ))}
-          {action && <span className="ml-1 shrink-0">{action}</span>}
-        </div>
-      </nav>
-      <div className="flex border-t border-stone-200 md:hidden">
+            {action && <span className="ml-1 shrink-0">{action}</span>}
+          </div>
+        </nav>
+      </header>
+      {/* On a phone the sections run along the bottom, where a thumb reaches. */}
+      <nav
+        aria-label="Sections on a phone"
+        data-bar="bottom"
+        className="fixed inset-x-0 bottom-0 z-20 flex border-t border-stone-200 bg-white md:hidden"
+      >
         {[home, ...links.filter(({ key }) => key !== "profile")].map(({ key, label, render }) => (
-          <span key={key} className={tab} title={label}>
+          <span
+            key={key}
+            className="flex h-13 min-w-0 flex-1 items-center justify-center border-t-[3px] border-transparent text-stone-600 has-[[aria-current=page]]:border-accent"
+            title={label}
+          >
             {render("flex h-11 w-12 rounded-lg text-[0px]")}
           </span>
         ))}
-      </div>
-    </header>
+      </nav>
+    </>
   );
 }
 

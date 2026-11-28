@@ -20,10 +20,11 @@ import {
   TextLinksContext,
   WarningNotice,
 } from "@truman3/ui";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { type FlowState, get, meQuery, post } from "../api.ts";
 import { useLive } from "../live.ts";
 import { flushTracking, track } from "../tracking.ts";
+import { NewPostDialog } from "./NewPostDialog.tsx";
 
 const POLL_EVERY_MS = 30_000;
 /** How often to check whether a beat is asking them something (ADR 89). */
@@ -120,6 +121,9 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
   useLive(flow.shared);
   const client = useQueryClient();
   const navigate = useNavigate();
+  // On a phone, some kinds of site start a post from their own bars, on any page.
+  const newPost = useRef<HTMLDialogElement>(null);
+  const canPost = flow.features.posting && Boolean(me.data);
   const warnings = useQuery({
     queryKey: ["warnings"],
     queryFn: () => get<{ warnings: FeedWarning[] }>("/warnings"),
@@ -376,6 +380,7 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
     },
     onDecor: (key, label) =>
       track({ type: "decor.pressed", payload: { key, label, page: window.location.pathname } }),
+    compose: canPost ? () => newPost.current?.showModal() : undefined,
   };
 
   return (
@@ -430,6 +435,13 @@ export function Shell({ flow, onAdvanced }: { flow: FlowState; onAdvanced: () =>
               <TextLinksContext.Provider value={TEXT_LINKS}>
                 <Outlet />
               </TextLinksContext.Provider>
+              {canPost && (
+                <NewPostDialog
+                  style={flow.platformStyle}
+                  several={flow.features.galleries}
+                  dialogRef={newPost}
+                />
+              )}
               {asking && (
                 <QuestionCard
                   // A new question starts with no answers, and its own time on screen.

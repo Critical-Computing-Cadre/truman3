@@ -11,8 +11,9 @@ import {
   spacesQuery,
   UserFlairPicker,
 } from "../components/Community.tsx";
+import { NewPostDialog } from "../components/NewPostDialog.tsx";
 import { PostCard } from "../components/PostCard.tsx";
-import { NewPostDialog, SortPicker } from "./FeedPage.tsx";
+import { SortPicker } from "./FeedPage.tsx";
 
 /** The communities on this platform. */
 export function SpacesPage() {

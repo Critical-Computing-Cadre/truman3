@@ -2,13 +2,14 @@ import type { ReactNode } from "react";
 import {
   AddedDecor,
   AddedMark,
+  ComposeButton,
   Decor,
   MessagesDock,
   SearchBox,
   SmallPrint,
   useDecor,
 } from "../chrome.tsx";
-import { LinkIcon } from "../icons.tsx";
+import { LinkIcon, PenIcon, PlusIcon } from "../icons.tsx";
 import { ForumSpaceFrame } from "./forum-page.tsx";
 import type { FeedFrameProps, PageHeaderProps, PostFrameProps } from "./page-props.ts";
 
@@ -108,12 +109,20 @@ export function PhotoHeader({ renderBrand, home, links, action }: PageHeaderProp
           </>
         )}
       </nav>
-      <header className="sticky top-0 z-20 flex h-13 items-center gap-2 border-b border-stone-200 bg-white px-4 md:hidden">
+      <header
+        data-bar="top"
+        className="sticky top-0 z-20 flex h-13 items-center gap-2 border-b border-stone-200 bg-white px-4 md:hidden"
+      >
         {renderBrand("mr-auto flex min-w-0 items-center gap-2 text-lg font-bold")}
+        {/* A plus in the top corner starts a post, as on these apps. */}
+        <ComposeButton className="flex h-10 w-10 items-center justify-center">
+          <PlusIcon className="h-7 w-7" />
+        </ComposeButton>
         {action}
       </header>
       <nav
         aria-label="Sections on a phone"
+        data-bar="bottom"
         className="fixed inset-x-0 bottom-0 z-20 flex border-t border-stone-200 bg-white md:hidden"
       >
         {tabs.map(({ key, label, render }) => (
@@ -176,12 +185,20 @@ export function ShortHeader({ renderBrand, home, links, action }: PageHeaderProp
         />
         {action && <span className="mt-auto px-3">{action}</span>}
       </nav>
-      <header className="sticky top-0 z-20 flex h-13 items-center gap-2 border-b border-stone-200 bg-white/90 px-4 backdrop-blur md:hidden">
+      <header
+        data-bar="top"
+        className="sticky top-0 z-20 flex h-13 items-center gap-2 border-b border-stone-200 bg-white/90 px-4 backdrop-blur md:hidden"
+      >
         {renderBrand("mr-auto flex min-w-0 items-center gap-2 text-lg font-bold")}
         {action}
       </header>
+      {/* A round button over the posts starts one, and stays put while the bars come and go. */}
+      <ComposeButton className="fixed right-4 bottom-16 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent-fill text-on-accent shadow-lg md:hidden">
+        <PenIcon className="h-6 w-6" />
+      </ComposeButton>
       <nav
         aria-label="Sections on a phone"
+        data-bar="bottom"
         className="fixed inset-x-0 bottom-0 z-20 flex border-t border-stone-200 bg-white md:hidden"
       >
         {tabs.map(({ key, label, render }) => (

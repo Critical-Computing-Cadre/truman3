@@ -1,6 +1,14 @@
-import type { ReactNode } from "react";
-import { AddedDecor, AddedMark, Decor, SearchBox, SmallPrint, useDecor } from "../chrome.tsx";
-import { LinkIcon } from "../icons.tsx";
+import { Fragment, type ReactNode } from "react";
+import {
+  AddedDecor,
+  AddedMark,
+  ComposeButton,
+  Decor,
+  SearchBox,
+  SmallPrint,
+  useDecor,
+} from "../chrome.tsx";
+import { LinkIcon, PlusIcon } from "../icons.tsx";
 import type { FeedFrameProps, PageHeaderProps, PostFrameProps } from "./page-props.ts";
 
 function Stroke({ d }: { d: string }) {
@@ -39,7 +47,7 @@ export function VideoHeader({ renderBrand, home, links, action }: PageHeaderProp
     "flex w-full items-center gap-5 rounded-lg px-3 py-2 text-sm hover:bg-stone-100 aria-[current=page]:bg-stone-100 aria-[current=page]:font-semibold";
   return (
     <>
-      <header className="sticky top-0 z-20 bg-white">
+      <header data-bar="top" className="sticky top-0 z-20 bg-white">
         <nav className="flex h-14 items-center gap-4 px-4">
           {renderBrand(
             "flex min-w-0 shrink-0 items-center gap-1.5 text-lg font-bold tracking-tight md:w-52",
@@ -83,18 +91,27 @@ export function VideoHeader({ renderBrand, home, links, action }: PageHeaderProp
       </nav>
       <nav
         aria-label="Sections on a phone"
+        data-bar="bottom"
         className="fixed inset-x-0 bottom-0 z-20 flex border-t border-stone-200 bg-white md:hidden"
       >
-        {tabs.map(({ key, render }) => (
-          <span
-            key={key}
-            className="relative flex min-w-0 flex-1 flex-col items-center pt-2 text-stone-700 has-[[aria-current=page]]:text-stone-950"
-          >
-            <LinkIcon name={key} className="pointer-events-none h-5 w-5" />
-            {render(
-              "w-full truncate px-1 pt-0.5 pb-1.5 text-center text-[0.65rem] after:absolute after:inset-0",
+        {tabs.map(({ key, render }, index) => (
+          <Fragment key={key}>
+            <span className="relative flex min-w-0 flex-1 flex-col items-center pt-2 text-stone-700 has-[[aria-current=page]]:text-stone-950">
+              <LinkIcon name={key} className="pointer-events-none h-5 w-5" />
+              {render(
+                "w-full truncate px-1 pt-0.5 pb-1.5 text-center text-[0.65rem] after:absolute after:inset-0",
+              )}
+            </span>
+            {/* Starting a post sits in the middle of the tabs, as on these apps. */}
+            {index === Math.ceil(tabs.length / 2) - 1 && (
+              <ComposeButton className="flex min-w-0 flex-1 flex-col items-center pt-2 text-stone-700">
+                <PlusIcon className="h-5 w-5" />
+                <span className="w-full truncate px-1 pt-0.5 pb-1.5 text-center text-[0.65rem]">
+                  Create
+                </span>
+              </ComposeButton>
             )}
-          </span>
+          </Fragment>
         ))}
       </nav>
     </>

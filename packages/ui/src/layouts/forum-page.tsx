@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
   AddedDecor,
   AddedMark,
+  ComposeButton,
   Decor,
   MessagesDock,
   SearchBox,
@@ -9,7 +10,7 @@ import {
   useChrome,
   useDecor,
 } from "../chrome.tsx";
-import { LinkIcon } from "../icons.tsx";
+import { LinkIcon, PlusIcon } from "../icons.tsx";
 import type {
   FeedFrameProps,
   PageHeaderProps,
@@ -62,7 +63,7 @@ export function ForumHeader({ renderBrand, home, links, action }: PageHeaderProp
   const tabs = [home, ...links];
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-stone-200 bg-white">
+      <header data-bar="top" className="sticky top-0 z-20 border-b border-stone-200 bg-white">
         <nav className="mx-auto flex h-14 max-w-[90rem] items-center gap-3 px-4">
           {renderBrand("flex min-w-0 shrink-0 items-center gap-2 text-lg font-bold lg:w-60")}
           <SearchBox
@@ -84,18 +85,27 @@ export function ForumHeader({ renderBrand, home, links, action }: PageHeaderProp
       </header>
       <nav
         aria-label="Sections"
+        data-bar="bottom"
         className="fixed inset-x-0 bottom-0 z-20 flex border-t border-stone-200 bg-white md:hidden"
       >
-        {tabs.map(({ key, render }) => (
-          <span
-            key={key}
-            className="relative flex min-w-0 flex-1 flex-col items-center pt-2 text-stone-600 has-[[aria-current=page]]:text-accent"
-          >
-            <LinkIcon name={key} className="pointer-events-none h-5 w-5" />
-            {render(
-              "w-full truncate px-1 pt-0.5 pb-1.5 text-center text-[0.65rem] font-medium after:absolute after:inset-0",
+        {tabs.map(({ key, render }, index) => (
+          <Fragment key={key}>
+            <span className="relative flex min-w-0 flex-1 flex-col items-center pt-2 text-stone-600 has-[[aria-current=page]]:text-accent">
+              <LinkIcon name={key} className="pointer-events-none h-5 w-5" />
+              {render(
+                "w-full truncate px-1 pt-0.5 pb-1.5 text-center text-[0.65rem] font-medium after:absolute after:inset-0",
+              )}
+            </span>
+            {/* Starting a post sits in the middle of the tabs, as on these apps. */}
+            {index === Math.ceil(tabs.length / 2) - 1 && (
+              <ComposeButton className="flex min-w-0 flex-1 flex-col items-center pt-2 text-stone-600">
+                <PlusIcon className="h-5 w-5" />
+                <span className="w-full truncate px-1 pt-0.5 pb-1.5 text-center text-[0.65rem] font-medium">
+                  Create
+                </span>
+              </ComposeButton>
             )}
-          </span>
+          </Fragment>
         ))}
       </nav>
     </>

@@ -455,7 +455,7 @@ test("a researcher makes a space, and a participant joins it and chooses an orde
   await expect(participant.getByLabel("Sort")).toHaveValue("top");
   await participant.unrouteAll({ behavior: "ignoreErrors" });
 
-  // The header fits on a phone, with this link and Finish.
+  // The header fits on a phone, with Finish. The sections, with this link, run along the bottom.
   await participant.route("**/api/me/flow", async (route) => {
     const response = await route.fetch();
     await route.fulfill({ response, json: { ...(await response.json()), canFinish: true } });
@@ -471,7 +471,12 @@ test("a researcher makes a space, and a participant joins it and chooses an orde
   await participant.reload();
   const header = participant.getByRole("banner");
   await expect(header.getByRole("button", { name: "Finish" })).toBeVisible();
-  await expect(header.getByRole("link", { name: /Notifications, 12 new/ })).toBeVisible();
+  const sections = participant.getByRole("navigation", { name: "Sections on a phone" });
+  await expect(sections.getByRole("link", { name: /Notifications, 12 new/ })).toBeVisible();
+  expect(
+    await sections.evaluate((nav) => nav.scrollWidth <= nav.clientWidth),
+    "the sections fit across a phone",
+  ).toBe(true);
   await participant.screenshot({ path: testInfo.outputPath("phone-header.png") });
   const fits = await header.evaluate((element) => {
     const nav = element.querySelector("nav") as HTMLElement;
